@@ -1,5 +1,82 @@
 # Independent review: Android native-widget proof of concept
 
+## Re-review of 0a45484
+
+Re-reviewed `0a45484` ("Record the Mac arm64 startup percentiles and validate NativeAOT"), including the commits after `c9f454f`. Sources were read from that commit. `src/` was not modified. The signed APKs are not in git and are not under `/opt/cursor/artifacts/` on this machine. The Android workload is not installed here, so this pass did not publish or strings-scan an APK.
+
+### Verdict
+
+The app now mints the hot-reload token and the launch extra is ignored. The log line no longer carries the token. The keyed greeting move leaves the field and the button attached in the memory host, and a NativeAOT process reused the same four handles. `SetContentView` runs again when the root instance changes. Those three are fixed in the code. The token is still the abstract socket name. The report's KVM section still describes the previous fixed socket and the previous warning list. `IL3053` is suppressed globally with `NoWarn`, and the claim that this cannot hide a warning from this repo is not what that property does. Release keeps the listener behind `#if DEBUG`. This pass did not open a Release APK.
+
+### What was executed
+
+- `dotnet test tests/NativePoc.Core.Tests` on the `0a45484` tree, SDK 10.0.403. **Passed 26, failed 0, skipped 0, 111 ms.** `evidence/unit-tests-il3053.log` is 26/0 at 66 ms.
+- Recomputed the KVM `TotalTime` medians from the series logs. They match the table.
+- Read `Microsoft.NET.ILLink.tasks` 10.0.14 on this machine for how `NoWarn` and `TrimmerSingleWarn` are passed. The ILC task sources are not installed here, and no probe publish was run.
+
+### Round-2 findings
+
+| Finding | Verdict | What is in the tree | What the logs show |
+| --- | --- | --- | --- |
+| Token leak: launch extra, log line, and socket name | **Fixed for the extra and the log. The socket name is still the token.** | `Start(Context)` draws 16 bytes, deletes a stale `hotreload.token`, binds `localabstract:npoc-<hex>`, then writes `files/nativepoc-hotreload.token` with `FileCreationMode.Private` (`HotReloadServer.cs:25-73`). The success log is `hotreload-listen` (`HotReloadServer.cs:81`). `LogFailure` redacts the hex (`HotReloadServer.cs:244-247`). `OnCreate` does not read `nativepoc_hotreload` (`MainActivity.cs:43-45`). The host reads the file with `run-as` and throws if that hex is in logcat (`Program.cs:387-392`, `:440-447`). | `evidence/token-contract-check.log`: forged extra `0011…eeff` differed from the file token; `token-in-logcat=False`, `socket-name-in-logcat=False`, `stale-file-absent=True`. The forged 16 bytes got `UnauthorizedAccessException`. The file token got through to `Rejected screen assembly length 0.` `run-as cat /proc/net/unix` was `Permission denied`, so the socket name was not shown to be absent. `evidence/hot-reload-once-token.log`: `once-ms=25.1`, `Counter 0 collectible=True`, pid 15786. |
+| Keyed moves detach every sibling, so the field loses focus and the IME | **Fixed for siblings that stay in order.** | `StationaryNewIndices` keeps a longest increasing run of old indexes attached and removes the others (`ViewReconciler.cs:168-202`, `:232-268`). `Screen.Render` keys `title`, `name`, `save`, `greeting` (`Screen.cs:9-33`). `GreetingFirst` swaps the greeting in front of the field. | `Screen_render_keeps_the_field_and_button_when_the_greeting_moves_first` requires `field.Removed == 0` and `button.Removed == 0`. The title and the greeting are still removed and reinserted; the test does not assert otherwise. A full reversal only requires that one of the four views stay attached. Pid 16467, inside the first `OnCreate`, logged the same handles after the move: greeting `12458` at index 0, field `11974`, button `12294`, title `11814` (`evidence/kvm-nativeaot-validate.log`). `button-mounted` was logged once. That move happens before any typing. The log does not record focus or an open IME. |
+| `SetContentView` once | **Fixed in the activity. The new call was not run on device.** | `RenderNow` calls `SetContentView` when `Root` is a different instance (`MainActivity.cs:109-116`). | `Replacing_the_root_mounts_a_new_view_and_disposes_the_old_tree` checks the reconciler, not the activity. The acceptance screen always returns a `Column`, so the second render of the keyed move does not take the new branch. No device root swap. |
+| Stale report sections | **Partial.** | The TCP listener is under "Earlier passes" and line 381 says that subsection is not the current loader. | The KVM table still says the listen line is `hotreload-listen localabstract:npoc-hotreload` and that the private file was `hotreload.token` (line 93). Line 105 says `WarningsNotAsErrors` is `XA1040;IL3053`. The csproj has `IL3053` in `NoWarn` and `WarningsNotAsErrors` is only `XA1040` (`NativePoc.Android.csproj:15-16`). Line 381 then points "the current loader" at that KVM section. The cnative section at the top matches the code. |
+
+`OnUnmounted` now detaches, removes the view if it still has a parent, and then disposes (`AndroidHost.cs:118-124`). The memory host's new tests require `DisposedWhileAttached` to be false. That was not run against `android.view.View`.
+
+A second `Start` still only logs `hotreload-listen already` in code (`HotReloadServer.cs:27-30`). The cnative section says that call was not made on device.
+
+### IL3053
+
+`Release` sets `PublishAot` and `EnablePreviewFeatures` (`NativePoc.Android.csproj:18-20`). `NoWarn` includes `IL3053` for every configuration (`NativePoc.Android.csproj:15`). `TreatWarningsAsErrors` is true. `WarningsNotAsErrors` is `XA1040` only.
+
+`evidence/il3053-detail.log`, with single-warn turned off, is three `IL3050` lines and no `NativePoc` assembly:
+
+- `ManagedTypeManager.MakeGenericType` calls `Type.MakeGenericType`
+- `JNIEnv.MakeArrayType` calls `Type.MakeArrayType`
+- `JNINativeWrapper.CreateDelegate` calls the `DynamicMethod` constructor
+
+That matches the report's table. The arm64 NativeAOT log still prints one `warning IL3053` on `linked/Mono.Android.dll` (`evidence/arm64-publish-nativeaot.log`). `evidence/arm64-publish-exits.txt` records `NATIVE_EXIT:0`. The default KVM publish does the same and ends `EXIT:0` (`evidence/startup-publish-default-kvm.log`). Those two logs are a warning that was allowed, which is the `WarningsNotAsErrors` behavior the KVM section describes. `evidence/nativeaot-x64-validate-publish.log` is the log that is supposed to show the warning gone. It is 14 lines, the two ILC "will always throw" notes are present, `warning` and `error` are absent, and the file has no exit line. `XA1040` is absent there too.
+
+`NoWarn` drops `IL3053` wherever the SDK forwards that list. A code in `NoWarn` is not emitted, so it cannot fail the build. "It is not in `WarningsNotAsErrors`" is a different list and is not what keeps a warning visible. `IL3050` is not in `NoWarn`. An `IL3050` that is actually emitted for this repo would fail under `TreatWarningsAsErrors`.
+
+The ILLink targets on this machine turn single-warn off for the entry assembly and for project references (`Microsoft.NET.ILLink.tasks` 10.0.14, lines 284–304), and leave it on for other assemblies. That is the setting that keeps a project warning as `IL3050` instead of folding it into `IL3053`. The checked-in test `Release_publish_hides_only_the_workload_il3053` only reads those csproj strings. This pass did not add a `MakeGenericType` call to `NativePoc.Core` and publish. The ILC task that prints `IL3053` during "Generating native code" was not in the local package cache, so this pass did not confirm that ILC reads the per-assembly single-warn flag. With the current SDK defaults, a warning in this repo stays an `IL3050`. The csproj itself does not scope `NoWarn` to `Mono.Android.dll`.
+
+### Release listener
+
+`HotReloadServer.cs` is `#if DEBUG` from the first line through the last. `HotReloadServer.Start(this)` is inside `#if DEBUG` (`MainActivity.cs:43-45`). A Release compile of this csproj does not contain that call.
+
+The APK check the report cites is not in the cited file. `evidence/release-build-token-contract.log` is `dotnet build -c Release -p:PublishAot=false`: 13 AOT images, `0 Warning(s)`, `RELEASE:0`. It does not print a DLL length or a string search. The sentence that the Release DLL is 12800 bytes and lacks `HotReloadServer`, `nativepoc-hotreload.token`, `LocalServerSocket`, and the other loader strings is not in that log. The arm64 section says a scan of the three NativePoc APKs found none of those strings and names no evidence file. The NativeAOT validate log names one `libNativePoc.Android.so` and does not scan it. This pass did not have the APK bytes.
+
+### Report numbers that were checked
+
+KVM `TotalTime`, ten `COLD` starts each, even-n median. Recomputed from the logs:
+
+| Series | Log | Recomputed p50 | Report |
+| --- | --- | --- | --- |
+| NativeAOT explicit, primary | `evidence/startup-nativeaot-kvm.log` | 866.0 | 866.0 |
+| Profiled, primary | `evidence/startup-profiled-kvm.log` | 967.0 | 967.0 |
+| Full AOT, primary | `evidence/startup-fullaot-kvm.log` | 949.5 | 949.5 |
+| NativeAOT default | `evidence/startup-default-kvm.log` | 968.5 (865–1153) | 968.5 |
+| MAUI after that default | `evidence/startup-maui-final-kvm.log` | 1066.5 (961–1276) | 1066.5 |
+| MAUI steady | `evidence/startup-maui-steady-kvm.log` | 1102.5 | 1102.5 |
+
+The default NativeAOT median is under the MAUI median beside it. The ranges overlap, and the report says so. Hot-reload series (a) in `evidence/hot-reload-a.log` is the 20 samples in the table, all pid 14365, all `collectible=True`.
+
+Mac arm64, `pixel_8`, API 36, n=20, is recorded as coordinator percentiles only. The report says the raw samples were not provided. They are not in `evidence/`. The script's type-7 definition is the one the report states: for samples 1 through 20, p50 is 10.5 and p90 is 18.1. That arithmetic is right. It does not confirm 1300, 1428.5, 1533.5, or 1604. NativeAOT is the lowest of the four recorded p50 figures. Its recorded p90, 1711.3, is not the lowest of the four.
+
+### Remaining blockers
+
+- The Mac arm64 startup comparison cannot be recomputed. Item 16 on that device rests on percentiles with no sample list.
+- No Release APK was available here, and the string-scan claim for the Release DLL is not in the log that is cited for it. The `#if DEBUG` wall is the evidence this pass could check.
+- The abstract socket is still named `npoc-` plus the token. `/proc/net/unix` was unreadable with `run-as` on that boot.
+- The KVM section contradicts the cnative section and the csproj on the socket name and on `WarningsNotAsErrors`.
+- `NoWarn` for `IL3053` is project-wide. The reason a warning from this repo would still fail is the SDK's single-warn exception plus `IL3050` staying out of `NoWarn`, and that path was not probed with a call in this repo.
+- The validate publish log that drops the `IL3053` line has no exit status. `XA1040` is still absent.
+- Not run on device: a second `Start`, a root swap through `SetContentView`, `View.Dispose`, and an IME session across a keyed move. The keyed device move runs in `OnCreate` before input.
+- `dotnet watch` is still a restart, from the earlier evidence. iOS was not built.
+
 ## Re-review of c9f454f
 
 Re-reviewed the fixes on `c9f454f` ("Authenticate the debug loader and record the review fixes"). Sources were read from that commit. `src/` was not modified. The signed APKs are gitignored, so the new NativeAOT uncompressed size and the APK hashes were not recomputed here.
