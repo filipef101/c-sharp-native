@@ -1,0 +1,3 @@
+/workspace/src/NativePoc.Core/AotProbe.cs(7,10): error IL2055: Call to 'System.Type.MakeGenericType(params Type[])' can not be statically analyzed. It's not possible to guarantee the availability of requirements of the generic type. [/workspace/src/NativePoc.Core/NativePoc.Core.csproj]
+/workspace/src/NativePoc.Core/AotProbe.cs(7,10): error IL3050: Using member 'System.Type.MakeGenericType(params Type[])' which has 'RequiresDynamicCodeAttribute' can break functionality when AOT compiling. The native code for this instantiation might not be available at runtime. [/workspace/src/NativePoc.Core/NativePoc.Core.csproj]
+PROBE_EXIT:1

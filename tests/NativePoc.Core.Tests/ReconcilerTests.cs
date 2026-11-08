@@ -349,6 +349,26 @@ public sealed class ReconcilerTests
 	}
 
 	[Fact]
+	public void Screen_render_replaces_the_column_when_the_root_is_plain()
+	{
+		var platform = new RecordingPlatform();
+		var state = new AppState();
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(Screen.Render(state, platform));
+		var column = reconciler.Root!;
+
+		state.PlainRoot = true;
+		var flat = Assert.IsType<Text>(Screen.Render(state, platform));
+		Assert.Equal("title", flat.Key);
+		reconciler.Render(flat);
+
+		Assert.NotSame(column, reconciler.Root);
+		Assert.Equal("Counter 0", reconciler.Root!.Text);
+		Assert.True(column.Disposed);
+		Assert.False(column.DisposedWhileAttached);
+	}
+
+	[Fact]
 	public void Deleting_a_middle_keyed_child_leaves_the_other_views_attached()
 	{
 		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());

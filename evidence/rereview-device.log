@@ -1,0 +1,64 @@
+install
+All files should be loaded. Notifying the device.
+component com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+pid 16763
+listen-lines 1
+11-08 19:34:35.039 16763 16847 I NativePoc: hotreload-listen
+ui-before text=Name focused=false
+tap-field 540 427
+ui-typed text=A focused=true
+ime-shown-before True
+ime-lines-before fallbackInputConnection=RemoteInputConnectionImpl{connection=android.view.inputmethod.BaseInputConnection@d37ffa7 finished=false mParentInputMethodManager.isActive()=false mServedView=null} | mInputShown=true | mFallbackInputConnection=RemoteInputConnectionImpl{connection=android.view.inputmethod.BaseInputConnection@ce5e5e9 finished=false mParentInputMethodManager.isActive()=true mServedView=null} | mServedView=android.widget.EditText{964d9a7 VFED..CL. .F...... 42,93-1038,211 aid=1073741824} | mServedInputConnection=RemoteInputConnectionImpl{connection=com.android.internal.inputmethod.EditableInputConnection@d2bd19c finished=false mParentInputMethodManager.isActive()=true mServedView=android.widget.EditText{964d9a7 VFED..CL. .F...... 42,93-1038,211 aid=1073741824}}
+screenshot rereview-ime-before.png bytes=113877
+tree-before-count 8
+11-08 19:34:35.006 16763 16763 I NativePoc: tree index=0 handle=14822 class=TextView text=Counter 0
+11-08 19:34:35.009 16763 16763 I NativePoc: tree index=1 handle=14982 class=EditText text=
+11-08 19:34:35.013 16763 16763 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:34:35.014 16763 16763 I NativePoc: tree index=3 handle=15434 class=TextView text=Enter a name
+11-08 19:34:39.614 16763 16763 I NativePoc: tree index=0 handle=14822 class=TextView text=Counter 0
+11-08 19:34:39.614 16763 16763 I NativePoc: tree index=1 handle=14982 class=EditText text=A
+11-08 19:34:39.614 16763 16763 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:34:39.615 16763 16763 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello A
+Warning: Activity not started, intent has been delivered to currently running top-most instance.
+pid-same-on-move 16763
+tree-after-count 12
+11-08 19:34:39.614 16763 16763 I NativePoc: tree index=0 handle=14822 class=TextView text=Counter 0
+11-08 19:34:39.614 16763 16763 I NativePoc: tree index=1 handle=14982 class=EditText text=A
+11-08 19:34:39.614 16763 16763 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:34:39.615 16763 16763 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello A
+11-08 19:34:43.333 16763 16763 I NativePoc: tree index=0 handle=15434 class=TextView text=Hello A
+11-08 19:34:43.334 16763 16763 I NativePoc: tree index=1 handle=14982 class=EditText text=A
+11-08 19:34:43.334 16763 16763 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:34:43.334 16763 16763 I NativePoc: tree index=3 handle=14822 class=TextView text=Counter 0
+ui-moved text=A focused=true
+ime-shown-after True
+ime-lines-after fallbackInputConnection=RemoteInputConnectionImpl{connection=android.view.inputmethod.BaseInputConnection@d37ffa7 finished=false mParentInputMethodManager.isActive()=false mServedView=null} | mInputShown=true | mFallbackInputConnection=RemoteInputConnectionImpl{connection=android.view.inputmethod.BaseInputConnection@ce5e5e9 finished=false mParentInputMethodManager.isActive()=true mServedView=null} | mServedView=android.widget.EditText{964d9a7 VFED..CL. .F...... 42,93-1038,211 aid=1073741824} | mServedInputConnection=RemoteInputConnectionImpl{connection=com.android.internal.inputmethod.EditableInputConnection@d2bd19c finished=false mParentInputMethodManager.isActive()=true mServedView=android.widget.EditText{964d9a7 VFED..CL. .F...... 42,93-1038,211 aid=1073741824}}
+screenshot rereview-ime-after-move.png bytes=113881
+ui-more text=Ad focused=true
+pid-after-rotate 16763
+listen-after-rotate 2
+11-08 19:34:35.039 16763 16847 I NativePoc: hotreload-listen
+11-08 19:34:50.251 16763 16763 I NativePoc: hotreload-listen already
+pid-after-portrait 16763
+token-len 32
+token-hex True
+token-in-logcat False
+socket-name-in-logcat False
+npoc-hex-in-logcat False
+unix-has-npoc-hotreload True
+unix-has-token False
+unix-permission False
+files nativepoc-hotreload.token
+screenshot rereview-after-rotate.png bytes=114636
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+root-pid 17069
+Warning: Activity not started, intent has been delivered to currently running top-most instance.
+root-pid-after 17069
+11-08 19:34:56.442 17069 17069 I NativePoc: set-content-view
+11-08 19:34:56.479 17069 17098 I NativePoc: hotreload-listen
+11-08 19:34:57.339 17069 17069 I NativePoc: set-content-view
+root-classes android.widget.FrameLayout,android.widget.TextView
+root-texts Native PoC | Counter 0
+screenshot rereview-root-swap.png bytes=33321
+done

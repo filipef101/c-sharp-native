@@ -39,6 +39,8 @@ public sealed class AppState
 	public string Name { get; set; } = "";
 
 	public bool GreetingFirst { get; set; }
+
+	public bool PlainRoot { get; set; }
 }
 
 public sealed class AppSession

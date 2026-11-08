@@ -13,6 +13,7 @@ static class HotReloadServer
 {
 	const int TokenBytes = 16;
 	const string TokenFile = "nativepoc-hotreload.token";
+	const string SocketName = "npoc-hotreload";
 
 	static readonly object Gate = new();
 
@@ -68,7 +69,7 @@ static class HotReloadServer
 		LocalServerSocket listener;
 		try
 		{
-			listener = new LocalServerSocket("npoc-" + hex);
+			listener = new LocalServerSocket(SocketName);
 			WriteToken(context, hex);
 		}
 		catch (Exception ex)

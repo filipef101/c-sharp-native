@@ -1,0 +1,16 @@
+measured on Mac arm64 emulator by coordinator
+pixel_8 API 36 n=20 TotalTime ms
+am start -W -S
+MAUI: 1699 1451 1592 1411 1478 1607 1589 1566 1584 1602 1895 1717 1433 1705 1606 1738 1685 1560 1728 1628
+profiled: 1335 1726 1611 1229 1567 1562 1190 1403 1678 1593 1640 1244 1225 1813 1505 1302 1827 1343 1803 1211
+fullAOT: 1790 1671 1524 1304 1530 1441 1350 1469 1412 2052 1150 1216 1353 1416 1482 1365 1277 1491 1375 1630
+NativeAOT: 1293 1263 969 1341 1710 996 1213 1360 1100 1642 1723 1067 1201 1697 1307 1240 1320 1561 1269 1815
+type-7 p50 is the mean of the 10th and 11th sorted samples
+type-7 p90 is the 18th sorted sample plus 0.1 times the gap to the 19th
+MAUI p50 1604.0 p90 1729.0
+profiled p50 1533.5 p90 1804.0
+fullAOT p50 1428.5 p90 1682.9
+NativeAOT p50 1300.0 p90 1711.3
+NativeAOT p50 is the lowest of the four
+NativeAOT p90 is not the lowest of the four
+fullAOT p90 1682.9 is lower than NativeAOT p90 1711.3

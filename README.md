@@ -28,7 +28,7 @@ dotnet build src/NativePoc.Android/NativePoc.Android.csproj \
 
 Use `android-arm64` for a phone. A plain `adb install` of the Debug APK aborts: Debug uses fast deployment, and the assemblies are pushed by `-t:Run`.
 
-Debug in-place reload, after that deploy. The process starts the listener with no launch extra. It generates a 32-hex token, writes it to the private file `files/nativepoc-hotreload.token`, and listens on `localabstract:npoc-<hex>`. The token is not logged. `adb shell run-as com.scratch.nativepoc cat files/nativepoc-hotreload.token` reads it. The host forwards `tcp:18765` to that abstract socket. State stays in `NativePoc.Core`, which is already loaded. Release does not compile the listener.
+Debug in-place reload, after that deploy. The process starts the listener with no launch extra. It generates a 32-hex token, writes it to the private file `files/nativepoc-hotreload.token`, and listens on the fixed abstract name `localabstract:npoc-hotreload`. That name is not the token. The handshake checks the file token. The token is not logged. `adb shell run-as com.scratch.nativepoc cat files/nativepoc-hotreload.token` reads it. The host forwards `tcp:18765` to `localabstract:npoc-hotreload`. State stays in `NativePoc.Core`, which is already loaded. Release does not compile the listener.
 
 ```bash
 dotnet build tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
@@ -48,7 +48,7 @@ dotnet publish src/NativePoc.Android/NativePoc.Android.csproj \
   -c Release -f net10.0-android -r android-arm64
 ```
 
-`IL3053` comes from three `IL3050` sites inside `Mono.Android` (`MakeGenericType`, `MakeArrayType`, and `DynamicMethod`). `NoWarn` lists `IL3053` so that collapsed workload warning is not printed. `IL3050` is still an error if it appears in this repo. `XA1040` is in `WarningsNotAsErrors` and was not emitted on the x64 publish. The Android NDK (26.3.11579264 on this SDK) has to be installed or the native link fails looking for `libc++_static.a`.
+`IL3053` comes from three `IL3050` sites inside `Mono.Android` (`MakeGenericType`, `MakeArrayType`, and `DynamicMethod`). `NoWarn` lists `IL3053` for the whole project. ILC's `nowarn` list is not per assembly, so that suppression is not limited to `Mono.Android.dll`. `WarningsNotAsErrors` is `XA1040` only. That list does not keep warnings from this repo visible: a code there is printed and does not fail the build. An `IL3050` in this repo stays `IL3050` because single-warn is off for the app and its project references, and `IL3050` is not in `NoWarn`, so the publish fails. The Android NDK (26.3.11579264 on this SDK) has to be installed or the native link fails looking for `libc++_static.a`.
 
 Mono AOT is the fallback. `-p:PublishAot=false` turns on `RunAOTCompilation` and the SDK's profiled AOT profile. Full AOT is that plus `-p:AndroidEnableProfiledAot=false`. To compile against a different profile, pass `-p:AndroidUseDefaultAotProfile=false -p:NativePocAotProfile=/path/to/file.aotprofile`. The signed Mono APK contains `libmonosgen-2.0.so` and `libaot-*.dll.so`.
 

@@ -1,0 +1,30 @@
+apk /workspace/src/NativePoc.Android/bin/Release/net10.0-android/android-x64/publish/com.scratch.nativepoc-Signed.apk bytes=2490717 sha256=83ba4c35264e90113c16d77b77e4f5693b4d2e393ebf177bdef70e3846e4a05a
+publish evidence/nativeaot-release-scan-publish.log PUBLISH_EXIT:0
+rid android-x64 configuration Release PublishAot
+entry AndroidManifest.xml uncompressed=3088 method=8
+  HotReloadServer ascii=-1 utf16=-1
+  npoc ascii=-1 utf16=-1
+  nativepoc-hotreload ascii=-1 utf16=-1
+entry classes.dex uncompressed=26412 method=8
+  HotReloadServer ascii=-1 utf16=-1
+  npoc ascii=-1 utf16=-1
+  nativepoc-hotreload ascii=-1 utf16=-1
+entry lib/x86_64/libNativePoc.Android.so uncompressed=5753808 method=8
+  HotReloadServer ascii=-1 utf16=-1
+  npoc ascii=-1 utf16=-1
+  nativepoc-hotreload ascii=-1 utf16=-1
+entry res/xml/splits0.xml uncompressed=120 method=8
+  HotReloadServer ascii=-1 utf16=-1
+  npoc ascii=-1 utf16=-1
+  nativepoc-hotreload ascii=-1 utf16=-1
+apk-bytes
+  HotReloadServer ascii=-1 utf16=-1
+  npoc ascii=-1 utf16=-1
+  nativepoc-hotreload ascii=-1 utf16=-1
+linked-dll bytes=13312 sha256=14f107f4b28f0ec14d3989439a276f2e8ba0bbb03a5d5779be994d6c68f97cef
+  dll HotReloadServer ascii=-1 utf16=-1
+  dll npoc ascii=-1 utf16=-1
+  dll nativepoc-hotreload ascii=-1 utf16=-1
+  dll set-content-view ascii=-1 utf16=10318
+  dll nativepoc_root_swap ascii=-1 utf16=10210
+  dll AotProbe ascii=-1 utf16=-1

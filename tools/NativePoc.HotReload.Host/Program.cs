@@ -451,7 +451,7 @@ static void ForwardAbstract()
 {
 	LoadToken();
 	AdbAllowFail("forward", "--remove", "tcp:" + Port);
-	Adb("forward", "tcp:" + Port, "localabstract:npoc-" + HotReloadSession.Hex);
+	Adb("forward", "tcp:" + Port, "localabstract:npoc-hotreload");
 }
 
 static string Pid()

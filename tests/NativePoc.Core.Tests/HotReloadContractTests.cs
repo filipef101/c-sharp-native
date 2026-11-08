@@ -7,20 +7,26 @@ public sealed class HotReloadContractTests
 	{
 		var server = Source("src", "NativePoc.Android", "HotReloadServer.cs");
 		var activity = Source("src", "NativePoc.Android", "MainActivity.cs");
+		var host = Source("tools", "NativePoc.HotReload.Host", "Program.cs");
 
 		Assert.StartsWith("#if DEBUG", server);
 		Assert.Contains("const string TokenFile = \"nativepoc-hotreload.token\"", server);
-		Assert.Contains("new LocalServerSocket(\"npoc-\" + hex)", server);
+		Assert.Contains("const string SocketName = \"npoc-hotreload\"", server);
+		Assert.Contains("new LocalServerSocket(SocketName)", server);
+		Assert.DoesNotContain("npoc-\" + hex", server);
 		Assert.Contains("DeleteFile(\"hotreload.token\")", server);
 		Assert.Contains("Log.Info(MainActivity.Tag, \"hotreload-listen\")", server);
 		Assert.DoesNotContain("nativepoc_hotreload", server);
+		Assert.Contains("localabstract:npoc-hotreload", host);
+		Assert.DoesNotContain("localabstract:npoc-\" +", host);
 		Assert.DoesNotContain("localabstract:", server);
 		Assert.Contains("#if DEBUG", activity);
 		Assert.Contains("HotReloadServer.Start(this)", activity);
 		Assert.DoesNotContain("nativepoc_hotreload", activity);
 		Assert.Contains("GetStringExtra(\"nativepoc_keyed_move\")", activity);
+		Assert.Contains("GetStringExtra(\"nativepoc_root_swap\")", activity);
 		Assert.DoesNotContain("GetStringExtra(\"nativepoc_hotreload\")", activity);
-		Assert.Equal(1, CountOf(activity, "GetStringExtra"));
+		Assert.Equal(3, CountOf(activity, "GetStringExtra"));
 	}
 
 	[Fact]

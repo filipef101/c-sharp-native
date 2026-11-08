@@ -1,4 +1,6 @@
 using System.Runtime.CompilerServices;
+using Android.Content;
+using Android.Content.PM;
 using Android.OS;
 using Android.Util;
 using Android.Views;
@@ -6,7 +8,7 @@ using Android.Widget;
 
 namespace NativePoc;
 
-[Activity(Label = "@string/app_name", MainLauncher = true, Exported = true)]
+[Activity(Label = "@string/app_name", MainLauncher = true, Exported = true, LaunchMode = LaunchMode.SingleTop)]
 public sealed class MainActivity : Activity
 {
 	public const string Tag = "NativePoc";
@@ -43,6 +45,24 @@ public sealed class MainActivity : Activity
 #if DEBUG
 		HotReloadServer.Start(this);
 #endif
+	}
+
+	protected override void OnNewIntent(Intent? intent)
+	{
+		base.OnNewIntent(intent);
+		if (intent is null)
+			return;
+		Intent = intent;
+		if (string.Equals(intent.GetStringExtra("nativepoc_keyed_move"), "1", StringComparison.Ordinal))
+		{
+			AppSession.Shared.State.GreetingFirst = true;
+			RequestRender();
+		}
+		if (string.Equals(intent.GetStringExtra("nativepoc_root_swap"), "1", StringComparison.Ordinal))
+		{
+			AppSession.Shared.State.PlainRoot = true;
+			RequestRender();
+		}
 	}
 
 	protected override void OnDestroy()
@@ -113,7 +133,10 @@ public sealed class MainActivity : Activity
 		if (_reconciler.Root is null)
 			throw new InvalidOperationException("Screen did not mount a root view.");
 		if (!ReferenceEquals(previousRoot, _reconciler.Root))
+		{
 			SetContentView(_reconciler.Root);
+			Log.Info(Tag, "set-content-view");
+		}
 		LastTitle = TitleOf(tree);
 		LogTree();
 		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length + " title=" + LastTitle);

@@ -2,17 +2,35 @@
 
 Measured on this machine on 2026-11-08. Nothing here is a guessed latency, a guessed size, or a screenshot that was not captured. iOS was not built and was not run.
 
-The current measured result is the KVM round below. Release publish is NativeAOT. On that x64 boot its 10-run `TotalTime` median is under the MAUI template median measured next. Profiled Mono AOT and full Mono AOT were not. TCG startup numbers further down are withdrawn. Sentences that still mention `TcpListener`, port 18765, or `localabstract:npoc-hotreload` describe an earlier listener. The current Debug listener is the cnative contract below. Release does not contain it. The android-arm64 APKs in the next section were built later, on workload `android` 36.1.118. They were not timed on this host. The coordinator measured them on a Mac arm64 emulator. NativeAOT had the lowest p50.
+The current measured result is the KVM round below. Release publish is NativeAOT. On that x64 boot its 10-run `TotalTime` median is under the MAUI template median measured next. Profiled Mono AOT and full Mono AOT were not. TCG startup numbers further down are withdrawn. Sentences that still mention `TcpListener` or port 18765 describe an earlier listener. The current Debug listener is the cnative contract below: the abstract name is the fixed non-secret `npoc-hotreload`, and the file token is checked in the handshake. `localabstract:npoc-<hex>` was the previous name and is not current. Release does not contain the listener. The android-arm64 APKs in the next section were built later, on workload `android` 36.1.118. They were not timed on this host. The coordinator measured them on a Mac arm64 emulator. NativeAOT had the lowest p50. Its p90 was not the lowest.
 
 ## cnative token contract
 
-Debug only. `OnCreate` calls `HotReloadServer.Start` with no launch extra. The process draws 16 random bytes, deletes a stale `files/hotreload.token` if that older file is present, binds `localabstract:npoc-<hex>`, and only then writes the 32 hex characters to the private file `files/nativepoc-hotreload.token`. The log line is `hotreload-listen`, with no token and no socket name. In code, a second `Start` logs `hotreload-listen already` and keeps the first token. That second call was not exercised on device this round. `cnative` reads that file with `adb shell run-as` and writes it to the temp file the host's `once` mode already loads, then the host forwards `tcp:18765` to `localabstract:npoc-<hex>`.
+Debug only. `OnCreate` calls `HotReloadServer.Start` with no launch extra. The process draws 16 random bytes, deletes a stale `files/hotreload.token` if that older file is present, binds the fixed abstract name `localabstract:npoc-hotreload`, and only then writes the 32 hex characters to the private file `files/nativepoc-hotreload.token`. The socket name is not the token. The first 16 handshake bytes are compared with that file. The log line is `hotreload-listen`, with no token and no socket name. In code, a second `Start` logs `hotreload-listen already` and does not bind again. `tools/NativePoc.HotReload.Host` forwards `tcp:18765` to `localabstract:npoc-hotreload` and still sends the file token as the handshake. `tools/devx` was not changed.
 
-On this emulator, a launch with `--es nativepoc_hotreload 00112233445566778899aabbccddeeff` still published a different 32-hex file. The forged extra, the file token, and `npoc-` plus that token are absent from logcat. `files/hotreload.token` is gone. `run-as` cannot read `/proc/net/unix` (`Permission denied`), which is the same limit the CLI recorded. A forward to `localabstract:npoc-<file token>` rejected the forged 16 bytes with `UnauthorizedAccessException` and accepted the file token through to `Rejected screen assembly length 0.` A forward to `localabstract:npoc-hotreload` did not complete that handshake. `evidence/token-contract-check.log`.
+The previous device check, `evidence/token-contract-check.log`, is the loader that bound `localabstract:npoc-<hex>`. On that boot a forward to `localabstract:npoc-hotreload` did not complete the handshake, because that name was not the socket. A launch with `--es nativepoc_hotreload 00112233445566778899aabbccddeeff` published a different 32-hex file. The forged extra and the file token were absent from logcat. `files/hotreload.token` was gone. `run-as` could not read `/proc/net/unix` (`Permission denied`). A forward to `localabstract:npoc-<file token>` rejected the forged 16 bytes with `UnauthorizedAccessException` and accepted the file token through to `Rejected screen assembly length 0.`
 
-The host `once` path, given the temp file `cnative` writes, applied the current screen: `once-ms=25.1`, `Counter 0 collectible=True`, pid 15786. `evidence/hot-reload-once-token.log`.
+The host `once` path, given the temp file `cnative` writes, applied the current screen on the previous socket: `once-ms=25.1`, `Counter 0 collectible=True`, pid 15786. `evidence/hot-reload-once-token.log`. That file is unchanged. On the fixed socket, the first `once` was rejected: the temp file `/tmp/nativepoc-hotreload.token` still held an older token. After that file was removed, the host read `files/nativepoc-hotreload.token` and applied: `once-ms=24.4`, `Counter 0 collectible=True`, pid 17069. `evidence/hot-reload-once-fixed-socket.log`.
 
-The Release `NativePoc.Android.dll` from `dotnet build -c Release -f net10.0-android -r android-x64 -p:PublishAot=false` is 12800 bytes and has no ASCII or UTF-16 `HotReloadServer`, `nativepoc-hotreload.token`, `hotreload-listen`, `LocalServerSocket`, `LoadFromStream`, `npoc-`, `AssemblyLoadContext`, or `18765`. `evidence/release-build-token-contract.log`, 0 warnings. Host tests: 24 passed, 0 failed. `evidence/unit-tests-token-contract.log`.
+The sentence that a 12800-byte Release DLL lacked the listener strings cited `evidence/release-build-token-contract.log`. That log is a `dotnet build -c Release -p:PublishAot=false` with 0 warnings. It does not contain a string search. The scan for this tree is the Release NativeAOT APK below.
+
+### Re-review blockers
+
+**TESTED.** `dotnet test` passed 27, failed 0. `evidence/unit-tests-rereview.log`.
+
+**RUN** on the same KVM boot. QEMU pid 4661, `/dev/kvm` open, `emulator-5554`, API 34, `x86_64`. Debug APK built with `EmbedAssembliesIntoApk=true` and `AndroidUseSharedRuntime=false`, `DEBUG_BUILD_EXIT:0`. `evidence/debug-embed-rereview.log`. Installed `com.scratch.nativepoc-Signed.apk`. Activity `crc64ee53024f7ed0aa60.MainActivity`, `launchMode` singleTop.
+
+Pid 16763. One `hotreload-listen` line, no token and no `npoc-` hex. The field was tapped, `A` was typed, and the IME stayed up: `focused=true`, `mInputShown=true`, served `EditText{964d9a7 ... 42,93-1038,211}`. `evidence/rereview-ime-before.png`. A second `am start` with `--es nativepoc_keyed_move 1` was delivered to that activity (`Activity not started`). The greeting handle 15434 moved to index 0 and the title handle 14822 moved to index 3. Field handle 14982 and button handle 15270 stayed. The served `EditText` was still `964d9a7` with the same bounds, `focused=true`, and `mInputShown=true`. `evidence/rereview-ime-after-move.png`. A further `input text d` left the field as `Ad`, still focused. `adb shell cat /proc/net/unix` contained `npoc-hotreload` and did not contain the file token. The token file was 32 lowercase hex and was not in logcat. `files/hotreload.token` was absent. `evidence/rereview-device.log` has no 32-hex token.
+
+Rotation on pid 16763 logged `hotreload-listen already` and did not add another `hotreload-listen`. The pid stayed 16763. `evidence/rereview-after-rotate.png`.
+
+A new process, pid 17069, got one `set-content-view` on launch. A second `am start` with `--es nativepoc_root_swap 1` stayed on pid 17069 and logged a second `set-content-view`. The UI was the title `Counter 0` and no `EditText` or `Button`. `evidence/rereview-root-swap.png`. The fixed-socket `once` above ran on that same pid.
+
+**BUILT.** Release NativeAOT `android-x64` publish, `PUBLISH_EXIT:0`, no warning line in `evidence/nativeaot-release-scan-publish.log`. APK 2490717 bytes, sha256 `83ba4c35264e90113c16d77b77e4f5693b4d2e393ebf177bdef70e3846e4a05a`. Uncompressed `lib/x86_64/libNativePoc.Android.so` is 5753808 bytes. ASCII and UTF-16 searches for `HotReloadServer`, `npoc`, and `nativepoc-hotreload` are absent from the APK bytes, the manifest, `classes.dex`, and that library. The linked `NativePoc.Android.dll` from the same publish is 13312 bytes and also lacks those three strings. It does contain UTF-16 `set-content-view` and `nativepoc_root_swap`, and it does not contain `AotProbe`. `evidence/nativeaot-release-listener-scan.log`.
+
+`NoWarn` for `IL3053` stays project-wide. A per-assembly `nowarn` is not in this ILC. The probe that shows an `IL3050` in this repo still fails is in the NativeAOT section.
+
+**UNVERIFIED.** `View.Dispose` was not observed on an `android.view.View`. iOS was not built. The arm64 APKs were not installed here.
 
 ## android-arm64 APKs
 
@@ -28,7 +46,7 @@ Full Mono AOT is the same command plus `-p:AndroidEnableProfiledAot=false`, agai
 
 NativeAOT is `dotnet publish -c Release -f net10.0-android -r android-arm64` with no extra AOT property, after the same clean. The only native library is `lib/arm64-v8a/libNativePoc.Android.so`, 5948968 bytes, sha256 `5496a94291a58fac70e1c2d60c45acd38eb1dfe1b990400423092fc58848d39e`. Log `evidence/arm64-publish-nativeaot.log`: one `IL3053` on the linked `Mono.Android.dll`, and the two ILC notes that `monodroid_unhandled_exception` and `monodroid_debugger_unhandled_exception` will always throw. No `XA1040`.
 
-A scan of the three NativePoc APKs found no `nativepoc-hotreload.token`, `hotreload-listen`, `LocalServerSocket`, `nativepoc_hotreload`, or `npoc-hotreload`.
+A scan of the three NativePoc arm64 APKs was reported to find no `nativepoc-hotreload.token`, `hotreload-listen`, `LocalServerSocket`, `nativepoc_hotreload`, or `npoc-hotreload`. That search was not saved as a log. The saved scan is the later x64 NativeAOT APK in "Re-review blockers".
 
 | File | Bytes | sha256 | Package / activity |
 | --- | --- | --- | --- |
@@ -39,7 +57,7 @@ A scan of the three NativePoc APKs found no `nativepoc-hotreload.token`, `hotrel
 
 The copies and `measure.sh` are under `/opt/cursor/artifacts/`. The script in this repo is `tools/measure-arm64-startup.sh`, the same file. It checks those sha256 values, installs with `adb install -r -d`, then runs 20 `adb shell am start -W -S -n <package>/<activity>` starts. A sample without exactly one `TotalTime`, or with `LaunchState` other than `COLD`, stops the script. Nothing is dropped. p50 and p90 are Hyndman-Fan type 7: for n=20, p50 is the mean of the 10th and 11th sorted `TotalTime` values, and p90 interpolates the 18th and 19th at h=18.1. The script uses `adb`, `sh`, `awk`, `sort`, and `sha256sum` or `shasum`. It was exercised here against a fake `adb` that returned `TotalTime` 1 through 20. That run printed p50 `10.5` and p90 `18.1` for each APK. This host did not run it against an arm64 emulator.
 
-Measured on Mac arm64 emulator by coordinator. The device was `pixel_8`, API 36. Each figure is `TotalTime` from `adb shell am start -W -S`, n=20. The raw samples were not in the report given to this host, so only the percentiles below are recorded.
+Measured on Mac arm64 emulator by coordinator. The device was `pixel_8`, API 36. Each figure is `TotalTime` from `adb shell am start -W -S`, n=20. The raw samples are `evidence/mac-arm64-startup-run2.txt`. Recomputed with the script's type-7 definition (n=20, p50 is the mean of the 10th and 11th sorted samples, p90 is the 18th plus 0.1 times the gap to the 19th), the percentiles match the table. NativeAOT's p90, 1711.3, is not the lowest. Full AOT's p90 is 1682.9.
 
 | Config | p50 | p90 |
 | --- | --- | --- |
@@ -64,7 +82,13 @@ Turning `TrimmerSingleWarn` off makes the old `IL3053` into three `IL3050` error
 | `JNIEnv.MakeArrayType` | `Type.MakeArrayType` |
 | `JNINativeWrapper.CreateDelegate` | `DynamicMethod` constructor |
 
-The workload source disables `IL3050` with a pragma around those calls (dotnet/android issue 8724). The pragma does not put `UnconditionalSuppressMessage` for `IL3050` on the IL, so ILC still reports them and `--singlewarn` collapses them to `IL3053`. `CreateDelegate` has no caller in the linked assemblies. `MakeArrayType` is called from `JNIEnv.CopyArray` and `JNIEnv._GetArray`. `MakeGenericType` is the managed type map's invoker helper. Workload 36.1.118 has no trimmable type map to switch to. An `ILLink.LinkAttributes.xml` does not reach ILC: the linker applies it only to its own pass and does not write the attribute into the assembly ILC reads. `<NoWarn>$(NoWarn);IL3053</NoWarn>` is what ILC receives as `--nowarn`. `IL3050` is not in that list, and `IL3053` is not in `WarningsNotAsErrors`, so a warning in this repo's assemblies still fails the publish. Host tests: 26 passed, 0 failed. `evidence/unit-tests-il3053.log`.
+The workload source disables `IL3050` with a pragma around those calls (dotnet/android issue 8724). The pragma does not put `UnconditionalSuppressMessage` for `IL3050` on the IL, so ILC still reports them and `--singlewarn` collapses them to `IL3053`. `CreateDelegate` has no caller in the linked assemblies. `MakeArrayType` is called from `JNIEnv.CopyArray` and `JNIEnv._GetArray`. `MakeGenericType` is the managed type map's invoker helper. Workload 36.1.118 has no trimmable type map to switch to. An `ILLink.LinkAttributes.xml` does not reach ILC: the linker applies it only to its own pass and does not write the attribute into the assembly ILC reads. `<NoWarn>$(NoWarn);IL3053</NoWarn>` is what ILC receives as `--nowarn`. That list is project-wide. `ilc` in `runtime.linux-x64.microsoft.dotnet.ilcompiler` 10.0.14 has a `singlewarn` switch and no per-assembly `nowarn`, so the `IL3053` suppression cannot be limited to `Mono.Android.dll`.
+
+`WarningsNotAsErrors` is `XA1040` only. That property is not what keeps a warning from this repo visible. A code in `WarningsNotAsErrors` is still printed and does not fail the build, so a future `XA1040` would not fail the publish. It was not emitted. `IL3053` is not in that list. A code in `NoWarn` is not emitted at all.
+
+The ILLink targets turn single-warn off for the entry assembly and for project references (`Microsoft.NET.ILLink.tasks` 10.0.14). A warning in `NativePoc.Core`, `NativePoc.Screen`, or `NativePoc.Android` therefore stays `IL3050` instead of collapsing into `IL3053`. `IL3050` is not in `NoWarn`. `TreatWarningsAsErrors` makes it an error.
+
+A call to `Type.MakeGenericType` in `NativePoc.Core` failed `dotnet publish` before ILC: `error IL3050` and `error IL2055` in `AotProbe.cs`, `PROBE_EXIT:1`. `evidence/il3050-probe-compiler.log`. The same call, with those two compiler warnings disabled by pragma and with no `UnconditionalSuppressMessage`, reached ILC. ILC reported `AOT analysis error IL3050` and `Trim analysis error IL2055` on `NativePoc.AotProbe.Touch`, then `MSB3077` because the command returned 0 and the build still detected errors. `PROBE_EXIT:1`. The method was not folded into `IL3053`. `evidence/il3050-probe-publish.log`. The probe source was removed after that publish. Host tests after the socket change: 27 passed, 0 failed. `evidence/unit-tests-rereview.log`.
 
 The installed process is pid 16198. `IsDynamicCodeSupported=False` and `IsDynamicCodeCompiled=False`. The first frame is `Counter 0`, an empty `EditText` whose hint is `Name`, `Save`, and `Enter a name`. `evidence/kvm-nativeaot-validate-render.png`. Typing `Ada` kept field handle 11974, title handle 11814, button handle 12294, and greeting handle 12458, and the greeting became `Hello Ada`. `evidence/kvm-nativeaot-validate-typed.png`. Save logged `clipboard-ok poc-1` and showed `Counter 1` on those same four handles. `evidence/kvm-nativeaot-validate-saved.png`. `button-mounted` happened once before the rotation.
 
@@ -88,6 +112,8 @@ SDK 10.0.403. Workload `android` is `36.1.2/10.0.100`. Workload `maui-android` i
 
 At `c9f5bb1` the re-review items were still open in the tree this round started from. The token was still read from the `nativepoc_hotreload` launch extra and put in the socket name and the log line. `Screen.Render` set no keys. A keyed reorder detached every sibling and reinserted the survivors. `SetContentView` ran once. `OnUnmounted` disposed a view that could still be a child. Later sections of this report still described `TcpListener` on `127.0.0.1:18765` as the current listener.
 
+This table is the KVM boot. It is not the current loader and it is not the current warning list. The current listener is the cnative section. The current warning list is the NativeAOT section.
+
 | Item | State after this round |
 | --- | --- |
 | App-generated token, launch extra ignored, token not logged | **RUN.** Pid 14082 was started with `--es nativepoc_hotreload 00112233445566778899aabbccddeeff`. The private file was `<redacted-token>`. Neither hex is in that logcat. The listen line is `hotreload-listen localabstract:npoc-hotreload`. A connection with the extra's bytes returned `UnauthorizedAccessException: Rejected hot reload token.` The file token then got past the check and returned `InvalidOperationException: Rejected screen assembly length 0.` `evidence/kvm-token-check.log`. |
@@ -96,13 +122,13 @@ At `c9f5bb1` the re-review items were still open in the tree this round started 
 | Keyed move keeps the view | **TESTED** in the memory host. A middle delete, a reorder, a middle insert, and 200 edits from `Random(20261108)` leave stationary children attached (`Removed == 0`). **UNVERIFIED** on an Android view: this round did not reorder the live screen. The hot-reload title edits are property updates. Pid 14365 logged `field-handle 15014` four times (mount plus `Ada`) and `button-mounted` once, then 20 applies, and did not log another mount. |
 | `SetContentView` when the root instance changes | **BUILT.** `RenderNow` calls it only when the root view is a different instance. **TESTED** by `Replacing_the_root_mounts_a_new_view_and_disposes_the_old_tree`. **UNVERIFIED** on device. The acceptance screen always returns a `Column`, so the device path is the first `SetContentView`. |
 | Dispose after the view has left its parent | **BUILT.** `RemoveSubtree` removes the node, then `OnUnmounted` detaches listeners, removes the view if it still has a parent, and disposes. The memory host records `DisposedWhileAttached` and the new tests require it to be false. **UNVERIFIED** against `android.view.View`. |
-| Report | This section is the current account. The TCP how-to and the TCG startup section are marked as earlier passes. The TCP n=20 files were copied to `evidence/hot-reload-*-tcp.log` and `evidence/hot-reload-a-tcp-*.png` before the new clocks overwrote the old paths. |
+| Report | This table records that boot. The current listener is the cnative section. The TCP how-to and the TCG startup section are earlier passes. The TCP n=20 files were copied to `evidence/hot-reload-*-tcp.log` and `evidence/hot-reload-a-tcp-*.png` before the new clocks overwrote the old paths. |
 
 Host tests after those edits: `Passed: 23, Failed: 0, Skipped: 0, Duration: 70 ms`. `evidence/unit-tests-kvm.log`. Debug deploy `dotnet build -c Debug -f net10.0-android -r android-x64 -t:Run -p:AdbTarget=-e` exited 0 with 0 warnings. `evidence/debug-run-kvm.log`. The installed package has `.__override__` and `hotreload.token`.
 
 ### Release configs
 
-`TreatWarningsAsErrors` stays on. `WarningsNotAsErrors` is `XA1040;IL3053`.
+`TreatWarningsAsErrors` stayed on for that publish. The sentence that `WarningsNotAsErrors` was `XA1040;IL3053` described an earlier csproj. The file now has `IL3053` in `NoWarn` and `WarningsNotAsErrors` is `XA1040` only. The publish log cited next still contains one `IL3053`, which is what that older list allowed.
 
 Release now sets `PublishAot` and `EnablePreviewFeatures`. `dotnet publish -c Release -f net10.0-android -r android-x64` is NativeAOT. That publish is `evidence/startup-publish-default-kvm.log`, exit 0, one `IL3053` on the linked `Mono.Android.dll`, plus the two ILC notes that `monodroid_unhandled_exception` and `monodroid_debugger_unhandled_exception` will always throw. `rg -n XA1040` on that log prints nothing.
 
@@ -172,7 +198,9 @@ Each of these launches is outside the tens above.
 
 A separate rotation of the explicit NativeAOT APK kept pid 11906 through landscape and back. After both rotations the log still says `rendered count=1 name-length=3 title=Counter 1` and the flags are False / False. Field handles changed across the new activities (12006, then 14054, then 14758), which is a new activity, not a new process. `evidence/kvm-nativeaot-rotation.log`.
 
-### Hot reload, current loader, n=20
+### Hot reload on this KVM boot, n=20
+
+The listen line in these logs is `hotreload-listen localabstract:npoc-hotreload`. That is this boot's loader. The clocks were not repeated after the socket name stopped being the token.
 
 Debug only, after `-t:Run`. The host is `tools/NativePoc.HotReload.Host`. Cold is sample 0. Warm is samples 1–19. No sample was dropped. Every device sample stayed on one pid, kept `Ada`, `Hello Ada`, and count 1, and the reply started with the expected title plus `collectible=True`.
 
@@ -203,10 +231,9 @@ Debug only, after `-t:Run`. The host is `tools/NativePoc.HotReload.Host`. Cold i
 
 - arm64 install and any startup number on a phone
 - iOS
-- a live reorder or a live root swap, so the keyed move and the second `SetContentView` have no device screenshot
+- a live reorder while typing, a live root swap, and a second `Start` were open at the end of this round. They were run later on this same emulator. See "Re-review blockers".
 - `View.Dispose` on a real Android view
-- a second `HotReloadServer.Start` in one process
-- `/proc/net/unix` for `npoc-hotreload` on this boot
+- `/proc/net/unix` was not read on this boot. A later shell read found `npoc-hotreload` and did not find the file token.
 - bit-identity of the two NativeAOT APKs; they are the same size and not the same hash
 - the republished profiled APK (`314346a9…`) was not installed; full AOT was not republished after the NativeAOT default
 
@@ -378,7 +405,7 @@ A Core edit is not pushed by this loader. The listener accepts one `NativePoc.Sc
 
 ### Loader is Debug-only and loopback-only
 
-This subsection describes the tree that still used `TcpListener`. It is not the current loader. The current loader is the abstract socket in the KVM round above.
+This subsection describes the tree that still used `TcpListener`. It is not the current loader. The current loader is the cnative section at the top: fixed abstract name `npoc-hotreload`, private file token, handshake check.
 
 `src/NativePoc.Android/HotReloadServer.cs` is wrapped in `#if DEBUG` from the first line through the end of the file. `MainActivity.OnCreate` calls `HotReloadServer.Start()` inside `#if DEBUG` (`MainActivity.cs` lines 40–41). `HotReload.cs` and `RecreateReceiver.cs` are also `#if DEBUG`. The socket is `new TcpListener(IPAddress.Loopback, 18765)`.
 
