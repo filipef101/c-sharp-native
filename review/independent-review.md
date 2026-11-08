@@ -1,5 +1,89 @@
 # Independent review: Android native-widget proof of concept
 
+## Re-review of 5da3a4b
+
+Acceptance re-review of `5da3a4b` ("Apply the persona-eval fixes that still reproduced after resident reload"). `src/` is identical to `4147a5b` (`git diff 4147a5b 5da3a4b -- src` is empty). The plan at this commit scores items 7–10 on `cnative run android`. `dotnet watch` is written up as a known limitation and is outside those items. Frame time from `RenderNow` to the next scanned framebuffer is outside the pass. A redeploy is allowed to drop the typed name.
+
+### Verdict
+
+**Acceptance-ready for items 1–16.** No item in that set is still a blocker on the evidence below. What remains is UNVERIFIED, or item 17 bookkeeping, which the plan says does not rewrite 1–16.
+
+The acceptance checklist in `research/android-poc-report.md` still marks item 16 **Not met** from the older x64 series (Mono AOT p50 1517.5 ms vs MAUI 1101 ms). That series is real and loses. The plan asks for one device, prefers arm64, and requires the same RID as the MAUI template. On the arm64 samples both Mono configs are under MAUI. That is the comparison this review scores as the pass.
+
+### What was executed
+
+- `dotnet test tests/NativePoc.Core.Tests` on the `5da3a4b` tree, SDK 10.0.403. **Passed 27, failed 0, skipped 0, 124 ms.**
+- `dotnet test tools/devx/NativePoc.Devx.Cli.Tests`. **Passed 54, failed 0, skipped 0, 595 ms.** The report's earlier CLI log is 49/0. This tree has the persona tests on top of that suite.
+- Recomputed the fixed-socket n=20 from `docs/devx/evidence/fixed-socket-samples.tsv`. Every row is pid `11096`, `ok=1`, and the UI text contains `Ada` and `Hello Ada`. The one-decimal edit-to-screen column has median 59.85 ms (the published unrounded median is 59.8246 ms), inclusive p90 74.92 ms (published 74.8963 ms), type-7 p95 76.16 ms, max 96.2 ms.
+- Recomputed the Mac arm64 type-7 percentiles and the plan's drop-first next-10 medians from `evidence/mac-arm64-startup-run2.txt`. They match the previous pass: type-7 p50 MAUI 1604.0, profiled 1533.5, full AOT 1428.5, NativeAOT 1300.0. Drop-first next-10 medians: MAUI 1586.5, profiled 1580.0, full AOT 1455.0, NativeAOT 1302.0.
+- Fresh KVM smoke on this machine. `/dev/kvm` is group-restricted; after `chmod a+rw` the ubuntu user opens it. QEMU pid 6872 holds `/dev/kvm`, `anon_inode:kvm-vm`, and two `kvm-vcpu` fds. AVD `poc34`, `emulator-5554`, `sys.boot_completed=1`, SDK 34, ABI `x86_64`. `tools/devx/cnative run android --device emulator-5554` launched pid **6225**, read `files/nativepoc-hotreload.token` via `adb run-as`, and printed `reply Counter 0 collectible=True` (`reloaded in 510.8 ms`, `apply 55.1 ms`). A tap and `input text Ada` produced `Hello Ada`. Changing `TitlePrefix` from `"Counter "` to `"Tally "` printed `reply Tally 0 collectible=True`, `reloaded in 33.1 ms (apply 12.9 ms)`, `edit-to-reply 72 ms`. `pidof` stayed 6225. The dump texts were `Tally 0`, `Ada`, `Save`, `Hello Ada`. Content descriptions present: `Name`, `Save name`. The CLI log contains no 32-hex token. `Screen.cs` was restored; `git diff -- src` in that worktree is empty. This is one edit, not another n=20.
+
+The first deploy attempt failed with `XA5205` (`aapt2` missing). Installing `build-tools;35.0.0` cleared it. That is this machine's SDK, not a project failure.
+
+### Items 7–10
+
+The plan's literal is `"Counter "` to `"Tally "`, p50 ≤ 1500 ms and p95 ≤ 3000 ms from the file save to the on-screen text, same pid, `Ada` kept, n=20. The clock in `fixed-socket-percentiles.txt` is `perf_counter` immediately before the `Screen.cs` write until the reply line. A UI dump after the clock had to contain the new title, `Ada`, and `Hello Ada`.
+
+| Check | Result |
+| --- | --- |
+| n=20 prefix edits, pid 11096 | **Pass.** Titles `S00 0` through `S19 0`. Edit-to-screen p50 59.8 ms, p95 76.2 ms, max 96.2 ms. CLI edit-to-reply median 60 ms. |
+| `Ada` on every sample | **Pass.** All 20 TSV rows. |
+| Same pid | **Pass.** The pid column is `11096` on all 20. The later rude restart to pid 11820 is item 11. |
+| Literal `Tally` | **Pass on this machine's smoke**, one sample, pid 6225, dump `Tally 0` / `Ada` / `Hello Ada`, 72 ms edit-to-reply. The checked-in n=20 uses `Sxx`, the merged smoke uses `Smoke0`–`Smoke2` (pid 19193), and persona B uses `Expo` / `Fixed` / `Dirty`. Those are the same `TitlePrefix` constant. |
+| Merged-main smoke | **Pass for a short run.** `evidence/cnative-smoke-main.log`: pid 19193, `Smoke0`/`Smoke1`/`Smoke2`, `Ada` kept, `CS1525` left the UI on `Smoke2 0` / `Ada`, restore returned `Counter 0` on 19193, rude restart launched 19511 with an empty field. |
+| Persona B | **Pass for the runs that exist.** Clean pid 20410 kept `Rio` through `Expo 1`, the `CS1525`, and `Fixed 1`. Dirty pid 20904 applied `Dirty 0`. Neither log contains `EndOfStreamException`. |
+
+The older host-spawn series in `comparison.md` (wall `reloaded in` p50 2541 ms, pid 8318) is the loop that started `NativePoc.HotReload.Host` per edit. It is not the current `cnative` path and it is not the series the plan cites.
+
+### Persona-eval fixes
+
+`5da3a4b` names four behaviors in the message. The same diff also locks two more in tests. Six, mapped onto evidence:
+
+| Fix | Where | Device evidence |
+| --- | --- | --- |
+| Delete the token files before `am start` | `LaunchCommand.BeforeStart` runs `run-as rm -f` on `files/nativepoc-hotreload.token`, `files/hotreload.token`, and `cache/nativepoc-hotreload.token` | Dirty relaunch. Prefix before `<redacted-token>`, after `<redacted-token>`, pid 20904, `dirty-launch-endofstream=no`. |
+| Keep watching after a failed first push | `InitialPush.Decide` returns `WatchAfterFailure` unless `--once` | Unit test only. The clean, dirty, smoke, and n=20 first pushes applied. |
+| Print the flag when a restart is declined | `ReloadConsole.FollowUp` | `persona-b-clean.log` line 42: `pass --restart-on-rude to rebuild and relaunch`. Pid stayed 20410. |
+| Legacy-host `MissingMethodException` is `restart required` | `HotReloadReply.NeedsRestart` also matches `MissingFieldException`, `MissingMemberException`, and `TypeLoadException`. `EndOfStreamException` does not. | Unit test. The persona logs do not contain `MissingMethodException`. The in-place refusal on an older pid is still the review-section trial. |
+| `IReadOnlyList<>` compiles with no `using` in `Screen.cs` | Shared implicit global usings. `ScreenCompilerTests` compiles a screen that names `IReadOnlyList<Element>` and has an empty error list. | The committed screen has no `using` and reloaded on pid 6225, 11096, 19193, 20410, and 20904. |
+| `cnative --help` skips the rebuild when the DLL exists | `tools/devx/cnative` | `PersonaFixTests` reads the script and the README. No device run. |
+
+Accepting the rude restart on pid 20410 launched pid 20726 at `Fixed 0` / `Enter a name`. That is the name drop the plan says persona B ran.
+
+### Items 1–16
+
+| Item | Verdict | Why |
+| --- | --- | --- |
+| 1. Four widgets, content description, runtime flags | **Pass** | Sources unchanged since the x64 dumps. This smoke's dump has `TextView` `Counter 0` then `Tally 0`, an `EditText`, a `Button`, and content descriptions `Name` and `Save name`. |
+| 2. `Ada`, same `EditText`, 20 keystrokes | **Pass** | Prior device log. This smoke typed `Ada` once and the greeting became `Hello Ada` before the reload. |
+| 3. Save increments, field stays | **Pass** | Prior device log. Persona B's typed dump is `Counter 1` / `Rio`. |
+| 4. Empty field, `Enter a name`, Save still counts | **Pass** | Prior device log. Launch dumps in the smoke and in persona B show `Enter a name`. |
+| 5. Recreate and one rotation keep the field and the count | **Pass** | Prior device log. `src/` has not changed. |
+| 6. Clipboard nonce round-trip | **Pass** | Prior device log. |
+| 7–10. `cnative` n=20, p50/p95, same pid, `Ada` | **Pass** | Table above. p50 59.8 ms and p95 76.2 ms against 1500 ms and 3000 ms. |
+| 11. One rude edit, record the outcome | **Pass** | Same `cnative` process on pid 11096 printed `rude edit -> restart required` and launched 11820. Merged smoke 19193 → 19511. Persona B could decline and stay on 20410. The item does not require an in-place apply. |
+| 12. Release APK installs, items 1–6 | **Pass on x64** | The published x64 run is the one that recorded items 1–6. The plan allows x86_64 for the functional tests. |
+| 13. `libaot-*.so` under `lib/arm64-v8a/` | **Pass** | The arm64 publish listings name the AOT images. Those APKs were not installed on this machine. |
+| 14. This repo contributes none of the listed trim warnings | **Pass** | The `IL3050` probe in `NativePoc.Core/AotProbe.cs` fails the compiler and fails ILC (`PROBE_EXIT:1`). `NoWarn` of `IL3053` did not swallow it. `AotProbe.cs` is not in the tree. |
+| 15. arm64 Release APK smaller than MAUI, same SDK and RID | **Pass** | Recorded lengths: x64 proof 3795146 vs MAUI 19074917. The arm64 pair is also under the MAUI APK from that publish. |
+| 16. Mono AOT median ≤ MAUI, same device | **Pass on the arm64 samples** | Profiled 1533.5 and full AOT 1428.5 against MAUI 1604.0 (type-7, n=20). Drop-first next-10: 1580.0 and 1455.0 against 1586.5. The x64 series at 1517.5 vs 1101 loses, and the checklist still quotes it. The button-layout timestamp is in the earlier x64 logs and is absent from the Mac sample file. |
+
+### UNVERIFIED vs blocking
+
+**Blocking for items 1–16:** none.
+
+**UNVERIFIED, and outside the pass as the plan is now written:**
+
+- Time from `RenderNow` to the next scanned framebuffer. The edit-to-screen clock stops when the reply line is observed. The dumps show the text after that.
+- `View.Dispose` on a real `android.view.View`.
+- An iOS build.
+- Items 1–6 on an arm64 image. Arm64 was used for the startup samples. The widget, keystroke, rotation, and clipboard checks were recorded on x64.
+- A second n=20 on the `5da3a4b` binary. The n=20 is the `73dc6e2` fixed-socket series. The merged smoke is three prefix edits. This review's KVM run is one `Tally` edit.
+- The failed-first-push watch, and the legacy-host `MissingMethodException` summary, on a device. Both are unit-tested.
+- Item 17. `XA1040` is still absent from the publish logs. The plan calls that bookkeeping. It does not change the 1–16 result.
+
+The loader residuals from `4147a5b` are unchanged, because `HotReloadServer.cs` is unchanged: fixed abstract name `npoc-hotreload`, a process-lifetime 16-byte bearer compared with `FixedTimeEquals`, and `adb forward tcp:18765 localabstract:npoc-hotreload` on the host. The device process does not listen on TCP 18765. Those are not items 1–16.
+
 ## Re-review of 4147a5b
 
 Re-reviewed `4147a5b` ("Separate the hot reload socket name from the token") against the blockers in the `0a45484` pass. Sources were read from that commit. `src/` was not modified. The APK named in the scan log is not in git, so the scan was not repeated on the bytes.
