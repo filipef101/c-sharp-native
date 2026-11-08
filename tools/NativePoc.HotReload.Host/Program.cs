@@ -384,10 +384,10 @@ static void RestartApp()
 		Thread.Sleep(200);
 		var listed = AdbAllowFail("shell", "pidof", "com.scratch.nativepoc").Trim();
 		var logged = AdbAllowFail("logcat", "-d", "-s", "NativePoc:I");
-		if (listed.Length > 0 && logged.Contains("hotreload-listen localabstract:npoc-hotreload", StringComparison.Ordinal))
+		if (listed.Length > 0 && logged.Contains("hotreload-listen", StringComparison.Ordinal))
 		{
 			ReadDeviceToken();
-			var after = AdbAllowFail("logcat", "-d", "-s", "NativePoc:I", "NativePoc:E");
+			var after = AdbAllowFail("logcat", "-d", "-s", "NativePoc:V");
 			if (after.Contains(HotReloadSession.Hex, StringComparison.OrdinalIgnoreCase))
 				throw new InvalidOperationException("The hot reload token was written to logcat.");
 			ForwardAbstract();
@@ -423,12 +423,23 @@ static void LoadToken()
 {
 	if (HotReloadSession.Token.Length == 16)
 		return;
+	if (File.Exists(HotReloadSession.TokenPath))
+	{
+		var saved = File.ReadAllText(HotReloadSession.TokenPath).Trim();
+		if (saved.Length == 32)
+		{
+			HotReloadSession.Hex = saved;
+			HotReloadSession.Token = Convert.FromHexString(saved);
+			return;
+		}
+	}
+
 	ReadDeviceToken();
 }
 
 static void ReadDeviceToken()
 {
-	var hex = Adb("shell", "run-as", "com.scratch.nativepoc", "cat", "files/hotreload.token").Trim();
+	var hex = Adb("shell", "run-as", "com.scratch.nativepoc", "cat", "files/nativepoc-hotreload.token").Trim();
 	if (hex.Length != 32)
 		throw new InvalidOperationException("The app hot reload token was not readable.");
 	HotReloadSession.Hex = hex;
@@ -440,7 +451,7 @@ static void ForwardAbstract()
 {
 	LoadToken();
 	AdbAllowFail("forward", "--remove", "tcp:" + Port);
-	Adb("forward", "tcp:" + Port, "localabstract:npoc-hotreload");
+	Adb("forward", "tcp:" + Port, "localabstract:npoc-" + HotReloadSession.Hex);
 }
 
 static string Pid()

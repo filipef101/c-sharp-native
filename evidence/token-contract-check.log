@@ -1,0 +1,19 @@
+start-has-extras=True
+listen-lines=1
+listen-contains-forged=False
+listen-contains-npoc-hex=False
+token-exit=0
+token-is-32-hex=True
+token-equals-forged=False
+stale-file-exit=1
+stale-file-absent=True
+forged-in-logcat=False
+token-in-logcat=False
+socket-name-in-logcat=False
+unix-exit=1
+unix-has-socket=False
+unix-error=cat: /proc/net/unix: Permission denied
+fixed-name-probe=short-header
+wrong-hex-probe=short-header
+forged-on-real-socket=ok=0 body=UnauthorizedAccessException: Rejected hot reload token.
+real-on-real-socket=ok=0 body=InvalidOperationException: Rejected screen assembly length 0.

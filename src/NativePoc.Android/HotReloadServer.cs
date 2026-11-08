@@ -12,7 +12,7 @@ namespace NativePoc;
 static class HotReloadServer
 {
 	const int TokenBytes = 16;
-	const string SocketName = "npoc-hotreload";
+	const string TokenFile = "nativepoc-hotreload.token";
 
 	static readonly object Gate = new();
 
@@ -30,10 +30,12 @@ static class HotReloadServer
 			return;
 		}
 
+		string hex;
 		try
 		{
+			context.DeleteFile("hotreload.token");
 			var token = RandomNumberGenerator.GetBytes(TokenBytes);
-			WriteToken(context, token);
+			hex = Convert.ToHexString(token).ToLowerInvariant();
 			lock (Gate)
 				_token = token;
 		}
@@ -44,7 +46,7 @@ static class HotReloadServer
 			return;
 		}
 
-		var thread = new Thread(Listen)
+		var thread = new Thread(() => Listen(context, hex))
 		{
 			IsBackground = true,
 			Name = "hot-reload",
@@ -52,30 +54,31 @@ static class HotReloadServer
 		thread.Start();
 	}
 
-	static void WriteToken(Context context, byte[] token)
+	static void WriteToken(Context context, string hex)
 	{
-		using var output = context.OpenFileOutput("hotreload.token", FileCreationMode.Private)
+		using var output = context.OpenFileOutput(TokenFile, FileCreationMode.Private)
 			?? throw new InvalidOperationException("The hot reload token file was not created.");
-		var hex = Encoding.ASCII.GetBytes(Convert.ToHexString(token).ToLowerInvariant());
-		output.Write(hex, 0, hex.Length);
+		var encoded = Encoding.ASCII.GetBytes(hex);
+		output.Write(encoded, 0, encoded.Length);
 		output.Flush();
 	}
 
-	static void Listen()
+	static void Listen(Context context, string hex)
 	{
 		LocalServerSocket listener;
 		try
 		{
-			listener = new LocalServerSocket(SocketName);
+			listener = new LocalServerSocket("npoc-" + hex);
+			WriteToken(context, hex);
 		}
 		catch (Exception ex)
 		{
 			Interlocked.Exchange(ref _started, 0);
-			Android.Util.Log.Error(MainActivity.Tag, "hotreload-error " + ex.GetType().Name + " " + ex.Message);
+			LogFailure(hex, ex);
 			return;
 		}
 
-		Android.Util.Log.Info(MainActivity.Tag, "hotreload-listen localabstract:" + SocketName);
+		Android.Util.Log.Info(MainActivity.Tag, "hotreload-listen");
 		while (true)
 		{
 			LocalSocket? client = null;
@@ -88,12 +91,13 @@ static class HotReloadServer
 			}
 			catch (Exception ex)
 			{
-				Android.Util.Log.Error(MainActivity.Tag, "hotreload-error " + ex.GetType().Name + " " + ex.Message);
+				LogFailure(hex, ex);
 				if (client is not null)
 				{
 					try
 					{
-						WriteResponse(Output(client), false, ex.GetType().Name + ": " + ex.Message);
+						var detail = ex.Message.Replace(hex, "[redacted]", StringComparison.OrdinalIgnoreCase);
+						WriteResponse(Output(client), false, ex.GetType().Name + ": " + detail);
 					}
 					catch (Exception writeError)
 					{
@@ -235,6 +239,12 @@ static class HotReloadServer
 			|| name == "netstandard"
 			|| name == "mscorlib"
 			|| name.StartsWith("System.", StringComparison.Ordinal);
+	}
+
+	static void LogFailure(string hex, Exception ex)
+	{
+		var message = ex.Message.Replace(hex, "[redacted]", StringComparison.OrdinalIgnoreCase);
+		Android.Util.Log.Error(MainActivity.Tag, "hotreload-error " + ex.GetType().Name + " " + message);
 	}
 
 	static Stream Input(LocalSocket socket)

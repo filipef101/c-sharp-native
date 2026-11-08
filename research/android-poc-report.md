@@ -2,7 +2,17 @@
 
 Measured on this machine on 2026-11-08. Nothing here is a guessed latency, a guessed size, or a screenshot that was not captured. iOS was not built and was not run.
 
-The current result is the KVM round below. Release publish is NativeAOT. On this boot its 10-run `TotalTime` median is under the MAUI template median measured next. Profiled Mono AOT and full Mono AOT were not. TCG startup numbers further down are withdrawn. Sentences that still mention `TcpListener` or port 18765 as the listener describe an earlier tree; the current listener is `localabstract:npoc-hotreload`.
+The current result is the KVM round below. Release publish is NativeAOT. On this boot its 10-run `TotalTime` median is under the MAUI template median measured next. Profiled Mono AOT and full Mono AOT were not. TCG startup numbers further down are withdrawn. Sentences that still mention `TcpListener`, port 18765, or `localabstract:npoc-hotreload` describe an earlier listener. The current Debug listener is the cnative contract below. Release does not contain it.
+
+## cnative token contract
+
+Debug only. `OnCreate` calls `HotReloadServer.Start` with no launch extra. The process draws 16 random bytes, deletes a stale `files/hotreload.token` if that older file is present, binds `localabstract:npoc-<hex>`, and only then writes the 32 hex characters to the private file `files/nativepoc-hotreload.token`. The log line is `hotreload-listen`, with no token and no socket name. In code, a second `Start` logs `hotreload-listen already` and keeps the first token. That second call was not exercised on device this round. `cnative` reads that file with `adb shell run-as` and writes it to the temp file the host's `once` mode already loads, then the host forwards `tcp:18765` to `localabstract:npoc-<hex>`.
+
+On this emulator, a launch with `--es nativepoc_hotreload 00112233445566778899aabbccddeeff` still published a different 32-hex file. The forged extra, the file token, and `npoc-` plus that token are absent from logcat. `files/hotreload.token` is gone. `run-as` cannot read `/proc/net/unix` (`Permission denied`), which is the same limit the CLI recorded. A forward to `localabstract:npoc-<file token>` rejected the forged 16 bytes with `UnauthorizedAccessException` and accepted the file token through to `Rejected screen assembly length 0.` A forward to `localabstract:npoc-hotreload` did not complete that handshake. `evidence/token-contract-check.log`.
+
+The host `once` path, given the temp file `cnative` writes, applied the current screen: `once-ms=25.1`, `Counter 0 collectible=True`, pid 15786. `evidence/hot-reload-once-token.log`.
+
+The Release `NativePoc.Android.dll` from `dotnet build -c Release -f net10.0-android -r android-x64 -p:PublishAot=false` is 12800 bytes and has no ASCII or UTF-16 `HotReloadServer`, `nativepoc-hotreload.token`, `hotreload-listen`, `LocalServerSocket`, `LoadFromStream`, `npoc-`, `AssemblyLoadContext`, or `18765`. `evidence/release-build-token-contract.log`, 0 warnings. Host tests: 24 passed, 0 failed. `evidence/unit-tests-token-contract.log`.
 
 ## KVM round
 
@@ -342,7 +352,7 @@ src/NativePoc.Android/
   MainActivity.cs      holds the render delegate, logs RuntimeFeature
   AndroidHost.cs       LinearLayout, TextView, Button, EditText, ClipboardManager
   HotReload.cs         DEBUG MetadataUpdateHandler, calls RequestRender
-  HotReloadServer.cs   DEBUG abstract socket npoc-hotreload, app-generated token, collectible AssemblyLoadContext
+  HotReloadServer.cs   DEBUG abstract socket npoc-<hex>, file nativepoc-hotreload.token, collectible AssemblyLoadContext
   RecreateReceiver.cs  DEBUG broadcast com.scratch.nativepoc.RECREATE
   Resources/values/strings.xml
 tools/NativePoc.HotReload.Host/
@@ -374,7 +384,7 @@ dotnet build src/NativePoc.Android/NativePoc.Android.csproj \
   -c Debug -f net10.0-android -r android-x64 -t:Run -p:AdbTarget=-e
 ```
 
-Debug in-place reload, after that deploy. The app generates a 16-byte token, writes it to the private file `hotreload.token`, and listens on `localabstract:npoc-hotreload`. The token is not taken from the launch intent and is not written to logcat. The host reads the file with `run-as` and forwards `tcp:18765` to that abstract socket. It compiles `src/NativePoc.Screen/Screen.cs` with the SDK Roslyn compiler and sends the DLL. `AppSession` stays in the already-loaded `NativePoc.Core` assembly.
+Debug in-place reload, after that deploy. The process generates the token itself. There is no launch extra. The private file is `files/nativepoc-hotreload.token` and the socket is `localabstract:npoc-<hex>`. The token is not logged. The host reads the temp file written by `cnative`, or the same private file, and forwards `tcp:18765` to that socket. It compiles `src/NativePoc.Screen/Screen.cs` with the SDK Roslyn compiler and sends the DLL. `AppSession` stays in the already-loaded `NativePoc.Core` assembly.
 
 ```bash
 dotnet build tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj

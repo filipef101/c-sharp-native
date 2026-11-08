@@ -28,7 +28,7 @@ dotnet build src/NativePoc.Android/NativePoc.Android.csproj \
 
 Use `android-arm64` for a phone. A plain `adb install` of the Debug APK aborts: Debug uses fast deployment, and the assemblies are pushed by `-t:Run`.
 
-Debug in-place reload, after that deploy. The app generates a 16-byte token, writes it to the private file `files/hotreload.token`, and listens on `localabstract:npoc-hotreload`. A `nativepoc_hotreload` launch extra is ignored. The token is not logged. The host reads the file with `adb shell run-as` and forwards `tcp:18765` to that abstract socket. State stays in `NativePoc.Core`, which is already loaded.
+Debug in-place reload, after that deploy. The process starts the listener with no launch extra. It generates a 32-hex token, writes it to the private file `files/nativepoc-hotreload.token`, and listens on `localabstract:npoc-<hex>`. The token is not logged. `adb shell run-as com.scratch.nativepoc cat files/nativepoc-hotreload.token` reads it. The host forwards `tcp:18765` to that abstract socket. State stays in `NativePoc.Core`, which is already loaded. Release does not compile the listener.
 
 ```bash
 dotnet build tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
