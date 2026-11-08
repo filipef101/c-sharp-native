@@ -12,7 +12,11 @@
 		<AcceptAndroidSDKLicenses>true</AcceptAndroidSDKLicenses>
 		<IsAotCompatible>true</IsAotCompatible>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
+		<WarningsNotAsErrors>XA1040;IL3053</WarningsNotAsErrors>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<PublishAot>true</PublishAot>
+		<EnablePreviewFeatures>true</EnablePreviewFeatures>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(PublishAot)' != 'true'">
 		<PublishTrimmed>true</PublishTrimmed>

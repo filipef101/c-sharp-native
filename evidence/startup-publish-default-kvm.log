@@ -1,0 +1,16 @@
+  Determining projects to restore...
+  Restored /workspace/src/NativePoc.Screen/NativePoc.Screen.csproj (in 241 ms).
+  Restored /workspace/src/NativePoc.Core/NativePoc.Core.csproj (in 241 ms).
+  Restored /workspace/src/NativePoc.Android/NativePoc.Android.csproj (in 241 ms).
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Release/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Release/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Release/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Release/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Release/net10.0/NativePoc.Screen.dll
+  Optimizing assemblies for size may change the behavior of the app. Be sure to test after publishing. See: https://aka.ms/dotnet-illink
+  Optimizing assemblies for size. This process might take a while.
+  Generating native code
+/workspace/src/NativePoc.Android/obj/Release/net10.0-android/android-x64/linked/Mono.Android.dll : warning IL3053: Assembly 'Mono.Android' produced AOT analysis warnings. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+  ILC: Method '[Mono.Android.Runtime]Android.Runtime.RuntimeNativeMethods.monodroid_unhandled_exception(Exception)' will always throw because: Invalid IL or CLR metadata in 'Void Android.Runtime.RuntimeNativeMethods.monodroid_unhandled_exception(System.Exception)'
+  ILC: Method '[Mono.Android.Runtime]Android.Runtime.RuntimeNativeMethods.monodroid_debugger_unhandled_exception(Exception)' will always throw because: Invalid IL or CLR metadata in 'Void Android.Runtime.RuntimeNativeMethods.monodroid_debugger_unhandled_exception(System.Exception)'
+EXIT:0

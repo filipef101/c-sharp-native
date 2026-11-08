@@ -1,0 +1,24 @@
+--------- beginning of main
+11-08 18:02:11.552 11906 11906 I NativePoc: activity-start tick=886660
+11-08 18:02:11.553 11906 11906 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 18:02:11.659 11906 11906 I NativePoc: field-handle 12006
+11-08 18:02:11.660 11906 11906 I NativePoc: button-mounted handle=12326 tick=886768
+11-08 18:02:11.678 11906 11906 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 18:02:15.379 11906 11906 I NativePoc: field-handle 12006
+11-08 18:02:15.380 11906 11906 I NativePoc: rendered count=0 name-length=1 title=Counter 0
+11-08 18:02:15.540 11906 11906 I NativePoc: field-handle 12006
+11-08 18:02:15.541 11906 11906 I NativePoc: rendered count=0 name-length=2 title=Counter 0
+11-08 18:02:15.548 11906 11906 I NativePoc: field-handle 12006
+11-08 18:02:15.548 11906 11906 I NativePoc: rendered count=0 name-length=3 title=Counter 0
+11-08 18:02:19.090 11906 11906 I NativePoc: clipboard-ok poc-1
+11-08 18:02:19.091 11906 11906 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 18:02:20.388 11906 11906 I NativePoc: activity-start tick=895496
+11-08 18:02:20.388 11906 11906 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 18:02:20.394 11906 11906 I NativePoc: field-handle 14054
+11-08 18:02:20.395 11906 11906 I NativePoc: button-mounted handle=14246 tick=895500
+11-08 18:02:20.400 11906 11906 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 18:02:21.831 11906 11906 I NativePoc: activity-start tick=896940
+11-08 18:02:21.831 11906 11906 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 18:02:21.838 11906 11906 I NativePoc: field-handle 14758
+11-08 18:02:21.839 11906 11906 I NativePoc: button-mounted handle=14950 tick=896944
+11-08 18:02:21.870 11906 11906 I NativePoc: rendered count=1 name-length=3 title=Counter 1

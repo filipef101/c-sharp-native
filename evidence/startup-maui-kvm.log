@@ -1,0 +1,122 @@
+package=com.companyname.mauibaseline
+component=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+samples=10 dropped=0
+totals=1849,2139,1903,2226,1936,1952,1513,1730,1614,1567
+sorted=1513,1567,1614,1730,1849,1903,1936,1952,2139,2226
+p50=1876.0
+min=1513 max=2226
+runtime_init_ms=,,,,,,,,,
+widget_build_ms=,,,,,,,,,
+first_frame_ms=,,,,,,,,,
+start_to_displayed_ms=1804.0,2149.0,1858.0,2166.0,1912.0,1851.0,1466.0,1704.0,1576.0,1520.0
+start_to_displayed_ms-p50=1827.5 n=10
+
+===== sample 0 force-stop then am start -W =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1849
+WaitTime: 1857
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1804.0, 'displayed': '1794160426.212   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s849ms', 'total_ms': 1849}
+
+===== sample 1 force-stop then am start -W =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 2139
+WaitTime: 2195
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 2149.0, 'displayed': '1794160429.876   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +2s139ms', 'total_ms': 2139}
+
+===== sample 2 force-stop then am start -W =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1903
+WaitTime: 1912
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1858.0, 'displayed': '1794160433.447   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s903ms', 'total_ms': 1903}
+
+===== sample 3 force-stop then am start -W =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 2226
+WaitTime: 2241
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 2166.0, 'displayed': '1794160437.110   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +2s226ms', 'total_ms': 2226}
+
+===== sample 4 force-stop then am start -W =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1936
+WaitTime: 1947
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1912.0, 'displayed': '1794160440.542   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s936ms', 'total_ms': 1936}
+
+===== sample 5 force-stop then am start -W =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1952
+WaitTime: 1982
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1851.0, 'displayed': '1794160444.181   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s952ms', 'total_ms': 1952}
+
+===== sample 6 force-stop then am start -W =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1513
+WaitTime: 1531
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1466.0, 'displayed': '1794160447.250   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s513ms', 'total_ms': 1513}
+
+===== sample 7 force-stop then am start -W =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1730
+WaitTime: 1761
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1704.0, 'displayed': '1794160450.474   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s730ms', 'total_ms': 1730}
+
+===== sample 8 force-stop then am start -W =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1614
+WaitTime: 1618
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1576.0, 'displayed': '1794160453.537   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s614ms', 'total_ms': 1614}
+
+===== sample 9 force-stop then am start -W =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1567
+WaitTime: 1583
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1520.0, 'displayed': '1794160456.569   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s567ms', 'total_ms': 1567}

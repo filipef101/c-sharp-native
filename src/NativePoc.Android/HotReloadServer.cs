@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Security.Cryptography;
 using System.Text;
+using Android.Content;
 using Android.Net;
 
 namespace NativePoc;
@@ -11,6 +12,7 @@ namespace NativePoc;
 static class HotReloadServer
 {
 	const int TokenBytes = 16;
+	const string SocketName = "npoc-hotreload";
 
 	static readonly object Gate = new();
 
@@ -20,7 +22,7 @@ static class HotReloadServer
 
 	static AssemblyLoadContext? _loaded;
 
-	public static void Start(string tokenHex)
+	public static void Start(Context context)
 	{
 		if (Interlocked.CompareExchange(ref _started, 1, 0) != 0)
 		{
@@ -28,12 +30,12 @@ static class HotReloadServer
 			return;
 		}
 
-		byte[] token;
 		try
 		{
-			if (tokenHex.Length != TokenBytes * 2)
-				throw new FormatException("The hot reload token is the wrong length.");
-			token = Convert.FromHexString(tokenHex);
+			var token = RandomNumberGenerator.GetBytes(TokenBytes);
+			WriteToken(context, token);
+			lock (Gate)
+				_token = token;
 		}
 		catch (Exception ex)
 		{
@@ -42,9 +44,7 @@ static class HotReloadServer
 			return;
 		}
 
-		lock (Gate)
-			_token = token;
-		var thread = new Thread(() => Listen(tokenHex.ToLowerInvariant()))
+		var thread = new Thread(Listen)
 		{
 			IsBackground = true,
 			Name = "hot-reload",
@@ -52,13 +52,21 @@ static class HotReloadServer
 		thread.Start();
 	}
 
-	static void Listen(string tokenHex)
+	static void WriteToken(Context context, byte[] token)
 	{
-		var name = "npoc-" + tokenHex;
+		using var output = context.OpenFileOutput("hotreload.token", FileCreationMode.Private)
+			?? throw new InvalidOperationException("The hot reload token file was not created.");
+		var hex = Encoding.ASCII.GetBytes(Convert.ToHexString(token).ToLowerInvariant());
+		output.Write(hex, 0, hex.Length);
+		output.Flush();
+	}
+
+	static void Listen()
+	{
 		LocalServerSocket listener;
 		try
 		{
-			listener = new LocalServerSocket(name);
+			listener = new LocalServerSocket(SocketName);
 		}
 		catch (Exception ex)
 		{
@@ -67,7 +75,7 @@ static class HotReloadServer
 			return;
 		}
 
-		Android.Util.Log.Info(MainActivity.Tag, "hotreload-listen localabstract:" + name);
+		Android.Util.Log.Info(MainActivity.Tag, "hotreload-listen localabstract:" + SocketName);
 		while (true)
 		{
 			LocalSocket? client = null;

@@ -1,0 +1,62 @@
+INSTALL maui
+package=com.companyname.mauibaseline
+component=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+samples=10 dropped=0
+totals=1849,2139,1903,2226,1936,1952,1513,1730,1614,1567
+sorted=1513,1567,1614,1730,1849,1903,1936,1952,2139,2226
+p50=1876.0
+min=1513 max=2226
+runtime_init_ms=,,,,,,,,,
+widget_build_ms=,,,,,,,,,
+first_frame_ms=,,,,,,,,,
+start_to_displayed_ms=1804.0,2149.0,1858.0,2166.0,1912.0,1851.0,1466.0,1704.0,1576.0,1520.0
+start_to_displayed_ms-p50=1827.5 n=10
+INSTALL profiled
+package=com.scratch.nativepoc
+component=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+samples=10 dropped=0
+totals=1075,927,1011,961,998,830,912,1032,949,973
+sorted=830,912,927,949,961,973,998,1011,1032,1075
+p50=967.0
+min=830 max=1075
+runtime_init_ms=374.0,272.0,304.0,320.0,272.0,220.0,276.0,317.0,278.0,286.0
+runtime_init_ms-p50=282.0 n=10
+widget_build_ms=83.0,101.0,86.0,66.0,53.0,55.0,51.0,66.0,52.0,75.0
+widget_build_ms-p50=66.0 n=10
+first_frame_ms=597.0,526.0,576.0,528.0,650.0,525.0,539.0,623.0,590.0,645.0
+first_frame_ms-p50=583.0 n=10
+start_to_displayed_ms=1054.0,899.0,966.0,914.0,975.0,800.0,866.0,1006.0,920.0,1006.0
+start_to_displayed_ms-p50=943.0 n=10
+INSTALL nativeaot
+package=com.scratch.nativepoc
+component=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+samples=10 dropped=0
+totals=773,920,881,962,1008,851,851,814,977,836
+sorted=773,814,836,851,851,881,920,962,977,1008
+p50=866.0
+min=773 max=1008
+runtime_init_ms=166.0,229.0,272.0,278.0,261.0,240.0,180.0,214.0,233.0,234.0
+runtime_init_ms-p50=233.5 n=10
+widget_build_ms=22.0,22.0,31.0,63.0,48.0,38.0,40.0,35.0,76.0,29.0
+widget_build_ms-p50=36.5 n=10
+first_frame_ms=586.0,655.0,556.0,591.0,686.0,552.0,622.0,542.0,663.0,576.0
+first_frame_ms-p50=588.5 n=10
+start_to_displayed_ms=774.0,906.0,859.0,932.0,995.0,830.0,842.0,791.0,972.0,839.0
+start_to_displayed_ms-p50=850.5 n=10
+INSTALL fullaot
+package=com.scratch.nativepoc
+component=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+samples=10 dropped=0
+totals=1007,1044,925,894,1152,945,922,922,954,1169
+sorted=894,922,922,925,945,954,1007,1044,1152,1169
+p50=949.5
+min=894 max=1169
+runtime_init_ms=330.0,364.0,254.0,283.0,357.0,297.0,335.0,325.0,205.0,472.0
+runtime_init_ms-p50=327.5 n=10
+widget_build_ms=42.0,45.0,35.0,29.0,53.0,39.0,36.0,30.0,31.0,38.0
+widget_build_ms-p50=37.0 n=10
+first_frame_ms=605.0,603.0,595.0,567.0,703.0,605.0,546.0,535.0,695.0,624.0
+first_frame_ms-p50=604.0 n=10
+start_to_displayed_ms=977.0,1012.0,884.0,879.0,1113.0,941.0,917.0,890.0,931.0,1134.0
+start_to_displayed_ms-p50=936.0 n=10
+MEASURE_OK

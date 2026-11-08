@@ -1,0 +1,12 @@
+  Determining projects to restore...
+  Restored /workspace/src/NativePoc.Core/NativePoc.Core.csproj (in 236 ms).
+  Restored /workspace/src/NativePoc.Screen/NativePoc.Screen.csproj (in 236 ms).
+  Restored /workspace/tests/NativePoc.Core.Tests/NativePoc.Core.Tests.csproj (in 236 ms).
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+  NativePoc.Core.Tests -> /workspace/tests/NativePoc.Core.Tests/bin/Debug/net10.0/NativePoc.Core.Tests.dll
+Test run for /workspace/tests/NativePoc.Core.Tests/bin/Debug/net10.0/NativePoc.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    23, Skipped:     0, Total:    23, Duration: 70 ms - NativePoc.Core.Tests.dll (net10.0)
+UNIT_EXIT:0

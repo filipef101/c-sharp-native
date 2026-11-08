@@ -1,0 +1,9 @@
+The template ".NET MAUI App" was created successfully.
+
+Processing post-creation actions...
+Restoring /tmp/maui-baseline/MauiBaseline.csproj:
+  Determining projects to restore...
+/home/ubuntu/.dotnet/sdk/10.0.403/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.Sdk.ImportWorkloads.targets(38,5): error NETSDK1178: The project depends on the following workload packs that do not exist in any of the workloads available in this installation: Microsoft.iOS.Sdk.net10.0_26.0 [/tmp/maui-baseline/MauiBaseline.csproj::TargetFramework=net10.0-ios]
+/home/ubuntu/.dotnet/sdk/10.0.403/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.Sdk.ImportWorkloads.targets(38,5): error NETSDK1178: You may need to build the project on another operating system or architecture, or update the .NET SDK. [/tmp/maui-baseline/MauiBaseline.csproj::TargetFramework=net10.0-ios]
+
+

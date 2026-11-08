@@ -216,7 +216,7 @@ public sealed class ReconcilerTests
 	{
 		return new Column(
 		[
-			new Text(prefix + state.Count),
+			new Text(prefix + state.Count) { Key = "title" },
 			new TextField(
 				state.Name,
 				value =>
@@ -225,7 +225,8 @@ public sealed class ReconcilerTests
 					platform.RequestRender();
 				},
 				"Name",
-				"Name"),
+				"Name")
+			{ Key = "name" },
 			new Button(
 				"Save",
 				() =>
@@ -234,8 +235,9 @@ public sealed class ReconcilerTests
 					platform.CopyNonce("poc-" + state.Count);
 					platform.RequestRender();
 				},
-				"Save name"),
-			new Text(state.Name.Length == 0 ? "Enter a name" : "Hello " + state.Name),
+				"Save name")
+			{ Key = "save" },
+			new Text(state.Name.Length == 0 ? "Enter a name" : "Hello " + state.Name) { Key = "greeting" },
 		]);
 	}
 
@@ -307,7 +309,246 @@ public sealed class ReconcilerTests
 
 		Assert.Equal(shifted, reconciler.ViewAt(NodePath.Root.Child(0)).Identity);
 		Assert.Equal("shifted", reconciler.ViewAt(NodePath.Root.Child(0)).Value);
+		Assert.Equal(0, reconciler.ViewAt(NodePath.Root.Child(0)).Removed);
 		Assert.Single(reconciler.Root!.Children);
+	}
+
+	[Fact]
+	public void Screen_render_assigns_a_key_to_every_child()
+	{
+		var column = Assert.IsType<Column>(Screen.Render(new AppState(), new RecordingPlatform()));
+		Assert.Equal("title,name,save,greeting", string.Join(",", column.Children.Select(child => child.Key)));
+	}
+
+	[Fact]
+	public void Deleting_a_middle_keyed_child_leaves_the_other_views_attached()
+	{
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(new Column(
+		[
+			new Text("a") { Key = "a" },
+			new Text("b") { Key = "b" },
+			new Text("c") { Key = "c" },
+			new Text("d") { Key = "d" },
+		]));
+		var first = reconciler.ViewAt(NodePath.Root.Child(0));
+		var second = reconciler.ViewAt(NodePath.Root.Child(1));
+		var third = reconciler.ViewAt(NodePath.Root.Child(2));
+		var fourth = reconciler.ViewAt(NodePath.Root.Child(3));
+
+		reconciler.Render(new Column(
+		[
+			new Text("a") { Key = "a" },
+			new Text("c") { Key = "c" },
+			new Text("d") { Key = "d" },
+		]));
+
+		Assert.Equal(0, first.Removed);
+		Assert.Equal(0, third.Removed);
+		Assert.Equal(0, fourth.Removed);
+		Assert.False(first.Disposed);
+		Assert.False(third.Disposed);
+		Assert.False(fourth.Disposed);
+		Assert.Equal(1, second.Removed);
+		Assert.True(second.Disposed);
+		Assert.False(second.DisposedWhileAttached);
+		Assert.Equal("a,c,d", string.Join(",", reconciler.Root!.Children.Select(child => child.Text)));
+	}
+
+	[Fact]
+	public void Reordering_keyed_children_leaves_a_view_attached()
+	{
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(new Column(
+		[
+			new Text("a") { Key = "a" },
+			new Text("b") { Key = "b" },
+			new Text("c") { Key = "c" },
+			new Text("d") { Key = "d" },
+		]));
+		var nodes = Enumerable.Range(0, 4).Select(index => reconciler.ViewAt(NodePath.Root.Child(index))).ToArray();
+
+		reconciler.Render(new Column(
+		[
+			new Text("d") { Key = "d" },
+			new Text("c") { Key = "c" },
+			new Text("b") { Key = "b" },
+			new Text("a") { Key = "a" },
+		]));
+
+		Assert.Contains(nodes, node => node.Removed == 0);
+		Assert.All(nodes, node => Assert.False(node.Disposed));
+		Assert.Equal("d,c,b,a", string.Join(",", reconciler.Root!.Children.Select(child => child.Text)));
+		Assert.Equal(nodes[3].Identity, reconciler.ViewAt(NodePath.Root.Child(0)).Identity);
+		Assert.Equal(nodes[0].Identity, reconciler.ViewAt(NodePath.Root.Child(3)).Identity);
+	}
+
+	[Fact]
+	public void Inserting_a_keyed_child_in_the_middle_leaves_the_others_attached()
+	{
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(new Column(
+		[
+			new Text("a") { Key = "a" },
+			new Text("b") { Key = "b" },
+			new Text("c") { Key = "c" },
+		]));
+		var nodes = Enumerable.Range(0, 3).Select(index => reconciler.ViewAt(NodePath.Root.Child(index))).ToArray();
+
+		reconciler.Render(new Column(
+		[
+			new Text("a") { Key = "a" },
+			new Text("x") { Key = "x" },
+			new Text("b") { Key = "b" },
+			new Text("c") { Key = "c" },
+		]));
+
+		Assert.All(nodes, node => Assert.Equal(0, node.Removed));
+		Assert.Equal(nodes[0].Identity, reconciler.ViewAt(NodePath.Root.Child(0)).Identity);
+		Assert.Equal(nodes[1].Identity, reconciler.ViewAt(NodePath.Root.Child(2)).Identity);
+		Assert.Equal(nodes[2].Identity, reconciler.ViewAt(NodePath.Root.Child(3)).Identity);
+		Assert.Equal("x", reconciler.ViewAt(NodePath.Root.Child(1)).Text);
+	}
+
+	[Fact]
+	public void Replacing_a_keyed_column_disposes_its_children_after_they_leave_the_parent()
+	{
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(new Column(
+		[
+			new Column(
+			[
+				new Text("inner") { Key = "inner" },
+				new Button("Go", static () => { }, "Go") { Key = "go" },
+			])
+			{ Key = "nest" },
+			new Text("sib") { Key = "sib" },
+		]));
+		var nest = reconciler.ViewAt(NodePath.Root.Child(0));
+		var inner = nest.Children[0];
+		var button = nest.Children[1];
+		var sibling = reconciler.ViewAt(NodePath.Root.Child(1));
+
+		reconciler.Render(new Column(
+		[
+			new Text("flat") { Key = "nest" },
+			new Text("sib") { Key = "sib" },
+		]));
+
+		Assert.True(nest.Disposed);
+		Assert.True(inner.Disposed);
+		Assert.True(button.Disposed);
+		Assert.False(nest.DisposedWhileAttached);
+		Assert.False(inner.DisposedWhileAttached);
+		Assert.False(button.DisposedWhileAttached);
+		Assert.False(sibling.Disposed);
+		Assert.Equal(0, sibling.Removed);
+		Assert.Equal("flat", reconciler.ViewAt(NodePath.Root.Child(0)).Text);
+		Assert.Equal(sibling.Identity, reconciler.ViewAt(NodePath.Root.Child(1)).Identity);
+	}
+
+	[Fact]
+	public void Replacing_the_root_mounts_a_new_view_and_disposes_the_old_tree()
+	{
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(new Column([new Text("a") { Key = "a" }]));
+		var oldRoot = reconciler.Root!;
+		var child = oldRoot.Children[0];
+
+		reconciler.Render(new Text("flat"));
+
+		Assert.NotSame(oldRoot, reconciler.Root);
+		Assert.True(oldRoot.Disposed);
+		Assert.True(child.Disposed);
+		Assert.False(oldRoot.DisposedWhileAttached);
+		Assert.False(child.DisposedWhileAttached);
+		Assert.Equal("flat", reconciler.Root!.Text);
+		Assert.Empty(reconciler.Root.Children);
+	}
+
+	[Fact]
+	public void Keyed_structure_keeps_identity_across_random_edits()
+	{
+		var random = new Random(20261108);
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		var order = new List<string> { "a", "b", "c", "d", "e" };
+		var live = new Dictionary<string, MemoryNode>();
+		RenderOrder();
+		Remember();
+		for (var step = 0; step < 200; step++)
+		{
+			var before = order.ToArray();
+			var roll = random.Next(4);
+			if (roll == 0 && order.Count > 1)
+				order.RemoveAt(random.Next(order.Count));
+			else if (roll == 1)
+				order.Insert(random.Next(order.Count + 1), "n" + step);
+			else if (roll == 2 && order.Count > 1)
+			{
+				var left = random.Next(order.Count);
+				var right = random.Next(order.Count);
+				(order[left], order[right]) = (order[right], order[left]);
+			}
+			else if (order.Count > 1)
+				order.Reverse();
+
+			var removed = before.Where(key => !order.Contains(key)).ToArray();
+			RenderOrder();
+			Assert.Equal(order.ToArray(), reconciler.Root!.Children.Select(child => child.Text).ToArray());
+			for (var index = 0; index < order.Count; index++)
+			{
+				var key = order[index];
+				var child = reconciler.ViewAt(NodePath.Root.Child(index));
+				if (live.TryGetValue(key, out var previous))
+				{
+					Assert.Equal(previous.Identity, child.Identity);
+					Assert.False(previous.Disposed);
+				}
+				live[key] = child;
+			}
+			foreach (var key in removed)
+			{
+				Assert.True(live[key].Disposed);
+				Assert.False(live[key].DisposedWhileAttached);
+				live.Remove(key);
+			}
+		}
+
+		void RenderOrder()
+		{
+			reconciler.Render(new Column(order.Select(key => new Text(key) { Key = key }).ToArray()));
+		}
+
+		void Remember()
+		{
+			live.Clear();
+			for (var index = 0; index < order.Count; index++)
+				live[order[index]] = reconciler.ViewAt(NodePath.Root.Child(index));
+		}
+	}
+
+	[Fact]
+	public void Mixed_and_duplicate_keys_are_rejected()
+	{
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(new Column(
+		[
+			new Text("a") { Key = "a" },
+			new Text("b") { Key = "b" },
+		]));
+
+		Assert.Throws<InvalidOperationException>(() => reconciler.Render(new Column(
+		[
+			new Text("a") { Key = "a" },
+			new Text("b"),
+		])));
+		Assert.Throws<InvalidOperationException>(() => reconciler.Render(new Column(
+		[
+			new Text("a") { Key = "a" },
+			new Text("b") { Key = "a" },
+		])));
+		Assert.Equal("a", reconciler.ViewAt(NodePath.Root.Child(0)).Text);
+		Assert.Equal("b", reconciler.ViewAt(NodePath.Root.Child(1)).Text);
 	}
 
 	[Fact]

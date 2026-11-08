@@ -1,0 +1,125 @@
+package=com.scratch.nativepoc
+component=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+samples=10 dropped=0
+totals=1075,927,1011,961,998,830,912,1032,949,973
+sorted=830,912,927,949,961,973,998,1011,1032,1075
+p50=967.0
+min=830 max=1075
+runtime_init_ms=374.0,272.0,304.0,320.0,272.0,220.0,276.0,317.0,278.0,286.0
+runtime_init_ms-p50=282.0 n=10
+widget_build_ms=83.0,101.0,86.0,66.0,53.0,55.0,51.0,66.0,52.0,75.0
+widget_build_ms-p50=66.0 n=10
+first_frame_ms=597.0,526.0,576.0,528.0,650.0,525.0,539.0,623.0,590.0,645.0
+first_frame_ms-p50=583.0 n=10
+start_to_displayed_ms=1054.0,899.0,966.0,914.0,975.0,800.0,866.0,1006.0,920.0,1006.0
+start_to_displayed_ms-p50=943.0 n=10
+
+===== sample 0 force-stop then am start -W =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1075
+WaitTime: 1080
+Complete
+
+{'runtime_init_ms': 374.0, 'widget_build_ms': 83.0, 'first_frame_ms': 597.0, 'start_to_displayed_ms': 1054.0, 'displayed': '1794160480.012   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +1s75ms', 'total_ms': 1075}
+
+===== sample 1 force-stop then am start -W =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 927
+WaitTime: 931
+Complete
+
+{'runtime_init_ms': 272.0, 'widget_build_ms': 101.0, 'first_frame_ms': 526.0, 'start_to_displayed_ms': 899.0, 'displayed': '1794160482.158   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +927ms', 'total_ms': 927}
+
+===== sample 2 force-stop then am start -W =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1011
+WaitTime: 1017
+Complete
+
+{'runtime_init_ms': 304.0, 'widget_build_ms': 86.0, 'first_frame_ms': 576.0, 'start_to_displayed_ms': 966.0, 'displayed': '1794160484.527   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +1s11ms', 'total_ms': 1011}
+
+===== sample 3 force-stop then am start -W =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 961
+WaitTime: 968
+Complete
+
+{'runtime_init_ms': 320.0, 'widget_build_ms': 66.0, 'first_frame_ms': 528.0, 'start_to_displayed_ms': 914.0, 'displayed': '1794160487.181   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +961ms', 'total_ms': 961}
+
+===== sample 4 force-stop then am start -W =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 998
+WaitTime: 1014
+Complete
+
+{'runtime_init_ms': 272.0, 'widget_build_ms': 53.0, 'first_frame_ms': 650.0, 'start_to_displayed_ms': 975.0, 'displayed': '1794160489.731   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +998ms', 'total_ms': 998}
+
+===== sample 5 force-stop then am start -W =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 830
+WaitTime: 842
+Complete
+
+{'runtime_init_ms': 220.0, 'widget_build_ms': 55.0, 'first_frame_ms': 525.0, 'start_to_displayed_ms': 800.0, 'displayed': '1794160491.922   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +830ms', 'total_ms': 830}
+
+===== sample 6 force-stop then am start -W =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 912
+WaitTime: 923
+Complete
+
+{'runtime_init_ms': 276.0, 'widget_build_ms': 51.0, 'first_frame_ms': 539.0, 'start_to_displayed_ms': 866.0, 'displayed': '1794160494.182   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +912ms', 'total_ms': 912}
+
+===== sample 7 force-stop then am start -W =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1032
+WaitTime: 1040
+Complete
+
+{'runtime_init_ms': 317.0, 'widget_build_ms': 66.0, 'first_frame_ms': 623.0, 'start_to_displayed_ms': 1006.0, 'displayed': '1794160496.771   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +1s32ms', 'total_ms': 1032}
+
+===== sample 8 force-stop then am start -W =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 949
+WaitTime: 957
+Complete
+
+{'runtime_init_ms': 278.0, 'widget_build_ms': 52.0, 'first_frame_ms': 590.0, 'start_to_displayed_ms': 920.0, 'displayed': '1794160499.122   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +949ms', 'total_ms': 949}
+
+===== sample 9 force-stop then am start -W =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 973
+WaitTime: 1053
+Complete
+
+{'runtime_init_ms': 286.0, 'widget_build_ms': 75.0, 'first_frame_ms': 645.0, 'start_to_displayed_ms': 1006.0, 'displayed': '1794160501.494   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +973ms', 'total_ms': 973}

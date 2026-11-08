@@ -1,0 +1,11 @@
+component=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+start:
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 2093
+WaitTime: 2112
+Complete
+
+clicked=Home | Hello, World! | Welcome to &#10;.NET Multi-platform App UI | Clicked 1 time

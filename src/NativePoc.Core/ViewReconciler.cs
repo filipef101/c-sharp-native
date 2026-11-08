@@ -66,13 +66,11 @@ public sealed class ViewReconciler<TView>
 				MountView(mount.Path, mount.Kind);
 				return;
 			case Replace replace:
-				UnmountDescendants(replace.Path);
-				Detach(replace.Path);
+				RemoveSubtree(replace.Path);
 				MountView(replace.Path, replace.Kind);
 				return;
 			case Unmount unmount:
-				UnmountDescendants(unmount.Path);
-				Detach(unmount.Path);
+				RemoveSubtree(unmount.Path);
 				return;
 			case SetText setText:
 				_host.SetText(ViewAt(setText.Path), setText.Value);
@@ -102,40 +100,57 @@ public sealed class ViewReconciler<TView>
 		_host.OnMounted(path, view);
 	}
 
-	void Detach(NodePath path)
+	void RemoveSubtree(NodePath path)
 	{
-		if (!_views.TryGetValue(path, out var view))
+		if (!_views.ContainsKey(path))
 			throw new InvalidOperationException("Cannot detach a view that is not mounted.");
 		if (path.Length == 0)
 			Root = null;
 		else
 			_host.Remove(ViewAt(path.Parent()), path.LastIndex());
-		_views.Remove(path);
-		_host.OnUnmounted(path, view);
+
+		var nodes = new List<(NodePath Path, TView View)>();
+		foreach (var pair in _views)
+		{
+			if (pair.Key.Equals(path) || pair.Key.IsDescendantOf(path))
+				nodes.Add((pair.Key, pair.Value));
+		}
+		nodes.Sort(static (left, right) =>
+		{
+			var byLength = right.Path.Length.CompareTo(left.Path.Length);
+			if (byLength != 0)
+				return byLength;
+			return right.Path.LastIndex().CompareTo(left.Path.LastIndex());
+		});
+		foreach (var node in nodes)
+		{
+			if (!node.Path.Equals(path))
+				_host.Remove(ViewIn(nodes, node.Path.Parent()), node.Path.LastIndex());
+			_views.Remove(node.Path);
+			_host.OnUnmounted(node.Path, node.View);
+		}
 	}
 
 	void ApplyReorder(NodePath parent, IReadOnlyList<int> sources)
 	{
 		var oldCount = CountDirectChildren(parent);
 		var extracted = new (TView View, List<(NodePath Path, TView View)> Nodes)[oldCount];
-		for (var index = oldCount - 1; index >= 0; index--)
+		for (var index = 0; index < oldCount; index++)
 		{
 			var path = parent.Child(index);
-			var view = ViewAt(path);
 			var nodes = new List<(NodePath Path, TView View)>();
 			foreach (var pair in _views)
 			{
 				if (pair.Key.Equals(path) || pair.Key.IsDescendantOf(path))
 					nodes.Add((pair.Key, pair.Value));
 			}
-			_host.Remove(ViewAt(parent), index);
-			foreach (var node in nodes)
-				_views.Remove(node.Path);
-			extracted[index] = (view, nodes);
+			extracted[index] = (ViewAt(path), nodes);
 		}
 
+		var stationary = StationaryNewIndices(sources);
 		var kept = new bool[oldCount];
-		var packed = 0;
+		var stationaryNew = new int[oldCount];
+		Array.Fill(stationaryNew, -1);
 		for (var newIndex = 0; newIndex < sources.Count; newIndex++)
 		{
 			var oldIndex = sources[newIndex];
@@ -143,10 +158,39 @@ public sealed class ViewReconciler<TView>
 				continue;
 			if ((uint)oldIndex >= (uint)oldCount)
 				throw new InvalidOperationException("Reorder names a child that is not mounted.");
+			if (kept[oldIndex])
+				throw new InvalidOperationException("Reorder names the same child twice.");
 			kept[oldIndex] = true;
+			if (stationary.Contains(newIndex))
+				stationaryNew[oldIndex] = newIndex;
+		}
+
+		for (var index = 0; index < oldCount; index++)
+		{
+			foreach (var node in extracted[index].Nodes)
+				_views.Remove(node.Path);
+		}
+
+		var parentView = ViewAt(parent);
+		for (var oldIndex = oldCount - 1; oldIndex >= 0; oldIndex--)
+		{
+			if (stationaryNew[oldIndex] >= 0)
+				continue;
+			_host.Remove(parentView, oldIndex);
+			if (kept[oldIndex])
+				continue;
+			DisposeExtracted(extracted[oldIndex].Nodes, parent.Child(oldIndex));
+		}
+
+		var physical = 0;
+		for (var newIndex = 0; newIndex < sources.Count; newIndex++)
+		{
+			var oldIndex = sources[newIndex];
+			if (oldIndex < 0)
+				continue;
 			var (view, nodes) = extracted[oldIndex];
-			_host.Insert(ViewAt(parent), packed, view);
-			packed++;
+			if (stationaryNew[oldIndex] < 0)
+				_host.Insert(parentView, physical, view);
 			foreach (var node in nodes)
 			{
 				var updated = ReplaceSegment(node.Path, parent.Length, newIndex);
@@ -154,17 +198,75 @@ public sealed class ViewReconciler<TView>
 				if (!updated.Equals(node.Path))
 					_host.Retarget(updated, node.View);
 			}
+			physical++;
 		}
+	}
 
-		for (var oldIndex = 0; oldIndex < oldCount; oldIndex++)
+	void DisposeExtracted(List<(NodePath Path, TView View)> nodes, NodePath root)
+	{
+		nodes.Sort(static (left, right) =>
 		{
-			if (kept[oldIndex])
-				continue;
-			var nodes = extracted[oldIndex].Nodes;
-			nodes.Sort(static (left, right) => right.Path.Length.CompareTo(left.Path.Length));
-			foreach (var node in nodes)
-				_host.OnUnmounted(node.Path, node.View);
+			var byLength = right.Path.Length.CompareTo(left.Path.Length);
+			if (byLength != 0)
+				return byLength;
+			return right.Path.LastIndex().CompareTo(left.Path.LastIndex());
+		});
+		foreach (var node in nodes)
+		{
+			if (!node.Path.Equals(root))
+				_host.Remove(ViewIn(nodes, node.Path.Parent()), node.Path.LastIndex());
+			_host.OnUnmounted(node.Path, node.View);
 		}
+	}
+
+	static TView ViewIn(List<(NodePath Path, TView View)> nodes, NodePath path)
+	{
+		foreach (var node in nodes)
+		{
+			if (node.Path.Equals(path))
+				return node.View;
+		}
+		throw new InvalidOperationException("No view is mounted at that path.");
+	}
+
+	static HashSet<int> StationaryNewIndices(IReadOnlyList<int> sources)
+	{
+		var sequence = new List<(int NewIndex, int OldIndex)>();
+		for (var i = 0; i < sources.Count; i++)
+		{
+			if (sources[i] >= 0)
+				sequence.Add((i, sources[i]));
+		}
+		var count = sequence.Count;
+		var stationary = new HashSet<int>();
+		if (count == 0)
+			return stationary;
+		var tails = new int[count];
+		var tailLength = 0;
+		var previous = new int[count];
+		Array.Fill(previous, -1);
+		for (var i = 0; i < count; i++)
+		{
+			var old = sequence[i].OldIndex;
+			var lo = 0;
+			var hi = tailLength;
+			while (lo < hi)
+			{
+				var mid = (lo + hi) / 2;
+				if (sequence[tails[mid]].OldIndex < old)
+					lo = mid + 1;
+				else
+					hi = mid;
+			}
+			if (lo > 0)
+				previous[i] = tails[lo - 1];
+			tails[lo] = i;
+			if (lo == tailLength)
+				tailLength++;
+		}
+		for (var cursor = tails[tailLength - 1]; cursor >= 0; cursor = previous[cursor])
+			stationary.Add(sequence[cursor].NewIndex);
+		return stationary;
 	}
 
 	int CountDirectChildren(NodePath parent)
@@ -184,23 +286,6 @@ public sealed class ViewReconciler<TView>
 		for (var i = 0; i < path.Length; i++)
 			rewritten = rewritten.Child(i == depth ? index : path.Segment(i));
 		return rewritten;
-	}
-
-	void UnmountDescendants(NodePath path)
-	{
-		var descendants = new List<NodePath>();
-		foreach (var pair in _views)
-		{
-			if (pair.Key.IsDescendantOf(path))
-				descendants.Add(pair.Key);
-		}
-		descendants.Sort(static (left, right) => right.Length.CompareTo(left.Length));
-		foreach (var descendant in descendants)
-		{
-			var view = _views[descendant];
-			_views.Remove(descendant);
-			_host.OnUnmounted(descendant, view);
-		}
 	}
 
 	static InvalidOperationException Unknown(Patch patch) =>

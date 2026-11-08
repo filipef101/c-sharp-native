@@ -1,0 +1,49 @@
+clock=TCP send of an already compiled DLL through the post-render reply
+compile and file write happen before the clock; the app is restarted after the DLLs exist
+precompiled=0 bytes=7168
+precompiled=1 bytes=7168
+precompiled=2 bytes=7168
+precompiled=3 bytes=7168
+precompiled=4 bytes=7168
+precompiled=5 bytes=7168
+precompiled=6 bytes=7168
+precompiled=7 bytes=7168
+precompiled=8 bytes=7168
+precompiled=9 bytes=7168
+precompiled=10 bytes=7168
+precompiled=11 bytes=7168
+precompiled=12 bytes=7168
+precompiled=13 bytes=7168
+precompiled=14 bytes=7168
+precompiled=15 bytes=7168
+precompiled=16 bytes=7168
+precompiled=17 bytes=7168
+precompiled=18 bytes=7168
+precompiled=19 bytes=7168
+pid=15856
+sample=0 ms=99.6 pid=15856 reply=B00 1 collectible=True ui=Native PoC | B00 1 | Ada | Save | Hello Ada ok=True
+sample=1 ms=47.8 pid=15856 reply=B01 1 collectible=True ui=Native PoC | B01 1 | Ada | Save | Hello Ada ok=True
+sample=2 ms=8.3 pid=15856 reply=B02 1 collectible=True ui=Native PoC | B02 1 | Ada | Save | Hello Ada ok=True
+sample=3 ms=8.4 pid=15856 reply=B03 1 collectible=True ui=Native PoC | B03 1 | Ada | Save | Hello Ada ok=True
+sample=4 ms=10.2 pid=15856 reply=B04 1 collectible=True ui=Native PoC | B04 1 | Ada | Save | Hello Ada ok=True
+sample=5 ms=5.6 pid=15856 reply=B05 1 collectible=True ui=Native PoC | B05 1 | Ada | Save | Hello Ada ok=True
+sample=6 ms=6.7 pid=15856 reply=B06 1 collectible=True ui=Native PoC | B06 1 | Ada | Save | Hello Ada ok=True
+sample=7 ms=5.8 pid=15856 reply=B07 1 collectible=True ui=Native PoC | B07 1 | Ada | Save | Hello Ada ok=True
+sample=8 ms=5.8 pid=15856 reply=B08 1 collectible=True ui=Native PoC | B08 1 | Ada | Save | Hello Ada ok=True
+sample=9 ms=5.6 pid=15856 reply=B09 1 collectible=True ui=Native PoC | B09 1 | Ada | Save | Hello Ada ok=True
+sample=10 ms=5.5 pid=15856 reply=B10 1 collectible=True ui=Native PoC | B10 1 | Ada | Save | Hello Ada ok=True
+sample=11 ms=5.4 pid=15856 reply=B11 1 collectible=True ui=Native PoC | B11 1 | Ada | Save | Hello Ada ok=True
+sample=12 ms=5.5 pid=15856 reply=B12 1 collectible=True ui=Native PoC | B12 1 | Ada | Save | Hello Ada ok=True
+sample=13 ms=5.8 pid=15856 reply=B13 1 collectible=True ui=Native PoC | B13 1 | Ada | Save | Hello Ada ok=True
+sample=14 ms=5.7 pid=15856 reply=B14 1 collectible=True ui=Native PoC | B14 1 | Ada | Save | Hello Ada ok=True
+sample=15 ms=5.8 pid=15856 reply=B15 1 collectible=True ui=Native PoC | B15 1 | Ada | Save | Hello Ada ok=True
+sample=16 ms=5.6 pid=15856 reply=B16 1 collectible=True ui=Native PoC | B16 1 | Ada | Save | Hello Ada ok=True
+sample=17 ms=5.9 pid=15856 reply=B17 1 collectible=True ui=Native PoC | B17 1 | Ada | Save | Hello Ada ok=True
+sample=18 ms=13.5 pid=15856 reply=B18 1 collectible=True ui=Native PoC | B18 1 | Ada | Save | Hello Ada ok=True
+sample=19 ms=6.3 pid=15856 reply=B19 1 collectible=True ui=Native PoC | B19 1 | Ada | Save | Hello Ada ok=True
+samples-ms=99.6,47.8,8.3,8.4,10.2,5.6,6.7,5.8,5.8,5.6,5.5,5.4,5.5,5.8,5.7,5.8,5.6,5.9,13.5,6.3
+cold-ms=99.6
+p50-all-ms=5.8
+p50-warm-ms=5.8
+min-ms=5.4
+max-ms=99.6

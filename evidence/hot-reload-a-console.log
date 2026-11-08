@@ -1,0 +1,30 @@
+clock=file-write then Roslyn compile then abstract-socket send through the post-render reply
+cold=sample 0, the first load after process start; no compile and no send before it
+pid=14365
+sample=0 ms=849.1 pid=14365 reply=A00 1 collectible=True ui=Native PoC | A00 1 | Ada | Save | Hello Ada ok=True
+sample=1 ms=44.6 pid=14365 reply=A01 1 collectible=True ui=Native PoC | A01 1 | Ada | Save | Hello Ada ok=True
+sample=2 ms=26.8 pid=14365 reply=A02 1 collectible=True ui=Native PoC | A02 1 | Ada | Save | Hello Ada ok=True
+sample=3 ms=16.8 pid=14365 reply=A03 1 collectible=True ui=Native PoC | A03 1 | Ada | Save | Hello Ada ok=True
+sample=4 ms=16.9 pid=14365 reply=A04 1 collectible=True ui=Native PoC | A04 1 | Ada | Save | Hello Ada ok=True
+sample=5 ms=15.4 pid=14365 reply=A05 1 collectible=True ui=Native PoC | A05 1 | Ada | Save | Hello Ada ok=True
+sample=6 ms=16.8 pid=14365 reply=A06 1 collectible=True ui=Native PoC | A06 1 | Ada | Save | Hello Ada ok=True
+sample=7 ms=15.4 pid=14365 reply=A07 1 collectible=True ui=Native PoC | A07 1 | Ada | Save | Hello Ada ok=True
+sample=8 ms=13.8 pid=14365 reply=A08 1 collectible=True ui=Native PoC | A08 1 | Ada | Save | Hello Ada ok=True
+sample=9 ms=15.5 pid=14365 reply=A09 1 collectible=True ui=Native PoC | A09 1 | Ada | Save | Hello Ada ok=True
+sample=10 ms=13.1 pid=14365 reply=A10 1 collectible=True ui=Native PoC | A10 1 | Ada | Save | Hello Ada ok=True
+sample=11 ms=15.4 pid=14365 reply=A11 1 collectible=True ui=Native PoC | A11 1 | Ada | Save | Hello Ada ok=True
+sample=12 ms=13.7 pid=14365 reply=A12 1 collectible=True ui=Native PoC | A12 1 | Ada | Save | Hello Ada ok=True
+sample=13 ms=14.2 pid=14365 reply=A13 1 collectible=True ui=Native PoC | A13 1 | Ada | Save | Hello Ada ok=True
+sample=14 ms=12.9 pid=14365 reply=A14 1 collectible=True ui=Native PoC | A14 1 | Ada | Save | Hello Ada ok=True
+sample=15 ms=16.0 pid=14365 reply=A15 1 collectible=True ui=Native PoC | A15 1 | Ada | Save | Hello Ada ok=True
+sample=16 ms=19.1 pid=14365 reply=A16 1 collectible=True ui=Native PoC | A16 1 | Ada | Save | Hello Ada ok=True
+sample=17 ms=12.7 pid=14365 reply=A17 1 collectible=True ui=Native PoC | A17 1 | Ada | Save | Hello Ada ok=True
+sample=18 ms=12.0 pid=14365 reply=A18 1 collectible=True ui=Native PoC | A18 1 | Ada | Save | Hello Ada ok=True
+sample=19 ms=14.0 pid=14365 reply=A19 1 collectible=True ui=Native PoC | A19 1 | Ada | Save | Hello Ada ok=True
+samples-ms=849.1,44.6,26.8,16.8,16.9,15.4,16.8,15.4,13.8,15.5,13.1,15.4,13.7,14.2,12.9,16.0,19.1,12.7,12.0,14.0
+cold-ms=849.1
+p50-all-ms=15.4
+p50-warm-ms=15.4
+min-ms=12.0
+max-ms=849.1
+MODE_A:0

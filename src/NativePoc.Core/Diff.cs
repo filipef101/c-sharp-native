@@ -196,6 +196,13 @@ public static class TreeDiff
 			sources[i] = oldIndex.TryGetValue(key, out var index) ? index : -1;
 		}
 
+		if (previous.Count == 0)
+		{
+			for (var i = 0; i < next.Count; i++)
+				MountTree(next[i], path.Child(i), patches);
+			return;
+		}
+
 		var moved = previous.Count != next.Count;
 		if (!moved)
 		{

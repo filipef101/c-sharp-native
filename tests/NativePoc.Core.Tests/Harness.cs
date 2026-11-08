@@ -13,6 +13,14 @@ sealed class MemoryNode
 
 	public int Identity { get; } = _next++;
 
+	public int Removed { get; set; }
+
+	public bool Attached { get; set; }
+
+	public bool Disposed { get; set; }
+
+	public bool DisposedWhileAttached { get; set; }
+
 	public ElementKind Kind { get; }
 
 	public string? Text { get; set; }
@@ -32,11 +40,19 @@ sealed class MemoryHost : IElementHost<MemoryNode>
 {
 	public MemoryNode Create(ElementKind kind) => new(kind);
 
-	public void Insert(MemoryNode parent, int index, MemoryNode child) =>
+	public void Insert(MemoryNode parent, int index, MemoryNode child)
+	{
+		child.Attached = true;
 		parent.Children.Insert(index, child);
+	}
 
-	public void Remove(MemoryNode parent, int index) =>
+	public void Remove(MemoryNode parent, int index)
+	{
+		var child = parent.Children[index];
+		child.Removed++;
+		child.Attached = false;
 		parent.Children.RemoveAt(index);
+	}
 
 	public void SetText(MemoryNode view, string value) => view.Text = value;
 
@@ -63,6 +79,9 @@ sealed class MemoryHost : IElementHost<MemoryNode>
 
 	public void OnUnmounted(NodePath path, MemoryNode view)
 	{
+		view.DisposedWhileAttached = view.Attached;
+		view.Disposed = true;
+		view.Attached = false;
 	}
 }
 

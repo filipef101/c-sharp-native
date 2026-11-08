@@ -1,0 +1,336 @@
+--------- beginning of system
+         1794160684.139   518   540 I ActivityManager: Killing 2981:com.google.android.tts/u0a148 (adj 985): empty #17
+         1794160684.139   518   540 I ActivityManager: Killing 2586:com.android.chrome/u0a150 (adj 985): empty #18
+         1794160684.139   518   540 I ActivityManager: Killing 2077:com.google.android.as.oss/u0a120 (adj 995): empty #19
+         1794160684.139   518   540 I ActivityManager: Killing 2293:android.process.media/u0a87 (adj 995): empty #20
+         1794160684.140   518   540 I ActivityManager: Killing 1864:com.google.process.gapps/u0a129 (adj 999): empty #21
+         1794160684.140   518   540 I ActivityManager: Killing 2438:com.google.android.apps.wallpaper/u0a161 (adj 999): empty #22
+         1794160684.140   518   540 I ActivityManager: Killing 5394:com.google.android.webview/u0a137 (adj 999): empty #23
+         1794160684.140   518   540 I ActivityManager: Killing 3764:com.google.android.configupdater/u0a131 (adj 999): empty #24
+         1794160684.140   518   540 I ActivityManager: Killing 2043:com.google.android.partnersetup/u0a126 (adj 999): empty #25
+         1794160684.140   518   540 I ActivityManager: Killing 3913:com.google.android.rkpdapp/u0a182 (adj 999): empty #26
+         1794160684.140   518   540 I ActivityManager: Killing 4269:com.google.android.healthconnect.controller/u0a189 (adj 999): empty #27
+         1794160684.140   518   540 I ActivityManager: Killing 3108:com.android.traceur/u0a116 (adj 999): empty #28
+         1794160684.140   518   540 I ActivityManager: Killing 1249:com.google.android.cellbroadcastreceiver/u0a180 (adj 999): empty #29
+         1794160684.140   518   540 I ActivityManager: Killing 4233:com.android.emergency/u0a164 (adj 999): empty #30
+         1794160684.141   518   540 I ActivityManager: Killing 2275:com.google.android.documentsui/u0a98 (adj 999): empty #31
+         1794160684.141   518   540 I ActivityManager: Killing 2747:com.android.externalstorage/u0a84 (adj 999): empty #32
+         1794160684.141   518   540 I ActivityManager: Killing 1870:com.android.providers.calendar/u0a89 (adj 999): empty #33
+         1794160684.145   518   540 I ActivityManager: Killing 3717:com.android.shell/2000 (adj 999): empty #34
+         1794160684.145   518   540 I ActivityManager: Killing 3608:com.android.dynsystem:dynsystem/1000 (adj 999): empty #35
+         1794160684.146   518   540 I ActivityManager: Killing 1673:com.google.android.devicelockcontroller/u0a186 (adj 999): empty #36
+         1794160684.146   518   540 I ActivityManager: Killing 3531:com.android.dynsystem/1000 (adj 999): empty #37
+         1794160684.146   518   540 I ActivityManager: Killing 3460:com.android.camera2/u0a143 (adj 999): empty #38
+         1794160684.146   518   540 I ActivityManager: Killing 1743:com.android.managedprovisioning/u0a99 (adj 999): empty #39
+         1794160684.146   518   540 I ActivityManager: Killing 2464:com.android.imsserviceentitlement/u0a117 (adj 999): empty #40
+         1794160684.146   518   540 I ActivityManager: Killing 3021:com.google.android.webview:webview_service/u0a137 (adj 999): empty #41
+         1794160684.146   518   540 I ActivityManager: Killing 3238:com.google.android.onetimeinitializer/u0a125 (adj 999): empty #42
+         1794160684.146   518   540 I ActivityManager: Killing 1801:com.android.carrierdefaultapp/u0a108 (adj 999): empty #43
+         1794160684.146   518   540 I ActivityManager: Killing 1935:com.android.printspooler/u0a104 (adj 999): empty #44
+         1794160684.146   518   540 I ActivityManager: Killing 2320:com.android.localtransport/1000 (adj 999): empty #45
+         1794160684.146   518   540 I ActivityManager: Killing 1111:com.android.bluetooth/1002 (adj 999): empty #46
+         1794160684.146   518   540 I ActivityManager: Killing 1689:com.google.android.googlesdksetup/u0a157 (adj 999): empty #47
+         1794160684.147   518   540 I ActivityManager: Killing 1299:com.android.cellbroadcastreceiver/u0a91 (adj 999): empty #48
+         1794160684.147   518   540 I ActivityManager: Killing 1428:com.android.carrierconfig/u0a166 (adj 999): empty #49
+         1794160684.153   815   855 V WindowManagerShell:  try handler com.android.wm.shell.transition.DefaultTransitionHandler@1936e9a
+         1794160684.153   815   855 V WindowManagerShell: start default transition animation, info = {id=102 t=CLOSE f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{android.window.IWindowContainerToken$Stub$Proxy@6ce02eb} m=CLOSE f=NONE leash=Surface(name=Task=53)/@0x1a2225c sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{android.window.IWindowContainerToken$Stub$Proxy@75d0848} m=TO_FRONT f=NONE leash=Surface(name=Task=19)/@0x7a8d965 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794160684.153   815   855 V WindowManagerShell: loadAnimation: anim=android.view.animation.AnimationSet@d8fcc06 animAttr=0xa type=CLOSE isEntrance=true
+         1794160684.154   815   855 V WindowManagerShell: loadAnimation: anim=android.view.animation.AnimationSet@c5e60f4 animAttr=0xb type=CLOSE isEntrance=false
+         1794160684.158   815   855 V WindowManagerShell:  animated by com.android.wm.shell.transition.DefaultTransitionHandler@1936e9a
+         1794160684.159   815   855 W Looper  : Slow dispatch took 32ms wmshell.main h=android.os.Handler c=com.android.wm.shell.transition.Transitions$TransitionPlayerImpl$$ExternalSyntheticLambda0@c15e463 m=0
+         1794160684.159   815   855 W Looper  : Slow delivery took 30ms wmshell.main h=android.os.Handler c=null m=2
+--------- beginning of main
+         1794160684.170   518   549 I libprocessgroup: Successfully killed process cgroup uid 10148 pid 2981 in 17ms
+         1794160684.171   518   537 V WindowManager:     startWCT=WindowContainerTransaction { changes = {} hops = [] errorCallbackToken=null taskFragmentOrganizer=null }
+         1794160684.171   518   537 V WindowManager:     info={id=102 t=CLOSE f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{78b23ab Task{dc61916 #53 type=standard A=10193:com.scratch.nativepoc}}} m=CLOSE f=NONE leash=Surface(name=Task=53)/@0xd095c25 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{RemoteToken{e7ffbb6 Task{4164506 #19 type=standard A=10192:com.companyname.mauibaseline}}} m=TO_FRONT f=NONE leash=Surface(name=Task=19)/@0xcf6e478 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794160684.172   518  1835 I ImeTracker: com.companyname.mauibaseline:f012029e: onRequestHide at ORIGIN_SERVER_HIDE_INPUT reason HIDE_UNSPECIFIED_WINDOW
+         1794160684.172   518  1835 I ImeTracker: com.companyname.mauibaseline:f012029e: onCancelled at PHASE_SERVER_SHOULD_HIDE
+         1794160684.173  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3227 
+         1794160684.173  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2087 repeatCheckTimes = 0, unlocked = true
+         1794160684.173  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1877 onStartInput(EditorInfo{inputType=0x0(NULL) imeOptions=0x0 privateImeOptions=null actionName=UNSPECIFIED actionLabel=null actionId=0 initialSelStart=-1 initialSelEnd=-1 initialCapsMode=0x0 hintText=null label=null packageName=com.companyname.mauibaseline fieldId=0 fieldName=null extras=null}, false)
+         1794160684.174  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.shouldHideHeaderOnInitialState():4008 ShouldHideHeaderOnInitialState = false
+         1794160684.174  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2087 repeatCheckTimes = 2, unlocked = true
+         1794160684.176   518   541 W WindowManager: Failed to deliver inset control state change to w=Window{e3ba04c u0 com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity EXITING}
+         1794160684.176   518   541 W WindowManager: android.os.DeadObjectException
+         1794160684.176   518   541 W WindowManager: 	at android.os.BinderProxy.transactNative(Native Method)
+         1794160684.176   518   541 W WindowManager: 	at android.os.BinderProxy.transact(BinderProxy.java:584)
+         1794160684.176   518   541 W WindowManager: 	at android.view.IWindow$Stub$Proxy.insetsControlChanged(IWindow.java:479)
+         1794160684.176   518   541 W WindowManager: 	at com.android.server.wm.WindowState.notifyInsetsControlChanged(WindowState.java:3802)
+         1794160684.176   518   541 W WindowManager: 	at com.android.server.wm.InsetsStateController.lambda$notifyPendingInsetsControlChanged$3(InsetsStateController.java:343)
+         1794160684.176   518   541 W WindowManager: 	at com.android.server.wm.InsetsStateController.$r8$lambda$8yykPRG1GyNq_J17QvL9d5xANMc(InsetsStateController.java:0)
+         1794160684.176   518   541 W WindowManager: 	at com.android.server.wm.InsetsStateController$$ExternalSyntheticLambda2.run(R8$$SyntheticClass:0)
+         1794160684.176   518   541 W WindowManager: 	at com.android.server.wm.WindowAnimator.executeAfterPrepareSurfacesRunnables(WindowAnimator.java:294)
+         1794160684.176   518   541 W WindowManager: 	at com.android.server.wm.RootWindowContainer.performSurfacePlacementNoTrace(RootWindowContainer.java:811)
+         1794160684.176   518   541 W WindowManager: 	at com.android.server.wm.RootWindowContainer.performSurfacePlacement(RootWindowContainer.java:756)
+         1794160684.176   518   541 W WindowManager: 	at com.android.server.wm.WindowSurfacePlacer.performSurfacePlacementLoop(WindowSurfacePlacer.java:177)
+         1794160684.176   518   541 W WindowManager: 	at com.android.server.wm.WindowSurfacePlacer.performSurfacePlacement(WindowSurfacePlacer.java:126)
+         1794160684.176   518   541 W WindowManager: 	at com.android.server.wm.WindowSurfacePlacer.performSurfacePlacement(WindowSurfacePlacer.java:115)
+         1794160684.176   518   541 W WindowManager: 	at com.android.server.wm.WindowSurfacePlacer$Traverser.run(WindowSurfacePlacer.java:57)
+         1794160684.176   518   541 W WindowManager: 	at android.os.Handler.handleCallback(Handler.java:958)
+         1794160684.176   518   541 W WindowManager: 	at android.os.Handler.dispatchMessage(Handler.java:99)
+         1794160684.176   518   541 W WindowManager: 	at android.os.Looper.loopOnce(Looper.java:205)
+         1794160684.176   518   541 W WindowManager: 	at android.os.Looper.loop(Looper.java:294)
+         1794160684.176   518   541 W WindowManager: 	at android.os.HandlerThread.run(HandlerThread.java:67)
+         1794160684.176   518   541 W WindowManager: 	at com.android.server.ServiceThread.run(ServiceThread.java:46)
+         1794160684.177   815   855 W Looper  : Drained
+         1794160684.243   518   538 D DisplayManagerService: Drop pending events for gone uid 10120
+         1794160684.346   815   881 W Looper  : Slow dispatch took 31ms wmshell.anim h=android.view.Choreographer$FrameHandler c=android.view.Choreographer$FrameDisplayEventReceiver@914fe3e m=0
+         1794160684.371   335   335 I Zygote  : Process 1935 exited due to signal 9 (Killed)
+         1794160684.389   518   538 D DisplayManagerService: Drop pending events for gone uid 10125
+         1794160684.396   335   335 I Zygote  : Process 3238 exited due to signal 9 (Killed)
+         1794160684.398   518   538 D DisplayManagerService: Drop pending events for gone uid 10104
+         1794160684.402   518   747 D ConnectivityService: releasing NetworkRequest [ REQUEST id=156, [ Transports: CELLULAR Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED Uid: 10132 RequestorUid: 10132 RequestorPkg: com.google.android.googlequicksearchbox UnderlyingNetworks: Null] ] (release request)
+         1794160684.402   518   747 I ConnectivityService: Update capabilities for net 101 : -FOREGROUND
+         1794160684.406   334   363 I netd    : networkSetPermissionForNetwork(101, 1) <3.06ms>
+         1794160684.477   335   335 I Zygote  : Process 2077 exited due to signal 9 (Killed)
+         1794160684.481   335   335 I Zygote  : Process 2438 exited due to signal 9 (Killed)
+         1794160684.482   518   538 D DisplayManagerService: Drop pending events for gone uid 10161
+         1794160684.487   518   538 D DisplayManagerService: Drop pending events for gone uid 10084
+         1794160684.489   335   335 I Zygote  : Process 2747 exited due to signal 9 (Killed)
+         1794160684.499   335   335 I Zygote  : Process 3531 exited due to signal 9 (Killed)
+         1794160684.499   335   335 I Zygote  : Process 2320 exited due to signal 9 (Killed)
+         1794160684.502   518  1835 W ActivityManager: Scheduling restart of crashed service com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabsConnectionService in 1000ms for connection
+         1794160684.502   518   538 D DisplayManagerService: Drop pending events for gone uid 10150
+         1794160684.526   518   538 D DisplayManagerService: Drop pending events for gone uid 10117
+         1794160684.528   518   538 D DisplayManagerService: Drop pending events for gone uid 10131
+         1794160684.530   335   335 I Zygote  : Process 2464 exited due to signal 9 (Killed)
+         1794160684.530   335   335 I Zygote  : Process 3764 exited due to signal 9 (Killed)
+         1794160684.539   335   335 I Zygote  : Process 3608 exited due to signal 9 (Killed)
+         1794160684.555   335   335 I Zygote  : Process 2293 exited due to signal 9 (Killed)
+         1794160684.556   518   538 D DisplayManagerService: Drop pending events for gone uid 10087
+         1794160684.573   335   335 I Zygote  : Process 2586 exited due to signal 9 (Killed)
+         1794160684.580   518   538 D DisplayManagerService: Drop pending events for gone uid 10166
+         1794160684.582   518   538 D DisplayManagerService: Drop pending events for gone uid 10180
+         1794160684.586   335   335 I Zygote  : Process 1428 exited due to signal 9 (Killed)
+         1794160684.586   335   335 I Zygote  : Process 1249 exited due to signal 9 (Killed)
+         1794160684.587   518   538 D DisplayManagerService: Drop pending events for gone uid 10091
+         1794160684.588   335   335 I Zygote  : Process 1299 exited due to signal 9 (Killed)
+         1794160684.593   518   538 D DisplayManagerService: Drop pending events for gone uid 10108
+         1794160684.595   335   335 I Zygote  : Process 1801 exited due to signal 9 (Killed)
+         1794160684.596   335   335 I Zygote  : Process 1111 exited due to signal 9 (Killed)
+         1794160684.605   335   335 I Zygote  : Process 3021 exited due to signal 9 (Killed)
+         1794160684.614   518   538 D DisplayManagerService: Drop pending events for gone uid 10098
+         1794160684.616   518   538 D DisplayManagerService: Drop pending events for gone uid 10186
+         1794160684.617   335   335 I Zygote  : Process 4233 exited due to signal 9 (Killed)
+         1794160684.617   335   335 I Zygote  : Process 2275 exited due to signal 9 (Killed)
+         1794160684.619   335   335 I Zygote  : Process 1673 exited due to signal 9 (Killed)
+         1794160684.620   518   538 D DisplayManagerService: Drop pending events for gone uid 10164
+         1794160684.622   518   882 I StatusBarManagerService: binder died for pkg=com.google.android.googlesdksetup
+         1794160684.631   815   896 D EGL_emulation: app_time_stats: avg=24.23ms min=1.06ms max=223.44ms count=31
+         1794160684.644   335   335 I Zygote  : Process 3913 exited due to signal 9 (Killed)
+         1794160684.644   335   335 I Zygote  : Process 1689 exited due to signal 9 (Killed)
+         1794160684.644   335   335 I Zygote  : Process 1743 exited due to signal 9 (Killed)
+         1794160684.644   335   335 I Zygote  : Process 1864 exited due to signal 9 (Killed)
+         1794160684.644   335   335 I Zygote  : Process 2043 exited due to signal 9 (Killed)
+         1794160684.645   335   335 I Zygote  : Process 3460 exited due to signal 9 (Killed)
+         1794160684.645   335   335 I Zygote  : Process 3717 exited due to signal 9 (Killed)
+         1794160684.645   335   335 I Zygote  : Process 4269 exited due to signal 9 (Killed)
+         1794160684.622   518   538 D DisplayManagerService: Drop pending events for gone uid 10157
+         1794160684.646   518   538 D DisplayManagerService: Drop pending events for gone uid 10182
+         1794160684.646   518   538 D DisplayManagerService: Drop pending events for gone uid 10189
+         1794160684.646   518   538 D DisplayManagerService: Drop pending events for gone uid 10126
+         1794160684.646   518   538 D DisplayManagerService: Drop pending events for gone uid 2000
+         1794160684.646   518   538 D DisplayManagerService: Drop pending events for gone uid 10143
+         1794160684.646   518   538 D DisplayManagerService: Drop pending events for gone uid 10099
+         1794160684.662   335   335 I Zygote  : Process 2981 exited due to signal 9 (Killed)
+         1794160684.663   518   538 D DisplayManagerService: Drop pending events for gone uid 10148
+         1794160684.664   518   549 I libprocessgroup: Successfully killed process cgroup uid 10150 pid 2586 in 0ms
+         1794160684.664   518   549 I libprocessgroup: Successfully killed process cgroup uid 10120 pid 2077 in 0ms
+         1794160684.665   518   549 I libprocessgroup: Successfully killed process cgroup uid 10087 pid 2293 in 0ms
+         1794160684.665   518   549 I libprocessgroup: Successfully killed process cgroup uid 10129 pid 1864 in 0ms
+         1794160684.665   518   549 I libprocessgroup: Successfully killed process cgroup uid 10161 pid 2438 in 0ms
+         1794160684.665   518   549 I libprocessgroup: Successfully killed process cgroup uid 10137 pid 5394 in 0ms
+         1794160684.683   335   335 I Zygote  : Process 5394 exited due to signal 9 (Killed)
+         1794160684.684   335   335 I Zygote  : Process 3108 exited due to signal 9 (Killed)
+         1794160684.684   335   335 I Zygote  : Process 1870 exited due to signal 9 (Killed)
+         1794160684.686   815   855 V WindowManagerShell: Transition animation finished (aborted=false), notifying core (#102)android.os.BinderProxy@e3df873@0
+         1794160684.687   518   537 V WindowManager: Finish Transition #102: created at 11-08 17:58:03.780 collect-started=0.069ms request-sent=0.34ms started=18.94ms ready=18.926ms sent=345.779ms finished=906.422ms
+         1794160684.687   518  1836 W WindowManager: Exception thrown during dispatchAppVisibility Window{e3ba04c u0 com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity EXITING}
+         1794160684.687   518  1836 W WindowManager: android.os.DeadObjectException
+         1794160684.687   518  1836 W WindowManager: 	at android.os.BinderProxy.transactNative(Native Method)
+         1794160684.687   518  1836 W WindowManager: 	at android.os.BinderProxy.transact(BinderProxy.java:584)
+         1794160684.687   518  1836 W WindowManager: 	at android.view.IWindow$Stub$Proxy.dispatchAppVisibility(IWindow.java:546)
+         1794160684.687   518  1836 W WindowManager: 	at com.android.server.wm.WindowState.sendAppVisibilityToClients(WindowState.java:3271)
+         1794160684.687   518  1836 W WindowManager: 	at com.android.server.wm.WindowContainer.sendAppVisibilityToClients(WindowContainer.java:1221)
+         1794160684.687   518  1836 W WindowManager: 	at com.android.server.wm.WindowToken.setClientVisible(WindowToken.java:409)
+         1794160684.687   518  1836 W WindowManager: 	at com.android.server.wm.ActivityRecord.setClientVisible(ActivityRecord.java:6946)
+         1794160684.687   518  1836 W WindowManager: 	at com.android.server.wm.ActivityRecord.postApplyAnimation(ActivityRecord.java:5637)
+         1794160684.687   518  1836 W WindowManager: 	at com.android.server.wm.ActivityRecord.commitVisibility(ActivityRecord.java:5580)
+         1794160684.687   518  1836 W WindowManager: 	at com.android.server.wm.Transition.finishTransition(Transition.java:1151)
+         1794160684.687   518  1836 W WindowManager: 	at com.android.server.wm.TransitionController.finishTransition(TransitionController.java:868)
+         1794160684.687   518  1836 W WindowManager: 	at com.android.server.wm.WindowOrganizerController.finishTransition(WindowOrganizerController.java:396)
+         1794160684.687   518  1836 W WindowManager: 	at android.window.IWindowOrganizerController$Stub.onTransact(IWindowOrganizerController.java:286)
+         1794160684.687   518  1836 W WindowManager: 	at com.android.server.wm.WindowOrganizerController.onTransact(WindowOrganizerController.java:181)
+         1794160684.687   518  1836 W WindowManager: 	at android.os.Binder.execTransactInternal(Binder.java:1344)
+         1794160684.687   518  1836 W WindowManager: 	at android.os.Binder.execTransact(Binder.java:1275)
+         1794160684.687   518  1836 I Process : Sending signal. PID: 8854 SIG: 9
+         1794160684.690   815   855 V WindowManagerShell: Track 0 became idle
+         1794160684.690   815   855 V WindowManagerShell: All active transition animations finished
+         1794160684.692   518   538 D DisplayManagerService: Drop pending events for gone uid 10137
+         1794160684.694   518   549 I libprocessgroup: Successfully killed process cgroup uid 10131 pid 3764 in 0ms
+         1794160684.695   518   538 D DisplayManagerService: Drop pending events for gone uid 10116
+         1794160684.710   518   549 I libprocessgroup: Successfully killed process cgroup uid 10126 pid 2043 in 14ms
+         1794160684.710   518   549 I libprocessgroup: Successfully killed process cgroup uid 10182 pid 3913 in 0ms
+         1794160684.710   518   549 I libprocessgroup: Successfully killed process cgroup uid 10189 pid 4269 in 0ms
+         1794160684.710   518   549 I libprocessgroup: Successfully killed process cgroup uid 10116 pid 3108 in 0ms
+         1794160684.710   518   549 I libprocessgroup: Successfully killed process cgroup uid 10180 pid 1249 in 0ms
+         1794160684.710   518   549 I libprocessgroup: Successfully killed process cgroup uid 10164 pid 4233 in 0ms
+         1794160684.710   518   549 I libprocessgroup: Successfully killed process cgroup uid 10098 pid 2275 in 0ms
+         1794160684.710   518   549 I libprocessgroup: Successfully killed process cgroup uid 10084 pid 2747 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 10089 pid 1870 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 2000 pid 3717 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 1000 pid 3608 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 10186 pid 1673 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 1000 pid 3531 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 10143 pid 3460 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 10099 pid 1743 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 10117 pid 2464 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 10137 pid 3021 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 10125 pid 3238 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 10108 pid 1801 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 10104 pid 1935 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 1000 pid 2320 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 1002 pid 1111 in 0ms
+         1794160684.711   518   549 I libprocessgroup: Successfully killed process cgroup uid 10157 pid 1689 in 0ms
+         1794160684.712   518   549 I libprocessgroup: Successfully killed process cgroup uid 10091 pid 1299 in 0ms
+         1794160684.712   518   549 I libprocessgroup: Successfully killed process cgroup uid 10166 pid 1428 in 0ms
+         1794160684.714   518   538 D DisplayManagerService: Drop pending events for gone uid 10089
+         1794160684.717   399   399 E BpTransactionCompletedListener: Failed to transact (-32)
+         1794160684.723   518   540 W ActivityManager: setHasOverlayUi called on unknown pid: 8854
+         1794160684.748   518  2155 D CompatibilityChangeReporter: Compat change id reported: 161252188; UID 10193; state: DISABLED
+         1794160684.748   518  2155 W ActivityTaskManager: callingPackage for (uid=2000, pid=8897) has no WPC
+         1794160684.763   815   855 V WindowManagerShell: Transition requested: android.os.BinderProxy@a60da8c TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=54 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity } baseActivity=ComponentInfo{com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} topActivity=ComponentInfo{com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} origActivity=null realActivity=ComponentInfo{com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} numActivities=1 lastActiveTime=639871 supportsMultiWindow=true resizeMode=1 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{android.window.IWindowContainerToken$Stub$Proxy@21be5d5} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 128 - 0, 0) topActivityInfo=ActivityInfo{da5f1ea crc64ee53024f7ed0aa60.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isSleeping=false topActivityInSizeCompat=false topActivityEligibleForLetterboxEducation= false topActivityLetterboxed= false isFromDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 locusId=null displayAreaFeatureId=1 cameraCompatControlState=hidden}, remoteTransition = null, displayChange = null }
+         1794160684.763   815   890 D SplashScreenView: Build android.window.SplashScreenView{4597cdb V.E...... ......ID 0,0-0,0}
+         1794160684.763   815   890 D SplashScreenView: Icon: view: android.widget.ImageView{a871378 V.ED..... ......I. 0,0-0,0 #10204f0 android:id/splashscreen_icon_view} drawable: com.android.wm.shell.startingsurface.SplashscreenIconDrawableFactory$ImmobileIconDrawable@a420a51 size: 420
+         1794160684.763   815   890 D SplashScreenView: Branding: view: android.view.View{8e942b6 G.ED..... ......I. 0,0-0,0 #10204ef android:id/splashscreen_branding_view} drawable: null size w: 0 h: 0
+         1794160684.766   518  2155 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} with LAUNCH_MULTIPLE from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+         1794160684.767   518   540 D CompatibilityChangeReporter: Compat change id reported: 135634846; UID 10193; state: DISABLED
+         1794160684.775   518   548 D CompatibilityChangeReporter: Compat change id reported: 143937733; UID 10193; state: ENABLED
+         1794160684.781   335   335 D Zygote  : Forked child process 8900
+         1794160684.784   399   399 I BpBinder: onLastStrongRef automatically unlinking death recipients: 
+         1794160684.791   518  1179 D CoreBackPreview: Window{3670927 u0 Splash Screen com.scratch.nativepoc}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@d4e4d7d, mPriority=0, mIsAnimationCallback=false}
+         1794160684.792   518   548 I ActivityManager: Start proc 8900:com.scratch.nativepoc/u0a193 for next-top-activity {com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}
+         1794160684.826  8900  8900 I ratch.nativepoc: Using CollectorTypeCC GC.
+         1794160684.831  8900  8900 W ratch.nativepoc: Unexpected CPU variant for x86: x86_64.
+         1794160684.831  8900  8900 W ratch.nativepoc: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, tremont, kabylake, default
+         1794160684.844  8900  8900 E ratch.nativepoc: Not starting debugger since process cannot load the jdwp agent.
+         1794160684.886   518   537 V WindowManager: Sent Transition #103 createdAt=11-08 17:58:04.749 via request=TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=54 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity } baseActivity=ComponentInfo{com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} topActivity=ComponentInfo{com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} origActivity=null realActivity=ComponentInfo{com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} numActivities=1 lastActiveTime=639871 supportsMultiWindow=true resizeMode=1 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{RemoteToken{9bb35be Task{31d4c1a #54 type=standard A=10193:com.scratch.nativepoc}}} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 128 - 0, 0) topActivityInfo=ActivityInfo{e09f61f crc64ee53024f7ed0aa60.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isSleeping=false topActivityInSizeCompat=false topActivityEligibleForLetterboxEducation= false topActivityLetterboxed= false isFromDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 locusId=null displayAreaFeatureId=1 cameraCompatControlState=hidden}, remoteTransition = null, displayChange = null }
+         1794160684.886   518   537 V WindowManager:     startWCT=WindowContainerTransaction { changes = {} hops = [] errorCallbackToken=null taskFragmentOrganizer=null }
+         1794160684.886   518   537 V WindowManager:     info={id=103 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{9bb35be Task{31d4c1a #54 type=standard A=10193:com.scratch.nativepoc}}} m=OPEN f=NONE leash=Surface(name=Task=54)/@0x651bd40 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{RemoteToken{e7ffbb6 Task{4164506 #19 type=standard A=10192:com.companyname.mauibaseline}}} m=TO_BACK f=NONE leash=Surface(name=Task=19)/@0xcf6e478 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794160684.888   815   855 V WindowManagerShell: onTransitionReady android.os.BinderProxy@a60da8c: {id=103 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{android.window.IWindowContainerToken$Stub$Proxy@862ee45} m=OPEN f=NONE leash=Surface(name=Task=54)/@0x569f28e sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{android.window.IWindowContainerToken$Stub$Proxy@516a99a} m=TO_BACK f=NONE leash=Surface(name=Task=19)/@0xdd7baaf sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794160684.888   815   855 V WindowManagerShell: Playing animation for (#103)android.os.BinderProxy@a60da8c@0
+         1794160684.888   815   855 V WindowManagerShell:  try handler com.android.wm.shell.transition.DefaultMixedHandler@77dbcb7
+         1794160684.888   815   855 V WindowManagerShell:  try handler com.android.wm.shell.keyguard.KeyguardTransitionHandler@c934c24
+         1794160684.888   815   855 V WindowManagerShell:  try handler com.android.wm.shell.activityembedding.ActivityEmbeddingController@3c2938d
+         1794160684.888   815   855 V WindowManagerShell:  try handler com.android.wm.shell.recents.RecentsTransitionHandler@edbf942
+         1794160684.888   815   855 V ShellRecents: RecentsTransitionHandler.startAnimation: no controller found
+         1794160684.888   815   855 V WindowManagerShell:  try handler com.android.wm.shell.pip.PipTransition@4a76d53
+         1794160684.888   815   855 V WindowManagerShell:  try handler com.android.wm.shell.splitscreen.StageCoordinator@fcb0690
+         1794160684.888   815   855 V WindowManagerShell:  try handler com.android.wm.shell.transition.RemoteTransitionHandler@8d1db89
+         1794160684.888   815   855 V WindowManagerShell: Transition doesn't have explicit remote, search filters for match for {id=103 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{android.window.IWindowContainerToken$Stub$Proxy@862ee45} m=OPEN f=NONE leash=Surface(name=Task=54)/@0x569f28e sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{android.window.IWindowContainerToken$Stub$Proxy@516a99a} m=TO_BACK f=NONE leash=Surface(name=Task=19)/@0xdd7baaf sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794160684.888   815   855 V WindowManagerShell:  Checking filter Pair{{types=[] flags=0x0] notFlags=0x0 checks=[{atype=dream independent=true modes=[OPEN,TO_FRONT] flags=NONE mustBeTask=false order=ANY topActivity=null},{atype=home independent=true modes=[CLOSE,TO_BACK] flags=NONE mustBeTask=false order=ANY topActivity=null}]} RemoteTransition { remoteTransition = android.window.IRemoteTransition$Stub$Proxy@88dd11b, appThread = android.app.IApplicationThread$Stub$Proxy@ffa72b8, debugName = LauncherToDream }}
+         1794160684.888   815   855 V WindowManagerShell:  Checking filter Pair{{types=[] flags=0x0] notFlags=0x100 checks=[{atype=home independent=true modes=[OPEN,TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=ComponentInfo{com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}},{atype=standard independent=true modes=[CLOSE,TO_BACK] flags=NONE mustBeTask=false order=ANY topActivity=null}]} RemoteTransition { remoteTransition = android.window.IRemoteTransition$Stub$Proxy@ee71891, appThread = android.app.IApplicationThread$Stub$Proxy@307d3f6, debugName = QuickstepLaunchHome }}
+         1794160684.888   815   855 V WindowManagerShell:  Delegate animation for #103 to null
+         1794160684.888   815   855 V WindowManagerShell:  try handler com.android.wm.shell.transition.DefaultTransitionHandler@1936e9a
+         1794160684.888   815   855 V WindowManagerShell: start default transition animation, info = {id=103 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{android.window.IWindowContainerToken$Stub$Proxy@862ee45} m=OPEN f=NONE leash=Surface(name=Task=54)/@0x569f28e sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{android.window.IWindowContainerToken$Stub$Proxy@516a99a} m=TO_BACK f=NONE leash=Surface(name=Task=19)/@0xdd7baaf sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794160684.888   815   855 V WindowManagerShell: loadAnimation: anim=android.view.animation.AnimationSet@4c929c1 animAttr=0x9 type=OPEN isEntrance=false
+         1794160684.889   815   855 V WindowManagerShell: loadAnimation: anim=android.view.animation.AnimationSet@b9e50a7 animAttr=0x8 type=OPEN isEntrance=true
+         1794160684.889   815   855 V WindowManagerShell:  animated by com.android.wm.shell.transition.DefaultTransitionHandler@1936e9a
+         1794160684.919  8900  8900 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10193; state: ENABLED
+         1794160684.919  8900  8900 D CompatibilityChangeReporter: Compat change id reported: 242716250; UID 10193; state: ENABLED
+         1794160684.945  8900  8900 I ratch.nativepoc: Failed to add image file: Failed to find OatDexFile for DexFile /data/app/~~PrFkoUmlksWxihKsxDlLLg==/com.scratch.nativepoc-SZFrWk-sdASEwGw-xqMypA==/base.apk (canonical path /data/app/~~PrFkoUmlksWxihKsxDlLLg==/com.scratch.nativepoc-SZFrWk-sdASEwGw-xqMypA==/base.apk) in OatFile /data/app/~~F_hRB1PqieupvKKjoxlCfw==/com.scratch.nativepoc-b1_WcDtRgN5RYCgj0RM7hA==/oat/x86_64/base.odex
+         1794160684.946  8900  8900 D nativeloader: Configuring clns-6 for other apk /data/app/~~F_hRB1PqieupvKKjoxlCfw==/com.scratch.nativepoc-b1_WcDtRgN5RYCgj0RM7hA==/base.apk. target_sdk_version=36, uses_libraries=, library_path=/data/app/~~F_hRB1PqieupvKKjoxlCfw==/com.scratch.nativepoc-b1_WcDtRgN5RYCgj0RM7hA==/lib/x86_64:/data/app/~~F_hRB1PqieupvKKjoxlCfw==/com.scratch.nativepoc-b1_WcDtRgN5RYCgj0RM7hA==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.scratch.nativepoc
+         1794160684.957  8900  8900 V GraphicsEnvironment: Currently set values for:
+         1794160684.957  8900  8900 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+         1794160684.957  8900  8900 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+         1794160684.958  8900  8900 V GraphicsEnvironment: ANGLE GameManagerService for com.scratch.nativepoc: false
+         1794160684.958  8900  8900 V GraphicsEnvironment: com.scratch.nativepoc is not listed in per-application setting
+         1794160684.958  8900  8900 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+         1794160684.965  8900  8900 D NativeAotRuntimeProvider: NativeAotRuntimeProvider()
+         1794160684.966  8900  8900 D NativeAotRuntimeProvider: NativeAotRuntimeProvider.attachInfo(): calling JavaInteropRuntime.init()…
+         1794160684.966  8900  8900 D JavaInteropRuntime: Loading NativePoc.Android.so...
+         1794160684.982  8900  8900 I JavaInteropRuntime: JNI_OnLoad()
+         1794160684.984  8900  8900 D NativeAotRuntimeProvider: NativeAotRuntimeProvider.onCreate()
+         1794160684.985   518  2451 I ActivityManager: Flag disabled. Ignoring finishAttachApplication from uid: 10193. pid: 8900
+         1794160684.989  8900  8900 I NativePoc: activity-start tick=640096
+         1794160684.990  8900  8900 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+         1794160685.002  8900  8917 I ratch.nativepoc: Explicit concurrent copying GC freed 4657(303KB) AllocSpace objects, 0(0B) LOS objects, 49% free, 2040KB/4081KB, paused 52us,8us total 7.006ms
+         1794160685.015   815   896 D EGL_emulation: app_time_stats: avg=285.48ms min=17.44ms max=1018.68ms count=5
+         1794160685.021  8900  8900 D CompatibilityChangeReporter: Compat change id reported: 210923482; UID 10193; state: ENABLED
+         1794160685.042  8900  8920 D libEGL  : loaded /vendor/lib64/egl/libEGL_emulation.so
+         1794160685.043  8900  8920 D libEGL  : loaded /vendor/lib64/egl/libGLESv1_CM_emulation.so
+         1794160685.044  8900  8920 D libEGL  : loaded /vendor/lib64/egl/libGLESv2_emulation.so
+         1794160685.051  8900  8900 I NativePoc: field-handle 12006
+         1794160685.052  8900  8900 I NativePoc: button-mounted handle=12326 tick=640160
+         1794160685.065  8900  8900 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+         1794160685.069  8900  8900 D CompatibilityChangeReporter: Compat change id reported: 237531167; UID 10193; state: DISABLED
+         1794160685.076  8900  8900 W OpenGLRenderer: Unknown dataspace 0
+         1794160685.095   518  2451 D CoreBackPreview: Window{a8cdf7a u0 com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@f4dc121, mPriority=0, mIsAnimationCallback=false}
+         1794160685.115  8900  8900 D AutofillManager: notifyViewEnteredForFillDialog:1073741824
+         1794160685.130  8900  8918 W OpenGLRenderer: Failed to initialize 101010-2 format, error = EGL_SUCCESS
+         1794160685.158   135   135 I hwservicemanager: getTransport: Cannot find entry android.hardware.graphics.mapper@4.0::IMapper/default in either framework or device VINTF manifest.
+         1794160685.158  8900  8918 I Gralloc4: mapper 4.x is not supported
+--------- beginning of kernel
+         1794160685.377     0     0 I servicemanager: Could not find android.hardware.graphics.allocator.IAllocator/default in the VINTF manifest.
+         1794160685.234   815   881 W Looper  : Slow delivery took 46ms wmshell.anim h=android.view.Choreographer$FrameHandler c=android.view.Choreographer$FrameDisplayEventReceiver@914fe3e m=0
+         1794160685.234   815   881 W Looper  : Drained
+         1794160685.464  6518  6537 D EGL_emulation: app_time_stats: avg=114.96ms min=12.53ms max=504.93ms count=12
+         1794160685.465   815   855 V WindowManagerShell: Transition animation finished (aborted=false), notifying core (#103)android.os.BinderProxy@a60da8c@0
+         1794160685.470   518   537 V WindowManager: Finish Transition #103: created at 11-08 17:58:04.749 collect-started=0.027ms request-sent=12.436ms started=16.634ms ready=93.781ms sent=129.774ms finished=718.303ms
+         1794160685.485   815   855 V WindowManagerShell: Track 0 became idle
+         1794160685.485   815   855 V WindowManagerShell: All active transition animations finished
+         1794160685.513   518   547 D CompatibilityChangeReporter: Compat change id reported: 135634846; UID 10150; state: DISABLED
+         1794160685.515   518   548 D CompatibilityChangeReporter: Compat change id reported: 143937733; UID 10150; state: ENABLED
+         1794160685.573   335   335 D Zygote  : Forked child process 8927
+         1794160685.578   518   548 W ActivityManager: Slow operation: 69ms so far, now at startProcess: returned from zygote!
+         1794160685.579   518   548 W ActivityManager: Slow operation: 70ms so far, now at startProcess: done updating battery stats
+         1794160685.579   518   548 W ActivityManager: Slow operation: 70ms so far, now at startProcess: building log message
+         1794160685.579   518   548 I ActivityManager: Start proc 8927:com.android.chrome/u0a150 for service {com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabsConnectionService}
+         1794160685.579   518   548 W ActivityManager: Slow operation: 70ms so far, now at startProcess: starting to update pids map
+         1794160685.579   518   548 W ActivityManager: Slow operation: 70ms so far, now at startProcess: done updating pids map
+         1794160685.616  8927  8927 I .android.chrome: Using CollectorTypeCC GC.
+         1794160685.618  8927  8927 W .android.chrome: Unexpected CPU variant for x86: x86_64.
+         1794160685.618  8927  8927 W .android.chrome: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, tremont, kabylake, default
+         1794160685.641   815   896 D EGL_emulation: app_time_stats: avg=23.31ms min=0.97ms max=124.46ms count=28
+         1794160685.710  8927  8927 E .android.chrome: Not starting debugger since process cannot load the jdwp agent.
+         1794160685.760   518  2451 D CompatibilityChangeReporter: Compat change id reported: 168419799; UID 10150; state: DISABLED
+         1794160685.761   518  2451 D CompatibilityChangeReporter: Compat change id reported: 273564678; UID 10150; state: DISABLED
+         1794160685.770   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +999ms
+         1794160685.775  8900  8900 I Choreographer: Skipped 40 frames!  The application may be doing too much work on its main thread.
+         1794160685.809   518  2155 D CompatibilityChangeReporter: Compat change id reported: 214016041; UID 10193; state: ENABLED
+         1794160685.809   518  2155 I ImeTracker: com.scratch.nativepoc:a98a0600: onRequestHide at ORIGIN_SERVER_HIDE_INPUT reason HIDE_UNSPECIFIED_WINDOW
+         1794160685.809   518  2155 I ImeTracker: com.scratch.nativepoc:a98a0600: onCancelled at PHASE_SERVER_SHOULD_HIDE
+         1794160685.812   518   592 D CompatibilityChangeReporter: Compat change id reported: 265195908; UID 10150; state: ENABLED
+         1794160685.814  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3227 
+         1794160685.900  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2087 repeatCheckTimes = 0, unlocked = true
+         1794160685.900  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1877 onStartInput(EditorInfo{inputType=0x0(NULL) imeOptions=0x0 privateImeOptions=null actionName=UNSPECIFIED actionLabel=null actionId=0 initialSelStart=-1 initialSelEnd=-1 initialCapsMode=0x0 hintText=null label=null packageName=com.scratch.nativepoc fieldId=0 fieldName=null extras=null}, false)
+         1794160685.901  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.shouldHideHeaderOnInitialState():4008 ShouldHideHeaderOnInitialState = false
+         1794160685.915  8927  8927 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10150; state: ENABLED
+         1794160685.915  8927  8927 D CompatibilityChangeReporter: Compat change id reported: 242716250; UID 10150; state: ENABLED
+         1794160685.928  8900  8911 I OpenGLRenderer: Davey! duration=810ms; Flags=0, FrameTimelineVsyncId=104004, IntendedVsync=640209277503, Vsync=640875944143, InputEventId=0, HandleInputStart=640889435664, AnimationStart=640889437577, PerformTraversalsStart=640889615837, DrawStart=640890097641, FrameDeadline=640875944143, FrameInterval=640884153022, FrameStartTime=16666666, SyncQueued=640890346190, SyncStart=640891213969, IssueDrawCommandsStart=640906117350, SwapBuffers=640909821501, FrameCompleted=641020265786, DequeueBufferDuration=4140, QueueBufferDuration=406635, GpuCompleted=641020265786, SwapBuffersCompleted=640933494050, DisplayPresentTime=0, CommandSubmissionCompleted=640909821501, 
+         1794160685.928  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2087 repeatCheckTimes = 2, unlocked = true
+         1794160685.931   518  2440 D CompatibilityChangeReporter: Compat change id reported: 170503758; UID 10150; state: ENABLED
+         1794160685.943  8927  8927 W ziparchive: Unable to open '/data/app/~~zQTowYwATiU7wJW3Qkce-w==/com.google.android.trichromelibrary_567263637-HeY8dzMGJyyILGNYeWF0bg==/TrichromeLibrary.dm': No such file or directory
+         1794160685.943  8927  8927 W ziparchive: Unable to open '/data/app/~~zQTowYwATiU7wJW3Qkce-w==/com.google.android.trichromelibrary_567263637-HeY8dzMGJyyILGNYeWF0bg==/TrichromeLibrary.dm': No such file or directory
+         1794160685.945  8927  8927 W .android.chrome: Entry not found
+         1794160685.947  8927  8927 D nativeloader: Configuring clns-6 for other apk /data/app/~~zQTowYwATiU7wJW3Qkce-w==/com.google.android.trichromelibrary_567263637-HeY8dzMGJyyILGNYeWF0bg==/TrichromeLibrary.apk. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~ouun1gbZdZuLZez8opnHMA==/com.android.chrome-jZxHgGClpX1QMh_DQMj4Yg==/lib/x86_64:/data/app/~~ouun1gbZdZuLZez8opnHMA==/com.android.chrome-jZxHgGClpX1QMh_DQMj4Yg==/Chrome.apk!/lib/x86_64:/data/app/~~zQTowYwATiU7wJW3Qkce-w==/com.google.android.trichromelibrary_567263637-HeY8dzMGJyyILGNYeWF0bg==/TrichromeLibrary.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.android.chrome
+         1794160686.056  8927  8927 D nativeloader: Configuring clns-7 for other apk /data/app/~~ouun1gbZdZuLZez8opnHMA==/com.android.chrome-jZxHgGClpX1QMh_DQMj4Yg==/Chrome.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~ouun1gbZdZuLZez8opnHMA==/com.android.chrome-jZxHgGClpX1QMh_DQMj4Yg==/lib/x86_64:/data/app/~~ouun1gbZdZuLZez8opnHMA==/com.android.chrome-jZxHgGClpX1QMh_DQMj4Yg==/Chrome.apk!/lib/x86_64:/data/app/~~zQTowYwATiU7wJW3Qkce-w==/com.google.android.trichromelibrary_567263637-HeY8dzMGJyyILGNYeWF0bg==/TrichromeLibrary.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.android.chrome
+         1794160686.071   815   896 D EGL_emulation: app_time_stats: avg=261.76ms min=8.06ms max=992.11ms count=4
+         1794160686.076  8927  8927 V GraphicsEnvironment: Currently set values for:
+         1794160686.076  8927  8927 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+         1794160686.076  8927  8927 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+         1794160686.076  8927  8927 V GraphicsEnvironment: ANGLE GameManagerService for com.android.chrome: false
+         1794160686.076  8927  8927 V GraphicsEnvironment: com.android.chrome is not listed in per-application setting
+         1794160686.076  8927  8927 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+         1794160686.078  8927  8927 I LoadedApk: No resource references to update in package com.google.android.trichromelibrary
+         1794160686.082  8927  8927 I cr_SplitCompatApp: Launched version=113.0.5672.136 minSdkVersion=29 isBundle=true processName=com.android.chrome isIsolated=false
+         1794160686.086  8795  8797 I AidlLazyServiceRegistrar: Process has 0 (of 1 available) client(s) in use after notification artd has clients: 0
+         1794160686.086  8795  8797 I AidlLazyServiceRegistrar: Trying to shut down the service. No clients in use for any service in process.
+         1794160686.092  8795  8797 I AidlLazyServiceRegistrar: Unregistered all clients and exiting
+         1794160686.305     0     0 I servicemanager: Notifying artd they don't (previously: do) have clients when we now have no record of a client
+         1794160686.310     0     0 I servicemanager: Unregistering artd
+         1794160686.313     0     0 I BpBinder: onLastStrongRef automatically unlinking death recipients:
+         1794160686.320     0     0 I init    : Service 'artd' (pid 8795) exited with status 0 oneshot service took 5.622000 seconds in background
+         1794160686.321     0     0 I init    : Sending signal 9 to service 'artd' (pid 8795) process group...
+         1794160686.323     0     0 I libprocessgroup: Successfully killed process cgroup uid 1082 pid 8795 in 0ms
+         1794160686.445     0     0 I logd    : logdr: UID=2000 GID=2000 PID=8946 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns

@@ -1,0 +1,144 @@
+--------- beginning of system
+         1794160438.508   815   855 V WindowManagerShell: Transition animation finished (aborted=false), notifying core (#17)android.os.BinderProxy@1c17466@0
+         1794160438.531   518   537 V WindowManager: Finish Transition #17: created at 11-08 17:53:57.638 collect-started=0.048ms request-sent=0.263ms started=33.736ms ready=33.722ms sent=351.963ms finished=889.719ms
+         1794160438.537   518  1840 W WindowManager: Exception thrown during dispatchAppVisibility Window{915acb1 u0 com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity EXITING}
+         1794160438.537   518  1840 W WindowManager: android.os.DeadObjectException
+         1794160438.537   518  1840 W WindowManager: 	at android.os.BinderProxy.transactNative(Native Method)
+         1794160438.537   518  1840 W WindowManager: 	at android.os.BinderProxy.transact(BinderProxy.java:584)
+         1794160438.537   518  1840 W WindowManager: 	at android.view.IWindow$Stub$Proxy.dispatchAppVisibility(IWindow.java:546)
+         1794160438.537   518  1840 W WindowManager: 	at com.android.server.wm.WindowState.sendAppVisibilityToClients(WindowState.java:3271)
+         1794160438.537   518  1840 W WindowManager: 	at com.android.server.wm.WindowContainer.sendAppVisibilityToClients(WindowContainer.java:1221)
+         1794160438.537   518  1840 W WindowManager: 	at com.android.server.wm.WindowToken.setClientVisible(WindowToken.java:409)
+         1794160438.537   518  1840 W WindowManager: 	at com.android.server.wm.ActivityRecord.setClientVisible(ActivityRecord.java:6946)
+         1794160438.537   518  1840 W WindowManager: 	at com.android.server.wm.ActivityRecord.postApplyAnimation(ActivityRecord.java:5637)
+         1794160438.537   518  1840 W WindowManager: 	at com.android.server.wm.ActivityRecord.commitVisibility(ActivityRecord.java:5580)
+         1794160438.537   518  1840 W WindowManager: 	at com.android.server.wm.Transition.finishTransition(Transition.java:1151)
+         1794160438.537   518  1840 W WindowManager: 	at com.android.server.wm.TransitionController.finishTransition(TransitionController.java:868)
+         1794160438.537   518  1840 W WindowManager: 	at com.android.server.wm.WindowOrganizerController.finishTransition(WindowOrganizerController.java:396)
+         1794160438.537   518  1840 W WindowManager: 	at android.window.IWindowOrganizerController$Stub.onTransact(IWindowOrganizerController.java:286)
+         1794160438.537   518  1840 W WindowManager: 	at com.android.server.wm.WindowOrganizerController.onTransact(WindowOrganizerController.java:181)
+         1794160438.537   518  1840 W WindowManager: 	at android.os.Binder.execTransactInternal(Binder.java:1344)
+         1794160438.537   518  1840 W WindowManager: 	at android.os.Binder.execTransact(Binder.java:1275)
+--------- beginning of main
+         1794160438.559   518  1840 I Process : Sending signal. PID: 6194 SIG: 9
+         1794160438.564   518   540 W ActivityManager: setHasOverlayUi called on unknown pid: 6194
+         1794160438.566   518  2152 W ActivityTaskManager: callingPackage for (uid=2000, pid=6235) has no WPC
+         1794160438.567   815   855 V WindowManagerShell: Track 0 became idle
+         1794160438.567   815   855 V WindowManagerShell: All active transition animations finished
+         1794160438.567   815   855 W Looper  : Slow dispatch took 59ms wmshell.main h=android.os.Handler c=com.android.wm.shell.transition.DefaultTransitionHandler$$ExternalSyntheticLambda0@f68f497 m=0
+         1794160438.588   815   890 D SplashScreenView: Build android.window.SplashScreenView{b3e4333 V.E...... ......ID 0,0-0,0}
+         1794160438.588   815   890 D SplashScreenView: Icon: view: android.widget.ImageView{e6e56f0 V.ED..... ......I. 0,0-0,0 #10204f0 android:id/splashscreen_icon_view} drawable: com.android.wm.shell.startingsurface.SplashscreenIconDrawableFactory$ImmobileIconDrawable@1185469 size: 504
+         1794160438.588   815   890 D SplashScreenView: Branding: view: android.view.View{34a1eee G.ED..... ......I. 0,0-0,0 #10204ef android:id/splashscreen_branding_view} drawable: null size w: 0 h: 0
+         1794160438.592   518  2152 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity} with LAUNCH_SINGLE_TOP from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+         1794160438.592   815   855 V WindowManagerShell: Transition requested: android.os.BinderProxy@60fdf8f TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=14 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity } baseActivity=ComponentInfo{com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity} topActivity=ComponentInfo{com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity} origActivity=null realActivity=ComponentInfo{com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity} numActivities=1 lastActiveTime=393700 supportsMultiWindow=true resizeMode=1 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{android.window.IWindowContainerToken$Stub$Proxy@279f21c} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 128 - 0, 0) topActivityInfo=ActivityInfo{358ce25 crc64d72af147769f1039.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isSleeping=false topActivityInSizeCompat=false topActivityEligibleForLetterboxEducation= false topActivityLetterboxed= false isFromDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 locusId=null displayAreaFeatureId=1 cameraCompatControlState=hidden}, remoteTransition = null, displayChange = null }
+         1794160438.594   518   540 D CompatibilityChangeReporter: Compat change id reported: 135634846; UID 10192; state: DISABLED
+         1794160438.595   518   548 D CompatibilityChangeReporter: Compat change id reported: 143937733; UID 10192; state: ENABLED
+         1794160438.602   399   399 E BpTransactionCompletedListener: Failed to transact (-32)
+         1794160438.606   815   896 D EGL_emulation: app_time_stats: avg=405.84ms min=4.38ms max=2295.26ms count=6
+         1794160438.607  1027  1027 W ElapsedTimeUtils: getElapsedTime: sSuwFinishedTimeStamp is null
+         1794160438.608  1027  1027 W ElapsedTimeUtils: getElapsedTime: sSuwFinishedTimeStamp is null
+         1794160438.608  1027  1027 W ElapsedTimeUtils: getElapsedTime: sSuwFinishedTimeStamp is null
+         1794160438.612  5061  5067 I .gms.persistent: Background concurrent copying GC freed 240844(13MB) AllocSpace objects, 0(0B) LOS objects, 49% free, 13MB/27MB, paused 66us,18us total 358.099ms
+         1794160438.626   335   335 D Zygote  : Forked child process 6239
+         1794160438.630   518   548 I ActivityManager: Start proc 6239:com.companyname.mauibaseline/u0a192 for next-top-activity {com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity}
+         1794160438.635   399   399 I BpBinder: onLastStrongRef automatically unlinking death recipients: 
+         1794160438.702   518  1849 D CoreBackPreview: Window{b454992 u0 Splash Screen com.companyname.mauibaseline}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@d526419, mPriority=0, mIsAnimationCallback=false}
+         1794160438.725  6239  6239 I me.mauibaseline: Using CollectorTypeCC GC.
+         1794160438.726  6239  6239 W me.mauibaseline: Unexpected CPU variant for x86: x86_64.
+         1794160438.726  6239  6239 W me.mauibaseline: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, tremont, kabylake, default
+         1794160438.827  6239  6239 E me.mauibaseline: Not starting debugger since process cannot load the jdwp agent.
+         1794160438.922  6239  6239 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10192; state: ENABLED
+         1794160438.922  6239  6239 D CompatibilityChangeReporter: Compat change id reported: 242716250; UID 10192; state: ENABLED
+         1794160438.936   518   537 V WindowManager: Sent Transition #18 createdAt=11-08 17:53:58.584 via request=TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=14 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity } baseActivity=ComponentInfo{com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity} topActivity=ComponentInfo{com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity} origActivity=null realActivity=ComponentInfo{com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity} numActivities=1 lastActiveTime=393700 supportsMultiWindow=true resizeMode=1 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{RemoteToken{3ea7278 Task{c8159e1 #14 type=standard A=10192:com.companyname.mauibaseline}}} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 128 - 0, 0) topActivityInfo=ActivityInfo{a837d51 crc64d72af147769f1039.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isSleeping=false topActivityInSizeCompat=false topActivityEligibleForLetterboxEducation= false topActivityLetterboxed= false isFromDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 locusId=null displayAreaFeatureId=1 cameraCompatControlState=hidden}, remoteTransition = null, displayChange = null }
+         1794160438.937   518   537 V WindowManager:     startWCT=WindowContainerTransaction { changes = {} hops = [] errorCallbackToken=null taskFragmentOrganizer=null }
+         1794160438.937   518   537 V WindowManager:     info={id=18 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{3ea7278 Task{c8159e1 #14 type=standard A=10192:com.companyname.mauibaseline}}} m=OPEN f=NONE leash=Surface(name=Task=14)/@0xd2c78ea sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{RemoteToken{8d7c3b7 Task{a88f4a #8 type=standard A=1000:com.android.settings.root}}} m=TO_BACK f=NONE leash=Surface(name=Task=8)/@0x5340251 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794160438.947   815   855 V WindowManagerShell: onTransitionReady android.os.BinderProxy@60fdf8f: {id=18 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{android.window.IWindowContainerToken$Stub$Proxy@bfd5c20} m=OPEN f=NONE leash=Surface(name=Task=14)/@0x8139cdd sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{android.window.IWindowContainerToken$Stub$Proxy@db229d9} m=TO_BACK f=NONE leash=Surface(name=Task=8)/@0xa135052 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794160438.947   815   855 V WindowManagerShell: Playing animation for (#18)android.os.BinderProxy@60fdf8f@0
+         1794160438.947   815   855 V WindowManagerShell:  try handler com.android.wm.shell.transition.DefaultMixedHandler@77dbcb7
+         1794160438.947   815   855 V WindowManagerShell:  try handler com.android.wm.shell.keyguard.KeyguardTransitionHandler@c934c24
+         1794160438.947   815   855 V WindowManagerShell:  try handler com.android.wm.shell.activityembedding.ActivityEmbeddingController@3c2938d
+         1794160438.947   815   855 V WindowManagerShell:  try handler com.android.wm.shell.recents.RecentsTransitionHandler@edbf942
+         1794160438.947   815   855 V ShellRecents: RecentsTransitionHandler.startAnimation: no controller found
+         1794160438.948   815   855 V WindowManagerShell:  try handler com.android.wm.shell.pip.PipTransition@4a76d53
+         1794160438.948   815   855 V WindowManagerShell:  try handler com.android.wm.shell.splitscreen.StageCoordinator@fcb0690
+         1794160438.948   815   855 V WindowManagerShell:  try handler com.android.wm.shell.transition.RemoteTransitionHandler@8d1db89
+         1794160438.948   815   855 V WindowManagerShell: Transition doesn't have explicit remote, search filters for match for {id=18 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{android.window.IWindowContainerToken$Stub$Proxy@bfd5c20} m=OPEN f=NONE leash=Surface(name=Task=14)/@0x8139cdd sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{android.window.IWindowContainerToken$Stub$Proxy@db229d9} m=TO_BACK f=NONE leash=Surface(name=Task=8)/@0xa135052 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794160438.948   815   855 V WindowManagerShell:  Checking filter Pair{{types=[] flags=0x0] notFlags=0x0 checks=[{atype=dream independent=true modes=[OPEN,TO_FRONT] flags=NONE mustBeTask=false order=ANY topActivity=null},{atype=home independent=true modes=[CLOSE,TO_BACK] flags=NONE mustBeTask=false order=ANY topActivity=null}]} RemoteTransition { remoteTransition = android.window.IRemoteTransition$Stub$Proxy@88dd11b, appThread = android.app.IApplicationThread$Stub$Proxy@ffa72b8, debugName = LauncherToDream }}
+         1794160438.948   815   855 V WindowManagerShell:  Checking filter Pair{{types=[] flags=0x0] notFlags=0x100 checks=[{atype=home independent=true modes=[OPEN,TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=ComponentInfo{com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}},{atype=standard independent=true modes=[CLOSE,TO_BACK] flags=NONE mustBeTask=false order=ANY topActivity=null}]} RemoteTransition { remoteTransition = android.window.IRemoteTransition$Stub$Proxy@ee71891, appThread = android.app.IApplicationThread$Stub$Proxy@307d3f6, debugName = QuickstepLaunchHome }}
+         1794160438.948   815   855 V WindowManagerShell:  Delegate animation for #18 to null
+         1794160438.948   815   855 V WindowManagerShell:  try handler com.android.wm.shell.transition.DefaultTransitionHandler@1936e9a
+         1794160438.948   815   855 V WindowManagerShell: start default transition animation, info = {id=18 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{android.window.IWindowContainerToken$Stub$Proxy@bfd5c20} m=OPEN f=NONE leash=Surface(name=Task=14)/@0x8139cdd sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{android.window.IWindowContainerToken$Stub$Proxy@db229d9} m=TO_BACK f=NONE leash=Surface(name=Task=8)/@0xa135052 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794160438.949   815   855 V WindowManagerShell: loadAnimation: anim=android.view.animation.AnimationSet@b128a95 animAttr=0x9 type=OPEN isEntrance=false
+         1794160438.949   815   855 V WindowManagerShell: loadAnimation: anim=android.view.animation.AnimationSet@21e8f9b animAttr=0x8 type=OPEN isEntrance=true
+         1794160438.967  6239  6239 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+         1794160438.967  6239  6239 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.sidecar.jar
+         1794160438.968   815   855 V WindowManagerShell:  animated by com.android.wm.shell.transition.DefaultTransitionHandler@1936e9a
+         1794160438.972   815   855 W Looper  : Slow delivery took 40ms wmshell.main h=android.os.Handler c=null m=2
+         1794160438.973  6239  6239 D nativeloader: Configuring clns-6 for other apk /data/app/~~9xEGnsWcEAnpNYqD7lXz1w==/com.companyname.mauibaseline-BHNOTUyGhA-jANyH6Mxjag==/base.apk. target_sdk_version=36, uses_libraries=, library_path=/data/app/~~9xEGnsWcEAnpNYqD7lXz1w==/com.companyname.mauibaseline-BHNOTUyGhA-jANyH6Mxjag==/lib/x86_64:/data/app/~~9xEGnsWcEAnpNYqD7lXz1w==/com.companyname.mauibaseline-BHNOTUyGhA-jANyH6Mxjag==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.companyname.mauibaseline
+         1794160438.983  6239  6239 V GraphicsEnvironment: Currently set values for:
+         1794160438.983  6239  6239 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+         1794160438.983  6239  6239 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+         1794160438.987  6239  6239 V GraphicsEnvironment: ANGLE GameManagerService for com.companyname.mauibaseline: false
+         1794160438.988  6239  6239 V GraphicsEnvironment: com.companyname.mauibaseline is not listed in per-application setting
+         1794160438.988  6239  6239 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+         1794160439.025  6239  6239 D DOTNET  : AndroidCryptoNative_InitLibraryOnLoad: jint AndroidCryptoNative_InitLibraryOnLoad(JavaVM *, void *) in /__w/1/s/src/runtime/src/native/libs/System.Security.Cryptography.Native.Android/pal_jni.c
+         1794160439.028  6239  6239 D DOTNET  : GetOptionalClassGRef: optional class com/android/org/conscrypt/OpenSSLEngineImpl was not found
+         1794160439.267   815   896 D EGL_emulation: app_time_stats: avg=31.15ms min=0.85ms max=93.52ms count=30
+         1794160439.322   518  1849 I ActivityManager: Flag disabled. Ignoring finishAttachApplication from uid: 10192. pid: 6239
+         1794160439.363  6239  6260 D libEGL  : loaded /vendor/lib64/egl/libEGL_emulation.so
+         1794160439.364  6239  6260 D libEGL  : loaded /vendor/lib64/egl/libGLESv1_CM_emulation.so
+         1794160439.365  6239  6260 D libEGL  : loaded /vendor/lib64/egl/libGLESv2_emulation.so
+         1794160439.366  6239  6239 D AppCompatDelegate: Checking for metadata for AppLocalesMetadataHolderService : Service not found
+         1794160439.378   815   855 W Looper  : Drained
+         1794160439.407  1027  1071 D EGL_emulation: app_time_stats: avg=98.11ms min=6.54ms max=585.86ms count=15
+         1794160439.507   815   881 W Looper  : Slow delivery took 33ms wmshell.anim h=android.view.Choreographer$FrameHandler c=android.view.Choreographer$FrameDisplayEventReceiver@914fe3e m=0
+         1794160439.507   815   855 V WindowManagerShell: Transition animation finished (aborted=false), notifying core (#18)android.os.BinderProxy@60fdf8f@0
+         1794160439.508   518   537 V WindowManager: Finish Transition #18: created at 11-08 17:53:58.584 collect-started=0.018ms request-sent=7.931ms started=37.24ms ready=272.372ms sent=347.01ms finished=923.809ms
+         1794160439.512   815   855 V WindowManagerShell: Track 0 became idle
+         1794160439.512   815   855 V WindowManagerShell: All active transition animations finished
+         1794160439.626   815   896 D EGL_emulation: app_time_stats: avg=251.37ms min=16.25ms max=838.50ms count=4
+         1794160439.694  6239  6239 D CompatibilityChangeReporter: Compat change id reported: 171228096; UID 10192; state: ENABLED
+         1794160439.695  6239  6239 W TabLayout: MODE_SCROLLABLE + GRAVITY_FILL is not supported, GRAVITY_START will be used instead
+         1794160439.699  6239  6239 D CompatibilityChangeReporter: Compat change id reported: 210923482; UID 10192; state: ENABLED
+         1794160439.763  6239  6239 D CompatibilityChangeReporter: Compat change id reported: 237531167; UID 10192; state: DISABLED
+         1794160439.764  6239  6239 W OpenGLRenderer: Unknown dataspace 0
+         1794160439.783  6239  6239 I Choreographer: Skipped 40 frames!  The application may be doing too much work on its main thread.
+         1794160439.806   518  2453 D CoreBackPreview: Window{23feb43 u0 com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@eb1b23e, mPriority=0, mIsAnimationCallback=false}
+         1794160439.897  6239  6258 W OpenGLRenderer: Failed to initialize 101010-2 format, error = EGL_SUCCESS
+         1794160439.927   135   135 I hwservicemanager: getTransport: Cannot find entry android.hardware.graphics.mapper@4.0::IMapper/default in either framework or device VINTF manifest.
+         1794160439.927  6239  6258 I Gralloc4: mapper 4.x is not supported
+--------- beginning of kernel
+         1794160440.147     0     0 I servicemanager: Could not find android.hardware.graphics.allocator.IAllocator/default in the VINTF manifest.
+         1794160440.078  6239  6239 W MaterialButton: MaterialButton manages its own background to control elevation, shape, color and states. Consider using backgroundTint, shapeAppearance and other attributes where available. A custom background will ignore these attributes and you should consider handling interaction states such as pressed, focused and disabled
+         1794160440.115  1631  1865 I AiAiEcho: Predicting[0]: 
+         1794160440.115  1631  1865 I AiAiEcho: EchoTargets: 
+         1794160440.115  1631  1865 I AiAiEcho: Filtered by AiAi flag check: 
+         1794160440.115  1631  1865 I AiAiEcho: Ranked targets strategy: SORT, count: 0, ranking metadata: 
+         1794160440.116  1631  1865 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+         1794160440.262   815   815 W PageIndicator: Total number of pages invalid: 0. Assuming 1 page.
+         1794160440.280   815   896 D EGL_emulation: app_time_stats: avg=29.53ms min=1.92ms max=133.17ms count=29
+         1794160440.399  5061  5067 I .gms.persistent: Background concurrent copying GC freed 247228(14MB) AllocSpace objects, 0(0B) LOS objects, 49% free, 13MB/27MB, paused 84us,32us total 137.540ms
+         1794160440.492  6239  6239 I Choreographer: Skipped 41 frames!  The application may be doing too much work on its main thread.
+         1794160440.506  6239  6253 I OpenGLRenderer: Davey! duration=1399ms; Flags=1, FrameTimelineVsyncId=19754, IntendedVsync=394209287343, Vsync=394875953983, InputEventId=0, HandleInputStart=394902804779, AnimationStart=394902806622, PerformTraversalsStart=394902832173, DrawStart=395209135045, FrameDeadline=394225954009, FrameInterval=394892583262, FrameStartTime=16666666, SyncQueued=395213498668, SyncStart=395213832960, IssueDrawCommandsStart=395223288077, SwapBuffers=395519083628, FrameCompleted=395609405757, DequeueBufferDuration=3623, QueueBufferDuration=334428, GpuCompleted=395609405757, SwapBuffersCompleted=395596359104, DisplayPresentTime=0, CommandSubmissionCompleted=395519083628, 
+         1794160440.540   518   599 D ActivityManager: freezing 4627 com.google.android.googlequicksearchbox
+         1794160440.541   518   599 D ActivityManager: freezing 1636 com.google.process.gservices
+         1794160440.542   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s936ms
+         1794160440.548   518  2152 D CompatibilityChangeReporter: Compat change id reported: 214016041; UID 10192; state: ENABLED
+         1794160440.549   518  2152 I ImeTracker: com.companyname.mauibaseline:39cad3a4: onRequestHide at ORIGIN_SERVER_HIDE_INPUT reason HIDE_UNSPECIFIED_WINDOW
+         1794160440.549   518  2152 I ImeTracker: com.companyname.mauibaseline:39cad3a4: onCancelled at PHASE_SERVER_SHOULD_HIDE
+         1794160440.560  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3227 
+         1794160440.562  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2087 repeatCheckTimes = 0, unlocked = true
+         1794160440.562  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1877 onStartInput(EditorInfo{inputType=0x0(NULL) imeOptions=0x0 privateImeOptions=null actionName=UNSPECIFIED actionLabel=null actionId=0 initialSelStart=-1 initialSelEnd=-1 initialCapsMode=0x0 hintText=null label=null packageName=com.companyname.mauibaseline fieldId=0 fieldName=null extras=null}, false)
+         1794160440.562  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.shouldHideHeaderOnInitialState():4008 ShouldHideHeaderOnInitialState = false
+         1794160440.562  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2087 repeatCheckTimes = 2, unlocked = true
+         1794160440.581   518   599 D ActivityManager: freezing 4273 com.google.android.marvin.talkback
+         1794160440.583   518  1849 D OomAdjuster: Not killing cached processes
+         1794160440.620  5061  5354 I FontLog : Received query Noto Color Emoji Compat, URI content://com.google.android.gms.fonts [CONTEXT service_id=132 ]
+         1794160440.620  5061  5354 I FontLog : Query [emojicompat-emoji-font] resolved to {Noto Color Emoji Compat, wdth 100.0, wght 400, ital 0.0, bestEffort false} [CONTEXT service_id=132 ]
+         1794160440.622  5061  5354 I FontLog : Fetch {Noto Color Emoji Compat, wdth 100.0, wght 400, ital 0.0, bestEffort false} end status Status{statusCode=SUCCESS, resolution=null} [CONTEXT service_id=132 ]
+         1794160440.695  5061  5121 I FontLog : Pulling font file for id = 6, cache size = 6 [CONTEXT service_id=132 ]
+         1794160440.781  5061  5121 I FontLog : Pulling font file for id = 6, cache size = 6 [CONTEXT service_id=132 ]
+         1794160440.798   815   815 D StatusBarIconController: ignoring old pipeline callback because the new wifi icon is enabled
+         1794160440.872   518   599 D ActivityManager: freezing 3540 com.google.android.gm
+         1794160440.920  1027  1027 D DashboardFragment: unregister observer: @3fd65fc, uri: content://com.google.android.apps.wellbeing.api/digitalWellbeingSummary
+         1794160441.155     0     0 I logd    : logdr: UID=2000 GID=2000 PID=6268 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns

@@ -1,0 +1,147 @@
+--------- beginning of system
+         1794161034.536   815   855 V WindowManagerShell: Transition animation finished (aborted=false), notifying core (#246)android.os.BinderProxy@59c5d11@0
+         1794161034.544   518   537 V WindowManager: Finish Transition #246: created at 11-08 18:03:53.723 collect-started=11.426ms request-sent=11.572ms started=54.711ms ready=54.689ms sent=295.908ms finished=820.64ms
+         1794161034.544   518   803 W WindowManager: Exception thrown during dispatchAppVisibility Window{eadd053 u0 com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity EXITING}
+         1794161034.544   518   803 W WindowManager: android.os.DeadObjectException
+         1794161034.544   518   803 W WindowManager: 	at android.os.BinderProxy.transactNative(Native Method)
+         1794161034.544   518   803 W WindowManager: 	at android.os.BinderProxy.transact(BinderProxy.java:584)
+         1794161034.544   518   803 W WindowManager: 	at android.view.IWindow$Stub$Proxy.dispatchAppVisibility(IWindow.java:546)
+         1794161034.544   518   803 W WindowManager: 	at com.android.server.wm.WindowState.sendAppVisibilityToClients(WindowState.java:3271)
+         1794161034.544   518   803 W WindowManager: 	at com.android.server.wm.WindowContainer.sendAppVisibilityToClients(WindowContainer.java:1221)
+         1794161034.544   518   803 W WindowManager: 	at com.android.server.wm.WindowToken.setClientVisible(WindowToken.java:409)
+         1794161034.544   518   803 W WindowManager: 	at com.android.server.wm.ActivityRecord.setClientVisible(ActivityRecord.java:6946)
+         1794161034.544   518   803 W WindowManager: 	at com.android.server.wm.ActivityRecord.postApplyAnimation(ActivityRecord.java:5637)
+         1794161034.544   518   803 W WindowManager: 	at com.android.server.wm.ActivityRecord.commitVisibility(ActivityRecord.java:5580)
+         1794161034.544   518   803 W WindowManager: 	at com.android.server.wm.Transition.finishTransition(Transition.java:1151)
+         1794161034.544   518   803 W WindowManager: 	at com.android.server.wm.TransitionController.finishTransition(TransitionController.java:868)
+         1794161034.544   518   803 W WindowManager: 	at com.android.server.wm.WindowOrganizerController.finishTransition(WindowOrganizerController.java:396)
+         1794161034.544   518   803 W WindowManager: 	at android.window.IWindowOrganizerController$Stub.onTransact(IWindowOrganizerController.java:286)
+         1794161034.544   518   803 W WindowManager: 	at com.android.server.wm.WindowOrganizerController.onTransact(WindowOrganizerController.java:181)
+         1794161034.544   518   803 W WindowManager: 	at android.os.Binder.execTransactInternal(Binder.java:1344)
+         1794161034.544   518   803 W WindowManager: 	at android.os.Binder.execTransact(Binder.java:1275)
+--------- beginning of main
+         1794161034.544   518   803 I Process : Sending signal. PID: 12747 SIG: 9
+         1794161034.546   518   540 W ActivityManager: setHasOverlayUi called on unknown pid: 12747
+         1794161034.547   815   855 V WindowManagerShell: Track 0 became idle
+         1794161034.547   815   855 V WindowManagerShell: All active transition animations finished
+         1794161034.567   399   399 E BpTransactionCompletedListener: Failed to transact (-32)
+         1794161034.661   518   803 D CompatibilityChangeReporter: Compat change id reported: 161252188; UID 10193; state: DISABLED
+         1794161034.662   518   803 W ActivityTaskManager: callingPackage for (uid=2000, pid=12789) has no WPC
+         1794161034.663   518   803 D CompatibilityChangeReporter: Compat change id reported: 265464455; UID 10193; state: DISABLED
+         1794161034.663   518   803 D CompatibilityChangeReporter: Compat change id reported: 265452344; UID 10193; state: DISABLED
+         1794161034.663   518   803 D CompatibilityChangeReporter: Compat change id reported: 266124927; UID 10193; state: DISABLED
+         1794161034.663   518   803 D CompatibilityChangeReporter: Compat change id reported: 265451093; UID 10193; state: DISABLED
+         1794161034.663   518   803 D CompatibilityChangeReporter: Compat change id reported: 265456536; UID 10193; state: DISABLED
+         1794161034.663   518   803 D CompatibilityChangeReporter: Compat change id reported: 255940284; UID 10193; state: DISABLED
+         1794161034.664   518   803 D CompatibilityChangeReporter: Compat change id reported: 236283604; UID 10193; state: DISABLED
+         1794161034.664   518   803 D CompatibilityChangeReporter: Compat change id reported: 263959004; UID 10193; state: DISABLED
+         1794161034.664   518   803 D CompatibilityChangeReporter: Compat change id reported: 264304459; UID 10193; state: DISABLED
+         1794161034.664   518   803 D CompatibilityChangeReporter: Compat change id reported: 264301586; UID 10193; state: DISABLED
+         1794161034.665   518   803 D CompatibilityChangeReporter: Compat change id reported: 254631730; UID 10193; state: DISABLED
+         1794161034.665   518   803 D CompatibilityChangeReporter: Compat change id reported: 273509367; UID 10193; state: DISABLED
+         1794161034.665   518   803 D CompatibilityChangeReporter: Compat change id reported: 263259275; UID 10193; state: DISABLED
+         1794161034.665   518   803 D CompatibilityChangeReporter: Compat change id reported: 174042980; UID 10193; state: DISABLED
+         1794161034.665   518   803 D CompatibilityChangeReporter: Compat change id reported: 174042936; UID 10193; state: DISABLED
+         1794161034.665   518   803 D CompatibilityChangeReporter: Compat change id reported: 181136395; UID 10193; state: DISABLED
+         1794161034.666   518   803 D CompatibilityChangeReporter: Compat change id reported: 194480991; UID 10193; state: ENABLED
+         1794161034.692   518   803 D CompatibilityChangeReporter: Compat change id reported: 184838306; UID 10193; state: DISABLED
+         1794161034.692   518   803 D CompatibilityChangeReporter: Compat change id reported: 185004937; UID 10193; state: DISABLED
+         1794161034.693   518   803 D CompatibilityChangeReporter: Compat change id reported: 205907456; UID 10193; state: ENABLED
+         1794161034.697   815   890 D SplashScreenView: Build android.window.SplashScreenView{281f9b2 V.E...... ......ID 0,0-0,0}
+         1794161034.697   815   890 D SplashScreenView: Icon: view: android.widget.ImageView{d17bd03 V.ED..... ......I. 0,0-0,0 #10204f0 android:id/splashscreen_icon_view} drawable: com.android.wm.shell.startingsurface.SplashscreenIconDrawableFactory$ImmobileIconDrawable@2049480 size: 420
+         1794161034.697   815   890 D SplashScreenView: Branding: view: android.view.View{c326ab9 G.ED..... ......I. 0,0-0,0 #10204ef android:id/splashscreen_branding_view} drawable: null size w: 0 h: 0
+         1794161034.702   815   855 V WindowManagerShell: Transition requested: android.os.BinderProxy@211fefe TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=126 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity } baseActivity=ComponentInfo{com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} topActivity=ComponentInfo{com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} origActivity=null realActivity=ComponentInfo{com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} numActivities=1 lastActiveTime=989808 supportsMultiWindow=true resizeMode=1 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{android.window.IWindowContainerToken$Stub$Proxy@3cf265f} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 128 - 0, 0) topActivityInfo=ActivityInfo{95e78ac crc64ee53024f7ed0aa60.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isSleeping=false topActivityInSizeCompat=false topActivityEligibleForLetterboxEducation= false topActivityLetterboxed= false isFromDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 locusId=null displayAreaFeatureId=1 cameraCompatControlState=hidden}, remoteTransition = null, displayChange = null }
+         1794161034.711   518   803 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} with LAUNCH_MULTIPLE from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+         1794161034.712   518   540 D CompatibilityChangeReporter: Compat change id reported: 135634846; UID 10193; state: DISABLED
+         1794161034.712   518   548 D CompatibilityChangeReporter: Compat change id reported: 143937733; UID 10193; state: ENABLED
+         1794161034.734   399   399 I BpBinder: onLastStrongRef automatically unlinking death recipients: 
+         1794161034.735   518  1840 D CoreBackPreview: Window{a39b368 u0 Splash Screen com.scratch.nativepoc}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@3433c26, mPriority=0, mIsAnimationCallback=false}
+         1794161034.739   335   335 D Zygote  : Forked child process 12793
+         1794161034.740   518   548 I ActivityManager: Start proc 12793:com.scratch.nativepoc/u0a193 for next-top-activity {com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}
+         1794161034.744   518   592 D CompatibilityChangeReporter: Compat change id reported: 265195908; UID 10193; state: ENABLED
+         1794161034.749 12793 12793 I ratch.nativepoc: Using CollectorTypeCC GC.
+         1794161034.750 12793 12793 W ratch.nativepoc: Unexpected CPU variant for x86: x86_64.
+         1794161034.750 12793 12793 W ratch.nativepoc: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, tremont, kabylake, default
+         1794161034.753 12793 12793 E ratch.nativepoc: Not starting debugger since process cannot load the jdwp agent.
+         1794161034.815   518   537 V WindowManager: Sent Transition #247 createdAt=11-08 18:03:54.671 via request=TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=126 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity } baseActivity=ComponentInfo{com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} topActivity=ComponentInfo{com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} origActivity=null realActivity=ComponentInfo{com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity} numActivities=1 lastActiveTime=989808 supportsMultiWindow=true resizeMode=1 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{RemoteToken{a9d8780 Task{906926f #126 type=standard A=10193:com.scratch.nativepoc}}} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 128 - 0, 0) topActivityInfo=ActivityInfo{15be1b9 crc64ee53024f7ed0aa60.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isSleeping=false topActivityInSizeCompat=false topActivityEligibleForLetterboxEducation= false topActivityLetterboxed= false isFromDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 locusId=null displayAreaFeatureId=1 cameraCompatControlState=hidden}, remoteTransition = null, displayChange = null }
+         1794161034.815   518   537 V WindowManager:     startWCT=WindowContainerTransaction { changes = {} hops = [] errorCallbackToken=null taskFragmentOrganizer=null }
+         1794161034.815   518   537 V WindowManager:     info={id=247 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{a9d8780 Task{906926f #126 type=standard A=10193:com.scratch.nativepoc}}} m=OPEN f=NONE leash=Surface(name=Task=126)/@0x44796bd sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{RemoteToken{f5e01ac Task{b70f226 #92 type=standard A=10192:com.companyname.mauibaseline}}} m=TO_BACK f=NONE leash=Surface(name=Task=92)/@0xe6a1ffe sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794161034.831 12793 12793 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10193; state: ENABLED
+         1794161034.831 12793 12793 D CompatibilityChangeReporter: Compat change id reported: 242716250; UID 10193; state: ENABLED
+         1794161034.833   815   855 V WindowManagerShell: onTransitionReady android.os.BinderProxy@211fefe: {id=247 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{android.window.IWindowContainerToken$Stub$Proxy@5a61db0} m=OPEN f=NONE leash=Surface(name=Task=126)/@0xde53144 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{android.window.IWindowContainerToken$Stub$Proxy@ae67429} m=TO_BACK f=NONE leash=Surface(name=Task=92)/@0xe30e22d sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794161034.833   815   855 V WindowManagerShell: Playing animation for (#247)android.os.BinderProxy@211fefe@0
+         1794161034.833   815   855 V WindowManagerShell:  try handler com.android.wm.shell.transition.DefaultMixedHandler@77dbcb7
+         1794161034.834   815   855 V WindowManagerShell:  try handler com.android.wm.shell.keyguard.KeyguardTransitionHandler@c934c24
+         1794161034.834   815   855 V WindowManagerShell:  try handler com.android.wm.shell.activityembedding.ActivityEmbeddingController@3c2938d
+         1794161034.834   815   855 V WindowManagerShell:  try handler com.android.wm.shell.recents.RecentsTransitionHandler@edbf942
+         1794161034.834   815   855 V ShellRecents: RecentsTransitionHandler.startAnimation: no controller found
+         1794161034.834   815   855 V WindowManagerShell:  try handler com.android.wm.shell.pip.PipTransition@4a76d53
+         1794161034.834   815   855 V WindowManagerShell:  try handler com.android.wm.shell.splitscreen.StageCoordinator@fcb0690
+         1794161034.834   815   855 V WindowManagerShell:  try handler com.android.wm.shell.transition.RemoteTransitionHandler@8d1db89
+         1794161034.834   815   855 V WindowManagerShell: Transition doesn't have explicit remote, search filters for match for {id=247 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{android.window.IWindowContainerToken$Stub$Proxy@5a61db0} m=OPEN f=NONE leash=Surface(name=Task=126)/@0xde53144 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{android.window.IWindowContainerToken$Stub$Proxy@ae67429} m=TO_BACK f=NONE leash=Surface(name=Task=92)/@0xe30e22d sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794161034.834   815   855 V WindowManagerShell:  Checking filter Pair{{types=[] flags=0x0] notFlags=0x0 checks=[{atype=dream independent=true modes=[OPEN,TO_FRONT] flags=NONE mustBeTask=false order=ANY topActivity=null},{atype=home independent=true modes=[CLOSE,TO_BACK] flags=NONE mustBeTask=false order=ANY topActivity=null}]} RemoteTransition { remoteTransition = android.window.IRemoteTransition$Stub$Proxy@88dd11b, appThread = android.app.IApplicationThread$Stub$Proxy@ffa72b8, debugName = LauncherToDream }}
+         1794161034.834   815   855 V WindowManagerShell:  Checking filter Pair{{types=[] flags=0x0] notFlags=0x100 checks=[{atype=home independent=true modes=[OPEN,TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=ComponentInfo{com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}},{atype=standard independent=true modes=[CLOSE,TO_BACK] flags=NONE mustBeTask=false order=ANY topActivity=null}]} RemoteTransition { remoteTransition = android.window.IRemoteTransition$Stub$Proxy@ee71891, appThread = android.app.IApplicationThread$Stub$Proxy@307d3f6, debugName = QuickstepLaunchHome }}
+         1794161034.834   815   855 V WindowManagerShell:  Delegate animation for #247 to null
+         1794161034.834   815   855 V WindowManagerShell:  try handler com.android.wm.shell.transition.DefaultTransitionHandler@1936e9a
+         1794161034.834   815   855 V WindowManagerShell: start default transition animation, info = {id=247 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{android.window.IWindowContainerToken$Stub$Proxy@5a61db0} m=OPEN f=NONE leash=Surface(name=Task=126)/@0xde53144 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{android.window.IWindowContainerToken$Stub$Proxy@ae67429} m=TO_BACK f=NONE leash=Surface(name=Task=92)/@0xe30e22d sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+         1794161034.835   815   855 V WindowManagerShell: loadAnimation: anim=android.view.animation.AnimationSet@14764dc animAttr=0x9 type=OPEN isEntrance=false
+         1794161034.873   815   855 V WindowManagerShell: loadAnimation: anim=android.view.animation.AnimationSet@808ccba animAttr=0x8 type=OPEN isEntrance=true
+         1794161034.876   815   855 V WindowManagerShell:  animated by com.android.wm.shell.transition.DefaultTransitionHandler@1936e9a
+         1794161034.876   815   855 W Looper  : Slow dispatch took 43ms wmshell.main h=android.os.Handler c=com.android.wm.shell.transition.Transitions$TransitionPlayerImpl$$ExternalSyntheticLambda0@2677f61 m=0
+         1794161034.926   815   881 W Looper  : Slow delivery took 50ms wmshell.anim h=android.os.Handler c=com.android.wm.shell.transition.DefaultTransitionHandler$$ExternalSyntheticLambda1@4e6fa86 m=0
+         1794161034.930 12793 12793 D nativeloader: Configuring clns-6 for other apk /data/app/~~DFAsXoVdt7NkSHiSV1GzUA==/com.scratch.nativepoc-tY-gkFl1oRPqTolBBn0KTA==/base.apk. target_sdk_version=36, uses_libraries=, library_path=/data/app/~~DFAsXoVdt7NkSHiSV1GzUA==/com.scratch.nativepoc-tY-gkFl1oRPqTolBBn0KTA==/lib/x86_64:/data/app/~~DFAsXoVdt7NkSHiSV1GzUA==/com.scratch.nativepoc-tY-gkFl1oRPqTolBBn0KTA==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.scratch.nativepoc
+         1794161034.935   815   881 W Looper  : Drained
+         1794161034.969 12793 12793 V GraphicsEnvironment: Currently set values for:
+         1794161034.970 12793 12793 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+         1794161034.970 12793 12793 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+         1794161034.970 12793 12793 V GraphicsEnvironment: ANGLE GameManagerService for com.scratch.nativepoc: false
+         1794161034.970 12793 12793 V GraphicsEnvironment: com.scratch.nativepoc is not listed in per-application setting
+         1794161034.971 12793 12793 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+         1794161034.976 12793 12793 D NativeAotRuntimeProvider: NativeAotRuntimeProvider()
+         1794161034.976 12793 12793 D NativeAotRuntimeProvider: NativeAotRuntimeProvider.attachInfo(): calling JavaInteropRuntime.init()…
+         1794161034.976 12793 12793 D JavaInteropRuntime: Loading NativePoc.Android.so...
+         1794161034.982   815   896 D EGL_emulation: app_time_stats: avg=15.19ms min=0.83ms max=85.70ms count=42
+         1794161034.994 12793 12793 I JavaInteropRuntime: JNI_OnLoad()
+         1794161034.995 12793 12793 D NativeAotRuntimeProvider: NativeAotRuntimeProvider.onCreate()
+         1794161034.997   518  1860 I ActivityManager: Flag disabled. Ignoring finishAttachApplication from uid: 10193. pid: 12793
+         1794161035.003 12793 12793 I NativePoc: activity-start tick=990108
+         1794161035.003 12793 12793 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+         1794161035.008 12793 12810 I ratch.nativepoc: Explicit concurrent copying GC freed 4639(312KB) AllocSpace objects, 0(0B) LOS objects, 49% free, 2032KB/4064KB, paused 56us,8us total 2.824ms
+         1794161035.009 12793 12793 D CompatibilityChangeReporter: Compat change id reported: 210923482; UID 10193; state: ENABLED
+         1794161035.016 12793 12793 I NativePoc: field-handle 12006
+         1794161035.016 12793 12813 D libEGL  : loaded /vendor/lib64/egl/libEGL_emulation.so
+         1794161035.020 12793 12793 I NativePoc: button-mounted handle=12326 tick=990128
+         1794161035.026 12793 12793 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+         1794161035.028 12793 12813 D libEGL  : loaded /vendor/lib64/egl/libGLESv1_CM_emulation.so
+         1794161035.028 12793 12793 D CompatibilityChangeReporter: Compat change id reported: 237531167; UID 10193; state: DISABLED
+         1794161035.029 12793 12813 D libEGL  : loaded /vendor/lib64/egl/libGLESv2_emulation.so
+         1794161035.030 12793 12793 W OpenGLRenderer: Unknown dataspace 0
+         1794161035.037   518  1860 D CoreBackPreview: Window{6508bf3 u0 com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@a648eae, mPriority=0, mIsAnimationCallback=false}
+         1794161035.045 12793 12793 D AutofillManager: notifyViewEnteredForFillDialog:1073741824
+         1794161035.080 12793 12811 W OpenGLRenderer: Failed to initialize 101010-2 format, error = EGL_SUCCESS
+         1794161035.094   815   896 D EGL_emulation: app_time_stats: avg=764.23ms min=31.44ms max=1497.01ms count=2
+--------- beginning of kernel
+         1794161035.338     0     0 I servicemanager: Could not find android.hardware.graphics.allocator.IAllocator/default in the VINTF manifest.
+         1794161035.120   135   135 I hwservicemanager: getTransport: Cannot find entry android.hardware.graphics.mapper@4.0::IMapper/default in either framework or device VINTF manifest.
+         1794161035.121 12793 12811 I Gralloc4: mapper 4.x is not supported
+         1794161035.409   815   881 W Looper  : Slow delivery took 42ms wmshell.anim h=android.view.Choreographer$FrameHandler c=android.view.Choreographer$FrameDisplayEventReceiver@914fe3e m=0
+         1794161035.422   815   881 W Looper  : Drained
+         1794161035.436   815   855 V WindowManagerShell: Transition animation finished (aborted=false), notifying core (#247)android.os.BinderProxy@211fefe@0
+         1794161035.442   815   855 V WindowManagerShell: Track 0 became idle
+         1794161035.442   815   855 V WindowManagerShell: All active transition animations finished
+         1794161035.457   518   537 V WindowManager: Finish Transition #247: created at 11-08 18:03:54.671 collect-started=0.044ms request-sent=28.235ms started=43.663ms ready=106.667ms sent=126.969ms finished=765.969ms
+         1794161035.478 10687 10706 D EGL_emulation: app_time_stats: avg=103.17ms min=9.00ms max=624.40ms count=14
+         1794161035.739 12793 12793 I Choreographer: Skipped 41 frames!  The application may be doing too much work on its main thread.
+         1794161035.742 12793 12804 I OpenGLRenderer: Davey! duration=700ms; Flags=1, FrameTimelineVsyncId=222607, IntendedVsync=990142596839, Vsync=990142596839, InputEventId=0, HandleInputStart=990144165781, AnimationStart=990144167629, PerformTraversalsStart=990144170276, DrawStart=990281093278, FrameDeadline=990159263505, FrameInterval=990144160491, FrameStartTime=16666666, SyncQueued=990295573452, SyncStart=990295837807, IssueDrawCommandsStart=990307951176, SwapBuffers=990737129656, FrameCompleted=990843669298, DequeueBufferDuration=3341, QueueBufferDuration=207838, GpuCompleted=990843669298, SwapBuffersCompleted=990823835375, DisplayPresentTime=0, CommandSubmissionCompleted=990737129656, 
+         1794161035.760   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +1s66ms
+         1794161035.866 12793 12803 I OpenGLRenderer: Davey! duration=745ms; Flags=0, FrameTimelineVsyncId=222638, IntendedVsync=990159263505, Vsync=990842596811, InputEventId=0, HandleInputStart=990849071309, AnimationStart=990849073136, PerformTraversalsStart=990849213573, DrawStart=990849592595, FrameDeadline=990875930143, FrameInterval=990848802194, FrameStartTime=16666666, SyncQueued=990849832240, SyncStart=990849851115, IssueDrawCommandsStart=990851973899, SwapBuffers=990853386314, FrameCompleted=990904731079, DequeueBufferDuration=6282, QueueBufferDuration=19864417, GpuCompleted=990904641326, SwapBuffersCompleted=990904731079, DisplayPresentTime=0, CommandSubmissionCompleted=990853386314, 
+         1794161035.923   518   803 D CompatibilityChangeReporter: Compat change id reported: 214016041; UID 10193; state: ENABLED
+         1794161035.923   518   803 I ImeTracker: com.scratch.nativepoc:69afc7b3: onRequestHide at ORIGIN_SERVER_HIDE_INPUT reason HIDE_UNSPECIFIED_WINDOW
+         1794161035.923   518   803 I ImeTracker: com.scratch.nativepoc:69afc7b3: onCancelled at PHASE_SERVER_SHOULD_HIDE
+         1794161035.932  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3227 
+         1794161036.009  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2087 repeatCheckTimes = 0, unlocked = true
+         1794161036.009  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1877 onStartInput(EditorInfo{inputType=0x0(NULL) imeOptions=0x0 privateImeOptions=null actionName=UNSPECIFIED actionLabel=null actionId=0 initialSelStart=-1 initialSelEnd=-1 initialCapsMode=0x0 hintText=null label=null packageName=com.scratch.nativepoc fieldId=0 fieldName=null extras=null}, false)
+         1794161036.009  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.shouldHideHeaderOnInitialState():4008 ShouldHideHeaderOnInitialState = false
+         1794161036.027  1523  1523 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2087 repeatCheckTimes = 2, unlocked = true
+         1794161036.052   518  3002 W system_server: Long monitor contention with owner binder:518_13 (1860) at void com.android.server.wm.WindowManagerService$LocalService.updateInputMethodTargetWindow(android.os.IBinder, android.os.IBinder)(WindowManagerService.java:7929) waiters=1 in void com.android.server.wm.TaskPersister$TaskWriteQueueItem.process() for 102ms
+         1794161036.161   815   896 D EGL_emulation: app_time_stats: avg=36.00ms min=1.02ms max=382.52ms count=21

@@ -2,13 +2,157 @@
 
 Measured on this machine on 2026-11-08. Nothing here is a guessed latency, a guessed size, or a screenshot that was not captured. iOS was not built and was not run.
 
-The plan's "fully working" bar is items 1–16 in [runtime-feasibility.md](runtime-feasibility.md). Item 15 was measured after the review fixes: the Release Mono AOT x64 APK is smaller than `dotnet new maui` on the same emulator. Item 16 was measured on KVM and was not met: this app's cold-start median is higher than that MAUI app. A later pass retried Release startup on the only emulator mode that would boot, TCG, and is in "Release cold start" below. Debug in-place reload of the screen assembly works. `dotnet watch` still restarts the process. The screen works on Debug and on Release Mono AOT, on an x86_64 emulator. The review NativeAOT x64 APK was installed in that later pass.
+The current result is the KVM round below. Release publish is NativeAOT. On this boot its 10-run `TotalTime` median is under the MAUI template median measured next. Profiled Mono AOT and full Mono AOT were not. TCG startup numbers further down are withdrawn. Sentences that still mention `TcpListener` or port 18765 as the listener describe an earlier tree; the current listener is `localabstract:npoc-hotreload`.
 
-Installing the `maui-android` workload upgraded `android` from 36.1.2 to 36.1.118. `dotnet workload install maui` is rejected on this SDK with `Workload ID maui isn't supported on this platform`. The template comes from `maui-android` 10.0.110. Numbers under "Verification of 464b63e" and the older tables were taken on 36.1.2. Numbers under "Review fixes" were taken on 36.1.118. `evidence/workload-list-review.txt`.
+## KVM round
+
+One boot of AVD `poc34`. API 34, `x86_64`, `google_apis`. Emulator 37.2.13.0. Command line: `-accel on -gpu swiftshader_indirect -memory 2048 -cores 2 -no-window -no-snapshot -port 5554`. The log then says RAM was raised to 2560MB. `adb shell getprop ro.build.version.sdk` is 34, `ro.product.cpu.abi` is `x86_64`, `sys.boot_completed` is 1. Boot completed in 41238 ms. `evidence/emulator-kvm-boot.log`.
+
+`emulator -accel-check` exited 0 and printed `KVM (version 12) is installed and usable.` `evidence/emulator-accel-check-kvm.txt`. QEMU pid 4661 holds `/dev/kvm`. `/dev/kvm` is mode `crw-rw-rw-`. `window_animation_scale` was left at `1.0`. `evidence/kvm-animation-scale.txt`. No sample below was taken with `-no-accel` or TCG.
+
+SDK 10.0.403. Workload `android` is `36.1.2/10.0.100`. Workload `maui-android` is `10.0.0/10.0.100`. `evidence/workload-list-kvm.txt`. This machine did not upgrade `android` to 36.1.118. NDK `26.3.11579264`. JDK 21.
+
+`dotnet new maui -n MauiBaseline -o /tmp/maui-baseline -f net10.0` now targets `android;ios;maccatalyst`. The restore failed with `NETSDK1178` because `Microsoft.iOS.Sdk.net10.0_26.0` is not installed. `evidence/maui-new-kvm.log`. The generated `TargetFrameworks` was then set to `net10.0-android` only. That project is not in this repo. Publish log `evidence/maui-x64-publish-kvm.log`, exit 0. 88 `libaot-*.so` entries. Activity `crc64d72af147769f1039.MainActivity`.
+
+### What was already on main, and what this round changed
+
+At `c9f5bb1` the re-review items were still open in the tree this round started from. The token was still read from the `nativepoc_hotreload` launch extra and put in the socket name and the log line. `Screen.Render` set no keys. A keyed reorder detached every sibling and reinserted the survivors. `SetContentView` ran once. `OnUnmounted` disposed a view that could still be a child. Later sections of this report still described `TcpListener` on `127.0.0.1:18765` as the current listener.
+
+| Item | State after this round |
+| --- | --- |
+| App-generated token, launch extra ignored, token not logged | **RUN.** Pid 14082 was started with `--es nativepoc_hotreload 00112233445566778899aabbccddeeff`. The private file was `<redacted-token>`. Neither hex is in that logcat. The listen line is `hotreload-listen localabstract:npoc-hotreload`. A connection with the extra's bytes returned `UnauthorizedAccessException: Rejected hot reload token.` The file token then got past the check and returned `InvalidOperationException: Rejected screen assembly length 0.` `evidence/kvm-token-check.log`. |
+| Second `Start` logs `hotreload-listen already` and does not bind again | **BUILT.** `Interlocked.CompareExchange` is in `HotReloadServer.Start`. **UNVERIFIED** on device this round: nothing called `Start` twice. |
+| Keys on `Screen.Render` | **BUILT** and **TESTED.** Keys are `title`, `name`, `save`, `greeting`. `Screen_render_assigns_a_key_to_every_child`. |
+| Keyed move keeps the view | **TESTED** in the memory host. A middle delete, a reorder, a middle insert, and 200 edits from `Random(20261108)` leave stationary children attached (`Removed == 0`). **UNVERIFIED** on an Android view: this round did not reorder the live screen. The hot-reload title edits are property updates. Pid 14365 logged `field-handle 15014` four times (mount plus `Ada`) and `button-mounted` once, then 20 applies, and did not log another mount. |
+| `SetContentView` when the root instance changes | **BUILT.** `RenderNow` calls it only when the root view is a different instance. **TESTED** by `Replacing_the_root_mounts_a_new_view_and_disposes_the_old_tree`. **UNVERIFIED** on device. The acceptance screen always returns a `Column`, so the device path is the first `SetContentView`. |
+| Dispose after the view has left its parent | **BUILT.** `RemoveSubtree` removes the node, then `OnUnmounted` detaches listeners, removes the view if it still has a parent, and disposes. The memory host records `DisposedWhileAttached` and the new tests require it to be false. **UNVERIFIED** against `android.view.View`. |
+| Report | This section is the current account. The TCP how-to and the TCG startup section are marked as earlier passes. The TCP n=20 files were copied to `evidence/hot-reload-*-tcp.log` and `evidence/hot-reload-a-tcp-*.png` before the new clocks overwrote the old paths. |
+
+Host tests after those edits: `Passed: 23, Failed: 0, Skipped: 0, Duration: 70 ms`. `evidence/unit-tests-kvm.log`. Debug deploy `dotnet build -c Debug -f net10.0-android -r android-x64 -t:Run -p:AdbTarget=-e` exited 0 with 0 warnings. `evidence/debug-run-kvm.log`. The installed package has `.__override__` and `hotreload.token`.
+
+### Release configs
+
+`TreatWarningsAsErrors` stays on. `WarningsNotAsErrors` is `XA1040;IL3053`.
+
+Release now sets `PublishAot` and `EnablePreviewFeatures`. `dotnet publish -c Release -f net10.0-android -r android-x64` is NativeAOT. That publish is `evidence/startup-publish-default-kvm.log`, exit 0, one `IL3053` on the linked `Mono.Android.dll`, plus the two ILC notes that `monodroid_unhandled_exception` and `monodroid_debugger_unhandled_exception` will always throw. `rg -n XA1040` on that log prints nothing.
+
+Mono AOT is the same publish with `-p:PublishAot=false`. Profiled AOT is that default (`AndroidEnableProfiledAot` stays true, 13 assemblies, `libaot-System.Private.CoreLib.dll.so` 1203832 bytes). Full AOT adds `-p:AndroidEnableProfiledAot=false` (CoreLib AOT image 2669288 bytes). Those two logs have no `warning` line. `evidence/startup-publish-profiled-kvm.log`, `evidence/startup-publish-fullaot-kvm.log`, `evidence/startup-publish-nativeaot-kvm.log`.
+
+The explicit NativeAOT APK and the later default-publish APK are the same length and the same uncompressed `.so` length. The hashes differ, so the 10-run for the explicit APK is not the shipped binary's time. Both were installed and both reported `IsDynamicCodeSupported=False` and `IsDynamicCodeCompiled=False`.
+
+After that csproj change, `dotnet publish -c Release -f net10.0-android -r android-x64 -p:PublishAot=false` was run once. Log `evidence/startup-publish-profiled-after-default-kvm.log`, exit 0, no `warning` line, 13 AOT images. The signed APK is 3836114 bytes, sha256 `314346a9533f3fb0df36924ec1d29740f5086f62c311c454b932cbfc93b89d66`. Uncompressed CoreLib AOT is 1203768 bytes, not the 1203832 bytes in the timed profiled APK. Same length as the timed APK, different hash. **BUILT.** It was not installed and it was not timed. Full AOT was not republished after the default change.
+
+| APK | Bytes | sha256 | Native library |
+| --- | --- | --- | --- |
+| Profiled Mono AOT | 3836114 | `7cdb86cfeef72d0d54f38886470baeaf7136695d9929c0646a674bbed15e5bdb` | `libmonosgen-2.0.so` 3290280, CoreLib AOT 1203832, Screen AOT 5168 |
+| Full Mono AOT | 4667602 | `932d647aa60f5debf05e9855b89b54804e3af175276c449dcab04fdbfbf91d9a` | same `libmonosgen-2.0.so`, CoreLib AOT 2669288, Screen AOT 7848, Core AOT 76680 |
+| NativeAOT, explicit publish, the primary/reversed/steady series | 2482525 | `c47b7438cb8744e1595cb1e37037c1e584fbe775866408ce853c3f32801b58c3` | `libNativePoc.Android.so` 5730976, sha256 `6f22dca37c77cc7806de9c3b545e7e29a4bb239d198c17f50c6fd912c4f7bbb5` |
+| NativeAOT, default `dotnet publish -c Release` | 2482525 | `d37c701a23500e0f4c7287ae6e53e8eeb798f12bcb8b0db293b5895ded7eae60` | `libNativePoc.Android.so` 5730976, sha256 `a7bc8499200e82ae4ae48ba9757b0469d29e91c4ed94670b0db17be908034a17` |
+| MAUI template, TFM patched | 18915080 | `5c1ff7fe00fa5667dbf7ec7aee1121104e1139db3c7f6d01b668f1294f76664d` | `libmonosgen-2.0.so` 3290280, CoreLib AOT 2434288, 88 AOT images |
+
+The two `libmonosgen-2.0.so` copies in the Mono APKs and the MAUI APK are the same sha256, `edfa02c346f7eafc6cab665b27c667a93ecc84b7f40d042110ca4e343b2de8e4`.
+
+### Cold start
+
+Headline is `am start -W` `TotalTime`. Every counted start was `LaunchState: COLD` after `am force-stop`. None were dropped. p50 for 10 samples is the mean of the 5th and 6th sorted values. A functional launch before a series is not one of the ten.
+
+Slices, from `logcat -v epoch`, first occurrence of each marker: runtime init is `Start proc` to `NativePoc: activity-start`; widget build is `activity-start` to `NativePoc: rendered`; first frame is `rendered` to `ActivityTaskManager: Displayed`. `start_to_displayed` is `Start proc` to `Displayed`. MAUI has no `activity-start` line, so its runtime init and widget build are blank. On profiled sample 0 the three slices are 374, 83, and 597 ms and sum to the recorded `start_to_displayed` of 1054; `TotalTime` is 1075. The gap is the time before `Start proc`. First frame includes the SwiftShader present. `window_animation_scale` was 1.0.
+
+The primary four were back to back on this boot, in this order, each `adb install -r` then a functional start then the ten: MAUI, profiled AOT, explicit NativeAOT, full AOT. The primary log files mark each sample `force-stop then am start -W` and do not echo the force-stop process. Later series were written by the script that records `adb shell am force-stop` in the block. MAUI's primary median is not the steady number. The same package, later on this boot, with no reinstall, lands next to the older KVM median of 1101 ms.
+
+Primary, same boot:
+
+| Config | TotalTime ms | Sorted | p50 | min | max | runtime p50 | widget p50 | first frame p50 | Log |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| MAUI, first | 1849, 2139, 1903, 2226, 1936, 1952, 1513, 1730, 1614, 1567 | 1513, 1567, 1614, 1730, 1849, 1903, 1936, 1952, 2139, 2226 | 1876.0 | 1513 | 2226 |  |  |  | `evidence/startup-maui-kvm.log` |
+| Profiled AOT | 1075, 927, 1011, 961, 998, 830, 912, 1032, 949, 973 | 830, 912, 927, 949, 961, 973, 998, 1011, 1032, 1075 | 967.0 | 830 | 1075 | 282.0 | 66.0 | 583.0 | `evidence/startup-profiled-kvm.log` |
+| NativeAOT, explicit | 773, 920, 881, 962, 1008, 851, 851, 814, 977, 836 | 773, 814, 836, 851, 851, 881, 920, 962, 977, 1008 | 866.0 | 773 | 1008 | 233.5 | 36.5 | 588.5 | `evidence/startup-nativeaot-kvm.log` |
+| Full AOT | 1007, 1044, 925, 894, 1152, 945, 922, 922, 954, 1169 | 894, 922, 922, 925, 945, 954, 1007, 1044, 1152, 1169 | 949.5 | 894 | 1169 | 327.5 | 37.0 | 604.0 | `evidence/startup-fullaot-kvm.log` |
+
+`start_to_displayed` p50 in that primary pass: MAUI 1827.5, profiled 943.0, NativeAOT 850.5, full AOT 936.0. Every PoC sample in that pass is under every MAUI sample (full AOT max 1169, MAUI min 1513). That MAUI series is the first series of the boot.
+
+Later on the same boot, no new emulator process:
+
+| Series | What changed before the ten | TotalTime p50 | min | max | runtime p50 | widget p50 | first frame p50 | Log |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| NativeAOT explicit, reinstalled | install, then the ten | 1093.5 | 893 | 1253 | 245.5 | 63.5 | 743.5 | `evidence/startup-nativeaot-rev-kvm.log` |
+| MAUI, already installed | nothing | 1127.0 | 1000 | 1381 |  |  |  | `evidence/startup-maui-rev-kvm.log` |
+| NativeAOT explicit, no reinstall | nothing | 973.5 | 819 | 1284 | 268.5 | 46.0 | 634.5 | `evidence/startup-nativeaot-steady-kvm.log` |
+| MAUI, no reinstall | nothing | 1102.5 | 1046 | 1276 |  |  |  | `evidence/startup-maui-steady-kvm.log` |
+| Profiled, already installed | ten cold starts, none dropped | 1157.0 | 1001 | 1585 | 370.5 | 69.5 | 720.5 | `evidence/startup-profiled-steady-kvm.log` |
+| Full AOT, already installed | ten cold starts, none dropped | 1100.0 | 934 | 1202 | 341.5 | 40.0 | 677.0 | `evidence/startup-fullaot-steady-kvm.log` |
+| NativeAOT default publish | install of the new APK, functional start not in the ten | 968.5 | 865 | 1153 | 243.0 | 35.0 | 663.0 | `evidence/startup-default-kvm.log` |
+| MAUI immediately after that | nothing | 1066.5 | 961 | 1276 |  |  |  | `evidence/startup-maui-final-kvm.log` |
+
+The steady MAUI p50, 1102.5, matches the earlier KVM MAUI median of 1101. The default NativeAOT p50 of 968.5 was measured immediately before the MAUI p50 of 1066.5. The ranges overlap: NativeAOT max 1153, MAUI min 961. The median is lower. The same is true of the explicit NativeAOT steady pair (973.5 vs 1102.5) and the reversed pair (1093.5 vs 1127.0). Profiled steady, 1157.0, is slower than the MAUI series beside it. Full AOT steady, 1100.0, is 2.5 ms under that MAUI median and the ranges overlap; that is not a result to ship on. Runtime init is where NativeAOT is ahead (default 243.0 ms, profiled steady 370.5 ms, full AOT steady 341.5 ms). Widget build stays under 70 ms. First frame stays the largest slice on this SwiftShader emulator.
+
+NativeAOT is the Release default because it is the fastest of these four that runs the screen and reports both runtime flags false.
+
+### Functional checks
+
+Each of these launches is outside the tens above.
+
+| Config | Pid | Flags | What was checked | Functional TotalTime | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| MAUI |  |  | `Hello, World!`, tap, button became `Clicked 1 time` | 2093 COLD | `evidence/kvm-maui-functional.log` |
+| Profiled AOT | 6594 | True / True | four widgets, one `EditText` handle 14790 across `Ada`, Save, clipboard, rotation, same pid | 1467 COLD | `evidence/kvm-profiled-functional.log` |
+| NativeAOT explicit | 7398 | False / False | same checks, handle 12006 | 1136 COLD | `evidence/kvm-nativeaot-functional.log` |
+| Full AOT | 8121 | True / True | same checks, handle 14790 | 1226 COLD | `evidence/kvm-fullaot-functional.log` |
+| NativeAOT default | 12191 | False / False | same checks, handle 12006 | 1488 COLD | `evidence/kvm-default-functional.log` |
+
+A separate rotation of the explicit NativeAOT APK kept pid 11906 through landscape and back. After both rotations the log still says `rendered count=1 name-length=3 title=Counter 1` and the flags are False / False. Field handles changed across the new activities (12006, then 14054, then 14758), which is a new activity, not a new process. `evidence/kvm-nativeaot-rotation.log`.
+
+### Hot reload, current loader, n=20
+
+Debug only, after `-t:Run`. The host is `tools/NativePoc.HotReload.Host`. Cold is sample 0. Warm is samples 1–19. No sample was dropped. Every device sample stayed on one pid, kept `Ada`, `Hello Ada`, and count 1, and the reply started with the expected title plus `collectible=True`.
+
+| Mode | Clock | Samples ms | Cold | p50 all | p50 warm | min | max | Pid |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| (a) end to end | file write, Roslyn compile, abstract-socket send, post-render reply | 849.1, 44.6, 26.8, 16.8, 16.9, 15.4, 16.8, 15.4, 13.8, 15.5, 13.1, 15.4, 13.7, 14.2, 12.9, 16.0, 19.1, 12.7, 12.0, 14.0 | 849.1 | 15.4 | 15.4 | 12.0 | 849.1 | 14365 |
+| (b) precompiled DLL | send through the post-render reply; 20 DLLs of 7680 bytes compiled first | 63.8, 87.6, 8.3, 7.3, 7.0, 5.6, 7.0, 7.8, 5.7, 6.2, 5.5, 5.3, 5.1, 7.1, 6.2, 8.2, 5.9, 6.3, 5.8, 9.6 | 63.8 | 6.65 | 6.3 | 5.1 | 87.6 | 15006 |
+| (c) compile only | in-memory Roslyn emit, no file write, no socket | 456.8, 14.2, 8.9, 7.5, 8.1, 8.2, 8.5, 7.4, 7.0, 7.6, 7.4, 7.5, 7.2, 6.9, 7.5, 7.5, 7.3, 7.3, 7.2, 7.7 | 456.8 | 7.5 | 7.5 | 6.9 | 456.8 |  |
+
+(a) sorted center pair is 15.4 and 15.4. (b) sorted center pair is 6.3 and 7.0, so the p50 is 6.65; the tool prints `p50-all-ms=6.7`. Sample 1 of (b) is 87.6, which is above the cold sample. (c) sorted center pair is 7.5 and 7.5. Logs: `evidence/hot-reload-a.log`, `evidence/hot-reload-b.log`, `evidence/hot-reload-c.log`. Logcat: `evidence/logcat-hotreload-a-kvm.log` (20 `hotreload-applied`, one listen line, pid 14365), `evidence/logcat-hotreload-b-kvm.log` (20 applies, pid 15006). `Screen.cs` was restored to `TitlePrefix = "Counter "` after (a) and (b). (c) does not write the file.
+
+### Screenshots from this boot
+
+- `evidence/kvm-maui-empty.png` — MAUI template, `Hello, World!`, `Click me`
+- `evidence/kvm-maui-clicked.png` — same package, button `Clicked 1 time`
+- `evidence/kvm-profiled-empty.png`, `evidence/kvm-profiled-saved.png`, `evidence/kvm-profiled-rotated.png` — profiled AOT, empty, after Save, after rotation
+- `evidence/kvm-nativeaot-empty.png`, `evidence/kvm-nativeaot-saved.png`, `evidence/kvm-nativeaot-rotated.png` — explicit NativeAOT
+- `evidence/kvm-nativeaot-landscape.png` — pid 11906, landscape, `Counter 1`, `Ada`, `Hello Ada`
+- `evidence/kvm-fullaot-empty.png`, `evidence/kvm-fullaot-saved.png`, `evidence/kvm-fullaot-rotated.png` — full AOT
+- `evidence/kvm-default-empty.png` — default NativeAOT, `Counter 0`, `Name`, `Save`, `Enter a name`
+- `evidence/kvm-default-saved.png` — same config, `Counter 1`, `Ada`, `Hello Ada`, clipboard chip `poc-1`
+- `evidence/kvm-default-rotated.png` — same process after rotation
+- `evidence/hot-reload-a-cold.png` — pid 14365, `A00 1`, `Ada`, `Save`, `Hello Ada`
+- `evidence/hot-reload-a-warm.png` — same process, `A19 1`, `Ada` still in the field
+- `evidence/hot-reload-b-last.png` — after sample 19 of mode (b), not a timed frame, `B19 1`, `Ada`, `Save`, `Hello Ada`
+
+### Still unverified
+
+- arm64 install and any startup number on a phone
+- iOS
+- a live reorder or a live root swap, so the keyed move and the second `SetContentView` have no device screenshot
+- `View.Dispose` on a real Android view
+- a second `HotReloadServer.Start` in one process
+- `/proc/net/unix` for `npoc-hotreload` on this boot
+- bit-identity of the two NativeAOT APKs; they are the same size and not the same hash
+- the republished profiled APK (`314346a9…`) was not installed; full AOT was not republished after the NativeAOT default
+
+## Earlier passes
+
+The paragraphs below are the report as it stood before this KVM round. Item 16 in that text is the profiled Mono AOT result from the previous KVM boot, 1517.5 ms against 1101 ms. The TCG section is not a startup claim.
+
+The plan's "fully working" bar is items 1–16 in [runtime-feasibility.md](runtime-feasibility.md). Item 15 was measured after the review fixes: the Release Mono AOT x64 APK is smaller than `dotnet new maui` on the same emulator. Item 16 on that earlier KVM boot was not met for profiled Mono AOT. A later pass retried Release startup on TCG after KVM faulted; those numbers are withdrawn. Debug in-place reload of the screen assembly works. `dotnet watch` still restarts the process. The screen works on Debug and on Release Mono AOT, on an x86_64 emulator. The review NativeAOT x64 APK was installed in that later pass.
+
+Installing the `maui-android` workload on that earlier machine upgraded `android` from 36.1.2 to 36.1.118. `dotnet workload install maui` is rejected on this SDK with `Workload ID maui isn't supported on this platform`. The template comes from `maui-android` 10.0.110. Numbers under "Verification of 464b63e" and the older tables were taken on 36.1.2. Numbers under "Review fixes" were taken on 36.1.118. `evidence/workload-list-review.txt`. This round's workload list is `evidence/workload-list-kvm.txt` and is still 36.1.2.
 
 Clone URL: `github.com/filipef101/c-sharp-native`
 
 ## Review fixes
+
+This section is the tree after `c9f454f`, before the KVM round. The loader it describes still takes the token from the launch extra. That is not the current loader.
 
 The independent review's numbered findings, on the tree after those fixes. Unit tests: `Passed: 15, Failed: 0, Skipped: 0, Duration: 66 ms`. `evidence/unit-tests-review.log`. The three new tests keep view identity for a middle keyed delete, a keyed reorder, and a leading keyed field delete.
 
@@ -53,6 +197,8 @@ The PoC APK is smaller (3795146 vs 19074917). The PoC cold-start median is not l
 `dotnet publish -c Release -f net10.0-android -r android-x64 -p:PublishAot=true -p:EnablePreviewFeatures=true -p:TreatWarningsAsErrors=false`. Log `evidence/nativeaot-x64-review.log`, exit 0. One `IL3053` on `Mono.Android.dll`. The ILC notes for `monodroid_unhandled_exception` and `monodroid_debugger_unhandled_exception` are in that log. `rg -n XA1040 evidence/nativeaot-x64-review.log` exits 1 and prints no line. `evidence/xa1040-review-grep.txt`. The same command on `evidence/nativeaot-arm64.log`, `evidence/nativeaot-x64.log`, and `evidence/nativeaot-x64-rebuild.log` also exits 1. `evidence/nativeaot-arm64-nowarnserror.log` is not in the tree. APK 2318685 bytes, sha256 `76e5acd224e7f29798d26ca659c08493764250e06bf4e136d80837b842d0f021`, uncompressed `lib/x86_64/libNativePoc.Android.so` 5212960. It was installed in the cold-start pass below. The 464b63e NativeAOT run remains the last one that completed Save and rotation.
 
 ## Release cold start
+
+These TCG numbers are not a startup result. The emulator in that session had lost KVM. Do not compare them with the KVM round above.
 
 The target is a Release cold start at or under the MAUI KVM median, 1101 ms. This session could not boot that emulator. `dmesg` reports `kernel BUG at arch/x86/kvm/x86.c:689` in `kvm_arch_vcpu_create`. An `-accel on` emulator stays at a few percent CPU with `adb` offline. Every number in this section is from AVD `poc34`, API 34, x86_64, started with `-no-accel -gpu swiftshader_indirect -memory 2048 -cores 2`. `am start -W` is not the metric here. The script force-stops, clears logcat, starts the activity, and records `ActivityTaskManager` `Displayed`. No sample was dropped. p50 is the mean of the 5th and 6th sorted values. Workload `android` is 36.1.118. The KVM 1517.5 ms and 1101 ms figures stay in the review section and are a different run.
 
@@ -141,11 +287,11 @@ That figure is the n=10 series on pid 13248 in `evidence/hot-reload-inplace.log`
 
 Debug deploy of the same commit, interpreter (`IsDynamicCodeCompiled=False`). Each series restarts the process, types `Ada`, presses Save, and then takes sample 0 with no earlier compile and no earlier send in that process. Sample 0 is the cold sample. Samples 1–19 are warm. The UI dump is outside every clock. Every sample kept the pid, `Ada`, `Hello Ada`, and counter 1. `collectible=True` on every apply.
 
-**(a) file save, Roslyn compile, transfer, load, render.** Clock starts before the write and stops when the post-render reply is read. Pid 15262. Milliseconds: 758.4, 52.8, 24.2, 23.6, 22.0, 23.7, 18.2, 16.7, 17.0, 17.1, 15.2, 17.4, 18.5, 15.4, 14.5, 17.6, 16.1, 16.7, 24.7, 16.4. Cold 758.4. Sorted center pair 17.4 and 17.6, so p50 of all 20 is **17.5 ms**. p50 of the 19 warm samples is **17.4 ms**. Min 14.5, max 758.4. `evidence/hot-reload-a.log`, `evidence/logcat-hotreload-a.log`.
+**(a) file save, Roslyn compile, transfer, load, render.** Clock starts before the write and stops when the post-render reply is read. Pid 15262. Milliseconds: 758.4, 52.8, 24.2, 23.6, 22.0, 23.7, 18.2, 16.7, 17.0, 17.1, 15.2, 17.4, 18.5, 15.4, 14.5, 17.6, 16.1, 16.7, 24.7, 16.4. Cold 758.4. Sorted center pair 17.4 and 17.6, so p50 of all 20 is **17.5 ms**. p50 of the 19 warm samples is **17.4 ms**. Min 14.5, max 758.4. Those samples are the TCP listener. The file that held them is now `evidence/hot-reload-a-tcp.log`. `evidence/logcat-hotreload-a.log`.
 
-**(b) send, load, and render of a DLL compiled before the clock.** The 20 DLLs were compiled, then the process was restarted, then each sample timed only `Send` through the post-render reply. The file write in this mode sits before the clock. Pid 15856. Milliseconds: 99.6, 47.8, 8.3, 8.4, 10.2, 5.6, 6.7, 5.8, 5.8, 5.6, 5.5, 5.4, 5.5, 5.8, 5.7, 5.8, 5.6, 5.9, 13.5, 6.3. Cold 99.6. p50 of all 20 is **5.8 ms**. p50 of the warm 19 is **5.8 ms**. Min 5.4, max 99.6. `evidence/hot-reload-b.log`, `evidence/logcat-hotreload-b.log`.
+**(b) send, load, and render of a DLL compiled before the clock.** The 20 DLLs were compiled, then the process was restarted, then each sample timed only `Send` through the post-render reply. The file write in this mode sits before the clock. Pid 15856. Milliseconds: 99.6, 47.8, 8.3, 8.4, 10.2, 5.6, 6.7, 5.8, 5.8, 5.6, 5.5, 5.4, 5.5, 5.8, 5.7, 5.8, 5.6, 5.9, 13.5, 6.3. Cold 99.6. p50 of all 20 is **5.8 ms**. p50 of the warm 19 is **5.8 ms**. Min 5.4, max 99.6. Those samples are the TCP listener. The file that held them is now `evidence/hot-reload-b-tcp.log`. `evidence/logcat-hotreload-b.log`.
 
-**(c) compile only.** In-memory Roslyn emit, no file write, no socket, first compilation in that host process. Milliseconds: 406.5, 10.5, 8.4, 7.4, 7.0, 6.1, 6.8, 6.6, 6.9, 7.0, 7.4, 7.5, 6.7, 6.1, 6.5, 6.6, 6.4, 6.6, 6.7, 6.7. Cold 406.5. Sorted center pair 6.7 and 6.8, so p50 of all 20 is **6.75 ms**. The tool's one-decimal line prints `p50-all-ms=6.7`. p50 of the warm 19 is **6.7 ms**. Min 6.1, max 406.5. `evidence/hot-reload-c.log`.
+**(c) compile only.** In-memory Roslyn emit, no file write, no socket, first compilation in that host process. Milliseconds: 406.5, 10.5, 8.4, 7.4, 7.0, 6.1, 6.8, 6.6, 6.9, 7.0, 7.4, 7.5, 6.7, 6.1, 6.5, 6.6, 6.4, 6.6, 6.7, 6.7. Cold 406.5. Sorted center pair 6.7 and 6.8, so p50 of all 20 is **6.75 ms**. The tool's one-decimal line prints `p50-all-ms=6.7`. p50 of the warm 19 is **6.7 ms**. Min 6.1, max 406.5. Those samples are the TCP-listener host. The file that held them is now `evidence/hot-reload-c-tcp.log`.
 
 ### Edit classes
 
@@ -161,6 +307,8 @@ Tried on pid 15856 after series (b), still `Ada` and count 1. Log: `evidence/hot
 A Core edit is not pushed by this loader. The listener accepts one `NativePoc.Screen` DLL. A new `Element` subtype cannot be declared outside `NativePoc.Core`. A new member on `AppState` fails at apply time and leaves the previous screen and the previous state in place.
 
 ### Loader is Debug-only and loopback-only
+
+This subsection describes the tree that still used `TcpListener`. It is not the current loader. The current loader is the abstract socket in the KVM round above.
 
 `src/NativePoc.Android/HotReloadServer.cs` is wrapped in `#if DEBUG` from the first line through the end of the file. `MainActivity.OnCreate` calls `HotReloadServer.Start()` inside `#if DEBUG` (`MainActivity.cs` lines 40–41). `HotReload.cs` and `RecreateReceiver.cs` are also `#if DEBUG`. The socket is `new TcpListener(IPAddress.Loopback, 18765)`.
 
@@ -190,11 +338,11 @@ src/NativePoc.Screen/
   Screen.cs            Screen.Render, the assembly the Debug reloader swaps
 src/NativePoc.Android/
   NativePoc.Android.csproj
-  AndroidManifest.xml  includes INTERNET, used by the Debug listener
+  AndroidManifest.xml  application label only; the SDK still adds INTERNET to Debug
   MainActivity.cs      holds the render delegate, logs RuntimeFeature
   AndroidHost.cs       LinearLayout, TextView, Button, EditText, ClipboardManager
   HotReload.cs         DEBUG MetadataUpdateHandler, calls RequestRender
-  HotReloadServer.cs   DEBUG TCP listener, collectible AssemblyLoadContext
+  HotReloadServer.cs   DEBUG abstract socket npoc-hotreload, app-generated token, collectible AssemblyLoadContext
   RecreateReceiver.cs  DEBUG broadcast com.scratch.nativepoc.RECREATE
   Resources/values/strings.xml
 tools/NativePoc.HotReload.Host/
@@ -226,7 +374,7 @@ dotnet build src/NativePoc.Android/NativePoc.Android.csproj \
   -c Debug -f net10.0-android -r android-x64 -t:Run -p:AdbTarget=-e
 ```
 
-Debug in-place reload, after that deploy. The app listens on `127.0.0.1:18765`. The host forwards the port, compiles `src/NativePoc.Screen/Screen.cs` with the SDK Roslyn compiler, and sends the DLL. `AppSession` stays in the already-loaded `NativePoc.Core` assembly.
+Debug in-place reload, after that deploy. The app generates a 16-byte token, writes it to the private file `hotreload.token`, and listens on `localabstract:npoc-hotreload`. The token is not taken from the launch intent and is not written to logcat. The host reads the file with `run-as` and forwards `tcp:18765` to that abstract socket. It compiles `src/NativePoc.Screen/Screen.cs` with the SDK Roslyn compiler and sends the DLL. `AppSession` stays in the already-loaded `NativePoc.Core` assembly.
 
 ```bash
 dotnet build tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
@@ -366,7 +514,7 @@ XA1040 was not emitted. `rg -n XA1040` exits 1 on the NativeAOT logs named in it
 ## Blockers
 
 - `dotnet watch` still does not reach the Android process. The in-place path is the Debug screen-assembly swap, now on an abstract socket with a per-start token. An `AppState` shape change fails in place with `MissingMethodException`, the previous delegate is restored, and a later keystroke renders the previous screen. The new Release APK does not declare `INTERNET`. The Debug manifest still does, because the SDK adds it.
-- Item 15 passed on this emulator. Item 16 did not on KVM: the PoC cold-start p50 is 1517.5 ms and the MAUI template p50 is 1101 ms. KVM then faulted in `kvm_arch_vcpu_create`. The TCG pass did not produce a median under 1101 ms. The lowest is NativeAOT at 10097.5 ms.
+- Item 15 passed on this emulator. Item 16, on the earlier KVM boot, did not for profiled Mono AOT: p50 1517.5 ms against the MAUI template p50 1101 ms. That KVM then faulted in `kvm_arch_vcpu_create`. The TCG pass is withdrawn. On the KVM boot in the section above, the NativeAOT default's 10-run p50 is under the MAUI p50 measured immediately after it.
 - arm64 Mono AOT and arm64 NativeAOT were built and not installed. This host's emulator image is x86_64. The review NativeAOT x64 APK was installed on the TCG emulator.
 - NativeAOT is experimental. IL3053 is in the workload assembly. XA1040 did not show up, which disagrees with the plan's expectation that the warning is present. The earlier x64 app ran anyway.
 - The first NativeAOT link failed because the NDK was not installed (`libc++_static.a` and `libc++abi.a` missing). Installing `ndk;26.3.11579264` fixed the link. That failure is environmental, and it is fixed on this machine.
@@ -386,8 +534,8 @@ XA1040 was not emitted. `rg -n XA1040` exits 1 on the NativeAOT logs named in it
 - `evidence/nativeaot-x64-rebuild-empty.png` — NativeAOT rebuild, pid 14459, `Counter 0`
 - `evidence/nativeaot-x64-rebuild-saved.png` — same process, `Counter 1`, `Ada`, `Hello Ada`
 - `evidence/nativeaot-x64-rebuild-rotated.png` — same process after rotation, state kept
-- `evidence/hot-reload-a-cold.png` — end-to-end sample 0, pid 15262, `A00 1`, `Ada`
-- `evidence/hot-reload-a-warm.png` — end-to-end sample 19, same process, `A19 1`, `Ada`
+- `evidence/hot-reload-a-tcp-cold.png` — TCP-listener end-to-end sample 0, pid 15262, `A00 1`, `Ada`
+- `evidence/hot-reload-a-tcp-warm.png` — TCP-listener end-to-end sample 19, same process, `A19 1`, `Ada`
 - `evidence/hot-reload-extra-line.png` — pid 15856, button `Store`, text `Extra line`, `Ada` kept
 - `evidence/hot-reload-shape.png` — same process after the rejected `AppState.Extra` edit, still `Rebound 1` / `Ada`
 - `evidence/mono-aot-x64.png` and `evidence/mono-aot-x64-saved.png`

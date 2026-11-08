@@ -1,0 +1,135 @@
+package=com.scratch.nativepoc
+component=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+samples=10 dropped=0
+totals=1183,819,878,914,965,1284,1278,1137,917,982
+sorted=819,878,914,917,965,982,1137,1183,1278,1284
+p50=973.5
+min=819 max=1284
+runtime_init_ms=270.0,225.0,230.0,267.0,285.0,255.0,345.0,300.0,231.0,304.0
+runtime_init_ms-p50=268.5 n=10
+widget_build_ms=30.0,28.0,41.0,25.0,51.0,56.0,57.0,79.0,54.0,24.0
+widget_build_ms-p50=46.0 n=10
+first_frame_ms=800.0,543.0,580.0,592.0,651.0,839.0,837.0,749.0,610.0,618.0
+first_frame_ms-p50=634.5 n=10
+start_to_displayed_ms=1100.0,796.0,851.0,884.0,987.0,1150.0,1239.0,1128.0,895.0,946.0
+start_to_displayed_ms-p50=966.5 n=10
+
+===== sample 0 adb shell am force-stop com.scratch.nativepoc =====
+===== sample 0 adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1183
+WaitTime: 1245
+Complete
+
+{'runtime_init_ms': 270.0, 'widget_build_ms': 30.0, 'first_frame_ms': 800.0, 'start_to_displayed_ms': 1100.0, 'displayed': '1794160760.946   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +1s183ms', 'total_ms': 1183}
+
+===== sample 1 adb shell am force-stop com.scratch.nativepoc =====
+===== sample 1 adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 819
+WaitTime: 823
+Complete
+
+{'runtime_init_ms': 225.0, 'widget_build_ms': 28.0, 'first_frame_ms': 543.0, 'start_to_displayed_ms': 796.0, 'displayed': '1794160763.147   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +819ms', 'total_ms': 819}
+
+===== sample 2 adb shell am force-stop com.scratch.nativepoc =====
+===== sample 2 adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 878
+WaitTime: 924
+Complete
+
+{'runtime_init_ms': 230.0, 'widget_build_ms': 41.0, 'first_frame_ms': 580.0, 'start_to_displayed_ms': 851.0, 'displayed': '1794160765.531   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +878ms', 'total_ms': 878}
+
+===== sample 3 adb shell am force-stop com.scratch.nativepoc =====
+===== sample 3 adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 914
+WaitTime: 936
+Complete
+
+{'runtime_init_ms': 267.0, 'widget_build_ms': 25.0, 'first_frame_ms': 592.0, 'start_to_displayed_ms': 884.0, 'displayed': '1794160768.042   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +914ms', 'total_ms': 914}
+
+===== sample 4 adb shell am force-stop com.scratch.nativepoc =====
+===== sample 4 adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 965
+WaitTime: 974
+Complete
+
+{'runtime_init_ms': 285.0, 'widget_build_ms': 51.0, 'first_frame_ms': 651.0, 'start_to_displayed_ms': 987.0, 'displayed': '1794160770.435   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +965ms', 'total_ms': 965}
+
+===== sample 5 adb shell am force-stop com.scratch.nativepoc =====
+===== sample 5 adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1284
+WaitTime: 1301
+Complete
+
+{'runtime_init_ms': 255.0, 'widget_build_ms': 56.0, 'first_frame_ms': 839.0, 'start_to_displayed_ms': 1150.0, 'displayed': '1794160773.159   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +1s284ms', 'total_ms': 1284}
+
+===== sample 6 adb shell am force-stop com.scratch.nativepoc =====
+===== sample 6 adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1278
+WaitTime: 1288
+Complete
+
+{'runtime_init_ms': 345.0, 'widget_build_ms': 57.0, 'first_frame_ms': 837.0, 'start_to_displayed_ms': 1239.0, 'displayed': '1794160775.755   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +1s278ms', 'total_ms': 1278}
+
+===== sample 7 adb shell am force-stop com.scratch.nativepoc =====
+===== sample 7 adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1137
+WaitTime: 1216
+Complete
+
+{'runtime_init_ms': 300.0, 'widget_build_ms': 79.0, 'first_frame_ms': 749.0, 'start_to_displayed_ms': 1128.0, 'displayed': '1794160778.386   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +1s137ms', 'total_ms': 1137}
+
+===== sample 8 adb shell am force-stop com.scratch.nativepoc =====
+===== sample 8 adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 917
+WaitTime: 942
+Complete
+
+{'runtime_init_ms': 231.0, 'widget_build_ms': 54.0, 'first_frame_ms': 610.0, 'start_to_displayed_ms': 895.0, 'displayed': '1794160780.809   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +917ms', 'total_ms': 917}
+
+===== sample 9 adb shell am force-stop com.scratch.nativepoc =====
+===== sample 9 adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity =====
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 982
+WaitTime: 993
+Complete
+
+{'runtime_init_ms': 304.0, 'widget_build_ms': 24.0, 'first_frame_ms': 618.0, 'start_to_displayed_ms': 946.0, 'displayed': '1794160783.239   518   537 I ActivityTaskManager: Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +982ms', 'total_ms': 982}

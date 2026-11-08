@@ -28,7 +28,7 @@ dotnet build src/NativePoc.Android/NativePoc.Android.csproj \
 
 Use `android-arm64` for a phone. A plain `adb install` of the Debug APK aborts: Debug uses fast deployment, and the assemblies are pushed by `-t:Run`.
 
-Debug in-place reload, after that deploy. A launcher start does not open the loader. The host generates a 16-byte token, starts the activity with the `nativepoc_hotreload` intent extra, and forwards `tcp:18765` to the abstract socket `localabstract:npoc-<hex>`. The app checks that token before it loads a screen DLL. State stays in `NativePoc.Core`, which is already loaded.
+Debug in-place reload, after that deploy. The app generates a 16-byte token, writes it to the private file `files/hotreload.token`, and listens on `localabstract:npoc-hotreload`. A `nativepoc_hotreload` launch extra is ignored. The token is not logged. The host reads the file with `adb shell run-as` and forwards `tcp:18765` to that abstract socket. State stays in `NativePoc.Core`, which is already loaded.
 
 ```bash
 dotnet build tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
@@ -39,22 +39,15 @@ dotnet tools/NativePoc.HotReload.Host/bin/Debug/net10.0/NativePoc.HotReload.Host
 
 `dotnet watch` still does not apply edits in place on this workload. See the report.
 
-## Release Mono AOT
+## Release
+
+Release publish is NativeAOT. `PublishAot` and `EnablePreviewFeatures` are set when `Configuration` is `Release`.
 
 ```bash
 dotnet publish src/NativePoc.Android/NativePoc.Android.csproj \
   -c Release -f net10.0-android -r android-arm64
 ```
 
-`RunAOTCompilation` is set for Release when `PublishAot` is not set. The signed APK contains `libmonosgen-2.0.so` and `libaot-*.dll.so`. The Android SDK then turns on profiled AOT with its `dotnet.aotprofile`. To compile against a different profile, pass `-p:AndroidUseDefaultAotProfile=false -p:NativePocAotProfile=/path/to/file.aotprofile`.
+The workload's `Mono.Android` assembly reports `IL3053`. That warning is listed in `WarningsNotAsErrors`, so the publish still treats the repo's own warnings as errors. `XA1040` is on the same list and was not emitted on the x64 publish. The Android NDK (26.3.11579264 on this SDK) has to be installed or the native link fails looking for `libc++_static.a`.
 
-## NativeAOT (experimental)
-
-```bash
-dotnet publish src/NativePoc.Android/NativePoc.Android.csproj \
-  -c Release -f net10.0-android -r android-arm64 \
-  -p:PublishAot=true -p:EnablePreviewFeatures=true \
-  -p:TreatWarningsAsErrors=false
-```
-
-`TreatWarningsAsErrors` stays on for normal builds. The NativeAOT publish needs it off because the workload's `Mono.Android` assembly reports IL3053. The Android NDK (26.3.11579264 on this SDK) has to be installed or the native link fails looking for `libc++_static.a`.
+Mono AOT is the opt-out. `-p:PublishAot=false` turns on `RunAOTCompilation` and the SDK's profiled AOT profile. Full AOT is that plus `-p:AndroidEnableProfiledAot=false`. To compile against a different profile, pass `-p:AndroidUseDefaultAotProfile=false -p:NativePocAotProfile=/path/to/file.aotprofile`. The signed Mono APK contains `libmonosgen-2.0.so` and `libaot-*.dll.so`.

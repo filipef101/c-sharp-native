@@ -1,0 +1,10 @@
+  Determining projects to restore...
+  Restored /workspace/tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj (in 55 ms).
+  NativePoc.HotReload.Host -> /workspace/tools/NativePoc.HotReload.Host/bin/Debug/net10.0/NativePoc.HotReload.Host.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.24
+HOST_BUILD:0

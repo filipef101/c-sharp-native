@@ -8,7 +8,7 @@ public static class Screen
 	{
 		return new Column(
 		[
-			new Text(TitlePrefix + state.Count),
+			new Text(TitlePrefix + state.Count) { Key = "title" },
 			new TextField(
 				state.Name,
 				value =>
@@ -17,7 +17,8 @@ public static class Screen
 					platform.RequestRender();
 				},
 				"Name",
-				"Name"),
+				"Name")
+			{ Key = "name" },
 			new Button(
 				"Save",
 				() =>
@@ -26,8 +27,9 @@ public static class Screen
 					platform.CopyNonce("poc-" + state.Count);
 					platform.RequestRender();
 				},
-				"Save name"),
-			new Text(state.Name.Length == 0 ? "Enter a name" : "Hello " + state.Name),
+				"Save name")
+			{ Key = "save" },
+			new Text(state.Name.Length == 0 ? "Enter a name" : "Hello " + state.Name) { Key = "greeting" },
 		]);
 	}
 }

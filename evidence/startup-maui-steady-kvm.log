@@ -1,0 +1,132 @@
+package=com.companyname.mauibaseline
+component=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+samples=10 dropped=0
+totals=1276,1130,1125,1062,1137,1080,1069,1046,1137,1058
+sorted=1046,1058,1062,1069,1080,1125,1130,1137,1137,1276
+p50=1102.5
+min=1046 max=1276
+runtime_init_ms=,,,,,,,,,
+widget_build_ms=,,,,,,,,,
+first_frame_ms=,,,,,,,,,
+start_to_displayed_ms=1215.0,1046.0,1107.0,992.0,1052.0,1062.0,1050.0,994.0,1129.0,1076.0
+start_to_displayed_ms-p50=1057.0 n=10
+
+===== sample 0 adb shell am force-stop com.companyname.mauibaseline =====
+===== sample 0 adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1276
+WaitTime: 1287
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1215.0, 'displayed': '1794160785.974   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s276ms', 'total_ms': 1276}
+
+===== sample 1 adb shell am force-stop com.companyname.mauibaseline =====
+===== sample 1 adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1130
+WaitTime: 1132
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1046.0, 'displayed': '1794160788.477   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s130ms', 'total_ms': 1130}
+
+===== sample 2 adb shell am force-stop com.companyname.mauibaseline =====
+===== sample 2 adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1125
+WaitTime: 1187
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1107.0, 'displayed': '1794160791.000   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s125ms', 'total_ms': 1125}
+
+===== sample 3 adb shell am force-stop com.companyname.mauibaseline =====
+===== sample 3 adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1062
+WaitTime: 1086
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 992.0, 'displayed': '1794160793.541   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s62ms', 'total_ms': 1062}
+
+===== sample 4 adb shell am force-stop com.companyname.mauibaseline =====
+===== sample 4 adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1137
+WaitTime: 1145
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1052.0, 'displayed': '1794160796.029   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s137ms', 'total_ms': 1137}
+
+===== sample 5 adb shell am force-stop com.companyname.mauibaseline =====
+===== sample 5 adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1080
+WaitTime: 1095
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1062.0, 'displayed': '1794160798.465   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s80ms', 'total_ms': 1080}
+
+===== sample 6 adb shell am force-stop com.companyname.mauibaseline =====
+===== sample 6 adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1069
+WaitTime: 1079
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1050.0, 'displayed': '1794160800.954   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s69ms', 'total_ms': 1069}
+
+===== sample 7 adb shell am force-stop com.companyname.mauibaseline =====
+===== sample 7 adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1046
+WaitTime: 1052
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 994.0, 'displayed': '1794160803.390   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s46ms', 'total_ms': 1046}
+
+===== sample 8 adb shell am force-stop com.companyname.mauibaseline =====
+===== sample 8 adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1137
+WaitTime: 1145
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1129.0, 'displayed': '1794160805.926   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s137ms', 'total_ms': 1137}
+
+===== sample 9 adb shell am force-stop com.companyname.mauibaseline =====
+===== sample 9 adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity =====
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1058
+WaitTime: 1068
+Complete
+
+{'runtime_init_ms': None, 'widget_build_ms': None, 'first_frame_ms': None, 'start_to_displayed_ms': 1076.0, 'displayed': '1794160808.463   518   537 I ActivityTaskManager: Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1s58ms', 'total_ms': 1058}

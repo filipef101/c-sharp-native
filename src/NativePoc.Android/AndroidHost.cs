@@ -118,6 +118,8 @@ sealed class AndroidHost : IElementHost<View>
 	public void OnUnmounted(NodePath path, View view)
 	{
 		Detach(view);
+		if (view.Parent is ViewGroup group)
+			group.RemoveView(view);
 		view.Dispose();
 	}
 

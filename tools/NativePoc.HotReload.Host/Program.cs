@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -153,7 +152,7 @@ void MeasureTransfer(string repo, string source)
 
 void MeasureCompile(string source, string repo)
 {
-	Line("clock=Roslyn compile of an in-memory source string; no file write and no TCP");
+	Line("clock=Roslyn compile of an in-memory source string; no file write and no socket");
 	Line("cold=sample 0, the first compilation in this process");
 	var references = References(repo);
 	var samples = new List<double>();
@@ -376,27 +375,21 @@ static string LastUiXml()
 
 static void RestartApp()
 {
-	MintToken();
 	Adb("logcat", "-c");
 	Adb("shell", "am", "force-stop", "com.scratch.nativepoc");
 	Thread.Sleep(400);
-	Adb(
-		"shell",
-		"am",
-		"start",
-		"-n",
-		"com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity",
-		"--es",
-		"nativepoc_hotreload",
-		HotReloadSession.Hex);
-	var marker = "hotreload-listen localabstract:npoc-" + HotReloadSession.Hex;
+	Adb("shell", "am", "start", "-n", LauncherComponent());
 	for (var i = 0; i < 50; i++)
 	{
 		Thread.Sleep(200);
 		var listed = AdbAllowFail("shell", "pidof", "com.scratch.nativepoc").Trim();
 		var logged = AdbAllowFail("logcat", "-d", "-s", "NativePoc:I");
-		if (listed.Length > 0 && logged.Contains(marker, StringComparison.Ordinal))
+		if (listed.Length > 0 && logged.Contains("hotreload-listen localabstract:npoc-hotreload", StringComparison.Ordinal))
 		{
+			ReadDeviceToken();
+			var after = AdbAllowFail("logcat", "-d", "-s", "NativePoc:I", "NativePoc:E");
+			if (after.Contains(HotReloadSession.Hex, StringComparison.OrdinalIgnoreCase))
+				throw new InvalidOperationException("The hot reload token was written to logcat.");
 			ForwardAbstract();
 			return;
 		}
@@ -405,28 +398,49 @@ static void RestartApp()
 	throw new InvalidOperationException("The app did not open the hot reload socket.");
 }
 
-static void MintToken()
+static string LauncherComponent()
 {
-	var token = RandomNumberGenerator.GetBytes(16);
-	HotReloadSession.Token = token;
-	HotReloadSession.Hex = Convert.ToHexString(token).ToLowerInvariant();
-	File.WriteAllText(HotReloadSession.TokenPath, HotReloadSession.Hex);
+	var output = Adb(
+		"shell",
+		"cmd",
+		"package",
+		"resolve-activity",
+		"--brief",
+		"-c",
+		"android.intent.category.LAUNCHER",
+		"com.scratch.nativepoc");
+	foreach (var line in output.Split('\n'))
+	{
+		var trimmed = line.Trim();
+		if (trimmed.Contains('/'))
+			return trimmed;
+	}
+
+	throw new InvalidOperationException("The launcher activity was not found.");
 }
 
 static void LoadToken()
 {
 	if (HotReloadSession.Token.Length == 16)
 		return;
-	var hex = File.ReadAllText(HotReloadSession.TokenPath).Trim();
+	ReadDeviceToken();
+}
+
+static void ReadDeviceToken()
+{
+	var hex = Adb("shell", "run-as", "com.scratch.nativepoc", "cat", "files/hotreload.token").Trim();
+	if (hex.Length != 32)
+		throw new InvalidOperationException("The app hot reload token was not readable.");
 	HotReloadSession.Hex = hex;
 	HotReloadSession.Token = Convert.FromHexString(hex);
+	File.WriteAllText(HotReloadSession.TokenPath, hex);
 }
 
 static void ForwardAbstract()
 {
 	LoadToken();
 	AdbAllowFail("forward", "--remove", "tcp:" + Port);
-	Adb("forward", "tcp:" + Port, "localabstract:npoc-" + HotReloadSession.Hex);
+	Adb("forward", "tcp:" + Port, "localabstract:npoc-hotreload");
 }
 
 static string Pid()

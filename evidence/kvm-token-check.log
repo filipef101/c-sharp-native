@@ -1,0 +1,19 @@
+start=adb shell am force-stop com.scratch.nativepoc; adb shell am start -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity --es nativepoc_hotreload 00112233445566778899aabbccddeeff
+start-output=Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity (has extras) }
+pid=14082
+file-token=<redacted-token>
+matches-recorded=True
+equals-forged=False
+forged-in-logcat=False
+token-in-logcat=False
+listen-lines=1
+listen=11-08 18:06:11.483 14082 14111 I NativePoc: hotreload-listen localabstract:npoc-hotreload
+listen-contains-token=False
+extra-string-in-logcat=False
+forward=18765
+forged-probe=ok=0 body=UnauthorizedAccessException: Rejected hot reload token.
+real-probe=ok=0 body=InvalidOperationException: Rejected screen assembly length 0.
+errors:
+--------- beginning of main
+11-08 18:06:50.774 14082 14111 E NativePoc: hotreload-error UnauthorizedAccessException Rejected hot reload token.
+11-08 18:06:50.782 14082 14111 E NativePoc: hotreload-error InvalidOperationException Rejected screen assembly length 0.

@@ -1,0 +1,14 @@
+component=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+pid=7398
+handles=12006,12006,12006,12006
+flags:
+         1794160503.847  7398  7398 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+start:
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1136
+WaitTime: 1141
+Complete
+

@@ -34,13 +34,8 @@ public sealed class MainActivity : Activity
 		_host = new AndroidHost(this, () => _reconciler?.Current);
 		_reconciler = new ViewReconciler<View>(_host);
 		RenderNow();
-		if (_reconciler.Root is null)
-			throw new InvalidOperationException("Screen did not mount a root view.");
-		SetContentView(_reconciler.Root);
 #if DEBUG
-		var token = Intent?.GetStringExtra("nativepoc_hotreload");
-		if (!string.IsNullOrEmpty(token))
-			HotReloadServer.Start(token);
+		HotReloadServer.Start(this);
 #endif
 	}
 
@@ -105,9 +100,14 @@ public sealed class MainActivity : Activity
 	{
 		if (_reconciler is null || _platform is null)
 			return;
+		var previousRoot = _reconciler.Root;
 		var state = AppSession.Shared.State;
 		var tree = _render(state, _platform);
 		_reconciler.Render(tree);
+		if (_reconciler.Root is null)
+			throw new InvalidOperationException("Screen did not mount a root view.");
+		if (!ReferenceEquals(previousRoot, _reconciler.Root))
+			SetContentView(_reconciler.Root);
 		LastTitle = TitleOf(tree);
 		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length + " title=" + LastTitle);
 	}
