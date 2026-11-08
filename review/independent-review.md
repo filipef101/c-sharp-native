@@ -1,5 +1,91 @@
 # Independent review: Android native-widget proof of concept
 
+## Re-review of c9f454f
+
+Re-reviewed the fixes on `c9f454f` ("Authenticate the debug loader and record the review fixes"). Sources were read from that commit. `src/` was not modified. The signed APKs are gitignored, so the new NativeAOT uncompressed size and the APK hashes were not recomputed here.
+
+### Verdict
+
+The loader, the receiver, the single listener, the render rollback, the `button-mounted` label, and the `EditText` content description are fixed in the code and show up in the logs. Keyed identity works when every sibling has a `Key`. `Screen.Render` sets none, so the screen that was measured still diffs by index. The new "Review fixes" section of the report matches the logs. Later sections of the same report still describe the TCP listener as the current design. Cold-start p50 **1517.5 ms** against the MAUI template's **1101 ms** matches the new `am start` logs. Those review edits do not account for the gap.
+
+### What was executed
+
+- `dotnet test tests/NativePoc.Core.Tests` on the `c9f454f` tree, SDK 10.0.403. **Passed 15, failed 0, skipped 0, 74 ms.** `evidence/unit-tests-review.log` is the same 15/0 result at 66 ms.
+- A throwaway in-memory host, left outside the repo, for keyed identity and native child order: middle delete, insert at the front, insert in the middle, a parent swap that also changes a child's kind, a nested column, and 2000 random keyed renders. Identity and order mismatches: 0. Deleting one of four keyed siblings removed all four direct children and reinserted the three that stayed. The same host, with no keys, still displayed the surviving text on the removed sibling's view.
+- The emulator was not booted again. Device conclusions are from `evidence/logcat-review-fixes.log`, `evidence/review-device.log`, the UI dumps, the loader scan, and the `am start` logs.
+
+### Per-item verdicts
+
+| Earlier finding | Verdict | Code at c9f454f | Log evidence |
+| --- | --- | --- | --- |
+| 1. Unauthenticated TCP loader, open `Resolve`, exported recreate receiver | **Resolved, with a Debug residual** | Abstract socket `npoc-` plus the token hex (`HotReloadServer.cs:57`). First 16 bytes checked with `FixedTimeEquals` (`HotReloadServer.cs:107-113`). `Start` runs only when the `nativepoc_hotreload` extra is non-empty (`MainActivity.cs:40-43`). `Resolve` returns `NativePoc.Core` or a default-context `System.Private.CoreLib` / `netstandard` / `mscorlib` / `System.*` name (`HotReloadServer.cs:206-230`). Receiver is `Exported = false` with `android.permission.DUMP` (`RecreateReceiver.cs:6`). `INTERNET` is gone from `AndroidManifest.xml`. | Pid 5119: one `hotreload-listen localabstract:npoc-<redacted-token>`, then `UnauthorizedAccessException`, then `Counter 0 collectible=True`. `tcp-has-494D=False`, `unix-has-token=True`. Shell broadcast `result=0`, `listen-already-after-broadcast=0`, pid stayed 5119. Release DLL scan line is 12800 bytes and lists `title=:utf16` only. Release manifest has the activity and no `INTERNET` or `RECREATE` receiver. |
+| 2. `Start` bound 18765 again on every Debug `OnCreate` | **Resolved** | `Interlocked.CompareExchange` (`HotReloadServer.cs:25-28`). The bind sits inside the try (`HotReloadServer.cs:59-68`) and a bind failure clears `_started`. | `listen-lines=1`, `listen-already=2` after two rotations. The following send returned `Counter 1 collectible=True` on pid 5119. |
+| 3. A thrown `Render` left the broken delegate installed | **Resolved for that failure** | `UseRender` restores the previous delegate when `RenderNow` throws (`MainActivity.cs:86-98`). `Apply` stores the load context after `UseRender` returns (`HotReloadServer.cs:176-178`). | One `MissingMethodException`. The next keystroke logged `rendered count=1 name-length=4 title=Reloaded 1`. `shape-missing-count` stayed 1. The restored DLL returned `Counter 1 collectible=True` on the same pid. |
+| 4. Index identity; middle delete and reorder reused the wrong view | **Partial** | `Element.Key`, `DiffKeyedChildren`, and `ApplyReorder` are in the tree. Mixed keys and duplicate keys throw. | The 15 unit tests pass, including the three keyed identity tests. The throwaway host found no keyed identity or order bug. `Screen.Render` (`Screen.cs:9-31`) sets no `Key`, and the unkeyed middle delete still keeps the removed view. |
+| 5. Report figures disagreed with the artifacts | **Partial** | The "Review fixes" section and the size note under the measurements table were rewritten. The loader section (~line 111), the source tree (~line 139), and the Debug run steps (~line 175) still describe a current `TcpListener` on `127.0.0.1:18765` and `INTERNET` in the app manifest. | p50 arithmetic, the new `force-stop` lines, the withdrawn pids, and the content description match the files named below. The new NativeAOT `.so` size 5212960 is not in `evidence/apk-listings.txt`. |
+| 6. Listeners never detached; `button-mounted` logged from `SetButton` | **Resolved in code; dispose was not exercised on device** | `button-mounted` is logged from `OnMounted` (`AndroidHost.cs:108`, `:136-141`). `OnUnmounted` detaches and calls `Dispose` (`AndroidHost.cs:118-122`). `Retarget` rebinds without that log (`AndroidHost.cs:111-116`). | `button-mounted` stayed 1 across the title change to `Store` and the restore, then 3 after two rotations (new activities). The session never removed a widget. `MemoryHost.OnUnmounted` is empty. |
+| 7. `SetContentView` once, so a replaced root stays off-screen | **Open** | Still the single call at `MainActivity.cs:39`. | No new trial. `Screen.Render` still returns a `Column`. |
+| 8. `EditText` content description | **Resolved** | `SetTextField` assigns `ContentDescription` (`AndroidHost.cs:82`). The screen passes `"Name"` as placeholder and accessibility label (`Screen.cs:19-20`). | Empty Release dump: `EditText` `text="Name"` `content-desc="Name"`. Saved dump: `text="Ada"` `content-desc="Name"`. Device log: `empty-content-desc=Name`, `typed-content-desc=Name`. |
+
+Depth 4 in `NodePath` and the Save path that increments `Count` before `CopyNonce` (`Screen.cs:24-27`) are unchanged. The new Debug log does contain `clipboard-ok poc-1` before `rendered count=1`.
+
+### Residuals and new issues
+
+The token check holds for a listener that is already up. It is the whole of the access control.
+
+- **Debug, medium.** `MainActivity` is still `Exported = true` (`MainActivity.cs:8`). `OnCreate` starts the listener with whatever `nativepoc_hotreload` extra that launch carries, and the socket name is that token (`HotReloadServer.cs:57`, logged at `:70`). A process that has not called `Start` — a launcher start is this case — will bind a token chosen by whoever starts the activity. A second `Start` logs `hotreload-listen already` and keeps the first token. The well-known TCP port is gone. A Debug code-load remains available to an app that can start this activity.
+- **Low.** The same hex is in logcat, in `/proc/net/unix` (`@npoc-<redacted-token>`, seven lines in `evidence/review-proc-net-unix.txt`), and in the host temp file `nativepoc-hotreload.token` (`Program.cs:507`). On API 34 another app generally cannot read logcat or `/proc/net`. `adb` can.
+- **`Resolve` is an allow-list, and the loaded method still runs in-process.** A legitimate Screen DLL loaded (`collectible=True`). There is no device trial of a DLL whose dependency is `Mono.Android`. A `Render` that is already running can reflect over assemblies the process has loaded. The report describes the resolver, and the resolver matches that description.
+- **Rollback restores the delegate.** `ViewReconciler.Render` assigns `_current` before it applies patches (`ViewReconciler.cs:53-57`). A throw from a later patch would leave a half-updated tree and the next diff would start from the previous element. The recorded `MissingMethodException` is thrown inside the new `Render`, before `Render` on the reconciler.
+- **Keyed structural edits detach every sibling.** Identity survives; the view is removed and reinserted, so focus and the IME do not. The measured screen does not set keys, so it neither gains the identity fix nor pays that detach.
+- **Dispose runs while the view can still be a child.** `UnmountDescendants` calls `OnUnmounted` before `Detach` removes the ancestor. That was not captured on a device.
+
+### Startup, 1517.5 ms versus 1101 ms
+
+Both series are ten `LaunchState: COLD` runs with `force-stop` before each.
+
+PoC, `evidence/am-start-mono-aot-x64-review.log`: 1704, 1429, 1775, 1416, 1596, 1585, 1450, 1634, 1406, 1216. Sorted center pair 1450 and 1585, mean **1517.5**. Range 1216–1775.
+
+MAUI, `evidence/am-start-maui-x64.log`: 1093, 1129, 1109, 1144, 1135, 1010, 1057, 1067, 1177, 1083. Sorted center pair 1093 and 1109, mean **1101**. Range 1010–1177.
+
+The previous PoC series on workload 36.1.2 is in `evidence/mono-aot-x64-functional.log`: 1433, 1488, 1124, 1449, 1068, 1152, 1331, 1382, 1551, 1513. That even-n p50 is 1398, range 1068–1551. The new range overlaps it. A 119 ms median move sits inside that spread. `evidence/workload-list-review.txt` records the android workload at 36.1.118. MAUI was measured on that same workload, so the upgrade can sit inside the PoC-versus-earlier-PoC shift and leaves the gap to MAUI in place.
+
+The review edits are a poor fit for about 400 ms of Release cold start:
+
+- The listener is `#if DEBUG`, and `Start` runs only when the intent extra is set. A Release `am start` does not take that path.
+- `Screen.Render` sets no `Key`, so `ApplyReorder` does not run.
+- The widget-path additions are a `ContentDescription` assignment and the listener dictionary. Pid 5806 logs `activity-start tick=524199` and `button-mounted tick=524295`, a **96 ms** span (`evidence/logcat-mono-aot-x64-review.log`). The report's functional `TotalTime` for that launch is 1623 ms and is outside the ten. The ten cold starts have no logcat, so their `TotalTime` is not split into time before `OnCreate` and time after the button log.
+- The new Mono publish AOT-compiles 13 assemblies, including `System.Collections.dll.so` (`evidence/mono-aot-x64-review.log`, `EXIT:0`, no `warning` line). The 36.1.2 rebuild compiled 12 and did not list `System.Collections` (`evidence/mono-aot-x64-rebuild.log`). One extra facade image is a real difference and a small one.
+
+The publish logs show a different shape, and a faster one on the larger app. The PoC APK is 3795146 bytes, with `RunAOTCompilation` and `TrimMode=partial` (`NativePoc.Android.csproj:17-20`). Pid 5806 logged `IsDynamicCodeCompiled=True`. The MAUI publish (`evidence/maui-x64-publish.log`) compiles **89** AOT images, enables XAML source generation, and exits 0. The report states both packages contain uncompressed `libmonosgen-2.0.so` at 3290280 bytes. This review did not stat that file. A 19 MB APK with 89 AOT images and a lower `TotalTime` means the gap is not extra native code in the PoC. The 96 ms widget span cannot account for 416 ms. The rest is process and runtime startup before `activity-start`, plus the time from `button-mounted` to the frame `am start -W` reports. MAUI has no logcat ticks here, so the two managed spans were not compared. The concrete reading of the build is that this activity builds the tree on the UI thread and then calls `SetContentView`, on a Mono AOT runtime that still reports a JIT, while the MAUI template's first frame is a source-generated AppCompat screen with a much larger precompiled set. That is the build shape. It is not a startup trace.
+
+### Acceptance items, scored again
+
+| Item | Verdict | Why this score moved, or stayed |
+| --- | --- | --- |
+| 1. Four widgets and runtime flags | **Pass** | Pid 5806: `IsDynamicCodeSupported=True IsDynamicCodeCompiled=True`, empty UI `Counter 0` / `Name` / `Save` / `Enter a name`. |
+| 2. `Ada`, 20 keystrokes, same `EditText` | **Pass** | The 20-line handle log is unchanged. Pid 5119 typed `Ada` and then `X`. |
+| 3. Save keeps the field and shows `Counter 1` | **Pass** | Pid 5119: `clipboard-ok poc-1`, `rendered count=1 name-length=3`. |
+| 4. Empty name still increments | **Pass** | The earlier empty-save logs still stand. This session did not repeat that save. |
+| 5. Recreate and rotation keep state | **Pass** | Rotation on pid 5119 kept `count=1 name-length=4` with one listen line and two `already` lines. The shell broadcast returned `result=0` and did not enter `OnReceive`. |
+| 6. Clipboard round-trip | **Pass** | `clipboard-ok poc-1` is in `evidence/logcat-review-fixes.log`. |
+| 7–10. In-place edit, n=20, same pid, field kept | **Partial** | The n=20 series is the TCP loader. The abstract-socket path has four `once` samples, 27.2, 56.1, 16.4, and 19.3 ms, all on pid 5119. `dotnet watch` still restarts the process. |
+| 11. Rude edit recorded | **Pass** | The shape-change trial now includes the keystroke that stays on `Reloaded 1`. |
+| 12. Release Mono AOT, items 1–6 | **Partial** | The new x64 APK installed and showed the empty screen on pid 5806. Items 2–6 of this build ran on Debug pid 5119. Arm64 was not installed. |
+| 13. `libaot-*.so` under `lib/arm64-v8a/` | **Pass** | The arm64 listing is unchanged. |
+| 14. No trim/AOT warnings from this repo | **Pass** | The review Mono log has no `warning` line. NativeAOT still logs one `IL3053` on `Mono.Android`. |
+| 15. APK smaller than `dotnet new maui` | **Pass** | 3795146 versus 19074917, same emulator and SDK. The figures are the report's; the APKs were not re-hashed here. |
+| 16. Startup median at or below MAUI | **Not met** | 1517.5 versus 1101. |
+| 17. NativeAOT publish, XA1040 present | **Fail** | `evidence/xa1040-review-grep.txt`: `rg` exits 1 on the new log. The publish exits 0. |
+| 18. NativeAOT runs items 1–4 | **Pass** (previous x64 run) | The review NativeAOT APK was not installed. The 464b63e process is still the last NativeAOT execution. |
+| 19. NativeAOT failed | **Not applicable** | That process reached `rendered`. |
+
+Items 1–16 are still short of the plan's "fully working" bar: item 16 is not met, and items 7–10 are still the watch-versus-loader split.
+
+The first review below is the pass against `a2d0103`. Its `file:line` citations are that tree.
+
+## First review, tree a2d0103
+
 Reviewed against `research/android-poc-report.md`, `research/runtime-feasibility.md`, the tree at `a2d0103`, and `evidence/`. Sources under `src/` were not modified. The signed APKs cited by the report are gitignored (`evidence/apk/`), so this review did not re-hash those binaries. It did re-read the logs, the UI dumps, `evidence/apk-listings.txt`, and `evidence/mono-aot-x64-loader-scan.txt`.
 
 ## Verdict
