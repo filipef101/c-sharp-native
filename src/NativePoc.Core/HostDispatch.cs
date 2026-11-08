@@ -16,12 +16,12 @@ public static class HostDispatch
 		ArgumentNullException.ThrowIfNull(button);
 		ArgumentNullException.ThrowIfNull(textField);
 		ArgumentNullException.ThrowIfNull(toggle);
-		if (button.IsAssignableFrom(view))
-			return HostInput.Button;
-		if (textField.IsAssignableFrom(view))
-			return HostInput.TextField;
 		if (toggle.IsAssignableFrom(view))
 			return HostInput.Switch;
+		if (textField.IsAssignableFrom(view))
+			return HostInput.TextField;
+		if (button.IsAssignableFrom(view))
+			return HostInput.Button;
 		return HostInput.None;
 	}
 }
