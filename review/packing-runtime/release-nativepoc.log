@@ -1,0 +1,165 @@
+--------- beginning of main
+11-08 22:09:51.531 13973 13973 I NativePoc: packing-start tick=2738103
+11-08 22:09:51.569 13973 13973 I NativePoc: button-mounted handle=13318 tick=2738143
+11-08 22:09:51.581 13973 13973 I NativePoc: button-mounted handle=13574 tick=2738151
+11-08 22:09:51.581 13973 13973 I NativePoc: button-mounted handle=13798 tick=2738151
+11-08 22:09:51.582 13973 13973 I NativePoc: button-mounted handle=13958 tick=2738151
+11-08 22:09:51.582 13973 13973 I NativePoc: button-mounted handle=14182 tick=2738151
+11-08 22:09:51.583 13973 13973 I NativePoc: button-mounted handle=14282 tick=2738151
+11-08 22:09:51.583 13973 13973 I NativePoc: button-mounted handle=14502 tick=2738151
+11-08 22:09:51.583 13973 13973 I NativePoc: button-mounted handle=14602 tick=2738155
+11-08 22:09:51.583 13973 13973 I NativePoc: button-mounted handle=14698 tick=2738155
+11-08 22:09:51.583 13973 13973 I NativePoc: button-mounted handle=14794 tick=2738155
+11-08 22:09:51.589 13973 13973 I NativePoc: packing-set-content-view
+11-08 22:09:51.589 13973 13973 I NativePoc: packing-rendered route=List packed=1 total=4 switch-deliveries=0 field-deliveries=0
+11-08 22:10:16.091 13973 13973 I NativePoc: field-handle 14702
+11-08 22:10:16.105 13973 13973 I NativePoc: button-mounted handle=14186 tick=2762679
+11-08 22:10:16.106 13973 13973 I NativePoc: button-mounted handle=14094 tick=2762679
+11-08 22:10:16.106 13973 13973 I NativePoc: button-mounted handle=13998 tick=2762679
+11-08 22:10:16.106 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=0
+11-08 22:10:19.537 13973 13973 I NativePoc: field-handle 14702
+11-08 22:10:19.537 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=1
+11-08 22:10:20.063 13973 13973 I NativePoc: field-handle 14702
+11-08 22:10:20.063 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=2
+11-08 22:10:20.239 13973 13973 I NativePoc: field-handle 14702
+11-08 22:10:20.239 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=3
+11-08 22:10:20.307 13973 13973 I NativePoc: field-handle 14702
+11-08 22:10:20.307 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=4
+11-08 22:10:20.385 13973 13973 I NativePoc: field-handle 14702
+11-08 22:10:20.385 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=5
+11-08 22:10:20.491 13973 13973 I NativePoc: field-handle 14702
+11-08 22:10:20.491 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=6
+11-08 22:10:20.542 13973 13973 I NativePoc: field-handle 14702
+11-08 22:10:20.542 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=7
+11-08 22:10:20.542 13973 13973 I NativePoc: field-handle 14702
+11-08 22:10:20.542 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=8
+11-08 22:10:20.567 13973 13973 I NativePoc: field-handle 14702
+11-08 22:10:20.567 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=9
+11-08 22:10:20.685 13973 13973 I NativePoc: field-handle 14702
+11-08 22:10:20.685 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=10
+11-08 22:10:20.685 13973 13973 I NativePoc: field-handle 14702
+11-08 22:10:20.685 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=11
+11-08 22:10:30.989 13973 13973 I NativePoc: button-mounted handle=12714 tick=2777563
+11-08 22:10:30.989 13973 13973 I NativePoc: button-mounted handle=15946 tick=2777563
+11-08 22:10:30.989 13973 13973 I NativePoc: button-mounted handle=16166 tick=2777563
+11-08 22:10:30.990 13973 13973 I NativePoc: button-mounted handle=16266 tick=2777563
+11-08 22:10:30.990 13973 13973 I NativePoc: button-mounted handle=16486 tick=2777563
+11-08 22:10:30.990 13973 13973 I NativePoc: button-mounted handle=16586 tick=2777563
+11-08 22:10:30.990 13973 13973 I NativePoc: button-mounted handle=16806 tick=2777563
+11-08 22:10:30.990 13973 13973 I NativePoc: button-mounted handle=16906 tick=2777563
+11-08 22:10:30.990 13973 13973 I NativePoc: button-mounted handle=17002 tick=2777563
+11-08 22:10:30.990 13973 13973 I NativePoc: button-mounted handle=17098 tick=2777563
+11-08 22:10:30.990 13973 13973 I NativePoc: packing-rendered route=List packed=1 total=4 switch-deliveries=0 field-deliveries=11
+11-08 22:10:37.575 13973 13973 I NativePoc: field-handle 17102
+11-08 22:10:37.576 13973 13973 I NativePoc: button-mounted handle=16746 tick=2784147
+11-08 22:10:37.576 13973 13973 I NativePoc: button-mounted handle=16494 tick=2784147
+11-08 22:10:37.576 13973 13973 I NativePoc: button-mounted handle=16274 tick=2784147
+11-08 22:10:37.576 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=11
+11-08 22:10:41.889 13973 13973 I NativePoc: button-mounted handle=17290 tick=2788463
+11-08 22:10:41.889 13973 13973 I NativePoc: button-mounted handle=17386 tick=2788463
+11-08 22:10:41.890 13973 13973 I NativePoc: button-mounted handle=17606 tick=2788463
+11-08 22:10:41.890 13973 13973 I NativePoc: button-mounted handle=17706 tick=2788463
+11-08 22:10:41.890 13973 13973 I NativePoc: button-mounted handle=17926 tick=2788463
+11-08 22:10:41.914 13973 13973 I NativePoc: button-mounted handle=18026 tick=2788487
+11-08 22:10:41.942 13973 13973 I NativePoc: button-mounted handle=16690 tick=2788515
+11-08 22:10:41.942 13973 13973 I NativePoc: button-mounted handle=16598 tick=2788515
+11-08 22:10:41.942 13973 13973 I NativePoc: button-mounted handle=16462 tick=2788515
+11-08 22:10:41.942 13973 13973 I NativePoc: button-mounted handle=16374 tick=2788515
+11-08 22:10:41.943 13973 13973 I NativePoc: packing-rendered route=List packed=1 total=4 switch-deliveries=0 field-deliveries=11
+11-08 22:10:48.338 13973 13973 I NativePoc: field-handle 18030
+11-08 22:10:48.339 13973 13973 I NativePoc: button-mounted handle=17546 tick=2794911
+11-08 22:10:48.339 13973 13973 I NativePoc: button-mounted handle=17114 tick=2794911
+11-08 22:10:48.340 13973 13973 I NativePoc: button-mounted handle=17302 tick=2794911
+11-08 22:10:48.340 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=11
+11-08 22:10:50.593 13973 13973 I NativePoc: button-mounted handle=16074 tick=2797167
+11-08 22:10:50.594 13973 13973 I NativePoc: button-mounted handle=15918 tick=2797167
+11-08 22:10:50.594 13973 13973 I NativePoc: button-mounted handle=14122 tick=2797167
+11-08 22:10:50.594 13973 13973 I NativePoc: button-mounted handle=14034 tick=2797167
+11-08 22:10:50.594 13973 13973 I NativePoc: button-mounted handle=12722 tick=2797167
+11-08 22:10:50.595 13973 13973 I NativePoc: button-mounted handle=18186 tick=2797167
+11-08 22:10:50.595 13973 13973 I NativePoc: button-mounted handle=18406 tick=2797167
+11-08 22:10:50.596 13973 13973 I NativePoc: button-mounted handle=18506 tick=2797171
+11-08 22:10:50.596 13973 13973 I NativePoc: button-mounted handle=18602 tick=2797171
+11-08 22:10:50.596 13973 13973 I NativePoc: button-mounted handle=18698 tick=2797171
+11-08 22:10:50.597 13973 13973 I NativePoc: packing-rendered route=List packed=1 total=4 switch-deliveries=0 field-deliveries=11
+11-08 22:10:57.122 13973 13973 I NativePoc: field-handle 18702
+11-08 22:10:57.122 13973 13973 I NativePoc: button-mounted handle=18190 tick=2803695
+11-08 22:10:57.122 13973 13973 I NativePoc: button-mounted handle=16150 tick=2803695
+11-08 22:10:57.122 13973 13973 I NativePoc: button-mounted handle=14330 tick=2803695
+11-08 22:10:57.122 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=11
+11-08 22:10:58.289 13973 13973 I NativePoc: native-services-disposed
+11-08 22:10:58.476 13973 13973 I NativePoc: packing-start tick=2805051
+11-08 22:10:58.478 13973 13973 I NativePoc: field-handle 15242
+11-08 22:10:58.489 13973 13973 I NativePoc: button-mounted handle=12726 tick=2805063
+11-08 22:10:58.489 13973 13973 I NativePoc: button-mounted handle=18862 tick=2805063
+11-08 22:10:58.489 13973 13973 I NativePoc: button-mounted handle=18954 tick=2805063
+11-08 22:10:58.493 13973 13973 I NativePoc: packing-set-content-view
+11-08 22:10:58.493 13973 13973 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=0 field-deliveries=11
+11-08 22:11:03.739 13973 13973 I NativePoc: button-mounted handle=18218 tick=2810311
+11-08 22:11:03.739 13973 13973 I NativePoc: button-mounted handle=18094 tick=2810311
+11-08 22:11:03.739 13973 13973 I NativePoc: button-mounted handle=17554 tick=2810311
+11-08 22:11:03.739 13973 13973 I NativePoc: button-mounted handle=17290 tick=2810311
+11-08 22:11:03.739 13973 13973 I NativePoc: button-mounted handle=16650 tick=2810311
+11-08 22:11:03.740 13973 13973 I NativePoc: button-mounted handle=16562 tick=2810311
+11-08 22:11:03.744 13973 13973 I NativePoc: button-mounted handle=16302 tick=2810319
+11-08 22:11:03.744 13973 13973 I NativePoc: button-mounted handle=16210 tick=2810319
+11-08 22:11:03.744 13973 13973 I NativePoc: button-mounted handle=16086 tick=2810319
+11-08 22:11:03.744 13973 13973 I NativePoc: button-mounted handle=15958 tick=2810319
+11-08 22:11:03.744 13973 13973 I NativePoc: packing-rendered route=List packed=1 total=4 switch-deliveries=0 field-deliveries=11
+11-08 22:11:07.987 13973 13973 I NativePoc: clipboard-ok chars=54
+11-08 22:11:07.988 13973 13973 I NativePoc: haptic-ok
+11-08 22:11:10.042 13973 13973 I NativePoc: native-services-disposed
+11-08 22:11:10.105 13973 13973 I NativePoc: packing-start tick=2816679
+11-08 22:11:10.130 13973 13973 I NativePoc: button-mounted handle=17718 tick=2816703
+11-08 22:11:10.130 13973 13973 I NativePoc: button-mounted handle=17498 tick=2816703
+11-08 22:11:10.130 13973 13973 I NativePoc: button-mounted handle=16722 tick=2816703
+11-08 22:11:10.131 13973 13973 I NativePoc: button-mounted handle=16626 tick=2816703
+11-08 22:11:10.131 13973 13973 I NativePoc: button-mounted handle=16362 tick=2816703
+11-08 22:11:10.132 13973 13973 I NativePoc: button-mounted handle=16270 tick=2816703
+11-08 22:11:10.135 13973 13973 I NativePoc: button-mounted handle=15986 tick=2816707
+11-08 22:11:10.135 13973 13973 I NativePoc: button-mounted handle=15898 tick=2816707
+11-08 22:11:10.135 13973 13973 I NativePoc: button-mounted handle=15766 tick=2816707
+11-08 22:11:10.135 13973 13973 I NativePoc: button-mounted handle=15602 tick=2816707
+11-08 22:11:10.141 13973 13973 I NativePoc: packing-set-content-view
+11-08 22:11:10.142 13973 13973 I NativePoc: packing-rendered route=List packed=1 total=4 switch-deliveries=0 field-deliveries=11
+11-08 22:11:15.439 13973 13973 I NativePoc: native-services-disposed
+11-08 22:11:15.468 13973 13973 I NativePoc: packing-start tick=2822039
+11-08 22:11:15.485 13973 13973 I NativePoc: button-mounted handle=16366 tick=2822059
+11-08 22:11:15.485 13973 13973 I NativePoc: button-mounted handle=16070 tick=2822059
+11-08 22:11:15.486 13973 13973 I NativePoc: button-mounted handle=14690 tick=2822059
+11-08 22:11:15.486 13973 13973 I NativePoc: button-mounted handle=14298 tick=2822059
+11-08 22:11:15.487 13973 13973 I NativePoc: button-mounted handle=13882 tick=2822059
+11-08 22:11:15.489 13973 13973 I NativePoc: button-mounted handle=13714 tick=2822063
+11-08 22:11:15.489 13973 13973 I NativePoc: button-mounted handle=13166 tick=2822063
+11-08 22:11:15.489 13973 13973 I NativePoc: button-mounted handle=13046 tick=2822063
+11-08 22:11:15.490 13973 13973 I NativePoc: button-mounted handle=12790 tick=2822063
+11-08 22:11:15.491 13973 13973 I NativePoc: button-mounted handle=12498 tick=2822063
+11-08 22:11:15.505 13973 13973 I NativePoc: packing-set-content-view
+11-08 22:11:15.508 13973 13973 I NativePoc: packing-rendered route=List packed=1 total=4 switch-deliveries=0 field-deliveries=11
+11-08 22:11:19.008 13973 13973 I NativePoc: native-services-disposed
+11-08 22:11:19.510 13973 13973 I NativePoc: packing-start tick=2826083
+11-08 22:11:19.516 13973 13973 I NativePoc: button-mounted handle=16074 tick=2826091
+11-08 22:11:19.518 13973 13973 I NativePoc: button-mounted handle=14698 tick=2826091
+11-08 22:11:19.518 13973 13973 I NativePoc: button-mounted handle=13226 tick=2826091
+11-08 22:11:19.543 13973 13973 I NativePoc: button-mounted handle=12770 tick=2826115
+11-08 22:11:19.544 13973 13973 I NativePoc: button-mounted handle=20038 tick=2826119
+11-08 22:11:19.544 13973 13973 I NativePoc: button-mounted handle=20138 tick=2826119
+11-08 22:11:19.544 13973 13973 I NativePoc: button-mounted handle=20358 tick=2826119
+11-08 22:11:19.545 13973 13973 I NativePoc: button-mounted handle=20458 tick=2826119
+11-08 22:11:19.546 13973 13973 I NativePoc: button-mounted handle=20554 tick=2826119
+11-08 22:11:19.546 13973 13973 I NativePoc: button-mounted handle=20650 tick=2826119
+11-08 22:11:19.561 13973 13973 I NativePoc: packing-set-content-view
+11-08 22:11:19.561 13973 13973 I NativePoc: packing-rendered route=List packed=1 total=4 switch-deliveries=0 field-deliveries=11
+11-08 22:11:23.212 14857 14857 I NativePoc: packing-start tick=2829787
+11-08 22:11:23.251 14857 14857 I NativePoc: button-mounted handle=13318 tick=2829823
+11-08 22:11:23.253 14857 14857 I NativePoc: button-mounted handle=13574 tick=2829827
+11-08 22:11:23.253 14857 14857 I NativePoc: button-mounted handle=13798 tick=2829827
+11-08 22:11:23.257 14857 14857 I NativePoc: button-mounted handle=13958 tick=2829831
+11-08 22:11:23.257 14857 14857 I NativePoc: button-mounted handle=14182 tick=2829831
+11-08 22:11:23.257 14857 14857 I NativePoc: button-mounted handle=14282 tick=2829831
+11-08 22:11:23.257 14857 14857 I NativePoc: button-mounted handle=14502 tick=2829831
+11-08 22:11:23.258 14857 14857 I NativePoc: button-mounted handle=14602 tick=2829831
+11-08 22:11:23.258 14857 14857 I NativePoc: button-mounted handle=14698 tick=2829831
+11-08 22:11:23.258 14857 14857 I NativePoc: button-mounted handle=14794 tick=2829831
+11-08 22:11:23.267 14857 14857 I NativePoc: packing-set-content-view
+11-08 22:11:23.267 14857 14857 I NativePoc: packing-rendered route=List packed=1 total=4 switch-deliveries=0 field-deliveries=0

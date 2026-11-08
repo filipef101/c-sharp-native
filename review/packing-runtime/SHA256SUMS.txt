@@ -1,0 +1,2 @@
+a49b4d05f652147b281b348678a2f439306ddba1858c8cf5d191f41d7a11b465  debug/com.scratch.nativepoc-Signed.apk
+494784e190a32dc2bd3fc577b9db3eff66e0a72beba48e610d7a02d1cca33020  release/com.scratch.nativepoc-Signed.apk

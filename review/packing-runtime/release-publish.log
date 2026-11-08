@@ -1,0 +1,16 @@
+kvm-fd pid 6985 boot_completed=1
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /tmp/packing-main/src/NativePoc.Core/bin/Release/net10.0/NativePoc.Core.dll
+  NativePoc.Packing -> /tmp/packing-main/samples/NativePoc.Packing/bin/Release/net10.0/NativePoc.Packing.dll
+  NativePoc.Screen -> /tmp/packing-main/src/NativePoc.Screen/bin/Release/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /tmp/packing-main/src/NativePoc.Android/bin/Release/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /tmp/packing-main/src/NativePoc.Core/bin/Release/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /tmp/packing-main/src/NativePoc.Screen/bin/Release/net10.0/NativePoc.Screen.dll
+  NativePoc.Packing -> /tmp/packing-main/samples/NativePoc.Packing/bin/Release/net10.0/NativePoc.Packing.dll
+  Optimizing assemblies for size may change the behavior of the app. Be sure to test after publishing. See: https://aka.ms/dotnet-illink
+  Optimizing assemblies for size. This process might take a while.
+  Generating native code
+  ILC: Method '[Mono.Android.Runtime]Android.Runtime.RuntimeNativeMethods.monodroid_unhandled_exception(Exception)' will always throw because: Invalid IL or CLR metadata in 'Void Android.Runtime.RuntimeNativeMethods.monodroid_unhandled_exception(System.Exception)'
+  ILC: Method '[Mono.Android.Runtime]Android.Runtime.RuntimeNativeMethods.monodroid_debugger_unhandled_exception(Exception)' will always throw because: Invalid IL or CLR metadata in 'Void Android.Runtime.RuntimeNativeMethods.monodroid_debugger_unhandled_exception(System.Exception)'
+PUBLISH_EXIT:0

@@ -1,0 +1,12 @@
+debug switch-tap canvas before=false after=false deliveries=0 was=0 haptic-lines=0
+debug switch-tap stove before=true after=false deliveries=0 was=0 haptic-lines=0
+debug unsubscribe-on-edit before=0 after=0
+debug switch-tap editor before=false after=false deliveries=0 was=0 haptic-lines=0
+debug system-back-from-editor list=4 was=4 disposed=1 was=0 pid=12770
+debug unsubscribe-on-finish before=0 after=0
+release switch-tap canvas before=false after=false deliveries=0 was=0 haptic-lines=0
+release switch-tap stove before=true after=false deliveries=0 was=0 haptic-lines=0
+release unsubscribe-on-edit before=0 after=0
+release switch-tap editor before=false after=false deliveries=0 was=0 haptic-lines=0
+release system-back-from-editor list=4 was=4 disposed=1 was=0 pid=13973
+release unsubscribe-on-finish before=0 after=0
