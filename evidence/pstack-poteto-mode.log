@@ -44,7 +44,8 @@ steps
 8 opening a PR: will skip. User forbade publication. Private draft. Commit and push only.
 
 how integration
-The how explainer bc-53854752-c3f3-525d-93f2-bced44965712 was still RUNNING when architect started. Its transcript had no Overview section. The parent used the files it had already read. The agent was not stopped.
+The how explainer bc-53854752-c3f3-525d-93f2-bced44965712 was still RUNNING when architect started. Its transcript had no Overview section then. The parent used the files it had already read. The agent was not stopped.
+It later returned success. The account matches the shipped slice. Element trees become patches, AndroidHost maps Switch to android.widget.Switch, and PackingActivity is a second composition root. MainActivity stays the launcher. A keyed route change unmounts dropped switches through ViewReconciler.DisposeExtracted, which calls OnUnmounted, so Detach still runs. No code change followed. The explainer did not run the app.
 
 architect
 runners: two poteto-agents, both model grok-4.7-xhigh, fast off, foreground.
