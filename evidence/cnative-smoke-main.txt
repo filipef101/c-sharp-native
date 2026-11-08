@@ -1,0 +1,18 @@
+launch cnative: launching com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity | cnative: pid 19193
+pid-after-launch 19193
+ui-launch  |  |  |  | Native PoC |  |  | Counter 0 | Name | Save | Enter a name |  | 
+ui-typed  |  |  |  | Native PoC |  |  | Counter 0 | Ada | Save | Hello Ada |  | 
+edit Smoke0 pid=19193
+edit Smoke1 pid=19193
+edit Smoke2 pid=19193
+ui-after-edits  |  |  |  | Native PoC |  |  | Smoke2 0 | Ada | Save | Hello Ada |  | 
+pid-after-edits 19193
+compile-error src/NativePoc.Screen/Screen.cs:5:36: error CS1525: Invalid expression term ';'
+pid-after-error 19193
+ui-after-error  |  |  |  | Native PoC |  |  | Smoke2 0 | Ada | Save | Hello Ada |  | 
+restored-screen
+pid-before-rude 19193
+rude-seen
+pid-after-rude 19511
+ui-after-rude  |  |  |  | Native PoC |  |  | Counter 0 | Name | Save | Enter a name |  | 
+smoke-ok

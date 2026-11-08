@@ -248,7 +248,7 @@ Hot reload, Debug, n = 20, same process. The supported path is `cnative run andr
 10. The field still contains `Ada` after every sample of `cnative run android`.
 11. A rude edit (add a field to `AppState`) is attempted once. The log records whether the runtime refused it or the process restarted. This item does not have to succeed as an in-place update.
 
-A reinstall, a new pid, or a wiped field fails items 7–10 even if the new string appears quickly. Evidence for items 7–10 is linked when `feat-cnative-kvm-evidence-025b` lands. Until that evidence is in this report, items 7–10 are not passed. The Debug loader clocks are a separate measurement and do not pass these items.
+A reinstall, a new pid, or a wiped field fails items 7–10 even if the new string appears quickly. The evidence is [docs/devx/comparison.md](../docs/devx/comparison.md) and the merged-main smoke in the report. The Debug loader clocks are a separate measurement and do not by themselves pass these items. Time from `RenderNow` to the next scanned framebuffer, and typed state across a redeploy, are not part of the pass.
 
 Release Mono AOT:
 

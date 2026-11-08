@@ -28,7 +28,11 @@ dotnet build src/NativePoc.Android/NativePoc.Android.csproj \
 
 Use `android-arm64` for a phone. A plain `adb install` of the Debug APK aborts: Debug uses fast deployment, and the assemblies are pushed by `-t:Run`.
 
-Debug in-place reload, after that deploy. The process starts the listener with no launch extra. It listens on `localabstract:npoc-hotreload` and checks the token in the handshake. The token is a per-process bearer value, Debug only. The app writes it to the private file `files/nativepoc-hotreload.token`. The host keeps that value in its temp file, `nativepoc-hotreload.token` under the temp directory, and forwards `tcp:18765` to `localabstract:npoc-hotreload`. The token is not logged. A new process mints a new token. State stays in `NativePoc.Core`, which is already loaded. Release does not compile the listener. Acceptance items 7–10 are `cnative run android`. Their evidence is linked when `feat-cnative-kvm-evidence-025b` lands. They are not passed yet.
+Debug in-place reload, after that deploy. The process starts the listener with no launch extra. It listens on `localabstract:npoc-hotreload` and checks the token in the handshake. The token is a per-process bearer value, Debug only. The app writes it to the private file `files/nativepoc-hotreload.token`. The host keeps that value in its temp file, `nativepoc-hotreload.token` under the temp directory, and forwards `tcp:18765` to `localabstract:npoc-hotreload`. The token is not logged. A new process mints a new token. State stays in `NativePoc.Core`, which is already loaded. Release does not compile the listener. Acceptance items 7–10 are `cnative run android`. They pass on the series in `docs/devx/comparison.md` and the merged-main smoke. Frame time to pixels, and typed state across a redeploy, stay unverified.
+
+```bash
+tools/devx/cnative run android --restart-on-rude
+```
 
 ```bash
 dotnet build tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
