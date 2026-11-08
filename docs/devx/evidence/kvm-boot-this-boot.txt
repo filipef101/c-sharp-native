@@ -1,0 +1,35 @@
+date=2026-11-08T19:13:07Z
+uname=6.12.113+
+tainted=0
+kernel_bug_lines=0
+---- /proc/cmdline of qemu ----
+qemu_pid=5338
+/home/ubuntu/android-sdk/emulator/qemu/linux-x86_64/qemu-system-x86_64-headless
+-avd
+poc34
+-accel
+on
+-gpu
+swiftshader_indirect
+-memory
+2048
+-cores
+2
+-no-snapshot
+-no-window
+-no-audio
+-no-boot-anim
+-port
+5554
+---- adb ----
+List of devices attached
+emulator-5554          device product:sdk_gphone64_x86_64 model:sdk_gphone64_x86_64 device:emu64xa transport_id:1
+
+sys.boot_completed=1
+ro.build.version.sdk=34
+ro.product.cpu.abi=x86_64
+ro.build.version.release=14
+pidof=6379
+---- dmesg after cnative-kvm-boot-start ----
+[  265.691581] kvm: SMP vm created on host with unstable TSC; guest TSC will not be reliable
+[  267.589464] kvm: kvm [6889]: vcpu0, guest rIP: 0xffffffffab003a51 Unhandled WRMSR(0xc2) = 0xffff

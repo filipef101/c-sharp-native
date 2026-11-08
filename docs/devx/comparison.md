@@ -15,6 +15,82 @@ tools/devx/cnative run android --device emulator-5554 --once
 
 The Debug app has to publish the token itself. The file `cnative` reads is `files/nativepoc-hotreload.token` inside the app data directory (`adb shell run-as com.scratch.nativepoc cat files/nativepoc-hotreload.token`): 32 hex characters. The process then listens on `localabstract:npoc-<hex>`, which is the socket the host already forwards to `tcp:18765`. The CLI also accepts `files/hotreload.token`, `cache/nativepoc-hotreload.token`, any other `*.token` name in those two directories, and an `npoc-<hex>` name if `run-as` can read `/proc/net/unix`. It never passes `--es nativepoc_hotreload`.
 
+## This boot of 86d70ae
+
+Product sources are the tree at `86d70ae`. `src/` was not edited.
+
+### BUILT
+
+SDK and workload on this machine: [evidence/sdk-this-boot.txt](evidence/sdk-this-boot.txt). `dotnet --version` printed `10.0.403`. `dotnet workload list` printed android `36.1.2/10.0.100`.
+
+`dotnet test tools/devx/NativePoc.Devx.Cli.Tests` built `NativePoc.HotReload.Host`, `cnative`, and the test assembly. Log: [evidence/unit-tests-this-boot.log](evidence/unit-tests-this-boot.log).
+
+`tools/devx/cnative run android --device emulator-5554 --restart-on-rude` then built the CLI (`Time Elapsed 00:00:00.98`, `0 Warning(s)`, `0 Error(s)`) and Debug `android-x64` (`Time Elapsed 00:00:21.69`, `0 Warning(s)`, `0 Error(s)`). Transcript: [evidence/cnative-android-this-boot.log](evidence/cnative-android-this-boot.log).
+
+### TESTED
+
+The same host suite, from the log above: `Passed: 39, Failed: 0, Skipped: 0`, duration `361 ms`. These tests do not talk to a device. Fixture timing strings inside the suite were not remeasured on the emulator.
+
+### RUN
+
+KVM on this boot, kernel `6.12.113+`, `/proc/sys/kernel/tainted` was `0` before `emulator -accel-check` and still `0` after the guest reached `sys.boot_completed=1`. `dmesg` contained `0` lines matching `kernel BUG`.
+
+`/dev/kvm` was `crw-rw----` root group `103`, and that gid is not listed in `/etc/group`. Opening it as the user returned `Permission denied`. After `chmod 666 /dev/kvm`, the same open returned a file descriptor. `emulator -accel-check` then printed:
+
+```
+accel:
+0
+KVM (version 12) is installed and usable.
+accel
+```
+
+Exit code 0. Copy: [evidence/accel-check-this-boot.txt](evidence/accel-check-this-boot.txt).
+
+AVD `poc34`, `system-images;android-34;google_apis;x86_64`, `hw.lcd.width=1080`, `hw.lcd.height=2400`, `hw.cpu.arch=x86_64`. Command:
+
+```
+emulator -avd poc34 -accel on -gpu swiftshader_indirect -memory 2048 -cores 2 -no-snapshot -no-window -no-audio -no-boot-anim -port 5554
+```
+
+The emulator log says `Android emulator version 37.2.13.0 (build_id 16740729)` and `Increasing RAM size to 2560MB`. The process cmdline recorded in [evidence/kvm-boot-this-boot.txt](evidence/kvm-boot-this-boot.txt) is that `-accel on` command, `qemu_pid=5338`.
+
+The poll in [evidence/boot-poll-this-boot.txt](evidence/boot-poll-this-boot.txt) reached `sys.boot_completed=1` at its `t=36s` line, with `adb devices` showing `emulator-5554`. `ro.build.version.sdk` was `34`, `ro.product.cpu.abi` was `x86_64`, `ro.build.version.release` was `14`. During the poll, qemu `%CPU` was `70.3` and then higher (`171` on the last line). After the boot marker, `dmesg` has:
+
+```
+[  265.691581] kvm: SMP vm created on host with unstable TSC; guest TSC will not be reliable
+[  267.589464] kvm: kvm [6889]: vcpu0, guest rIP: 0xffffffffab003a51 Unhandled WRMSR(0xc2) = 0xffff
+```
+
+`sysfs` at the start of the boot: `kvm.enable_virt_at_load` was `N`, `kvm_intel.nested` was `Y`.
+
+`cnative run android --device emulator-5554 --restart-on-rude` then:
+
+- launched `com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity`
+- printed `cnative: pid 6379`
+- printed `cnative: token read via adb run-as (files/nativepoc-hotreload.token)`
+- `adb shell run-as com.scratch.nativepoc wc -c files/nativepoc-hotreload.token` printed `32`. The 32 bytes match `^[0-9a-fA-F]{32}$`. The hex value is not copied into this record.
+- printed `reload failed`, then the host lines `once-ms=220.1 bytes=7680 reply=Counter 0 collectible=True`, `ui=Native PoC | Counter 0 | Name | Save | Enter a name`, and `pid=6379`
+- exited `1`
+
+The transcript has no `cnative: watching` line, so the file watch never started. `HostOutput` treats a successful apply as a line that is only `once-ms=<number>` plus a line that starts with `reply=`. The host's `once` mode prints both fields on one line (`once-ms=220.1 bytes=7680 reply=Counter 0 collectible=True`). That line matches neither pattern, `Classify` returns failed, and `Execute` returns 1 before `Watch`.
+
+The device did apply that one startup push. Logcat on pid `6379`: `IsDynamicCodeSupported=True`, `IsDynamicCodeCompiled=False`, `rendered count=0 name-length=0 title=Counter 0`, `hotreload-listen`, `hotreload-applied Counter 0 collectible=True`. Copy: [evidence/logcat-token-launch.txt](evidence/logcat-token-launch.txt). The same log also contains three `monodroid-assembly` warnings about bundled `NativePoc.*.dll` opens.
+
+At `2026-11-08T19:13:07Z`, after the CLI had exited, `adb shell pidof com.scratch.nativepoc` was still `6379`, `sys.boot_completed` was still `1`, and `adb forward --list` was empty. The framebuffer is [evidence/screen-after-token.png](evidence/screen-after-token.png) (1080×2400). The UI dump texts are `Native PoC`, `Counter 0`, `Name`, `Save`, `Enter a name` ([evidence/screen-after-token.xml](evidence/screen-after-token.xml)).
+
+`once-ms=220.1` is the host send clock for that single startup push. The CLI did not print `reloaded in`.
+
+### UNVERIFIED
+
+The process exited before the watch, so these were not run:
+
+- n=20 `Screen.cs` edits through `cnative run android`
+- a p50 or a p90 of CLI reload times, and a pid compared across those edits
+- a compile error printed as `file:line:col` with the app still alive
+- `rude edit -> restart required`, and a `--restart-on-rude` redeploy whose new pid differs from `6379`
+
+No percentile is reported. `src/` was left as it is in `86d70ae`.
+
 ## Token contract retry
 
 The branch is rebased onto `e2d588d` (`Publish the Debug hot reload token where cnative reads it`). `git diff e2d588d -- src tools/NativePoc.HotReload.Host` is empty. `src/` was not edited here.
