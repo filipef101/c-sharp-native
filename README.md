@@ -46,7 +46,7 @@ dotnet publish src/NativePoc.Android/NativePoc.Android.csproj \
   -c Release -f net10.0-android -r android-arm64
 ```
 
-`RunAOTCompilation` is set for Release when `PublishAot` is not set. The signed APK contains `libmonosgen-2.0.so` and `libaot-*.dll.so`.
+`RunAOTCompilation` is set for Release when `PublishAot` is not set. The signed APK contains `libmonosgen-2.0.so` and `libaot-*.dll.so`. The Android SDK then turns on profiled AOT with its `dotnet.aotprofile`. To compile against a different profile, pass `-p:AndroidUseDefaultAotProfile=false -p:NativePocAotProfile=/path/to/file.aotprofile`.
 
 ## NativeAOT (experimental)
 

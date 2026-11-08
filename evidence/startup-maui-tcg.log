@@ -1,0 +1,36 @@
+pkg=com.companyname.mauibaseline
+activity=crc64d72af147769f1039.MainActivity
+emulator=tcg no-accel because kvm vcpu create faults
+start=2026-11-08T14:09:12Z
+RUN 1
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+11-08 14:10:45.453 I/ActivityTaskManager( 1641): Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1m27s919ms
+RUN 2
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+11-08 14:12:36.615 I/ActivityTaskManager( 1641): Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1m35s694ms
+RUN 3
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+11-08 14:14:09.794 I/ActivityTaskManager( 1641): Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1m18s335ms
+RUN 4
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+11-08 14:15:30.895 I/ActivityTaskManager( 1641): Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1m10s788ms
+RUN 5
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+11-08 14:17:01.221 I/ActivityTaskManager( 1641): Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1m19s432ms
+RUN 6
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+11-08 14:19:50.094 I/ActivityTaskManager( 1641): Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +2m34s164ms
+RUN 7
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+11-08 14:21:30.123 I/ActivityTaskManager( 1641): Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1m26s534ms
+RUN 8
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+11-08 14:22:52.870 I/ActivityTaskManager( 1641): Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1m9s110ms
+RUN 9
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+11-08 14:24:36.617 I/ActivityTaskManager( 1641): Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1m31s885ms
+RUN 10
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+11-08 14:26:02.155 I/ActivityTaskManager( 1641): Displayed com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity for user 0: +1m15s336ms
+end=2026-11-08T14:26:04Z
+DONE

@@ -1,0 +1,38 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Release/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Release/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Release/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Release/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Release/net10.0/NativePoc.Screen.dll
+  Optimizing assemblies for size. This process might take a while.
+  [1/13] NativePoc.Screen.dll -> NativePoc.Screen.dll.so
+  [2/13] _Microsoft.Android.Resource.Designer.dll -> _Microsoft.Android.Resource.Designer.dll.so
+  [3/13] NativePoc.Android.dll -> NativePoc.Android.dll.so
+  [4/13] System.Collections.dll -> System.Collections.dll.so
+  [5/13] NativePoc.Core.dll -> NativePoc.Core.dll.so
+  [6/13] System.Console.dll -> System.Console.dll.so
+  [7/13] System.Linq.dll -> System.Linq.dll.so
+  [8/13] System.Runtime.dll -> System.Runtime.dll.so
+  [9/13] System.Runtime.InteropServices.dll -> System.Runtime.InteropServices.dll.so
+  [10/13] Mono.Android.Runtime.dll -> Mono.Android.Runtime.dll.so
+  [11/13] Java.Interop.dll -> Java.Interop.dll.so
+  [12/13] Mono.Android.dll -> Mono.Android.dll.so
+  [13/13] System.Private.CoreLib.dll -> System.Private.CoreLib.dll.so
+EXIT:0
+bytes 4561098
+   414752  1981-01-01 01:01   lib/x86_64/libaot-Java.Interop.dll.so
+     6832  1981-01-01 01:01   lib/x86_64/libaot-Mono.Android.Runtime.dll.so
+   477144  1981-01-01 01:01   lib/x86_64/libaot-Mono.Android.dll.so
+    19120  1981-01-01 01:01   lib/x86_64/libaot-NativePoc.Android.dll.so
+    71816  1981-01-01 01:01   lib/x86_64/libaot-NativePoc.Core.dll.so
+     7640  1981-01-01 01:01   lib/x86_64/libaot-NativePoc.Screen.dll.so
+     3672  1981-01-01 01:01   lib/x86_64/libaot-System.Collections.dll.so
+    18048  1981-01-01 01:01   lib/x86_64/libaot-System.Console.dll.so
+    23496  1981-01-01 01:01   lib/x86_64/libaot-System.Linq.dll.so
+  2668160  1981-01-01 01:01   lib/x86_64/libaot-System.Private.CoreLib.dll.so
+     3704  1981-01-01 01:01   lib/x86_64/libaot-System.Runtime.InteropServices.dll.so
+     3672  1981-01-01 01:01   lib/x86_64/libaot-System.Runtime.dll.so
+     3928  1981-01-01 01:01   lib/x86_64/libaot-_Microsoft.Android.Resource.Designer.dll.so
+    37848  1981-01-01 01:01   lib/x86_64/libmono-component-marshal-ilgen.so
+  3290280  1981-01-01 01:01   lib/x86_64/libmonosgen-2.0.so

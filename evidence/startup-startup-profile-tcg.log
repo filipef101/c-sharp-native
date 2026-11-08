@@ -1,0 +1,86 @@
+pkg=com.scratch.nativepoc
+activity=crc64ee53024f7ed0aa60.MainActivity
+emulator=tcg no-accel because kvm vcpu create faults
+start=2026-11-08T15:10:21Z
+RUN 1
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:11:14.667 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +44s671ms
+11-08 15:11:02.789 I/NativePoc(13812): activity-start tick=2617710
+11-08 15:11:02.844 I/NativePoc(13812): runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 15:11:09.141 I/NativePoc(13812): field-handle 14758
+11-08 15:11:09.741 I/NativePoc(13812): button-mounted handle=15046 tick=2626850
+11-08 15:11:09.977 I/NativePoc(13812): rendered count=0 name-length=0 title=Counter 0
+RUN 2
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:11:59.802 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +35s233ms
+11-08 15:11:48.575 I/NativePoc(14027): activity-start tick=2664562
+11-08 15:11:48.622 I/NativePoc(14027): runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 15:11:54.507 I/NativePoc(14027): field-handle 14758
+11-08 15:11:55.351 I/NativePoc(14027): button-mounted handle=15046 tick=2672454
+11-08 15:11:55.471 I/NativePoc(14027): rendered count=0 name-length=0 title=Counter 0
+RUN 3
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:12:41.222 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +30s947ms
+11-08 15:12:32.227 I/NativePoc(14191): activity-start tick=2707762
+11-08 15:12:32.274 I/NativePoc(14191): runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 15:12:36.912 I/NativePoc(14191): field-handle 14758
+11-08 15:12:37.456 I/NativePoc(14191): button-mounted handle=15046 tick=2714550
+11-08 15:12:37.490 I/NativePoc(14191): rendered count=0 name-length=0 title=Counter 0
+RUN 4
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:13:18.019 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +27s474ms
+11-08 15:13:09.362 I/NativePoc(14324): activity-start tick=2745302
+11-08 15:13:09.389 I/NativePoc(14324): runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 15:13:14.123 I/NativePoc(14324): field-handle 14758
+11-08 15:13:14.685 I/NativePoc(14324): button-mounted handle=15046 tick=2751790
+11-08 15:13:14.733 I/NativePoc(14324): rendered count=0 name-length=0 title=Counter 0
+RUN 5
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:13:58.755 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +32s50ms
+11-08 15:13:45.094 I/NativePoc(14486): activity-start tick=2780738
+11-08 15:13:45.134 I/NativePoc(14486): runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 15:13:49.666 I/NativePoc(14486): field-handle 14758
+11-08 15:13:51.222 I/NativePoc(14486): button-mounted handle=15046 tick=2788330
+11-08 15:13:51.301 I/NativePoc(14486): rendered count=0 name-length=0 title=Counter 0
+RUN 6
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:14:45.664 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +36s758ms
+11-08 15:14:34.552 I/NativePoc(14615): activity-start tick=2830146
+11-08 15:14:34.556 I/NativePoc(14615): runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 15:14:40.517 I/NativePoc(14615): field-handle 14758
+11-08 15:14:41.463 I/NativePoc(14615): button-mounted handle=15046 tick=2838570
+11-08 15:14:41.557 I/NativePoc(14615): rendered count=0 name-length=0 title=Counter 0
+RUN 7
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:15:31.722 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +36s40ms
+11-08 15:15:17.957 I/NativePoc(14722): activity-start tick=2873374
+11-08 15:15:17.969 I/NativePoc(14722): runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 15:15:25.139 I/NativePoc(14722): field-handle 14758
+11-08 15:15:26.006 I/NativePoc(14722): button-mounted handle=15046 tick=2883114
+11-08 15:15:26.118 I/NativePoc(14722): rendered count=0 name-length=0 title=Counter 0
+RUN 8
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:16:13.792 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +32s137ms
+11-08 15:16:04.507 I/NativePoc(14817): activity-start tick=2920154
+11-08 15:16:04.548 I/NativePoc(14817): runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 15:16:09.579 I/NativePoc(14817): field-handle 14758
+11-08 15:16:10.885 I/NativePoc(14817): button-mounted handle=15046 tick=2927982
+11-08 15:16:10.925 I/NativePoc(14817): rendered count=0 name-length=0 title=Counter 0
+RUN 9
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:16:56.823 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +33s427ms
+11-08 15:16:46.305 I/NativePoc(14929): activity-start tick=2961382
+11-08 15:16:46.327 I/NativePoc(14929): runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 15:16:52.225 I/NativePoc(14929): field-handle 14758
+11-08 15:16:53.037 I/NativePoc(14929): button-mounted handle=15046 tick=2970142
+11-08 15:16:53.108 I/NativePoc(14929): rendered count=0 name-length=0 title=Counter 0
+RUN 10
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:17:44.055 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +37s610ms
+11-08 15:17:31.675 I/NativePoc(15023): activity-start tick=3006126
+11-08 15:17:31.697 I/NativePoc(15023): runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 15:17:40.057 I/NativePoc(15023): field-handle 14758
+11-08 15:17:40.662 I/NativePoc(15023): button-mounted handle=15046 tick=3017770
+11-08 15:17:40.685 I/NativePoc(15023): rendered count=0 name-length=0 title=Counter 0
+end=2026-11-08T15:17:48Z
+DONE

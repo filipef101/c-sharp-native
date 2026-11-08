@@ -1,0 +1,35 @@
+pkg=com.scratch.nativepoc
+activity=crc64ee53024f7ed0aa60.MainActivity
+emulator=tcg no-accel because kvm vcpu create faults
+start=2026-11-08T14:53:06Z
+RUN 1
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 14:53:50.641 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +37s176ms
+RUN 2
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 14:54:37.912 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +35s761ms
+RUN 3
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 14:55:30.481 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +41s405ms
+RUN 4
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 14:56:44.701 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +56s353ms
+RUN 5
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 14:58:36.310 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +59s603ms
+RUN 6
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 14:59:18.338 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +31s548ms
+RUN 7
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:00:00.387 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +32s872ms
+RUN 8
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:00:42.798 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +32s771ms
+RUN 9
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:01:30.285 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +35s569ms
+RUN 10
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:02:10.935 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +31s921ms
+end=2026-11-08T15:02:16Z

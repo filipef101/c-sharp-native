@@ -23,4 +23,7 @@
 		<ProjectReference Include="..\NativePoc.Core\NativePoc.Core.csproj" />
 		<ProjectReference Include="..\NativePoc.Screen\NativePoc.Screen.csproj" />
 	</ItemGroup>
+	<ItemGroup Condition="'$(NativePocAotProfile)' != ''">
+		<AndroidAotProfile Include="$(NativePocAotProfile)" />
+	</ItemGroup>
 </Project>

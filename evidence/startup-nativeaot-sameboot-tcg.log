@@ -1,0 +1,106 @@
+pkg=com.scratch.nativepoc
+activity=crc64ee53024f7ed0aa60.MainActivity
+emulator=tcg no-accel because kvm vcpu create faults
+start=2026-11-08T15:36:30Z
+RUN 1
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:36:52.922 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +18s470ms
+11-08 15:36:37.853 I/ActivityManager( 1922): Start proc 17756:com.scratch.nativepoc/u0a200 for next-top-activity {com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}
+11-08 15:36:42.995 D/JavaInteropRuntime(17756): Loading NativePoc.Android.so...
+11-08 15:36:45.646 I/NativePoc(17756): activity-start tick=4162742
+11-08 15:36:45.647 I/NativePoc(17756): runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 15:36:47.966 I/NativePoc(17756): field-handle 11974
+11-08 15:36:48.243 I/NativePoc(17756): button-mounted handle=12294 tick=4165346
+11-08 15:36:48.286 I/NativePoc(17756): rendered count=0 name-length=0 title=Counter 0
+RUN 2
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:37:14.949 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +11s340ms
+11-08 15:37:06.392 I/ActivityManager( 1922): Start proc 17828:com.scratch.nativepoc/u0a200 for next-top-activity {com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}
+11-08 15:37:09.787 D/JavaInteropRuntime(17828): Loading NativePoc.Android.so...
+11-08 15:37:10.724 I/NativePoc(17828): activity-start tick=4187830
+11-08 15:37:10.726 I/NativePoc(17828): runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 15:37:11.816 I/NativePoc(17828): field-handle 11974
+11-08 15:37:11.943 I/NativePoc(17828): button-mounted handle=12294 tick=4189050
+11-08 15:37:11.951 I/NativePoc(17828): rendered count=0 name-length=0 title=Counter 0
+RUN 3
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:37:33.895 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +10s885ms
+11-08 15:37:25.107 I/ActivityManager( 1922): Start proc 17898:com.scratch.nativepoc/u0a200 for next-top-activity {com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}
+11-08 15:37:27.703 D/JavaInteropRuntime(17898): Loading NativePoc.Android.so...
+11-08 15:37:28.875 I/NativePoc(17898): activity-start tick=4205942
+11-08 15:37:28.875 I/NativePoc(17898): runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 15:37:29.867 I/NativePoc(17898): field-handle 11974
+11-08 15:37:29.991 I/NativePoc(17898): button-mounted handle=12294 tick=4207098
+11-08 15:37:30.022 I/NativePoc(17898): rendered count=0 name-length=0 title=Counter 0
+RUN 4
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:37:55.655 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +12s529ms
+11-08 15:37:44.557 I/ActivityManager( 1922): Start proc 17980:com.scratch.nativepoc/u0a200 for next-top-activity {com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}
+11-08 15:37:47.574 D/JavaInteropRuntime(17980): Loading NativePoc.Android.so...
+11-08 15:37:50.634 I/NativePoc(17980): activity-start tick=4227730
+11-08 15:37:50.635 I/NativePoc(17980): runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 15:37:51.935 I/NativePoc(17980): field-handle 11974
+11-08 15:37:52.115 I/NativePoc(17980): button-mounted handle=12294 tick=4229222
+11-08 15:37:52.189 I/NativePoc(17980): rendered count=0 name-length=0 title=Counter 0
+RUN 5
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:38:13.447 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +9s310ms
+11-08 15:38:05.925 I/ActivityManager( 1922): Start proc 18055:com.scratch.nativepoc/u0a200 for next-top-activity {com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}
+11-08 15:38:08.631 D/JavaInteropRuntime(18055): Loading NativePoc.Android.so...
+11-08 15:38:09.687 I/NativePoc(18055): activity-start tick=4246790
+11-08 15:38:09.688 I/NativePoc(18055): runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 15:38:10.233 I/NativePoc(18055): field-handle 11974
+11-08 15:38:10.322 I/NativePoc(18055): button-mounted handle=12294 tick=4247426
+11-08 15:38:10.327 I/NativePoc(18055): rendered count=0 name-length=0 title=Counter 0
+RUN 6
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:38:34.951 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +12s47ms
+11-08 15:38:23.958 I/ActivityManager( 1922): Start proc 18110:com.scratch.nativepoc/u0a200 for next-top-activity {com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}
+11-08 15:38:29.026 D/JavaInteropRuntime(18110): Loading NativePoc.Android.so...
+11-08 15:38:30.085 I/NativePoc(18110): activity-start tick=4267186
+11-08 15:38:30.086 I/NativePoc(18110): runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 15:38:31.199 I/NativePoc(18110): field-handle 11974
+11-08 15:38:31.309 I/NativePoc(18110): button-mounted handle=12294 tick=4268418
+11-08 15:38:31.337 I/NativePoc(18110): rendered count=0 name-length=0 title=Counter 0
+RUN 7
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:38:53.616 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +9s17ms
+11-08 15:38:45.254 I/ActivityManager( 1922): Start proc 18176:com.scratch.nativepoc/u0a200 for next-top-activity {com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}
+11-08 15:38:48.750 D/JavaInteropRuntime(18176): Loading NativePoc.Android.so...
+11-08 15:38:50.519 I/NativePoc(18176): activity-start tick=4287626
+11-08 15:38:50.536 I/NativePoc(18176): runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 15:38:51.299 I/NativePoc(18176): field-handle 11974
+11-08 15:38:51.438 I/NativePoc(18176): button-mounted handle=12294 tick=4288542
+11-08 15:38:51.446 I/NativePoc(18176): rendered count=0 name-length=0 title=Counter 0
+RUN 8
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:39:09.849 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +7s971ms
+11-08 15:39:04.285 I/ActivityManager( 1922): Start proc 18241:com.scratch.nativepoc/u0a200 for next-top-activity {com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}
+11-08 15:39:06.287 D/JavaInteropRuntime(18241): Loading NativePoc.Android.so...
+11-08 15:39:07.087 I/NativePoc(18241): activity-start tick=4304194
+11-08 15:39:07.089 I/NativePoc(18241): runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 15:39:07.570 I/NativePoc(18241): field-handle 11974
+11-08 15:39:07.605 I/NativePoc(18241): button-mounted handle=12294 tick=4304710
+11-08 15:39:07.611 I/NativePoc(18241): rendered count=0 name-length=0 title=Counter 0
+RUN 9
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:39:27.919 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +8s984ms
+11-08 15:39:20.024 I/ActivityManager( 1922): Start proc 18302:com.scratch.nativepoc/u0a200 for next-top-activity {com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}
+11-08 15:39:22.294 D/JavaInteropRuntime(18302): Loading NativePoc.Android.so...
+11-08 15:39:24.277 I/NativePoc(18302): activity-start tick=4321374
+11-08 15:39:24.278 I/NativePoc(18302): runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 15:39:25.189 I/NativePoc(18302): field-handle 11974
+11-08 15:39:25.261 I/NativePoc(18302): button-mounted handle=12294 tick=4322370
+11-08 15:39:25.267 I/NativePoc(18302): rendered count=0 name-length=0 title=Counter 0
+RUN 10
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+11-08 15:39:44.235 I/ActivityTaskManager( 1922): Displayed com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity for user 0: +8s717ms
+11-08 15:39:36.614 I/ActivityManager( 1922): Start proc 18364:com.scratch.nativepoc/u0a200 for next-top-activity {com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity}
+11-08 15:39:38.750 D/JavaInteropRuntime(18364): Loading NativePoc.Android.so...
+11-08 15:39:40.751 I/NativePoc(18364): activity-start tick=4337850
+11-08 15:39:40.753 I/NativePoc(18364): runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 15:39:41.531 I/NativePoc(18364): field-handle 11974
+11-08 15:39:41.610 I/NativePoc(18364): button-mounted handle=12294 tick=4338722
+11-08 15:39:41.616 I/NativePoc(18364): rendered count=0 name-length=0 title=Counter 0
+end=2026-11-08T15:39:49Z
+DONE

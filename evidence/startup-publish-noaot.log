@@ -1,0 +1,14 @@
+  Determining projects to restore...
+  Restored /workspace/src/NativePoc.Core/NativePoc.Core.csproj (in 469 ms).
+  Restored /workspace/src/NativePoc.Screen/NativePoc.Screen.csproj (in 469 ms).
+  Restored /workspace/src/NativePoc.Android/NativePoc.Android.csproj (in 469 ms).
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Release/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Release/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Release/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Release/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Release/net10.0/NativePoc.Screen.dll
+  Optimizing assemblies for size. This process might take a while.
+EXIT:0
+bytes 3167299
+    37848  1981-01-01 01:01   lib/x86_64/libmono-component-marshal-ilgen.so
+  3290280  1981-01-01 01:01   lib/x86_64/libmonosgen-2.0.so

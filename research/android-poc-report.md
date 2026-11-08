@@ -2,7 +2,7 @@
 
 Measured on this machine on 2026-11-08. Nothing here is a guessed latency, a guessed size, or a screenshot that was not captured. iOS was not built and was not run.
 
-The plan's "fully working" bar is items 1–16 in [runtime-feasibility.md](runtime-feasibility.md). Item 15 was measured after the review fixes: the Release Mono AOT x64 APK is smaller than `dotnet new maui` on the same emulator. Item 16 was measured and was not met: this app's cold-start median is higher than that MAUI app. Debug in-place reload of the screen assembly works. `dotnet watch` still restarts the process. The screen works on Debug and on Release Mono AOT, on an x86_64 emulator. The NativeAOT x64 process in the 464b63e section was not started again after these fixes. A new NativeAOT publish was built and not installed.
+The plan's "fully working" bar is items 1–16 in [runtime-feasibility.md](runtime-feasibility.md). Item 15 was measured after the review fixes: the Release Mono AOT x64 APK is smaller than `dotnet new maui` on the same emulator. Item 16 was measured on KVM and was not met: this app's cold-start median is higher than that MAUI app. A later pass retried Release startup on the only emulator mode that would boot, TCG, and is in "Release cold start" below. Debug in-place reload of the screen assembly works. `dotnet watch` still restarts the process. The screen works on Debug and on Release Mono AOT, on an x86_64 emulator. The review NativeAOT x64 APK was installed in that later pass.
 
 Installing the `maui-android` workload upgraded `android` from 36.1.2 to 36.1.118. `dotnet workload install maui` is rejected on this SDK with `Workload ID maui isn't supported on this platform`. The template comes from `maui-android` 10.0.110. Numbers under "Verification of 464b63e" and the older tables were taken on 36.1.2. Numbers under "Review fixes" were taken on 36.1.118. `evidence/workload-list-review.txt`.
 
@@ -48,9 +48,63 @@ Ten cold starts, `force-stop` before each, every `LaunchState: COLD`, none dropp
 
 The PoC APK is smaller (3795146 vs 19074917). The PoC cold-start median is not lower (1517.5 vs 1101). These are different screens. The metric is `am start -W` `TotalTime` for each package on the same emulator.
 
-### NativeAOT publish, not installed
+### NativeAOT publish
 
-`dotnet publish -c Release -f net10.0-android -r android-x64 -p:PublishAot=true -p:EnablePreviewFeatures=true -p:TreatWarningsAsErrors=false`. Log `evidence/nativeaot-x64-review.log`, exit 0. One `IL3053` on `Mono.Android.dll`. The ILC notes for `monodroid_unhandled_exception` and `monodroid_debugger_unhandled_exception` are in that log. `rg -n XA1040 evidence/nativeaot-x64-review.log` exits 1 and prints no line. `evidence/xa1040-review-grep.txt`. The same command on `evidence/nativeaot-arm64.log`, `evidence/nativeaot-x64.log`, and `evidence/nativeaot-x64-rebuild.log` also exits 1. `evidence/nativeaot-arm64-nowarnserror.log` is not in the tree. APK 2318685 bytes, sha256 `76e5acd224e7f29798d26ca659c08493764250e06bf4e136d80837b842d0f021`, uncompressed `lib/x86_64/libNativePoc.Android.so` 5212960. This APK was not installed. The 464b63e NativeAOT run remains the last one that was started.
+`dotnet publish -c Release -f net10.0-android -r android-x64 -p:PublishAot=true -p:EnablePreviewFeatures=true -p:TreatWarningsAsErrors=false`. Log `evidence/nativeaot-x64-review.log`, exit 0. One `IL3053` on `Mono.Android.dll`. The ILC notes for `monodroid_unhandled_exception` and `monodroid_debugger_unhandled_exception` are in that log. `rg -n XA1040 evidence/nativeaot-x64-review.log` exits 1 and prints no line. `evidence/xa1040-review-grep.txt`. The same command on `evidence/nativeaot-arm64.log`, `evidence/nativeaot-x64.log`, and `evidence/nativeaot-x64-rebuild.log` also exits 1. `evidence/nativeaot-arm64-nowarnserror.log` is not in the tree. APK 2318685 bytes, sha256 `76e5acd224e7f29798d26ca659c08493764250e06bf4e136d80837b842d0f021`, uncompressed `lib/x86_64/libNativePoc.Android.so` 5212960. It was installed in the cold-start pass below. The 464b63e NativeAOT run remains the last one that completed Save and rotation.
+
+## Release cold start
+
+The target is a Release cold start at or under the MAUI KVM median, 1101 ms. This session could not boot that emulator. `dmesg` reports `kernel BUG at arch/x86/kvm/x86.c:689` in `kvm_arch_vcpu_create`. An `-accel on` emulator stays at a few percent CPU with `adb` offline. Every number in this section is from AVD `poc34`, API 34, x86_64, started with `-no-accel -gpu swiftshader_indirect -memory 2048 -cores 2`. `am start -W` is not the metric here. The script force-stops, clears logcat, starts the activity, and records `ActivityTaskManager` `Displayed`. No sample was dropped. p50 is the mean of the 5th and 6th sorted values. Workload `android` is 36.1.118. The KVM 1517.5 ms and 1101 ms figures stay in the review section and are a different run.
+
+Two TCG boots. The first measured the existing profiled-AOT PoC APK and the MAUI APK. The second boot, after the KVM attempt, measured every other variant. Later series on the second boot are faster than earlier ones, so a median from the end of the boot is not directly a win over a median from the start. The system dialog "Process system isn't responding" was on screen during the second boot. The app still logged `rendered count=0 name-length=0 title=Counter 0`, and `Displayed` still fired.
+
+### Where the time goes
+
+On the second boot, the default profiled-AOT APK (the 1517.5 ms binary) has ten cold starts with `Start proc`, `activity-start`, `rendered`, and `Displayed` in `evidence/startup-profiled-sameboot-tcg.log`. Median slices, same ten runs:
+
+| Slice | p50 |
+| --- | --- |
+| `Start proc` to `activity-start` | 9431.5 ms |
+| `activity-start` to `rendered` | 3971.0 ms |
+| `rendered` to `Displayed` | 3585.5 ms |
+
+The `Displayed` duration for those runs, which includes the gap before `Start proc`, has p50 18335.5 ms. Runtime init is the largest slice. Building the four widgets is next. The draw after `SetContentView` is the same order as the widget build. The NativeAOT remeasure on the same boot (`evidence/startup-nativeaot-sameboot-tcg.log`) splits as 4292.5 ms, 1068.5 ms, and 3059.0 ms. `IsDynamicCodeSupported=False` and `IsDynamicCodeCompiled=False` on each of those ten processes. NativeAOT shortens runtime init and widget build. The draw after `rendered` stays a few seconds.
+
+### Ten-run medians
+
+Default Release is profiled AOT. The SDK sets `AndroidEnableProfiledAot` true when `RunAOTCompilation` is true, and includes `dotnet.aotprofile`. That APK's `libaot-System.Private.CoreLib.dll.so` is 1202888 bytes uncompressed. Full AOT (`AndroidEnableProfiledAot=false`) grows it to 2668160. The startup profile (`tools/startup.aotprofile`, `AndroidUseDefaultAotProfile=false`, selected with `-p:NativePocAotProfile=...`) shrinks it to 532320. `InvariantGlobalization=true` shrinks it to 1100600. `libmono-component-marshal-ilgen.so` (37848 bytes) is in every Mono APK below, including the one built with `AndroidUseInterpreter=false`. That build's `environment.x86_64.ll` says `mono_aot_mode_name` is `normal` and `mono_components_mask` is 0.
+
+First TCG boot:
+
+| Attempt | APK bytes | Displayed samples, ms | Sorted | p50 |
+| --- | --- | --- | --- | --- |
+| Profiled AOT, existing review APK | 3795146 | 25638, 20747, 16906, 27778, 37571, 26899, 20533, 21472, 27889, 36033 | 16906, 20533, 20747, 21472, 25638, 26899, 27778, 27889, 36033, 37571 | **26268.5** |
+| MAUI template, existing APK | 19074917 | 87919, 95694, 78335, 70788, 79432, 154164, 86534, 69110, 91885, 75336 | 69110, 70788, 75336, 78335, 79432, 86534, 87919, 91885, 95694, 154164 | **82983.0** |
+
+`evidence/startup-baseline-tcg.log`, `evidence/startup-maui-tcg.log`. On this boot the PoC median is lower than the MAUI median. Both are tens of seconds. They do not replace the KVM comparison, where MAUI was the lower one.
+
+Second TCG boot, in the order they were measured:
+
+| Attempt | APK bytes | sha256 | Displayed samples, ms | p50 |
+| --- | --- | --- | --- | --- |
+| NativeAOT, review APK, first install | 2318685 | `76e5acd2…d0f021` | 28115, 21739, 15007, 15989, 17071, 19685, 23279, 11820, 12701, 17384 | **17227.5** |
+| No AOT, `RunAOTCompilation=false` | 3167299 | `e0f42ed9…b862a2` | 37176, 35761, 41405, 56353, 59603, 31548, 32872, 32771, 35569, 31921 | **35665.0** |
+| Full AOT, interpreter left at the SDK default | 4561098 | `03fda237…656345` | 23569, 23028, 18021, 23640, 81074, 38770, 17474, 15072, 29918, 28284 | **23604.5** |
+| `startup.aotprofile` only | 3479754 | `fc5d1601…a167b5` | 44671, 35233, 30947, 27474, 32050, 36758, 36040, 32137, 33427, 37610 | **34330.0** |
+| `TrimMode=full`, `AndroidLinkMode=Full` | 3786954 | `29db35f6…c5ef58` | 30958, 23196, 23096, 20380, 20592, 20777, 20209, 24454, 20124, 17371 | **20684.5** |
+| `InvariantGlobalization=true`, profiled AOT | 3709130 | `c54f3df8…5f17e3` | 27118, 20238, 17689, 16691, 19343, 16212, 18001, 16936, 17477, 20334 | **17845.0** |
+| Profiled AOT again, the review APK | 3795146 | `0ae55fce…fd93c9` | 31059, 24205, 16749, 22236, 15391, 17640, 17360, 21873, 18047, 18624 | **18335.5** |
+| NativeAOT again | 2318685 | `76e5acd2…d0f021` | 18470, 11340, 10885, 12529, 9310, 12047, 9017, 7971, 8984, 8717 | **10097.5** |
+| Full AOT, `AndroidUseInterpreter=false` | 4561098 | `21d3910b…579942` | 26553, 13894, 13453, 11577, 11767, 10590, 12376, 10016, 10255, 12040 | **11903.5** |
+| Profiled AOT plus a white `windowBackground` theme | 3795146 | `50fc00f4…335144` | 23467, 10807, 12629, 10502, 13772, 10667, 10579, 11199, 9859, 11904 | **11003.0** |
+
+Sorted lists are in the logs: `evidence/startup-nativeaot-tcg.log`, `startup-noaot-tcg.log`, `startup-fullaot-tcg.log`, `startup-startup-profile-tcg.log`, `startup-trim-full-tcg.log`, `startup-invariant-tcg.log`, `startup-profiled-sameboot-tcg.log`, `startup-nativeaot-sameboot-tcg.log`, `startup-interp-off-tcg.log`, `startup-splash-tcg.log`. Publish logs are `evidence/startup-publish-*.log`, each `EXIT:0`. Full trim logged `rendered` with `Counter 0` on all ten runs.
+
+The last three rows ran back to back. NativeAOT p50 10097.5 ms is the lowest median in the table. Full AOT with the interpreter property off is 11903.5 ms. The white-window theme, `Theme.Material.Light` with `android:windowBackground` set to white, is 11003.0 ms. Its `rendered` line is before `Displayed` on every run, so the metric did not fire on an empty window. The theme was removed after the measurement. The screenshot of that build shows `Counter 0`, `Name`, `SAVE`, `Enter a name`, with the system dialog on top: `evidence/startup-splash.png`. The NativeAOT shot from the first series on this boot shows `Counter 0`, `Name`, `Save`, `Enter a name`, with the same dialog: `evidence/startup-nativeaot.png`.
+
+`InvariantGlobalization` (17845.0 ms) and the profiled remeasure just after it (18335.5 ms) are close. The shipping project was left on the SDK profiled-AOT defaults. `NativePocAotProfile` is an optional item so a later publish can pass a profile; the default publish does not set it.
+
+Beating 1101 ms is **UNVERIFIED**. KVM did not start. The lowest measured median on the emulator that did start is 10097.5 ms.
 
 ## Verification of 464b63e
 
@@ -229,8 +283,8 @@ Statuses use the plan's item numbers. "Pass" means the check was observed. A pas
 | 13. `libaot-*.so` in the arm64 APK | **Pass** | `lib/arm64-v8a/libaot-NativePoc.Core.dll.so`, `libaot-NativePoc.Android.dll.so`, `libmonosgen-2.0.so`, `libmonodroid.so`. No `libNativePoc.Android.so`. `evidence/apk-listings.txt`. APK 3606628 bytes. |
 | 14. No trim/AOT warnings in this repo's source | **Pass** | Debug build `0 Warning(s)`. Release Mono logs have no `warning` lines. NativeAOT's only warning is IL3053 on `Mono.Android.dll` (workload). |
 | 15. APK smaller than `dotnet new maui` | **Pass** on android-x64, workload 36.1.118 | PoC Release Mono AOT 3795146 bytes. MAUI template Release 19074917 bytes. Same emulator. See the review section. |
-| 16. Startup median ≤ MAUI, 10 runs | **Not met** | PoC p50 1517.5 ms. MAUI p50 1101 ms. Ten `COLD` runs each, none dropped. The PoC median is higher. |
-| 17. NativeAOT publish, XA1040 present | **Partial** | Older publishes and the review publish exit 0. `rg -n XA1040` exits 1 on `evidence/nativeaot-arm64.log`, `evidence/nativeaot-x64.log`, `evidence/nativeaot-x64-rebuild.log`, and `evidence/nativeaot-x64-review.log`. IL3053 does appear. The review APK was not installed. |
+| 16. Startup median ≤ MAUI, 10 runs | **Not met** on KVM. **UNVERIFIED** against 1101 ms in the TCG pass | KVM: PoC p50 1517.5 ms, MAUI p50 1101 ms. Ten `COLD` runs each, none dropped. The PoC median is higher. TCG could boot after KVM faulted. Lowest TCG median is NativeAOT 10097.5 ms. See "Release cold start". |
+| 17. NativeAOT publish, XA1040 present | **Partial** | Older publishes and the review publish exit 0. `rg -n XA1040` exits 1 on `evidence/nativeaot-arm64.log`, `evidence/nativeaot-x64.log`, `evidence/nativeaot-x64-rebuild.log`, and `evidence/nativeaot-x64-review.log`. IL3053 does appear. The review APK was installed later: `IsDynamicCodeSupported=False`, `IsDynamicCodeCompiled=False`, ten TCG cold starts, p50 10097.5 ms on the second series. |
 | 18. NativeAOT runs items 1–4 | **Pass on android-x64** for the 464b63e rebuild | Pid 14459: `Supported=False Compiled=False`, widgets, `Ada` with handle 12006 across three keystrokes, Save `clipboard-ok poc-1`, rotation kept `Counter 1` / `Ada`. Ten cold starts, p50 1298 ms. The earlier pid 12212 empty-save and the 20-handle series were the pre-split publish. **Not run** on arm64. |
 | 19. NativeAOT failed | **Does not apply** to the x64 run | The arm64 link failed once, before the NDK was installed. After `ndk;26.3.11579264` the link succeeded. |
 
@@ -312,8 +366,8 @@ XA1040 was not emitted. `rg -n XA1040` exits 1 on the NativeAOT logs named in it
 ## Blockers
 
 - `dotnet watch` still does not reach the Android process. The in-place path is the Debug screen-assembly swap, now on an abstract socket with a per-start token. An `AppState` shape change fails in place with `MissingMethodException`, the previous delegate is restored, and a later keystroke renders the previous screen. The new Release APK does not declare `INTERNET`. The Debug manifest still does, because the SDK adds it.
-- Item 15 passed on this emulator. Item 16 did not: the PoC cold-start p50 is 1517.5 ms and the MAUI template p50 is 1101 ms.
-- arm64 Mono AOT and arm64 NativeAOT were built and not installed. This host's emulator image is x86_64. The review NativeAOT x64 APK was not installed either.
+- Item 15 passed on this emulator. Item 16 did not on KVM: the PoC cold-start p50 is 1517.5 ms and the MAUI template p50 is 1101 ms. KVM then faulted in `kvm_arch_vcpu_create`. The TCG pass did not produce a median under 1101 ms. The lowest is NativeAOT at 10097.5 ms.
+- arm64 Mono AOT and arm64 NativeAOT were built and not installed. This host's emulator image is x86_64. The review NativeAOT x64 APK was installed on the TCG emulator.
 - NativeAOT is experimental. IL3053 is in the workload assembly. XA1040 did not show up, which disagrees with the plan's expectation that the warning is present. The earlier x64 app ran anyway.
 - The first NativeAOT link failed because the NDK was not installed (`libc++_static.a` and `libc++abi.a` missing). Installing `ndk;26.3.11579264` fixed the link. That failure is environmental, and it is fixed on this machine.
 - Debug cannot be installed with `adb install` alone. Fast deployment aborts if the assemblies were not pushed.
@@ -346,3 +400,5 @@ XA1040 was not emitted. `rg -n XA1040` exits 1 on the NativeAOT logs named in it
 - `evidence/review-rotated.png` — same process after rotation back to portrait, `Counter 1`, `AdaX`
 - `evidence/mono-aot-x64-review-empty.png` — Release Mono AOT on workload 36.1.118, pid 5806, `Counter 0`
 - `evidence/maui-x64-empty.png` — `dotnet new maui` Release, `Hello, World!`, `Click me`
+- `evidence/startup-nativeaot.png` — NativeAOT on the TCG emulator, `Counter 0`, `Name`, `Save`, `Enter a name`, with the system "isn't responding" dialog over it
+- `evidence/startup-splash.png` — profiled AOT with the temporary white window theme, `Counter 0`, `Name`, `SAVE`, `Enter a name`, same dialog. The theme was removed after the ten runs
