@@ -25,7 +25,7 @@ sealed class AndroidNativeServices : INativeServices
 		var read = clipboard.PrimaryClip?.GetItemAt(0)?.Text?.ToString() ?? "";
 		if (!string.Equals(read, text, StringComparison.Ordinal))
 			throw new InvalidOperationException("Clipboard round-trip failed.");
-		Log.Info(MainActivity.Tag, "clipboard-ok chars=" + text.Length);
+		Log.Info(MainActivity.Tag, "clipboard-ok chars=" + text.Length + " text=" + text.Replace('\n', '|'));
 	}
 
 	public void Pulse()

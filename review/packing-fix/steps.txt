@@ -1,0 +1,29 @@
+debug toggle-on deliveries=1 haptic-lines=1
+debug toggle-off deliveries=2
+debug toggle-on deliveries=1 haptic-lines=1
+debug toggle-off deliveries=2
+debug system-back-editor stayed pid=16605 disposed=0
+debug toggle-on deliveries=1 haptic-lines=1
+debug toggle-off deliveries=2
+debug system-back-editor stayed pid=17644 disposed=0
+debug 11-08 22:35:52.237 17644 17644 I NativePoc: clipboard-ok chars=63 text=Canvas tent|Camp stove [packed]|Ridge map|Water bladder|Lantern
+debug toggle-on deliveries=1 haptic-lines=1
+debug toggle-off deliveries=2
+debug system-back-editor stayed pid=18603 disposed=1
+debug 11-08 22:38:24.841 18603 18603 I NativePoc: clipboard-ok chars=63 text=Canvas tent|Camp stove [packed]|Ridge map|Water bladder|Lantern
+debug rotated-row 11-08 22:38:27.328 18603 18603 I NativePoc: packing-rendered route=List packed=1 total=5 switch-deliveries=2 field-deliveries=12
+debug toggle-after-rotation deliveries=3 was=2
+debug teardown unsub=42 was=37 disposed=4
+debug relaunch kept process state
+release toggle-on deliveries=1 haptic-lines=1
+release toggle-off deliveries=2
+release system-back-editor stayed pid=19987 disposed=0
+release 11-08 22:40:34.135 19987 19987 I NativePoc: clipboard-ok chars=63
+release toggle-on deliveries=1 haptic-lines=1
+release toggle-off deliveries=2
+release system-back-editor stayed pid=20962 disposed=0
+release 11-08 22:46:02.853 20962 20962 I NativePoc: clipboard-ok chars=63 text=Canvas tent|Camp stove [packed]|Ridge map|Water bladder|Lantern
+release rotated-row 11-08 22:46:05.373 20962 20962 I NativePoc: packing-rendered route=List packed=1 total=5 switch-deliveries=2 field-deliveries=12
+release toggle-after-rotation deliveries=3 was=2
+release teardown unsub=37 was=32 disposed=3
+release relaunch kept process state

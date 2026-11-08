@@ -1,0 +1,219 @@
+--------- beginning of main
+11-08 22:44:39.854 20962 20962 I NativePoc: packing-start tick=4826419
+11-08 22:44:39.877 20962 20962 I NativePoc: switch-subscribe handle=13478
+11-08 22:44:39.878 20962 20962 I NativePoc: button-mounted handle=13734 tick=4826451
+11-08 22:44:39.879 20962 20962 I NativePoc: switch-subscribe handle=14022
+11-08 22:44:39.879 20962 20962 I NativePoc: button-mounted handle=14182 tick=4826451
+11-08 22:44:39.880 20962 20962 I NativePoc: switch-subscribe handle=14406
+11-08 22:44:39.880 20962 20962 I NativePoc: button-mounted handle=14506 tick=4826451
+11-08 22:44:39.880 20962 20962 I NativePoc: switch-subscribe handle=14726
+11-08 22:44:39.880 20962 20962 I NativePoc: button-mounted handle=14826 tick=4826455
+11-08 22:44:39.880 20962 20962 I NativePoc: button-mounted handle=14922 tick=4826455
+11-08 22:44:39.880 20962 20962 I NativePoc: button-mounted handle=15018 tick=4826455
+11-08 22:44:39.902 20962 20962 I NativePoc: packing-set-content-view
+11-08 22:44:39.909 20962 20962 I NativePoc: packing-rendered route=List packed=1 total=4 switch-deliveries=0 field-deliveries=0
+11-08 22:44:40.009 20962 20962 I NativePoc: content-inset overlap=275 top=317 bar-bottom=275
+11-08 22:44:51.891 20962 20962 I NativePoc: haptic-ok
+11-08 22:44:51.892 20962 20962 I NativePoc: packing-rendered route=List packed=2 total=4 switch-deliveries=1 field-deliveries=0
+11-08 22:44:58.711 20962 20962 I NativePoc: switch-unsubscribe handle=14726
+11-08 22:44:58.711 20962 20962 I NativePoc: switch-unsubscribe handle=14406
+11-08 22:44:58.711 20962 20962 I NativePoc: switch-unsubscribe handle=14022
+11-08 22:44:58.711 20962 20962 I NativePoc: switch-unsubscribe handle=13478
+11-08 22:44:58.726 20962 20962 I NativePoc: field-handle 14926
+11-08 22:44:58.747 20962 20962 I NativePoc: switch-subscribe handle=14514
+11-08 22:44:58.747 20962 20962 I NativePoc: button-mounted handle=14414 tick=4845319
+11-08 22:44:58.747 20962 20962 I NativePoc: button-mounted handle=14318 tick=4845319
+11-08 22:44:58.747 20962 20962 I NativePoc: packing-rendered route=Editor packed=2 total=4 switch-deliveries=1 field-deliveries=0
+11-08 22:45:03.338 20962 20962 I NativePoc: switch-unsubscribe handle=14514
+11-08 22:45:03.339 20962 20962 I NativePoc: switch-subscribe handle=13962
+11-08 22:45:03.339 20962 20962 I NativePoc: button-mounted handle=13870 tick=4849911
+11-08 22:45:03.340 20962 20962 I NativePoc: switch-subscribe handle=13386
+11-08 22:45:03.340 20962 20962 I NativePoc: button-mounted handle=13294 tick=4849911
+11-08 22:45:03.346 20962 20962 I NativePoc: switch-subscribe handle=16554
+11-08 22:45:03.346 20962 20962 I NativePoc: button-mounted handle=16650 tick=4849919
+11-08 22:45:03.346 20962 20962 I NativePoc: switch-subscribe handle=16870
+11-08 22:45:03.346 20962 20962 I NativePoc: button-mounted handle=16970 tick=4849919
+11-08 22:45:03.346 20962 20962 I NativePoc: button-mounted handle=17066 tick=4849919
+11-08 22:45:03.347 20962 20962 I NativePoc: button-mounted handle=17162 tick=4849919
+11-08 22:45:03.347 20962 20962 I NativePoc: packing-rendered route=List packed=2 total=4 switch-deliveries=1 field-deliveries=0
+11-08 22:45:11.856 20962 20962 I NativePoc: haptic-ok
+11-08 22:45:11.856 20962 20962 I NativePoc: packing-rendered route=List packed=1 total=4 switch-deliveries=2 field-deliveries=0
+11-08 22:45:18.354 20962 20962 I NativePoc: switch-unsubscribe handle=16870
+11-08 22:45:18.354 20962 20962 I NativePoc: switch-unsubscribe handle=16554
+11-08 22:45:18.354 20962 20962 I NativePoc: switch-unsubscribe handle=13386
+11-08 22:45:18.354 20962 20962 I NativePoc: switch-unsubscribe handle=13962
+11-08 22:45:18.355 20962 20962 I NativePoc: field-handle 17166
+11-08 22:45:18.355 20962 20962 I NativePoc: switch-subscribe handle=16810
+11-08 22:45:18.357 20962 20962 I NativePoc: button-mounted handle=16562 tick=4864931
+11-08 22:45:18.357 20962 20962 I NativePoc: button-mounted handle=14034 tick=4864931
+11-08 22:45:18.357 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=2 field-deliveries=0
+11-08 22:45:23.636 20962 20962 I NativePoc: field-handle 17166
+11-08 22:45:23.636 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=2 field-deliveries=1
+11-08 22:45:23.665 20962 20962 I NativePoc: field-handle 17166
+11-08 22:45:23.665 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=2 field-deliveries=2
+11-08 22:45:23.699 20962 20962 I NativePoc: field-handle 17166
+11-08 22:45:23.700 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=2 field-deliveries=3
+11-08 22:45:23.701 20962 20962 I NativePoc: field-handle 17166
+11-08 22:45:23.701 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=2 field-deliveries=4
+11-08 22:45:23.727 20962 20962 I NativePoc: field-handle 17166
+11-08 22:45:23.727 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=2 field-deliveries=5
+11-08 22:45:23.753 20962 20962 I NativePoc: field-handle 17166
+11-08 22:45:23.753 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=2 field-deliveries=6
+11-08 22:45:23.753 20962 20962 I NativePoc: field-handle 17166
+11-08 22:45:23.754 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=4 switch-deliveries=2 field-deliveries=7
+11-08 22:45:26.475 20962 20962 I NativePoc: switch-unsubscribe handle=16810
+11-08 22:45:26.478 20962 20962 I NativePoc: switch-subscribe handle=18022
+11-08 22:45:26.478 20962 20962 I NativePoc: button-mounted handle=18122 tick=4873051
+11-08 22:45:26.502 20962 20962 I NativePoc: switch-subscribe handle=18342
+11-08 22:45:26.503 20962 20962 I NativePoc: button-mounted handle=16986 tick=4873071
+11-08 22:45:26.569 20962 20962 I NativePoc: switch-subscribe handle=16714
+11-08 22:45:26.570 20962 20962 I NativePoc: button-mounted handle=16654 tick=4873139
+11-08 22:45:26.570 20962 20962 I NativePoc: switch-subscribe handle=14474
+11-08 22:45:26.570 20962 20962 I NativePoc: button-mounted handle=14386 tick=4873143
+11-08 22:45:26.570 20962 20962 I NativePoc: switch-subscribe handle=13970
+11-08 22:45:26.570 20962 20962 I NativePoc: button-mounted handle=13882 tick=4873143
+11-08 22:45:26.570 20962 20962 I NativePoc: button-mounted handle=13518 tick=4873143
+11-08 22:45:26.570 20962 20962 I NativePoc: button-mounted handle=13330 tick=4873143
+11-08 22:45:26.570 20962 20962 I NativePoc: packing-rendered route=List packed=1 total=5 switch-deliveries=2 field-deliveries=7
+11-08 22:45:35.557 20962 20962 I NativePoc: switch-unsubscribe handle=13970
+11-08 22:45:35.557 20962 20962 I NativePoc: switch-unsubscribe handle=14474
+11-08 22:45:35.557 20962 20962 I NativePoc: switch-unsubscribe handle=16714
+11-08 22:45:35.557 20962 20962 I NativePoc: switch-unsubscribe handle=18342
+11-08 22:45:35.557 20962 20962 I NativePoc: switch-unsubscribe handle=18022
+11-08 22:45:35.560 20962 20962 I NativePoc: field-handle 18346
+11-08 22:45:35.564 20962 20962 I NativePoc: switch-subscribe handle=16782
+11-08 22:45:35.566 20962 20962 I NativePoc: button-mounted handle=16546 tick=4882139
+11-08 22:45:35.567 20962 20962 I NativePoc: button-mounted handle=14550 tick=4882139
+11-08 22:45:35.567 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=5 switch-deliveries=2 field-deliveries=7
+11-08 22:45:38.499 20962 20962 I NativePoc: field-handle 18346
+11-08 22:45:38.500 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=5 switch-deliveries=2 field-deliveries=8
+11-08 22:45:38.832 20962 20962 I NativePoc: field-handle 18346
+11-08 22:45:38.833 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=5 switch-deliveries=2 field-deliveries=9
+11-08 22:45:38.852 20962 20962 I NativePoc: field-handle 18346
+11-08 22:45:38.852 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=5 switch-deliveries=2 field-deliveries=10
+11-08 22:45:38.853 20962 20962 I NativePoc: field-handle 18346
+11-08 22:45:38.853 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=5 switch-deliveries=2 field-deliveries=11
+11-08 22:45:38.853 20962 20962 I NativePoc: field-handle 18346
+11-08 22:45:38.853 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=5 switch-deliveries=2 field-deliveries=12
+11-08 22:45:41.621 20962 20962 I NativePoc: switch-unsubscribe handle=16782
+11-08 22:45:41.622 20962 20962 I NativePoc: switch-subscribe handle=18830
+11-08 22:45:41.622 20962 20962 I NativePoc: button-mounted handle=18922 tick=4888195
+11-08 22:45:41.622 20962 20962 I NativePoc: switch-subscribe handle=19142
+11-08 22:45:41.622 20962 20962 I NativePoc: button-mounted handle=19242 tick=4888195
+11-08 22:45:41.622 20962 20962 I NativePoc: switch-subscribe handle=19462
+11-08 22:45:41.623 20962 20962 I NativePoc: button-mounted handle=19562 tick=4888195
+11-08 22:45:41.628 20962 20962 I NativePoc: switch-subscribe handle=19782
+11-08 22:45:41.629 20962 20962 I NativePoc: button-mounted handle=19882 tick=4888203
+11-08 22:45:41.629 20962 20962 I NativePoc: switch-subscribe handle=20102
+11-08 22:45:41.629 20962 20962 I NativePoc: button-mounted handle=20202 tick=4888203
+11-08 22:45:41.629 20962 20962 I NativePoc: button-mounted handle=20298 tick=4888203
+11-08 22:45:41.630 20962 20962 I NativePoc: button-mounted handle=20394 tick=4888203
+11-08 22:45:41.630 20962 20962 I NativePoc: packing-rendered route=List packed=1 total=5 switch-deliveries=2 field-deliveries=12
+11-08 22:45:50.387 20962 20962 I NativePoc: switch-unsubscribe handle=20102
+11-08 22:45:50.388 20962 20962 I NativePoc: switch-unsubscribe handle=19782
+11-08 22:45:50.388 20962 20962 I NativePoc: switch-unsubscribe handle=19462
+11-08 22:45:50.388 20962 20962 I NativePoc: switch-unsubscribe handle=19142
+11-08 22:45:50.388 20962 20962 I NativePoc: switch-unsubscribe handle=18830
+11-08 22:45:50.391 20962 20962 I NativePoc: field-handle 20398
+11-08 22:45:50.408 20962 20962 I NativePoc: switch-subscribe handle=19722
+11-08 22:45:50.409 20962 20962 I NativePoc: button-mounted handle=19470 tick=4896979
+11-08 22:45:50.409 20962 20962 I NativePoc: button-mounted handle=19250 tick=4896983
+11-08 22:45:50.409 20962 20962 I NativePoc: packing-rendered route=Editor packed=1 total=5 switch-deliveries=2 field-deliveries=12
+11-08 22:45:51.353 20962 20962 I NativePoc: switch-unsubscribe handle=19722
+11-08 22:45:51.353 20962 20962 I NativePoc: switch-subscribe handle=18606
+11-08 22:45:51.354 20962 20962 I NativePoc: button-mounted handle=20558 tick=4897927
+11-08 22:45:51.354 20962 20962 I NativePoc: switch-subscribe handle=20774
+11-08 22:45:51.354 20962 20962 I NativePoc: button-mounted handle=20874 tick=4897927
+11-08 22:45:51.354 20962 20962 I NativePoc: switch-subscribe handle=21094
+11-08 22:45:51.354 20962 20962 I NativePoc: button-mounted handle=21194 tick=4897927
+11-08 22:45:51.367 20962 20962 I NativePoc: switch-subscribe handle=19946
+11-08 22:45:51.367 20962 20962 I NativePoc: button-mounted handle=19822 tick=4897939
+11-08 22:45:51.367 20962 20962 I NativePoc: switch-subscribe handle=19594
+11-08 22:45:51.367 20962 20962 I NativePoc: button-mounted handle=19502 tick=4897939
+11-08 22:45:51.367 20962 20962 I NativePoc: button-mounted handle=19374 tick=4897939
+11-08 22:45:51.367 20962 20962 I NativePoc: button-mounted handle=19278 tick=4897939
+11-08 22:45:51.367 20962 20962 I NativePoc: packing-rendered route=List packed=1 total=5 switch-deliveries=2 field-deliveries=12
+11-08 22:46:02.853 20962 20962 I NativePoc: clipboard-ok chars=63 text=Canvas tent|Camp stove [packed]|Ridge map|Water bladder|Lantern
+11-08 22:46:02.873 20962 20962 I NativePoc: haptic-ok
+11-08 22:46:05.259 20962 20962 I NativePoc: switch-unsubscribe handle=19946
+11-08 22:46:05.259 20962 20962 I NativePoc: switch-unsubscribe handle=20774
+11-08 22:46:05.259 20962 20962 I NativePoc: switch-unsubscribe handle=18606
+11-08 22:46:05.259 20962 20962 I NativePoc: switch-unsubscribe handle=19594
+11-08 22:46:05.259 20962 20962 I NativePoc: switch-unsubscribe handle=21094
+11-08 22:46:05.262 20962 20962 I NativePoc: native-services-disposed
+11-08 22:46:05.279 20962 20962 I NativePoc: packing-start tick=4911851
+11-08 22:46:05.326 20962 20962 I NativePoc: switch-subscribe handle=19506
+11-08 22:46:05.327 20962 20962 I NativePoc: button-mounted handle=19286 tick=4911899
+11-08 22:46:05.328 20962 20962 I NativePoc: switch-subscribe handle=16910
+11-08 22:46:05.328 20962 20962 I NativePoc: button-mounted handle=16826 tick=4911903
+11-08 22:46:05.328 20962 20962 I NativePoc: switch-subscribe handle=16590
+11-08 22:46:05.328 20962 20962 I NativePoc: button-mounted handle=15726 tick=4911903
+11-08 22:46:05.328 20962 20962 I NativePoc: switch-subscribe handle=14530
+11-08 22:46:05.329 20962 20962 I NativePoc: button-mounted handle=14450 tick=4911903
+11-08 22:46:05.329 20962 20962 I NativePoc: switch-subscribe handle=13938
+11-08 22:46:05.329 20962 20962 I NativePoc: button-mounted handle=13750 tick=4911903
+11-08 22:46:05.329 20962 20962 I NativePoc: button-mounted handle=13270 tick=4911903
+11-08 22:46:05.329 20962 20962 I NativePoc: button-mounted handle=12814 tick=4911903
+11-08 22:46:05.342 20962 20962 I NativePoc: packing-set-content-view
+11-08 22:46:05.373 20962 20962 I NativePoc: packing-rendered route=List packed=1 total=5 switch-deliveries=2 field-deliveries=12
+11-08 22:46:05.429 20962 20962 I NativePoc: content-inset overlap=189 top=231 bar-bottom=189
+11-08 22:46:16.907 20962 20962 I NativePoc: haptic-ok
+11-08 22:46:16.908 20962 20962 I NativePoc: packing-rendered route=List packed=2 total=5 switch-deliveries=3 field-deliveries=12
+11-08 22:46:21.649 20962 20962 I NativePoc: switch-unsubscribe handle=13938
+11-08 22:46:21.649 20962 20962 I NativePoc: switch-unsubscribe handle=19506
+11-08 22:46:21.649 20962 20962 I NativePoc: switch-unsubscribe handle=16910
+11-08 22:46:21.649 20962 20962 I NativePoc: switch-unsubscribe handle=14530
+11-08 22:46:21.649 20962 20962 I NativePoc: switch-unsubscribe handle=16590
+11-08 22:46:21.650 20962 20962 I NativePoc: native-services-disposed
+11-08 22:46:21.664 20962 20962 I NativePoc: packing-start tick=4928239
+11-08 22:46:21.684 20962 20962 I NativePoc: switch-subscribe handle=18390
+11-08 22:46:21.685 20962 20962 I NativePoc: button-mounted handle=18262 tick=4928259
+11-08 22:46:21.687 20962 20962 I NativePoc: switch-subscribe handle=17970
+11-08 22:46:21.690 20962 20962 I NativePoc: button-mounted handle=17866 tick=4928263
+11-08 22:46:21.690 20962 20962 I NativePoc: switch-subscribe handle=17486
+11-08 22:46:21.690 20962 20962 I NativePoc: button-mounted handle=17394 tick=4928263
+11-08 22:46:21.690 20962 20962 I NativePoc: switch-subscribe handle=17178
+11-08 22:46:21.691 20962 20962 I NativePoc: button-mounted handle=17082 tick=4928263
+11-08 22:46:21.691 20962 20962 I NativePoc: switch-subscribe handle=16858
+11-08 22:46:21.691 20962 20962 I NativePoc: button-mounted handle=16738 tick=4928263
+11-08 22:46:21.691 20962 20962 I NativePoc: button-mounted handle=16642 tick=4928263
+11-08 22:46:21.693 20962 20962 I NativePoc: button-mounted handle=16566 tick=4928267
+11-08 22:46:21.703 20962 20962 I NativePoc: packing-set-content-view
+11-08 22:46:21.704 20962 20962 I NativePoc: packing-rendered route=List packed=2 total=5 switch-deliveries=3 field-deliveries=12
+11-08 22:46:21.766 20962 20962 I NativePoc: content-inset overlap=275 top=317 bar-bottom=275
+11-08 22:46:27.458 20962 20962 I NativePoc: switch-unsubscribe handle=16858
+11-08 22:46:27.458 20962 20962 I NativePoc: switch-unsubscribe handle=18390
+11-08 22:46:27.458 20962 20962 I NativePoc: switch-unsubscribe handle=17970
+11-08 22:46:27.458 20962 20962 I NativePoc: switch-unsubscribe handle=17178
+11-08 22:46:27.458 20962 20962 I NativePoc: switch-unsubscribe handle=17486
+11-08 22:46:27.458 20962 20962 I NativePoc: native-services-disposed
+11-08 22:46:28.012 20962 20962 I NativePoc: packing-start tick=4934587
+11-08 22:46:28.041 20962 20962 I NativePoc: switch-subscribe handle=18194
+11-08 22:46:28.041 20962 20962 I NativePoc: button-mounted handle=18086 tick=4934615
+11-08 22:46:28.041 20962 20962 I NativePoc: switch-subscribe handle=17870
+11-08 22:46:28.042 20962 20962 I NativePoc: button-mounted handle=17754 tick=4934615
+11-08 22:46:28.042 20962 20962 I NativePoc: switch-subscribe handle=17430
+11-08 22:46:28.042 20962 20962 I NativePoc: button-mounted handle=17338 tick=4934615
+11-08 22:46:28.042 20962 20962 I NativePoc: switch-subscribe handle=17106
+11-08 22:46:28.042 20962 20962 I NativePoc: button-mounted handle=17014 tick=4934615
+11-08 22:46:28.042 20962 20962 I NativePoc: switch-subscribe handle=16770
+11-08 22:46:28.042 20962 20962 I NativePoc: button-mounted handle=16694 tick=4934615
+11-08 22:46:28.042 20962 20962 I NativePoc: button-mounted handle=16602 tick=4934615
+11-08 22:46:28.042 20962 20962 I NativePoc: button-mounted handle=16506 tick=4934615
+11-08 22:46:28.047 20962 20962 I NativePoc: packing-set-content-view
+11-08 22:46:28.047 20962 20962 I NativePoc: packing-rendered route=List packed=2 total=5 switch-deliveries=3 field-deliveries=12
+11-08 22:46:28.092 20962 20962 I NativePoc: content-inset overlap=275 top=317 bar-bottom=275
+11-08 22:46:33.801 22084 22084 I NativePoc: packing-start tick=4940375
+11-08 22:46:33.878 22084 22084 I NativePoc: switch-subscribe handle=13478
+11-08 22:46:33.882 22084 22084 I NativePoc: button-mounted handle=13734 tick=4940455
+11-08 22:46:33.882 22084 22084 I NativePoc: switch-subscribe handle=14022
+11-08 22:46:33.888 22084 22084 I NativePoc: button-mounted handle=14182 tick=4940463
+11-08 22:46:33.888 22084 22084 I NativePoc: switch-subscribe handle=14406
+11-08 22:46:33.889 22084 22084 I NativePoc: button-mounted handle=14506 tick=4940463
+11-08 22:46:33.889 22084 22084 I NativePoc: switch-subscribe handle=14726
+11-08 22:46:33.890 22084 22084 I NativePoc: button-mounted handle=14826 tick=4940463
+11-08 22:46:33.890 22084 22084 I NativePoc: button-mounted handle=14922 tick=4940463
+11-08 22:46:33.890 22084 22084 I NativePoc: button-mounted handle=15018 tick=4940463
+11-08 22:46:33.902 22084 22084 I NativePoc: packing-set-content-view
+11-08 22:46:33.904 22084 22084 I NativePoc: packing-rendered route=List packed=1 total=4 switch-deliveries=0 field-deliveries=0
+11-08 22:46:33.933 22084 22084 I NativePoc: content-inset overlap=275 top=317 bar-bottom=275

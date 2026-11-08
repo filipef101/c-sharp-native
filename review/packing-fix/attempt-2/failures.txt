@@ -1,0 +1,2 @@
+FAIL debug: count packing-rendered route=List stayed 6, wanted >= 7
+FAIL debug: count clipboard-ok chars=62 stayed 0, wanted >= 1

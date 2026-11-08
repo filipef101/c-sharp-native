@@ -135,6 +135,19 @@ public sealed class PackingTests
 	}
 
 	[Fact]
+	public void Copy_text_is_one_line_per_item_with_a_packed_mark()
+	{
+		var state = PackingState.Seed();
+		state.Items.Add(new PackingItem("lantern", "Lantern", false));
+		var text = state.CopyText();
+
+		Assert.Equal(
+			"Canvas tent\nCamp stove [packed]\nRidge map\nWater bladder\nLantern",
+			text);
+		Assert.Equal(63, text.Length);
+	}
+
+	[Fact]
 	public void Copy_sends_the_seeded_list_through_the_native_service()
 	{
 		var harness = new PackingHarness();

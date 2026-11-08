@@ -1,0 +1,16 @@
+  Determining projects to restore...
+  Restored /tmp/packing-main/src/NativePoc.Android/NativePoc.Android.csproj (in 197 ms).
+  3 of 4 projects are up-to-date for restore.
+  NativePoc.Core -> /tmp/packing-main/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Packing -> /tmp/packing-main/samples/NativePoc.Packing/bin/Debug/net10.0/NativePoc.Packing.dll
+  NativePoc.Screen -> /tmp/packing-main/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /tmp/packing-main/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /tmp/packing-main/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Packing -> /tmp/packing-main/samples/NativePoc.Packing/bin/Debug/net10.0/NativePoc.Packing.dll
+  NativePoc.Screen -> /tmp/packing-main/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:06.72

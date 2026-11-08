@@ -1,0 +1,12 @@
+debug pid-seed=15778 deliveries=0 subscribes=4
+debug pid-seed=16605 deliveries=0 subscribes=4
+debug pid-seed=17644 deliveries=0 subscribes=4
+debug pid-seed=18603 deliveries=0 subscribes=9
+debug pid-rotated=18603
+debug pid-relaunch=18603
+debug pid-reset=19748
+release pid-seed=19987 deliveries=0 subscribes=4
+release pid-seed=20962 deliveries=0 subscribes=4
+release pid-rotated=20962
+release pid-relaunch=20962
+release pid-reset=22084

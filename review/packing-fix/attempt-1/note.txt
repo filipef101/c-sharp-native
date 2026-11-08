@@ -1,0 +1,1 @@
+attempt-1 script keyevent raced the editor. A later keyevent 4 on pid 15778 logged route=List packed=1 total=5 without native-services-disposed.

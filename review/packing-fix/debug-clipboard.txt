@@ -1,0 +1,2 @@
+11-08 22:38:24.841 18603 18603 I NativePoc: clipboard-ok chars=63 text=Canvas tent|Camp stove [packed]|Ridge map|Water bladder|Lantern
+No shell command implementation.

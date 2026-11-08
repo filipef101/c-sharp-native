@@ -1,0 +1,4 @@
+FAIL debug: count packing-rendered route=List stayed 6, wanted >= 7
+FAIL debug: count clipboard-ok chars=62 stayed 0, wanted >= 1
+FAIL debug: missing text: Lantern
+FAIL release: clipboard text was not the list: 11-08 22:40:34.135 19987 19987 I NativePoc: clipboard-ok chars=63
