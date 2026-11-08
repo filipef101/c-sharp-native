@@ -1,0 +1,10 @@
+Failed NativePoc.Tests.HostDispatchTests.A_switch_subtype_of_button_dispatches_as_a_switch [5 ms]
+Error Message:
+ Assert.Equal() Failure: Values differ
+Expected: Switch
+Actual:   Button
+Stack Trace:
+   at NativePoc.Tests.HostDispatchTests.A_switch_subtype_of_button_dispatches_as_a_switch() in /tmp/packing-main/tests/NativePoc.Core.Tests/HostDispatchTests.cs:line 20
+
+Failed!  - Failed:     1, Passed:     0, Skipped:     0, Total:     1, Duration: 13 ms - NativePoc.Core.Tests.dll (net10.0)
+DISPATCH_EXIT:1

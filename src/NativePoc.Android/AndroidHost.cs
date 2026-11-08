@@ -148,55 +148,76 @@ sealed class AndroidHost : IElementHost<View>
 	void Attach(NodePath path, View view, bool logMount)
 	{
 		Detach(view);
-		if (view is AndroidButton button)
+		switch (Slot(view))
 		{
-			EventHandler handler = (_, _) =>
-			{
-				if (CurrentElement(path) is Button current)
-					current.OnPress();
-			};
-			button.Click += handler;
-			_listeners[view] = new Listener { Click = handler };
-			if (logMount)
-			{
-				Log.Info(
-					MainActivity.Tag,
-					"button-mounted handle=" + button.Handle.ToInt64() + " tick=" + Environment.TickCount64);
-			}
-			return;
+			case HostInput.Button:
+				AttachButton(path, view, logMount);
+				return;
+			case HostInput.TextField:
+				AttachField(path, view);
+				return;
+			case HostInput.Switch:
+				AttachSwitch(path, view, logMount);
+				return;
+			case HostInput.None:
+				return;
+			default:
+				throw UnknownInput();
 		}
+	}
 
-		if (view is EditText edit)
-		{
-			EventHandler<TextChangedEventArgs> handler = (_, args) =>
-			{
-				if (_applyingText)
-					return;
-				if (CurrentElement(path) is TextField field)
-					field.OnChange(args.Text?.ToString() ?? "");
-			};
-			edit.TextChanged += handler;
-			_listeners[view] = new Listener { TextChanged = handler };
+	void AttachButton(NodePath path, View view, bool logMount)
+	{
+		if (view is not AndroidButton button)
 			return;
-		}
-
-		if (view is AndroidSwitch toggle)
+		EventHandler handler = (_, _) =>
 		{
-			EventHandler<CompoundButton.CheckedChangeEventArgs> handler = (_, args) =>
-			{
-				if (_applyingSwitch)
-					return;
-				if (CurrentElement(path) is Switch current)
-					current.OnChange(args.IsChecked);
-			};
-			toggle.CheckedChange += handler;
-			_listeners[view] = new Listener { Checked = handler };
-			if (logMount)
-			{
-				Log.Info(
-					MainActivity.Tag,
-					"switch-subscribe handle=" + toggle.Handle.ToInt64());
-			}
+			if (CurrentElement(path) is Button current)
+				current.OnPress();
+		};
+		button.Click += handler;
+		_listeners[view] = new Listener { Click = handler };
+		if (logMount)
+		{
+			Log.Info(
+				MainActivity.Tag,
+				"button-mounted handle=" + button.Handle.ToInt64() + " tick=" + Environment.TickCount64);
+		}
+	}
+
+	void AttachField(NodePath path, View view)
+	{
+		if (view is not EditText edit)
+			return;
+		EventHandler<TextChangedEventArgs> handler = (_, args) =>
+		{
+			if (_applyingText)
+				return;
+			if (CurrentElement(path) is TextField field)
+				field.OnChange(args.Text?.ToString() ?? "");
+		};
+		edit.TextChanged += handler;
+		_listeners[view] = new Listener { TextChanged = handler };
+	}
+
+	void AttachSwitch(NodePath path, View view, bool logMount)
+	{
+		if (view is not AndroidSwitch toggle)
+			return;
+		EventHandler<CompoundButton.CheckedChangeEventArgs> handler = (_, args) =>
+		{
+			if (_applyingSwitch)
+				return;
+			if (CurrentElement(path) is Switch current)
+				current.OnChange(args.IsChecked);
+		};
+		toggle.CheckedChange += handler;
+		_listeners[view] = new Listener { Checked = handler };
+		if (logMount)
+		{
+			Log.Info(
+				MainActivity.Tag,
+				"switch-subscribe handle=" + toggle.Handle.ToInt64());
 		}
 	}
 
@@ -204,16 +225,35 @@ sealed class AndroidHost : IElementHost<View>
 	{
 		if (!_listeners.Remove(view, out var listener))
 			return;
-		if (view is AndroidButton button && listener.Click is not null)
-			button.Click -= listener.Click;
-		if (view is EditText edit && listener.TextChanged is not null)
-			edit.TextChanged -= listener.TextChanged;
-		if (view is AndroidSwitch toggle && listener.Checked is not null)
+		switch (Slot(view))
 		{
-			toggle.CheckedChange -= listener.Checked;
-			Log.Info(MainActivity.Tag, "switch-unsubscribe handle=" + toggle.Handle.ToInt64());
+			case HostInput.Button:
+				if (listener.Click is not null && view is AndroidButton button)
+					button.Click -= listener.Click;
+				return;
+			case HostInput.TextField:
+				if (listener.TextChanged is not null && view is EditText edit)
+					edit.TextChanged -= listener.TextChanged;
+				return;
+			case HostInput.Switch:
+				if (listener.Checked is not null && view is AndroidSwitch toggle)
+				{
+					toggle.CheckedChange -= listener.Checked;
+					Log.Info(MainActivity.Tag, "switch-unsubscribe handle=" + toggle.Handle.ToInt64());
+				}
+				return;
+			case HostInput.None:
+				return;
+			default:
+				throw UnknownInput();
 		}
 	}
+
+	static HostInput Slot(View view) =>
+		HostDispatch.Choose(view.GetType(), typeof(AndroidButton), typeof(EditText), typeof(AndroidSwitch));
+
+	static InvalidOperationException UnknownInput() =>
+		new("Unknown host input.");
 
 	sealed class Listener
 	{

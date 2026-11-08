@@ -58,6 +58,13 @@ public sealed class PackingTests
 	}
 
 	[Fact]
+	public void System_back_returns_from_the_editor_and_finishes_the_list()
+	{
+		Assert.Equal(SystemBack.ReturnToList, PackingNavigation.SystemBackFor(PackingRoute.Editor));
+		Assert.Equal(SystemBack.FinishActivity, PackingNavigation.SystemBackFor(PackingRoute.List));
+	}
+
+	[Fact]
 	public void Back_leaves_the_draft_unsaved()
 	{
 		var harness = new PackingHarness();
