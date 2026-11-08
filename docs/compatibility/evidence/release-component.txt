@@ -1,0 +1,1 @@
+component=com.scratch.sparklineprobe/crc6434c5177003199d2f.MainActivity

@@ -1,0 +1,9 @@
+debug spark 42 183 1038 760
+debug recreate 42 760 1038 886
+debug raw-index-lines before=2 after=2 scrub-raw-start=
+debug spark 42 203 1038 780
+debug recreate 42 780 1038 906
+debug raw-index-lines before=2 after=2 scrub-raw-start=
+release spark 42 203 1038 780
+release recreate 42 780 1038 906
+release raw-index-lines before=2 after=2 scrub-raw-start=

@@ -1,0 +1,13 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Sparkline.Binding -> /workspace/compatibility/Sparkline.Binding/bin/Debug/net10.0-android/Sparkline.Binding.dll
+  Sparkline.Adapter -> /workspace/compatibility/Sparkline.Adapter/bin/Debug/net10.0-android/Sparkline.Adapter.dll
+  Sparkline.Probe -> /workspace/compatibility/Sparkline.Probe/bin/Debug/net10.0-android/android-x64/Sparkline.Probe.dll
+  Sparkline.Binding -> /workspace/compatibility/Sparkline.Binding/bin/Debug/net10.0-android/android-x64/Sparkline.Binding.dll
+  Sparkline.Adapter -> /workspace/compatibility/Sparkline.Adapter/bin/Debug/net10.0-android/android-x64/Sparkline.Adapter.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:12.12

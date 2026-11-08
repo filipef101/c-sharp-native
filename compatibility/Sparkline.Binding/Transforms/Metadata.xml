@@ -1,0 +1,4 @@
+<metadata>
+	<remove-node path="/api/package[@name='android.support.annotation']" />
+	<remove-node path="/api/package[@name='com.robinhood.spark']/interface[@name='SparkView.FillType']" />
+</metadata>

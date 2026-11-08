@@ -1,0 +1,17 @@
+--------- beginning of main
+11-08 21:34:21.338  7903  7903 I SparkProbe: create id=1 pid=7903 dynamic=False compiled=False
+11-08 21:34:21.437  7903  7903 I SparkProbe: listener-set id=1 once=true
+11-08 21:34:27.121  7903  7903 I SparkProbe: raw index=1 id=1
+11-08 21:34:27.122  7903  7903 I SparkProbe: emit index=1 value=4 id=1
+11-08 21:34:28.649  7903  7903 I SparkProbe: raw ended id=1
+11-08 21:34:28.649  7903  7903 I SparkProbe: emit ended id=1
+11-08 21:34:28.861  7903  7903 I SparkProbe: destroy id=1
+11-08 21:34:28.861  7903  7903 I SparkProbe: unsubscribe id=1 listener-null=True
+11-08 21:34:28.861  7903  7903 I SparkProbe: dispose id=1
+11-08 21:34:28.909  7903  7903 I SparkProbe: create id=2 pid=7903 dynamic=False compiled=False
+11-08 21:34:28.909  7903  7903 I SparkProbe: listener-set id=2 once=true
+11-08 21:34:32.718  7903  7903 I SparkProbe: raw index=1 id=2
+11-08 21:34:32.718  7903  7903 I SparkProbe: emit index=1 value=4 id=2
+11-08 21:34:33.957  7903  7903 I SparkProbe: raw ended id=2
+11-08 21:34:33.957  7903  7903 I SparkProbe: emit ended id=2
+11-08 21:34:36.072  7903  7903 I SparkProbe: unsubscribe id=2 listener-null=True

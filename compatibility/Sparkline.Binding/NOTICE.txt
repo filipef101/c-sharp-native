@@ -1,0 +1,18 @@
+Spark 1.2.0
+Copyright (C) 2016 Robinhood Markets, Inc.
+License: Apache License 2.0 (licenses/Apache-2.0.txt)
+Maven: https://repo1.maven.org/maven2/com/robinhood/spark/spark/1.2.0/spark-1.2.0.aar
+Coordinates: com.robinhood.spark:spark:1.2.0
+Upstream POM: https://github.com/robinhoodmarkets/spark/
+AAR SHA256: bf8841ce3cb9b583c161acf70792d664088c132df73e0ec72cc01f57f788d534
+
+This AAR is a 2016 Java library. The binding project uses the current
+.NET for Android generator. That is a modern toolchain pointed at a
+legacy library, not a claim that Spark is still maintained.
+
+support-annotations 26.1.0
+Android Open Source Project, Apache License 2.0
+Maven: https://dl.google.com/dl/android/maven2/com/android/support/support-annotations/26.1.0/support-annotations-26.1.0.jar
+SHA256: 99d6199ad5a09a0e5e8a49a4cc08f818483ddcfd7eedea2f9923412daf982309
+Bound: false. Compile-only annotations referenced by Spark class files.
+The probe manifest does not add permissions from this jar.

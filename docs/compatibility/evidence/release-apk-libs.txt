@@ -1,0 +1,2 @@
+    58648  1981-01-01 01:01   classes.dex
+  5522648  1981-01-01 01:01   lib/x86_64/libSparkline.Probe.so

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net10.0-android</TargetFramework>
+		<SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
+		<Nullable>disable</Nullable>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<RootNamespace>Sparkline.Binding</RootNamespace>
+	</PropertyGroup>
+	<ItemGroup>
+		<AndroidLibrary Include="libs\spark-1.2.0.aar" />
+		<AndroidLibrary Include="libs\support-annotations-26.1.0.jar" Bind="false" />
+	</ItemGroup>
+</Project>
