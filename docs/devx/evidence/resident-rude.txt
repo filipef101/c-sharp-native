@@ -1,0 +1,23 @@
+before-pid=10585
+after-pid=10743
+live-pid=10743
+
+src/NativePoc.Core/Elements.cs
+restarting
+cnative: building Debug android-x64 for emulator-5554
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:03.60
+cnative: launching com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+cnative: pid 10743
+cnative: waiting for a hot reload token via adb run-as

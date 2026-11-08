@@ -13,7 +13,7 @@ public sealed class ArgParserTests
 		Assert.False(options.Once);
 		Assert.Null(options.Serial);
 		Assert.Null(options.Abi);
-		Assert.Equal(250, options.DebounceMs);
+		Assert.Equal(40, options.DebounceMs);
 		Assert.False(options.RestartOnRude);
 	}
 

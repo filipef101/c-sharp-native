@@ -1,6 +1,6 @@
 # cnative
 
-`tools/devx/cnative run android` is the Debug loop for this proof of concept. It builds `net10.0-android`, installs onto the emulator or device that is already online, launches the app without a hot-reload intent extra, reads the token with `adb shell run-as`, and then watches sources. A change under `src/NativePoc.Screen/Screen.cs` is compiled and pushed by the existing `tools/NativePoc.HotReload.Host` program (`once`). The CLI project references that host and does not modify it.
+`tools/devx/cnative run android` is the Debug loop for this proof of concept. It builds `net10.0-android`, installs onto the emulator or device that is already online, launches the app without a hot-reload intent extra, reads the token with `adb shell run-as`, and then watches sources. A change to `src/NativePoc.Screen/Screen.cs` is compiled by a Roslyn compilation that stays inside the `cnative` process and pushed through `HotReloadConnection`. The socket name and the 16-byte token framing live in that type. `tools/NativePoc.HotReload.Host` is unchanged and is no longer spawned for a reload. `src/` is not modified by the tool.
 
 ```bash
 export DOTNET_ROOT="$HOME/.dotnet"
@@ -11,11 +11,81 @@ tools/devx/cnative run android --restart-on-rude
 tools/devx/cnative run android --device emulator-5554 --once
 ```
 
-`--debounce` defaults to 250 ms. `--abi` is `android-x64` or `android-arm64` (otherwise the device ABI). `--once` pushes the current screen once and exits. `--restart-on-rude` rebuilds and relaunches instead of waiting for an answer. On a terminal, a rude edit asks `Restart the app? [y/N]`.
+`--debounce` defaults to 40 ms. `--abi` is `android-x64` or `android-arm64` (otherwise the device ABI). `--once` pushes the current screen once and exits. `--restart-on-rude` rebuilds and relaunches instead of waiting for an answer. On a terminal, a rude edit asks `Restart the app? [y/N]`.
 
-The Debug app has to publish the token itself. The file `cnative` reads is `files/nativepoc-hotreload.token` inside the app data directory (`adb shell run-as com.scratch.nativepoc cat files/nativepoc-hotreload.token`): 32 hex characters. The process then listens on `localabstract:npoc-<hex>`, which is the socket the host already forwards to `tcp:18765`. The CLI also accepts `files/hotreload.token`, `cache/nativepoc-hotreload.token`, any other `*.token` name in those two directories, and an `npoc-<hex>` name if `run-as` can read `/proc/net/unix`. It never passes `--es nativepoc_hotreload`.
+The Debug app has to publish the token itself. Before `am start`, `cnative` deletes the previous token files so a stale `files/nativepoc-hotreload.token` cannot be forwarded at the next process. The file it then reads is `files/nativepoc-hotreload.token` (`adb shell run-as com.scratch.nativepoc cat files/nativepoc-hotreload.token`): 32 hex characters. The process listens on `localabstract:npoc-<hex>`. `HotReloadConnection` forwards that name to `tcp:18765` once per session. The device still closes each accepted socket after one exchange, so each push opens a new TCP connection on the forward that is already up. The CLI also accepts `files/hotreload.token`, `cache/nativepoc-hotreload.token`, any other `*.token` name in those two directories, and an `npoc-<hex>` name if `run-as` can read `/proc/net/unix`. It never passes `--es nativepoc_hotreload`.
+
+The screen compile references the net10.0 reference pack and `NativePoc.Core.dll` read into memory, plus a generated syntax tree with the SDK implicit global usings (`System`, `System.Collections.Generic`, `System.IO`, `System.Linq`, `System.Net.Http`, `System.Threading`, `System.Threading.Tasks`). That is what lets the committed `Screen.cs` use `IReadOnlyList<>` without its own `using`.
+
+## Resident reload
+
+### BUILT
+
+`ScreenCompiler` keeps one `CSharpCompilation` for the watch and replaces the screen tree on each edit. `HotReloadConnection` / `HotReloadHandshake` own the abstract socket name, the adb forward, and the token-plus-length frame. `cnative` no longer references `NativePoc.HotReload.Host`. The default quiet period is 40 ms. Launch removes leftover token files before `am start`.
+
+`dotnet test tools/devx/NativePoc.Devx.Cli.Tests` built `cnative` and the test assembly. Log: [evidence/unit-tests-resident.log](evidence/unit-tests-resident.log).
+
+The measured series below used `tools/devx/cnative run android --device emulator-5554 --restart-on-rude`. The CLI build in that transcript is `Time Elapsed 00:00:01.09` (`0 Warning(s)`, `0 Error(s)`). The Debug `android-x64` deploy is `Time Elapsed 00:00:03.05`. Transcript: [evidence/cnative-resident.log](evidence/cnative-resident.log).
+
+### TESTED
+
+CLI suite from that log: `Passed: 49, Failed: 0, Skipped: 0`, duration `569 ms`. These tests do not talk to a device. They cover the committed `Screen.cs` compiling with the implicit-usings tree, a syntax error staying on `src/NativePoc.Screen/Screen.cs` and the same compiler recovering, the `npoc-<hex>` frame, and the 40 ms default.
+
+### RUN
+
+Profile of the previous host `once` path, before this change, on this same emulator. The screen file was given a temporary `using System.Collections.Generic;` for the successful `once` and mode `c` only; `git checkout` restored it before the resident series. Numbers are the raw samples, not a subtraction of one sample from another. Record: [evidence/reload-profile.txt](evidence/reload-profile.txt).
+
+- `dotnet exec` of the host with no mode (process start, no compile): `24.5`, `21.0`, `23.8` ms, then a later sample `44.8` ms.
+- Host mode `c`, one fresh process, references loaded before the clock: process wall `740.7` ms. Compile sample 0 `497.9` ms. The host's own warm p50 was `8.5` ms (`min 7.9`, `max` of the 20 is the cold `497.9`).
+- Host `once` on that temporary file: process wall `2770.4` ms, `once-ms=66.4`, reply `Counter 0 collectible=True`, pid `9290`.
+- Host `once` on the committed file, which has no `using`: `433.4` ms and `397.1` ms, exit 1, `CS0246` for `IReadOnlyList<>`. No UI dump on that failure path.
+- `adb forward --remove` plus `forward` (tcp `18766`, not the live reload port): `4.9`, `7.9`, `3.6`, `3.8`, `3.3` ms.
+- `uiautomator dump`: `2100.0`, `2005.1` ms, then `2032.0`, `2011.8`, `2011.1` ms. The host calls this from `UiTexts()` after `once-ms`.
+- The old `reloaded in` clock did not include the 250 ms debounce constant or the 40 ms watch poll. Those were source constants. The dump was inside the host process, so it was inside `reloaded in`.
+
+An earlier resident launch on this boot read the previous process's token file, forwarded `localabstract:npoc-<old>`, and printed `reload failed` / `Hot reload reply failed: The hot reload connection closed early.` That launch is not in the 20. The series below deletes the token files before `am start`.
+
+The series ran on the committed `Screen.cs`. The only edits were `TitlePrefix`, set to `R00 ` through `R19 `, and those edits were restored afterward. `git diff -- src` is empty. Before the 20, the harness tapped the name field and ran `adb shell input text Ada`. The dump then contained `Ada` and `Hello Ada` ([evidence/resident-name.png](evidence/resident-name.png), [evidence/resident-before-name.txt](evidence/resident-before-name.txt)).
+
+Startup push, outside the 20: `reloaded in 683.3 ms (apply 105.3 ms)`, reply `Counter 0 collectible=True`, pid `9865`.
+
+Each sample's edit-to-screen clock is `time.perf_counter` immediately before `Screen.cs` `write_text`, until the new `reply Rxx ` line is read from the `cnative` log. The harness polls that log every 2 ms. The reply is written after `RenderNow` returns. After the clock stopped, a UI dump had to contain the new title (`Rxx 0`), `Ada`, and `Hello Ada`, and `pidof` had to stay `9865`. All 20 rows passed. Rows: [evidence/resident-samples.tsv](evidence/resident-samples.tsv). Frames: [evidence/resident-reload-00.png](evidence/resident-reload-00.png) (`R00 0`, `Ada`, `Hello Ada`), [evidence/resident-reload-19.png](evidence/resident-reload-19.png) (`R19 0`, `Ada`, `Hello Ada`). From [evidence/resident-percentiles.txt](evidence/resident-percentiles.txt), `statistics.median` and `statistics.quantiles(n=10, method=inclusive)[8]`:
+
+- edit-to-screen p50 `61.4000` ms, p90 `68.3700` ms
+- `reloaded in` p50 `19.4000` ms, p90 `27.9400` ms
+- apply p50 `9.3500` ms, p90 `16.4000` ms
+- CLI `edit-to-reply` p50 `60.0000` ms, p90 `65.2000` ms
+
+Sorted edit-to-screen times: `55.5, 55.7, 55.8, 56.1, 56.4, 58.6, 58.9, 58.9, 60.1, 60.9, 61.9, 62.2, 62.6, 63.1, 64.3, 64.6, 66.8, 67.0, 80.7, 88.0`.
+
+The next edit made `TitlePrefix` syntactically invalid. The CLI printed:
+
+```
+src/NativePoc.Screen/Screen.cs:5:36: error CS1525: Invalid expression term ';'
+```
+
+`pidof` was still `9865`. A dump after `cnative` had stopped was `Native PoC | R19 0 | Ada | Save | Hello Ada`. Frame: [evidence/resident-compile-error.png](evidence/resident-compile-error.png).
+
+The rude-edit check is a second `cnative run android --device emulator-5554 --restart-on-rude`, not the pid `9865` process. It launched pid `10585`, and adding `RudeGeneration` to `AppState` printed:
+
+```
+rude edit -> restart required
+src/NativePoc.Core/Elements.cs
+restarting
+```
+
+The redeploy build was `Time Elapsed 00:00:03.60`. The new process was pid `10743`, and `pidof` was `10743`. Transcript: [evidence/cnative-rude.log](evidence/cnative-rude.log). The frame taken while that pid was still up, after the activity had drawn, shows the committed screen `Counter 0`: [evidence/resident-after-restart.png](evidence/resident-after-restart.png). An earlier capture in that same pid was still the launcher splash and was replaced.
+
+### UNVERIFIED
+
+- The 20, the compile error, and the rude restart inside one `cnative` process. The rude restart is the second launch above.
+- Time from `RenderNow` to the next scanned framebuffer. The edit-to-screen clock ends when the reply line is observed.
+- A socket name that is not `npoc-<token>`. The framing is isolated in `HotReloadHandshake`; this device still uses the token as the socket name.
+- Any percentile other than the clocks in [evidence/resident-percentiles.txt](evidence/resident-percentiles.txt). The startup `683.3 / 105.3` is not in the 20.
 
 ## E2E after the once-ms parser fix
+
+This section records the earlier loop, which spawned `NativePoc.HotReload.Host once` for every reload. `--debounce` in that build was 250 ms.
 
 `origin/main` `0a45484` is merged. `dotnet workload install android@36.1.118` installed android `36.1.118/10.0.100` (workload version `10.0.403`). Record: [evidence/workload-e2e.txt](evidence/workload-e2e.txt). `src/` and `tools/NativePoc.HotReload.Host` were not changed by the parser fix. The Screen and Core edits used to drive the loop were reverted; `git diff -- src` is empty.
 

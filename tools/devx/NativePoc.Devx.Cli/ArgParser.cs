@@ -15,7 +15,7 @@ sealed record CliOptions(
 	int DebounceMs,
 	bool RestartOnRude)
 {
-	public const int DefaultDebounceMs = 250;
+	public const int DefaultDebounceMs = 40;
 }
 
 static class ArgParser
@@ -29,7 +29,7 @@ static class ArgParser
 
 		  --device <serial>     adb serial. Default: the only online device.
 		  --abi <rid>           android-x64 or android-arm64. Default: the device ABI.
-		  --debounce <ms>       quiet period before a reload. Default: 250.
+		  --debounce <ms>       quiet period before a reload. Default: 40.
 		  --restart-on-rude     rebuild and relaunch when an edit needs a restart.
 		  --once                push the current screen once and exit.
 		  --help                show this text.

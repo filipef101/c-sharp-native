@@ -15,6 +15,15 @@ static class ReloadConsole
 		};
 	}
 
+	public static IReadOnlyList<string> AppliedLines(double elapsedMs, double applyMs, string reply)
+	{
+		return
+		[
+			string.Create(CultureInfo.InvariantCulture, $"reloaded in {elapsedMs:F1} ms (apply {applyMs:F1} ms)"),
+			"reply " + reply,
+		];
+	}
+
 	public static string? RudeDetail(string raw)
 	{
 		foreach (var line in raw.Split('\n'))

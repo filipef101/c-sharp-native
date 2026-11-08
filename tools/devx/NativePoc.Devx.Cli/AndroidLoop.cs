@@ -1,6 +1,37 @@
 using System.Diagnostics;
+using System.Globalization;
 
 namespace NativePoc.Devx;
+
+sealed class ReloadSession : IDisposable
+{
+	FoundToken _token;
+	ScreenCompiler? _compiler;
+	HotReloadConnection? _connection;
+
+	public FoundToken Token
+	{
+		get => _token;
+		set => _token = value;
+	}
+
+	public ScreenCompiler Compiler => _compiler ?? throw new InvalidOperationException("The screen compiler is not open.");
+
+	public HotReloadConnection Connection => _connection ?? throw new InvalidOperationException("The hot reload connection is not open.");
+
+	public void Open(string repo, string serial)
+	{
+		_connection?.Dispose();
+		_compiler = ScreenCompiler.Create(repo);
+		_connection = new HotReloadConnection(serial, _token.Hex);
+	}
+
+	public void Dispose()
+	{
+		_connection?.Dispose();
+		_connection = null;
+	}
+}
 
 static class TokenFiles
 {
@@ -42,28 +73,31 @@ static class AndroidLoop
 			eventArgs.Cancel = true;
 			cancel.Cancel();
 		};
-		FoundToken token = default;
+		var session = new ReloadSession();
 		try
 		{
-			token = DeployAndLaunch(repo, rid, serial);
-			var initial = Push(repo, token.Hex, options);
+			session.Token = DeployAndLaunch(repo, rid, serial);
+			session.Open(repo, serial);
+			var initial = Push(session, options, editStartedMs: null);
 			if (initial.Restarting)
-				token = DeployAndLaunch(repo, rid, serial);
+			{
+				session.Token = DeployAndLaunch(repo, rid, serial);
+				session.Open(repo, serial);
+			}
+
 			if (options.Once)
 				return initial.Status == ReloadStatus.Applied || initial.Restarting ? 0 : 1;
 			if (initial.Status == ReloadStatus.Failed)
 				return 1;
-			return Watch(repo, rid, serial, token, options, cancel.Token);
+			return Watch(repo, rid, serial, session, options, cancel.Token);
 		}
 		finally
 		{
-			Adb(serial, "forward", "--remove", "tcp:" + HotReloadPort);
+			session.Dispose();
 		}
 	}
 
-	const int HotReloadPort = 18765;
-
-	static int Watch(string repo, string rid, string serial, FoundToken token, CliOptions options, CancellationToken cancel)
+	static int Watch(string repo, string rid, string serial, ReloadSession session, CliOptions options, CancellationToken cancel)
 	{
 		Console.WriteLine("cnative: watching src/NativePoc.Screen");
 		var debouncer = new ChangeDebouncer(options.DebounceMs);
@@ -90,40 +124,60 @@ static class AndroidLoop
 		watcher.EnableRaisingEvents = true;
 		while (!cancel.IsCancellationRequested)
 		{
-			var batch = debouncer.Poll(Environment.TickCount64);
-			if (batch is { Count: > 0 })
+			var now = Environment.TickCount64;
+			var remaining = debouncer.Remaining(now);
+			if (remaining is null)
 			{
-				var effect = ChangeEffectRules.Classify(batch);
-				switch (effect)
-				{
-					case ChangeEffect.Ignore:
-						break;
-					case ChangeEffect.ReloadScreen:
-						NoteUnswapped(batch);
-						if (!batch.Any(ChangeEffectRules.IsHostScreen))
-							break;
-						Console.WriteLine("cnative: reload src/NativePoc.Screen/Screen.cs");
-						var outcome = Push(repo, token.Hex, options);
-						if (outcome.Restarting)
-							token = DeployAndLaunch(repo, rid, serial);
-						break;
-					case ChangeEffect.RestartRequired:
-						ReportFileRude(batch);
-						var interactive = Interactive();
-						var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
-						var follow = ReloadConsole.FollowUp(restarting, !restarting && !interactive && !options.RestartOnRude);
-						if (follow is not null)
-							Console.WriteLine(follow);
-						if (restarting)
-							token = DeployAndLaunch(repo, rid, serial);
-						break;
-					default:
-						throw Unhandled(effect);
-				}
+				if (cancel.WaitHandle.WaitOne(25))
+					break;
+				continue;
 			}
 
-			if (cancel.WaitHandle.WaitOne(40))
-				break;
+			if (remaining > 0)
+			{
+				if (cancel.WaitHandle.WaitOne((int)Math.Min(remaining.Value, 25)))
+					break;
+				continue;
+			}
+
+			var batch = debouncer.Drain(now);
+			if (batch is null)
+				continue;
+			var effect = ChangeEffectRules.Classify(batch.Paths);
+			switch (effect)
+			{
+				case ChangeEffect.Ignore:
+					break;
+				case ChangeEffect.ReloadScreen:
+					NoteUnswapped(batch.Paths);
+					if (!batch.Paths.Any(ChangeEffectRules.IsHostScreen))
+						break;
+					Console.WriteLine("cnative: reload src/NativePoc.Screen/Screen.cs");
+					var outcome = Push(session, options, batch.FirstMs);
+					if (outcome.Restarting)
+					{
+						session.Token = DeployAndLaunch(repo, rid, serial);
+						session.Open(repo, serial);
+					}
+
+					break;
+				case ChangeEffect.RestartRequired:
+					ReportFileRude(batch.Paths);
+					var interactive = Interactive();
+					var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
+					var follow = ReloadConsole.FollowUp(restarting, !restarting && !interactive && !options.RestartOnRude);
+					if (follow is not null)
+						Console.WriteLine(follow);
+					if (restarting)
+					{
+						session.Token = DeployAndLaunch(repo, rid, serial);
+						session.Open(repo, serial);
+					}
+
+					break;
+				default:
+					throw Unhandled(effect);
+			}
 		}
 
 		Console.WriteLine("cnative: stopped");
@@ -147,7 +201,7 @@ static class AndroidLoop
 				continue;
 			if (ChangeEffectRules.IsHostScreen(normalized))
 				continue;
-			Console.WriteLine(normalized + " is not in the swapped assembly. The host compiles src/NativePoc.Screen/Screen.cs only.");
+			Console.WriteLine(normalized + " is not in the swapped assembly. cnative compiles src/NativePoc.Screen/Screen.cs only.");
 		}
 	}
 
@@ -165,31 +219,71 @@ static class AndroidLoop
 
 	readonly record struct PushOutcome(ReloadStatus Status, bool Restarting);
 
-	static PushOutcome Push(string repo, string tokenHex, CliOptions options)
+	static PushOutcome Push(ReloadSession session, CliOptions options, long? editStartedMs)
 	{
 		var started = Stopwatch.GetTimestamp();
-		var (code, stdout, stderr) = HotReloadHostClient.Once(repo, tokenHex);
-		var elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-		var parsed = HostOutput.Parse(code, stdout, stderr, repo);
-		var status = HostOutput.Classify(parsed);
-		var restarting = false;
-		if (status == ReloadStatus.RudeEdit)
+		CompileOutput compiled;
+		try
 		{
-			Console.WriteLine("rude edit -> restart required");
-			var detail = ReloadConsole.RudeDetail(parsed.Raw);
-			if (detail is not null)
-				Console.WriteLine(detail);
-			var interactive = Interactive();
-			restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
-			var follow = ReloadConsole.FollowUp(restarting, !restarting && !interactive && !options.RestartOnRude);
-			if (follow is not null)
-				Console.WriteLine(follow);
-			return new PushOutcome(status, restarting);
+			compiled = session.Compiler.CompileFile();
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			Console.WriteLine("reload failed");
+			Console.WriteLine(ex.Message);
+			return new PushOutcome(ReloadStatus.Failed, false);
 		}
 
-		foreach (var line in ReloadConsole.Format(status, parsed, elapsed))
+		if (compiled.Assembly is null)
+		{
+			foreach (var error in compiled.Errors)
+				Console.WriteLine(error.Display);
+			if (compiled.Errors.Count == 0)
+				Console.WriteLine("reload failed");
+			return new PushOutcome(ReloadStatus.CompileError, false);
+		}
+
+		ApplyResult applied;
+		try
+		{
+			applied = session.Connection.Apply(compiled.Assembly);
+		}
+		catch (InvalidOperationException ex)
+		{
+			Console.WriteLine("reload failed");
+			Console.WriteLine(ex.Message);
+			return new PushOutcome(ReloadStatus.Failed, false);
+		}
+
+		var elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+		if (!applied.Ok)
+		{
+			if (HostOutput.IsRude(applied.Text))
+			{
+				Console.WriteLine("rude edit -> restart required");
+				Console.WriteLine(applied.Text);
+				var interactive = Interactive();
+				var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
+				var follow = ReloadConsole.FollowUp(restarting, !restarting && !interactive && !options.RestartOnRude);
+				if (follow is not null)
+					Console.WriteLine(follow);
+				return new PushOutcome(ReloadStatus.RudeEdit, restarting);
+			}
+
+			Console.WriteLine("reload failed");
+			Console.WriteLine(applied.Text);
+			return new PushOutcome(ReloadStatus.Failed, false);
+		}
+
+		foreach (var line in ReloadConsole.AppliedLines(elapsed, applied.Milliseconds, applied.Text))
 			Console.WriteLine(line);
-		return new PushOutcome(status, false);
+		if (editStartedMs is long startedMs)
+		{
+			var watched = Environment.TickCount64 - startedMs;
+			Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"edit-to-reply {watched} ms"));
+		}
+
+		return new PushOutcome(ReloadStatus.Applied, false);
 	}
 
 	static bool Interactive() => !Console.IsInputRedirected;
@@ -229,6 +323,7 @@ static class AndroidLoop
 		Console.WriteLine("cnative: launching " + component);
 		Adb(serial, "shell", "am", "force-stop", LaunchCommand.Package);
 		Thread.Sleep(300);
+		ClearStaleTokens(serial);
 		var started = Adb(serial, startArgs);
 		if (started.Code != 0)
 			throw new InvalidOperationException("am start failed: " + started.Stderr + started.Stdout);
@@ -268,6 +363,12 @@ static class AndroidLoop
 		}
 
 		throw new InvalidOperationException("The app process did not start.");
+	}
+
+	static void ClearStaleTokens(string serial)
+	{
+		foreach (var relative in TokenFiles.RelativePaths)
+			Adb(serial, "shell", "run-as", LaunchCommand.Package, "rm", "-f", relative);
 	}
 
 	static FoundToken WaitToken(string serial)

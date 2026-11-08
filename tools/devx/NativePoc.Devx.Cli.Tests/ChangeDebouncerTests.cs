@@ -21,6 +21,24 @@ public sealed class ChangeDebouncerTests
 	}
 
 	[Fact]
+	public void Drain_returns_the_first_event_time_after_the_quiet_period()
+	{
+		var debouncer = new ChangeDebouncer(40);
+		Assert.Null(debouncer.Remaining(0));
+		debouncer.Push("src/NativePoc.Screen/Screen.cs", 10);
+		debouncer.Push("src/NativePoc.Screen/Screen.cs", 15);
+
+		Assert.Equal(35, debouncer.Remaining(20));
+		Assert.Null(debouncer.Drain(20));
+		var batch = debouncer.Drain(55);
+
+		Assert.NotNull(batch);
+		Assert.Equal(["src/NativePoc.Screen/Screen.cs"], batch.Paths);
+		Assert.Equal(10, batch.FirstMs);
+		Assert.Null(debouncer.Remaining(80));
+	}
+
+	[Fact]
 	public void A_later_event_starts_a_new_window()
 	{
 		var debouncer = new ChangeDebouncer(50);
