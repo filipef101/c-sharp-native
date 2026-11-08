@@ -38,10 +38,20 @@ static partial class HostOutput
 		foreach (var line in raw.Split('\n'))
 		{
 			var trimmed = line.TrimEnd('\r');
-			var diagnostic = DiagnosticPattern().Match(StripExceptionPrefix(trimmed));
+			var stripped = StripExceptionPrefix(trimmed);
+			var diagnostic = DiagnosticPattern().Match(stripped);
+			var pathless = false;
+			if (!diagnostic.Success)
+			{
+				diagnostic = PathlessDiagnosticPattern().Match(stripped);
+				pathless = diagnostic.Success;
+			}
+
 			if (diagnostic.Success)
 			{
-				var file = DisplayPath(diagnostic.Groups["file"].Value, repo);
+				var file = pathless
+					? "src/NativePoc.Screen/Screen.cs"
+					: DisplayPath(diagnostic.Groups["file"].Value, repo);
 				errors.Add(new FormattedDiagnostic(
 					file,
 					int.Parse(diagnostic.Groups["line"].Value, CultureInfo.InvariantCulture),
@@ -53,7 +63,12 @@ static partial class HostOutput
 
 			var timing = OncePattern().Match(trimmed);
 			if (timing.Success && double.TryParse(timing.Groups["ms"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var ms))
+			{
 				onceMs = ms;
+				if (timing.Groups["reply"].Success)
+					reply = timing.Groups["reply"].Value;
+			}
+
 			var replyMatch = ReplyPattern().Match(trimmed);
 			if (replyMatch.Success)
 				reply = replyMatch.Groups["reply"].Value;
@@ -111,7 +126,10 @@ static partial class HostOutput
 	[GeneratedRegex(@"^(?<file>.+)\((?<line>\d+),(?<col>\d+)\): error (?<code>CS\d+): (?<message>.*)$", RegexOptions.CultureInvariant)]
 	private static partial Regex DiagnosticPattern();
 
-	[GeneratedRegex(@"^once-ms=(?<ms>\d+(?:\.\d+)?)$", RegexOptions.CultureInvariant)]
+	[GeneratedRegex(@"^\((?<line>\d+),(?<col>\d+)\): error (?<code>CS\d+): (?<message>.*)$", RegexOptions.CultureInvariant)]
+	private static partial Regex PathlessDiagnosticPattern();
+
+	[GeneratedRegex(@"^once-ms=(?<ms>\d+(?:\.\d+)?)(?:\s+bytes=(?<bytes>\d+)\s+reply=(?<reply>.*))?$", RegexOptions.CultureInvariant)]
 	private static partial Regex OncePattern();
 
 	[GeneratedRegex(@"^reply=(?<reply>.*)$", RegexOptions.CultureInvariant)]

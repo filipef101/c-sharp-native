@@ -42,6 +42,18 @@ public sealed class HostOutputTests
 	}
 
 	[Fact]
+	public void A_pathless_host_diagnostic_uses_the_screen_file()
+	{
+		var stdout = "exception=InvalidOperationException (5,36): error CS1525: Invalid expression term ';'";
+		var parsed = HostOutput.Parse(1, stdout, "");
+
+		Assert.Equal(ReloadStatus.CompileError, HostOutput.Classify(parsed));
+		Assert.Equal(
+			["src/NativePoc.Screen/Screen.cs:5:36: error CS1525: Invalid expression term ';'"],
+			ReloadConsole.Format(ReloadStatus.CompileError, parsed, 12.5));
+	}
+
+	[Fact]
 	public void Two_errors_keep_their_own_lines()
 	{
 		var stdout = """
@@ -71,6 +83,25 @@ public sealed class HostOutputTests
 		Assert.Equal(ReloadStatus.Applied, HostOutput.Classify(parsed));
 		Assert.Equal(
 			["reloaded in 24.8 ms (apply 19.3 ms)", "reply Counter 1 collectible=True"],
+			lines);
+	}
+
+	[Fact]
+	public void The_host_single_line_once_result_is_an_apply()
+	{
+		var stdout = """
+			once-ms=220.1 bytes=7680 reply=Counter 0 collectible=True
+			ui=Native PoC | Counter 0 | Name | Save | Enter a name
+			pid=6379
+			""";
+		var parsed = HostOutput.Parse(0, stdout, "");
+		var lines = ReloadConsole.Format(HostOutput.Classify(parsed), parsed, 348.2);
+
+		Assert.Equal(ReloadStatus.Applied, HostOutput.Classify(parsed));
+		Assert.Equal(220.1, parsed.OnceMs);
+		Assert.Equal("Counter 0 collectible=True", parsed.Reply);
+		Assert.Equal(
+			["reloaded in 348.2 ms (apply 220.1 ms)", "reply Counter 0 collectible=True"],
 			lines);
 	}
 
