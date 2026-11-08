@@ -1,0 +1,55 @@
+--------- beginning of main
+11-08 11:44:57.648 15856 15856 I NativePoc: activity-start tick=3560401
+11-08 11:44:57.648 15856 15856 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=False
+11-08 11:44:57.895 15856 15856 I NativePoc: field-handle 15014
+11-08 11:44:57.908 15856 15856 I NativePoc: button-mounted handle=15302 tick=3560681
+11-08 11:44:57.909 15856 15856 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:44:58.006 15856 15894 I NativePoc: hotreload-listen 18765
+11-08 11:45:05.490 15856 15856 I NativePoc: field-handle 15014
+11-08 11:45:05.502 15856 15856 I NativePoc: rendered count=0 name-length=1 title=Counter 0
+11-08 11:45:05.668 15856 15856 I NativePoc: field-handle 15014
+11-08 11:45:05.669 15856 15856 I NativePoc: rendered count=0 name-length=2 title=Counter 0
+11-08 11:45:05.727 15856 15856 I NativePoc: field-handle 15014
+11-08 11:45:05.742 15856 15856 I NativePoc: rendered count=0 name-length=3 title=Counter 0
+11-08 11:45:09.376 15856 15856 I NativePoc: clipboard-ok poc-1
+11-08 11:45:09.378 15856 15856 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 11:45:12.810 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B00 1
+11-08 11:45:12.810 15856 15856 I NativePoc: hotreload-applied B00 1 collectible=True
+11-08 11:45:15.414 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B01 1
+11-08 11:45:15.424 15856 15856 I NativePoc: hotreload-applied B01 1 collectible=True
+11-08 11:45:17.989 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B02 1
+11-08 11:45:17.989 15856 15856 I NativePoc: hotreload-applied B02 1 collectible=True
+11-08 11:45:20.088 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B03 1
+11-08 11:45:20.088 15856 15856 I NativePoc: hotreload-applied B03 1 collectible=True
+11-08 11:45:22.145 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B04 1
+11-08 11:45:22.145 15856 15856 I NativePoc: hotreload-applied B04 1 collectible=True
+11-08 11:45:24.190 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B05 1
+11-08 11:45:24.190 15856 15856 I NativePoc: hotreload-applied B05 1 collectible=True
+11-08 11:45:26.264 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B06 1
+11-08 11:45:26.264 15856 15856 I NativePoc: hotreload-applied B06 1 collectible=True
+11-08 11:45:28.322 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B07 1
+11-08 11:45:28.322 15856 15856 I NativePoc: hotreload-applied B07 1 collectible=True
+11-08 11:45:30.370 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B08 1
+11-08 11:45:30.370 15856 15856 I NativePoc: hotreload-applied B08 1 collectible=True
+11-08 11:45:32.397 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B09 1
+11-08 11:45:32.397 15856 15856 I NativePoc: hotreload-applied B09 1 collectible=True
+11-08 11:45:34.436 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B10 1
+11-08 11:45:34.436 15856 15856 I NativePoc: hotreload-applied B10 1 collectible=True
+11-08 11:45:36.470 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B11 1
+11-08 11:45:36.470 15856 15856 I NativePoc: hotreload-applied B11 1 collectible=True
+11-08 11:45:38.489 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B12 1
+11-08 11:45:38.489 15856 15856 I NativePoc: hotreload-applied B12 1 collectible=True
+11-08 11:45:40.558 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B13 1
+11-08 11:45:40.558 15856 15856 I NativePoc: hotreload-applied B13 1 collectible=True
+11-08 11:45:42.600 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B14 1
+11-08 11:45:42.600 15856 15856 I NativePoc: hotreload-applied B14 1 collectible=True
+11-08 11:45:44.648 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B15 1
+11-08 11:45:44.649 15856 15856 I NativePoc: hotreload-applied B15 1 collectible=True
+11-08 11:45:46.684 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B16 1
+11-08 11:45:46.684 15856 15856 I NativePoc: hotreload-applied B16 1 collectible=True
+11-08 11:45:48.731 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B17 1
+11-08 11:45:48.731 15856 15856 I NativePoc: hotreload-applied B17 1 collectible=True
+11-08 11:45:50.781 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B18 1
+11-08 11:45:50.782 15856 15856 I NativePoc: hotreload-applied B18 1 collectible=True
+11-08 11:45:52.849 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B19 1
+11-08 11:45:52.849 15856 15856 I NativePoc: hotreload-applied B19 1 collectible=True

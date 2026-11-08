@@ -31,8 +31,11 @@ Use `android-arm64` for a phone. A plain `adb install` of the Debug APK aborts: 
 Debug in-place reload, after that deploy. The app listens on `127.0.0.1:18765`. The host forwards that port, compiles `src/NativePoc.Screen/Screen.cs`, and sends the DLL. State stays in `NativePoc.Core`, which is already loaded.
 
 ```bash
-dotnet run --project tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
+dotnet build tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
+dotnet tools/NativePoc.HotReload.Host/bin/Debug/net10.0/NativePoc.HotReload.Host.dll a
 ```
+
+`a` is file write plus compile plus transfer plus render, `b` is send plus render of a DLL compiled beforehand, and `c` is compile only. Each mode records 20 samples.
 
 `dotnet watch` still does not apply edits in place on this workload. See the report.
 

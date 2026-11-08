@@ -1,0 +1,28 @@
+clock=Roslyn compile of an in-memory source string; no file write and no TCP
+cold=sample 0, the first compilation in this process
+sample=0 ms=406.5 bytes=7168
+sample=1 ms=10.5 bytes=7168
+sample=2 ms=8.4 bytes=7168
+sample=3 ms=7.4 bytes=7168
+sample=4 ms=7.0 bytes=7168
+sample=5 ms=6.1 bytes=7168
+sample=6 ms=6.8 bytes=7168
+sample=7 ms=6.6 bytes=7168
+sample=8 ms=6.9 bytes=7168
+sample=9 ms=7.0 bytes=7168
+sample=10 ms=7.4 bytes=7168
+sample=11 ms=7.5 bytes=7168
+sample=12 ms=6.7 bytes=7168
+sample=13 ms=6.1 bytes=7168
+sample=14 ms=6.5 bytes=7168
+sample=15 ms=6.6 bytes=7168
+sample=16 ms=6.4 bytes=7168
+sample=17 ms=6.6 bytes=7168
+sample=18 ms=6.7 bytes=7168
+sample=19 ms=6.7 bytes=7168
+samples-ms=406.5,10.5,8.4,7.4,7.0,6.1,6.8,6.6,6.9,7.0,7.4,7.5,6.7,6.1,6.5,6.6,6.4,6.6,6.7,6.7
+cold-ms=406.5
+p50-all-ms=6.7
+p50-warm-ms=6.7
+min-ms=6.1
+max-ms=406.5

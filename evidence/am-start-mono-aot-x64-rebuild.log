@@ -1,0 +1,109 @@
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1488
+WaitTime: 1501
+Complete
+
+
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1124
+WaitTime: 1129
+Complete
+
+
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1449
+WaitTime: 1459
+Complete
+
+
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1068
+WaitTime: 1073
+Complete
+
+
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1152
+WaitTime: 1164
+Complete
+
+
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1331
+WaitTime: 1334
+Complete
+
+
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1382
+WaitTime: 1404
+Complete
+
+
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1551
+WaitTime: 1557
+Complete
+
+
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1513
+WaitTime: 1523
+Complete
+
+
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1414
+WaitTime: 1434
+Complete
+

@@ -1,0 +1,432 @@
++ adb install -r /workspace/evidence/apk/mono-aot-x64-rebuild.apk
+$ adb install -r /workspace/evidence/apk/mono-aot-x64-rebuild.apk
+exit=0
+Performing Streamed Install
+Success
+
+
++ adb logcat -c
+$ adb logcat -c
+exit=0
+
+
++ adb shell settings put system accelerometer_rotation 0
+$ adb shell settings put system accelerometer_rotation 0
+exit=0
+
+
++ adb shell settings put system user_rotation 0
+$ adb shell settings put system user_rotation 0
+exit=0
+
+
++ adb shell wm size
+$ adb shell wm size
+exit=0
+Physical size: 1080x2400
+
+
++ adb shell am force-stop com.scratch.nativepoc
+$ adb shell am force-stop com.scratch.nativepoc
+exit=0
+
+
++ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1433
+WaitTime: 1449
+Complete
+
+
++ adb shell pidof com.scratch.nativepoc
+$ adb shell pidof com.scratch.nativepoc
+exit=0
+13736
+
+
+START_PID 13736
++ adb shell uiautomator dump /sdcard/nativepoc-ui.xml
+$ adb shell uiautomator dump /sdcard/nativepoc-ui.xml
+exit=0
+UI hierchary dumped to: /sdcard/nativepoc-ui.xml
+
+
++ adb pull /sdcard/nativepoc-ui.xml /tmp/mono-aot-x64-rebuild-empty-ui.xml
+$ adb pull /sdcard/nativepoc-ui.xml /tmp/mono-aot-x64-rebuild-empty-ui.xml
+exit=0
+/sdcard/nativepoc-ui.xml: 1 file pulled, 0 skipped. 4.3 MB/s (4556 bytes in 0.001s)
+
+
+EMPTY_TEXTS ['Native PoC', 'Counter 0', 'Name', 'Save', 'Enter a name']
++ adb shell screencap -p /sdcard/nativepoc-shot.png
+$ adb shell screencap -p /sdcard/nativepoc-shot.png
+exit=0
+
+
++ adb pull /sdcard/nativepoc-shot.png /workspace/evidence/mono-aot-x64-rebuild-empty.png
+$ adb pull /sdcard/nativepoc-shot.png /workspace/evidence/mono-aot-x64-rebuild-empty.png
+exit=0
+/sdcard/nativepoc-shot.png: 1 file pulled, 0 skipped. 18.8 MB/s (46676 bytes in 0.002s)
+
+
+CENTERS (540, 427) (540, 549)
++ adb shell input tap 540 427
+$ adb shell input tap 540 427
+exit=0
+
+
++ adb shell input text Ada
+$ adb shell input text Ada
+exit=0
+
+
++ adb shell input keyevent 4
+$ adb shell input keyevent 4
+exit=0
+
+
++ adb shell uiautomator dump /sdcard/nativepoc-ui.xml
+$ adb shell uiautomator dump /sdcard/nativepoc-ui.xml
+exit=0
+UI hierchary dumped to: /sdcard/nativepoc-ui.xml
+
+
++ adb pull /sdcard/nativepoc-ui.xml /tmp/mono-aot-x64-rebuild-typed-ui.xml
+$ adb pull /sdcard/nativepoc-ui.xml /tmp/mono-aot-x64-rebuild-typed-ui.xml
+exit=0
+/sdcard/nativepoc-ui.xml: 1 file pulled, 0 skipped. 5.6 MB/s (4551 bytes in 0.001s)
+
+
+TYPED_TEXTS ['Native PoC', 'Counter 0', 'Ada', 'Save', 'Hello Ada']
++ adb shell input tap 540 549
+$ adb shell input tap 540 549
+exit=0
+
+
++ adb shell uiautomator dump /sdcard/nativepoc-ui.xml
+$ adb shell uiautomator dump /sdcard/nativepoc-ui.xml
+exit=0
+UI hierchary dumped to: /sdcard/nativepoc-ui.xml
+
+
++ adb pull /sdcard/nativepoc-ui.xml /tmp/mono-aot-x64-rebuild-saved-ui.xml
+$ adb pull /sdcard/nativepoc-ui.xml /tmp/mono-aot-x64-rebuild-saved-ui.xml
+exit=0
+/sdcard/nativepoc-ui.xml: 1 file pulled, 0 skipped. 0.1 MB/s (4551 bytes in 0.044s)
+
+
+SAVED_TEXTS ['Native PoC', 'Counter 1', 'Ada', 'Save', 'Hello Ada']
++ adb shell screencap -p /sdcard/nativepoc-shot.png
+$ adb shell screencap -p /sdcard/nativepoc-shot.png
+exit=0
+
+
++ adb pull /sdcard/nativepoc-shot.png /workspace/evidence/mono-aot-x64-rebuild-saved.png
+$ adb pull /sdcard/nativepoc-shot.png /workspace/evidence/mono-aot-x64-rebuild-saved.png
+exit=0
+/sdcard/nativepoc-shot.png: 1 file pulled, 0 skipped. 5.0 MB/s (66353 bytes in 0.013s)
+
+
++ adb shell pidof com.scratch.nativepoc
+$ adb shell pidof com.scratch.nativepoc
+exit=0
+13736
+
+
++ adb shell settings put system user_rotation 1
+$ adb shell settings put system user_rotation 1
+exit=0
+
+
++ adb shell pidof com.scratch.nativepoc
+$ adb shell pidof com.scratch.nativepoc
+exit=0
+13736
+
+
++ adb shell uiautomator dump /sdcard/nativepoc-ui.xml
+$ adb shell uiautomator dump /sdcard/nativepoc-ui.xml
+exit=0
+UI hierchary dumped to: /sdcard/nativepoc-ui.xml
+
+
++ adb pull /sdcard/nativepoc-ui.xml /tmp/mono-aot-x64-rebuild-rotated-ui.xml
+$ adb pull /sdcard/nativepoc-ui.xml /tmp/mono-aot-x64-rebuild-rotated-ui.xml
+exit=0
+/sdcard/nativepoc-ui.xml: 1 file pulled, 0 skipped. 7.2 MB/s (4570 bytes in 0.001s)
+
+
+ROTATED_TEXTS ['Native PoC', 'Counter 1', 'Ada', 'Save', 'Hello Ada']
+PIDS 13736 13736 13736
++ adb shell screencap -p /sdcard/nativepoc-shot.png
+$ adb shell screencap -p /sdcard/nativepoc-shot.png
+exit=0
+
+
++ adb pull /sdcard/nativepoc-shot.png /workspace/evidence/mono-aot-x64-rebuild-rotated.png
+$ adb pull /sdcard/nativepoc-shot.png /workspace/evidence/mono-aot-x64-rebuild-rotated.png
+exit=0
+/sdcard/nativepoc-shot.png: 1 file pulled, 0 skipped. 45.2 MB/s (42386 bytes in 0.001s)
+
+
++ adb shell settings put system user_rotation 0
+$ adb shell settings put system user_rotation 0
+exit=0
+
+
++ adb shell am force-stop com.scratch.nativepoc
+$ adb shell am force-stop com.scratch.nativepoc
+exit=0
+
+
++ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1488
+WaitTime: 1501
+Complete
+
+
++ adb shell am force-stop com.scratch.nativepoc
+$ adb shell am force-stop com.scratch.nativepoc
+exit=0
+
+
++ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1124
+WaitTime: 1129
+Complete
+
+
++ adb shell am force-stop com.scratch.nativepoc
+$ adb shell am force-stop com.scratch.nativepoc
+exit=0
+
+
++ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1449
+WaitTime: 1459
+Complete
+
+
++ adb shell am force-stop com.scratch.nativepoc
+$ adb shell am force-stop com.scratch.nativepoc
+exit=0
+
+
++ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1068
+WaitTime: 1073
+Complete
+
+
++ adb shell am force-stop com.scratch.nativepoc
+$ adb shell am force-stop com.scratch.nativepoc
+exit=0
+
+
++ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1152
+WaitTime: 1164
+Complete
+
+
++ adb shell am force-stop com.scratch.nativepoc
+$ adb shell am force-stop com.scratch.nativepoc
+exit=0
+
+
++ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1331
+WaitTime: 1334
+Complete
+
+
++ adb shell am force-stop com.scratch.nativepoc
+$ adb shell am force-stop com.scratch.nativepoc
+exit=0
+
+
++ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1382
+WaitTime: 1404
+Complete
+
+
++ adb shell am force-stop com.scratch.nativepoc
+$ adb shell am force-stop com.scratch.nativepoc
+exit=0
+
+
++ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1551
+WaitTime: 1557
+Complete
+
+
++ adb shell am force-stop com.scratch.nativepoc
+$ adb shell am force-stop com.scratch.nativepoc
+exit=0
+
+
++ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1513
+WaitTime: 1523
+Complete
+
+
++ adb shell am force-stop com.scratch.nativepoc
+$ adb shell am force-stop com.scratch.nativepoc
+exit=0
+
+
++ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+$ adb shell am start -W -n com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+exit=0
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1414
+WaitTime: 1434
+Complete
+
+
++ adb logcat -d -s NativePoc:I
+$ adb logcat -d -s NativePoc:I
+exit=0
+--------- beginning of main
+11-08 11:39:12.445 13736 13736 I NativePoc: activity-start tick=3215213
+11-08 11:39:12.445 13736 13736 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:12.472 13736 13736 I NativePoc: field-handle 14758
+11-08 11:39:12.477 13736 13736 I NativePoc: button-mounted handle=15046 tick=3215249
+11-08 11:39:12.478 13736 13736 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:39:17.198 13736 13736 I NativePoc: field-handle 14758
+11-08 11:39:17.202 13736 13736 I NativePoc: rendered count=0 name-length=1 title=Counter 0
+11-08 11:39:17.465 13736 13736 I NativePoc: field-handle 14758
+11-08 11:39:17.466 13736 13736 I NativePoc: rendered count=0 name-length=2 title=Counter 0
+11-08 11:39:17.532 13736 13736 I NativePoc: field-handle 14758
+11-08 11:39:17.536 13736 13736 I NativePoc: rendered count=0 name-length=3 title=Counter 0
+11-08 11:39:21.229 13736 13736 I NativePoc: clipboard-ok poc-1
+11-08 11:39:21.230 13736 13736 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 11:39:26.036 13736 13736 I NativePoc: activity-start tick=3228809
+11-08 11:39:26.036 13736 13736 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:26.039 13736 13736 I NativePoc: field-handle 16870
+11-08 11:39:26.040 13736 13736 I NativePoc: button-mounted handle=17062 tick=3228813
+11-08 11:39:26.040 13736 13736 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 11:39:29.692 13736 13736 I NativePoc: activity-start tick=3232465
+11-08 11:39:29.692 13736 13736 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:29.707 13736 13736 I NativePoc: field-handle 17638
+11-08 11:39:29.708 13736 13736 I NativePoc: button-mounted handle=17830 tick=3232481
+11-08 11:39:29.711 13736 13736 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 11:39:31.479 13937 13937 I NativePoc: activity-start tick=3234237
+11-08 11:39:31.479 13937 13937 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:31.512 13937 13937 I NativePoc: field-handle 14790
+11-08 11:39:31.521 13937 13937 I NativePoc: button-mounted handle=15046 tick=3234297
+11-08 11:39:31.522 13937 13937 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:39:34.055 13982 13982 I NativePoc: activity-start tick=3236825
+11-08 11:39:34.055 13982 13982 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:34.076 13982 13982 I NativePoc: field-handle 14758
+11-08 11:39:34.081 13982 13982 I NativePoc: button-mounted handle=15014 tick=3236857
+11-08 11:39:34.087 13982 13982 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:39:36.851 14023 14023 I NativePoc: activity-start tick=3239621
+11-08 11:39:36.852 14023 14023 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:36.884 14023 14023 I NativePoc: field-handle 14790
+11-08 11:39:36.889 14023 14023 I NativePoc: button-mounted handle=15046 tick=3239665
+11-08 11:39:36.890 14023 14023 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:39:39.273 14066 14066 I NativePoc: activity-start tick=3242045
+11-08 11:39:39.273 14066 14066 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:39.295 14066 14066 I NativePoc: field-handle 14758
+11-08 11:39:39.300 14066 14066 I NativePoc: button-mounted handle=15014 tick=3242073
+11-08 11:39:39.300 14066 14066 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:39:41.515 14108 14108 I NativePoc: activity-start tick=3244265
+11-08 11:39:41.515 14108 14108 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:41.565 14108 14108 I NativePoc: field-handle 14790
+11-08 11:39:41.579 14108 14108 I NativePoc: button-mounted handle=15046 tick=3244353
+11-08 11:39:41.580 14108 14108 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:39:43.800 14149 14149 I NativePoc: activity-start tick=3246565
+11-08 11:39:43.800 14149 14149 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:43.822 14149 14149 I NativePoc: field-handle 14758
+11-08 11:39:43.836 14149 14149 I NativePoc: button-mounted handle=15014 tick=3246609
+11-08 11:39:43.837 14149 14149 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:39:46.563 14191 14191 I NativePoc: activity-start tick=3249333
+11-08 11:39:46.563 14191 14191 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:46.643 14191 14191 I NativePoc: field-handle 14790
+11-08 11:39:46.663 14191 14191 I NativePoc: button-mounted handle=15046 tick=3249437
+11-08 11:39:46.665 14191 14191 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:39:49.488 14238 14238 I NativePoc: activity-start tick=3252261
+11-08 11:39:49.488 14238 14238 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:49.559 14238 14238 I NativePoc: field-handle 14790
+11-08 11:39:49.606 14238 14238 I NativePoc: button-mounted handle=15046 tick=3252381
+11-08 11:39:49.607 14238 14238 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:39:52.106 14280 14280 I NativePoc: activity-start tick=3254877
+11-08 11:39:52.110 14280 14280 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:52.220 14280 14280 I NativePoc: field-handle 14790
+11-08 11:39:52.231 14280 14280 I NativePoc: button-mounted handle=15046 tick=3255005
+11-08 11:39:52.237 14280 14280 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:39:54.787 14321 14321 I NativePoc: activity-start tick=3257557
+11-08 11:39:54.787 14321 14321 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:39:54.819 14321 14321 I NativePoc: field-handle 14758
+11-08 11:39:54.823 14321 14321 I NativePoc: button-mounted handle=15014 tick=3257597
+11-08 11:39:54.824 14321 14321 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+
+
+TOTALS [1488, 1124, 1449, 1068, 1152, 1331, 1382, 1551, 1513, 1414]
+N 10 MEDIAN 1398.0 MIN 1068 MAX 1551

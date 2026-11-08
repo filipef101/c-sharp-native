@@ -1,0 +1,150 @@
+pid-before=15856
+--- loopback ---
++ adb shell cat /proc/net/tcp
+exit=0
+  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode                                                     
+   0: 0100007F:22A8 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1002        0 36388 1 0000000000000000 100 0 0 10 0                     
+   1: 0100007F:494D 00000000:0000 0A 00000000:00000000 00:00000000 00000000 10200        0 144409 1 0000000000000000 100 0 0 10 0
++ adb shell cat /proc/net/tcp6
+exit=0
+  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
+   0: 00000000000000000000000000000000:15B3 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000  2000        0 27693 1 0000000000000000 100 0 0 10 0
+   1: 0000000000000000FFFF00001002000A:D3AE 0000000000000000FFFF00009B24EFD8:01BB 08 00000000:00000001 00:00000000 00000000 10130        0 110061 1 0000000000000000 20 4 8 12 -1
+   2: 0000000000000000FFFF00001002000A:C3EA 0000000000000000FFFF0000BCB3FB8E:146C 01 00000000:00000000 00:00000000 00000000 10131        0 130409 1 0000000000000000 20 4 29 10 -1
+--- supported edit: button prop, appended Text, helper type ---
++ dotnet /workspace/tools/NativePoc.HotReload.Host/bin/Debug/net10.0/NativePoc.HotReload.Host.dll once
+exit=0
+once-ms=21.4 bytes=7168 reply=Counter 1 collectible=True
+ui=Native PoC | Counter 1 | Ada | Store | Hello Ada | Extra line
+pid=15856
++ adb shell screencap -p /sdcard/nativepoc-shot.png
+exit=0
++ adb pull /sdcard/nativepoc-shot.png /workspace/evidence/hot-reload-extra-line.png
+exit=0
+/sdcard/nativepoc-shot.png: 1 file pulled, 0 skipped. 26.5 MB/s (47370 bytes in 0.002s)
+pid-after-supported=15856
+--- core comment rebuild, screen title Rebound ---
++ dotnet build src/NativePoc.Core/NativePoc.Core.csproj --nologo
+exit=0
+  Determining projects to restore...
+  Restored /workspace/src/NativePoc.Core/NativePoc.Core.csproj (in 191 ms).
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.18
++ dotnet /workspace/tools/NativePoc.HotReload.Host/bin/Debug/net10.0/NativePoc.HotReload.Host.dll once
+exit=0
+once-ms=22.5 bytes=7168 reply=Rebound 1 collectible=True
+ui=Native PoC | Rebound 1 | Ada | Save | Hello Ada
+pid=15856
+pid-after-mvid=15856
+--- new Element subtype in the screen assembly ---
++ dotnet /workspace/tools/NativePoc.HotReload.Host/bin/Debug/net10.0/NativePoc.HotReload.Host.dll once
+exit=1
+exception=InvalidOperationException (3,22): error CS0122: 'Element.Element()' is inaccessible due to its protection level
+--- AppState.Extra shape change ---
++ dotnet build src/NativePoc.Core/NativePoc.Core.csproj --nologo
+exit=0
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.84
++ dotnet /workspace/tools/NativePoc.HotReload.Host/bin/Debug/net10.0/NativePoc.HotReload.Host.dll once
+exit=1
+exception=InvalidOperationException MissingMethodException: Method not found: int NativePoc.AppState.get_Extra()
+pid-after-shape=15856
++ adb shell screencap -p /sdcard/nativepoc-shot.png
+exit=0
++ adb pull /sdcard/nativepoc-shot.png /workspace/evidence/hot-reload-shape.png
+exit=0
+/sdcard/nativepoc-shot.png: 1 file pulled, 0 skipped. 33.9 MB/s (44805 bytes in 0.001s)
++ adb logcat -d -s NativePoc:E -s NativePoc:W -s NativePoc:I
+exit=0
+--------- beginning of main
+11-08 11:44:57.648 15856 15856 I NativePoc: activity-start tick=3560401
+11-08 11:44:57.648 15856 15856 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=False
+11-08 11:44:57.895 15856 15856 I NativePoc: field-handle 15014
+11-08 11:44:57.908 15856 15856 I NativePoc: button-mounted handle=15302 tick=3560681
+11-08 11:44:57.909 15856 15856 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:44:58.006 15856 15894 I NativePoc: hotreload-listen 18765
+11-08 11:45:05.490 15856 15856 I NativePoc: field-handle 15014
+11-08 11:45:05.502 15856 15856 I NativePoc: rendered count=0 name-length=1 title=Counter 0
+11-08 11:45:05.668 15856 15856 I NativePoc: field-handle 15014
+11-08 11:45:05.669 15856 15856 I NativePoc: rendered count=0 name-length=2 title=Counter 0
+11-08 11:45:05.727 15856 15856 I NativePoc: field-handle 15014
+11-08 11:45:05.742 15856 15856 I NativePoc: rendered count=0 name-length=3 title=Counter 0
+11-08 11:45:09.376 15856 15856 I NativePoc: clipboard-ok poc-1
+11-08 11:45:09.378 15856 15856 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 11:45:12.810 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B00 1
+11-08 11:45:12.810 15856 15856 I NativePoc: hotreload-applied B00 1 collectible=True
+11-08 11:45:15.414 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B01 1
+11-08 11:45:15.424 15856 15856 I NativePoc: hotreload-applied B01 1 collectible=True
+11-08 11:45:17.989 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B02 1
+11-08 11:45:17.989 15856 15856 I NativePoc: hotreload-applied B02 1 collectible=True
+11-08 11:45:20.088 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B03 1
+11-08 11:45:20.088 15856 15856 I NativePoc: hotreload-applied B03 1 collectible=True
+11-08 11:45:22.145 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B04 1
+11-08 11:45:22.145 15856 15856 I NativePoc: hotreload-applied B04 1 collectible=True
+11-08 11:45:24.190 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B05 1
+11-08 11:45:24.190 15856 15856 I NativePoc: hotreload-applied B05 1 collectible=True
+11-08 11:45:26.264 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B06 1
+11-08 11:45:26.264 15856 15856 I NativePoc: hotreload-applied B06 1 collectible=True
+11-08 11:45:28.322 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B07 1
+11-08 11:45:28.322 15856 15856 I NativePoc: hotreload-applied B07 1 collectible=True
+11-08 11:45:30.370 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B08 1
+11-08 11:45:30.370 15856 15856 I NativePoc: hotreload-applied B08 1 collectible=True
+11-08 11:45:32.397 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B09 1
+11-08 11:45:32.397 15856 15856 I NativePoc: hotreload-applied B09 1 collectible=True
+11-08 11:45:34.436 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B10 1
+11-08 11:45:34.436 15856 15856 I NativePoc: hotreload-applied B10 1 collectible=True
+11-08 11:45:36.470 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B11 1
+11-08 11:45:36.470 15856 15856 I NativePoc: hotreload-applied B11 1 collectible=True
+11-08 11:45:38.489 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B12 1
+11-08 11:45:38.489 15856 15856 I NativePoc: hotreload-applied B12 1 collectible=True
+11-08 11:45:40.558 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B13 1
+11-08 11:45:40.558 15856 15856 I NativePoc: hotreload-applied B13 1 collectible=True
+11-08 11:45:42.600 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B14 1
+11-08 11:45:42.600 15856 15856 I NativePoc: hotreload-applied B14 1 collectible=True
+11-08 11:45:44.648 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B15 1
+11-08 11:45:44.649 15856 15856 I NativePoc: hotreload-applied B15 1 collectible=True
+11-08 11:45:46.684 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B16 1
+11-08 11:45:46.684 15856 15856 I NativePoc: hotreload-applied B16 1 collectible=True
+11-08 11:45:48.731 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B17 1
+11-08 11:45:48.731 15856 15856 I NativePoc: hotreload-applied B17 1 collectible=True
+11-08 11:45:50.781 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B18 1
+11-08 11:45:50.782 15856 15856 I NativePoc: hotreload-applied B18 1 collectible=True
+11-08 11:45:52.849 15856 15856 I NativePoc: rendered count=1 name-length=3 title=B19 1
+11-08 11:45:52.849 15856 15856 I NativePoc: hotreload-applied B19 1 collectible=True
+11-08 11:47:40.174 15856 15856 I NativePoc: button-mounted handle=15302 tick=3722949
+11-08 11:47:40.177 15856 15856 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 11:47:40.177 15856 15856 I NativePoc: hotreload-applied Counter 1 collectible=True
+11-08 11:47:44.464 15856 15856 I NativePoc: button-mounted handle=15302 tick=3727237
+11-08 11:47:44.469 15856 15856 I NativePoc: rendered count=1 name-length=3 title=Rebound 1
+11-08 11:47:44.469 15856 15856 I NativePoc: hotreload-applied Rebound 1 collectible=True
+11-08 11:47:48.424 15856 15894 E NativePoc: hotreload-error MissingMethodException Method not found: int NativePoc.AppState.get_Extra()
+--- restore ---
++ dotnet build src/NativePoc.Core/NativePoc.Core.csproj --nologo
+exit=0
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.89
++ dotnet /workspace/tools/NativePoc.HotReload.Host/bin/Debug/net10.0/NativePoc.HotReload.Host.dll once
+exit=0
+once-ms=19.2 bytes=7168 reply=Counter 1 collectible=True
+ui=Native PoC | Counter 1 | Ada | Save | Hello Ada
+pid=15856
+pid-after-restore=15856

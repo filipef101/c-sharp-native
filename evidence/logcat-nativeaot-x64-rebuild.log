@@ -1,0 +1,74 @@
+--------- beginning of main
+11-08 11:41:17.619 14459 14459 I NativePoc: activity-start tick=3340393
+11-08 11:41:17.619 14459 14459 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:17.691 14459 14459 I NativePoc: field-handle 12006
+11-08 11:41:17.692 14459 14459 I NativePoc: button-mounted handle=12294 tick=3340465
+11-08 11:41:17.692 14459 14459 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:41:22.488 14459 14459 I NativePoc: field-handle 12006
+11-08 11:41:22.488 14459 14459 I NativePoc: rendered count=0 name-length=1 title=Counter 0
+11-08 11:41:22.831 14459 14459 I NativePoc: field-handle 12006
+11-08 11:41:22.831 14459 14459 I NativePoc: rendered count=0 name-length=2 title=Counter 0
+11-08 11:41:22.989 14459 14459 I NativePoc: field-handle 12006
+11-08 11:41:22.989 14459 14459 I NativePoc: rendered count=0 name-length=3 title=Counter 0
+11-08 11:41:26.632 14459 14459 I NativePoc: clipboard-ok poc-1
+11-08 11:41:26.632 14459 14459 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 11:41:31.400 14459 14459 I NativePoc: activity-start tick=3354173
+11-08 11:41:31.400 14459 14459 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:31.403 14459 14459 I NativePoc: field-handle 14086
+11-08 11:41:31.405 14459 14459 I NativePoc: button-mounted handle=14278 tick=3354181
+11-08 11:41:31.406 14459 14459 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 11:41:34.882 14459 14459 I NativePoc: activity-start tick=3357657
+11-08 11:41:34.882 14459 14459 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:34.884 14459 14459 I NativePoc: field-handle 14854
+11-08 11:41:34.885 14459 14459 I NativePoc: button-mounted handle=15046 tick=3357657
+11-08 11:41:34.885 14459 14459 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 11:41:36.524 14652 14652 I NativePoc: activity-start tick=3359297
+11-08 11:41:36.524 14652 14652 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:36.568 14652 14652 I NativePoc: field-handle 11974
+11-08 11:41:36.569 14652 14652 I NativePoc: button-mounted handle=12294 tick=3359341
+11-08 11:41:36.569 14652 14652 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:41:39.234 14693 14693 I NativePoc: activity-start tick=3362009
+11-08 11:41:39.234 14693 14693 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:39.244 14693 14693 I NativePoc: field-handle 12006
+11-08 11:41:39.245 14693 14693 I NativePoc: button-mounted handle=12294 tick=3362021
+11-08 11:41:39.245 14693 14693 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:41:41.724 14734 14734 I NativePoc: activity-start tick=3364497
+11-08 11:41:41.724 14734 14734 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:41.791 14734 14734 I NativePoc: field-handle 12006
+11-08 11:41:41.792 14734 14734 I NativePoc: button-mounted handle=12294 tick=3364565
+11-08 11:41:41.792 14734 14734 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:41:44.301 14775 14775 I NativePoc: activity-start tick=3367077
+11-08 11:41:44.301 14775 14775 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:44.349 14775 14775 I NativePoc: field-handle 12038
+11-08 11:41:44.350 14775 14775 I NativePoc: button-mounted handle=12326 tick=3367125
+11-08 11:41:44.351 14775 14775 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:41:47.017 14817 14817 I NativePoc: activity-start tick=3369793
+11-08 11:41:47.017 14817 14817 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:47.040 14817 14817 I NativePoc: field-handle 12006
+11-08 11:41:47.041 14817 14817 I NativePoc: button-mounted handle=12294 tick=3369817
+11-08 11:41:47.041 14817 14817 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:41:49.155 14858 14858 I NativePoc: activity-start tick=3371929
+11-08 11:41:49.155 14858 14858 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:49.165 14858 14858 I NativePoc: field-handle 12006
+11-08 11:41:49.167 14858 14858 I NativePoc: button-mounted handle=12294 tick=3371941
+11-08 11:41:49.167 14858 14858 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:41:51.870 14900 14900 I NativePoc: activity-start tick=3374645
+11-08 11:41:51.871 14900 14900 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:51.891 14900 14900 I NativePoc: field-handle 12006
+11-08 11:41:51.892 14900 14900 I NativePoc: button-mounted handle=12294 tick=3374665
+11-08 11:41:51.892 14900 14900 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:41:53.999 14941 14941 I NativePoc: activity-start tick=3376773
+11-08 11:41:54.000 14941 14941 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:54.021 14941 14941 I NativePoc: field-handle 11974
+11-08 11:41:54.022 14941 14941 I NativePoc: button-mounted handle=12262 tick=3376797
+11-08 11:41:54.022 14941 14941 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:41:56.529 14983 14983 I NativePoc: activity-start tick=3379297
+11-08 11:41:56.529 14983 14983 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:56.576 14983 14983 I NativePoc: field-handle 12006
+11-08 11:41:56.577 14983 14983 I NativePoc: button-mounted handle=12294 tick=3379353
+11-08 11:41:56.578 14983 14983 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:41:59.130 15025 15025 I NativePoc: activity-start tick=3381897
+11-08 11:41:59.130 15025 15025 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 11:41:59.142 15025 15025 I NativePoc: field-handle 12006
+11-08 11:41:59.143 15025 15025 I NativePoc: button-mounted handle=12294 tick=3381917
+11-08 11:41:59.144 15025 15025 I NativePoc: rendered count=0 name-length=0 title=Counter 0

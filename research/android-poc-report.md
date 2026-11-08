@@ -2,7 +2,75 @@
 
 Measured on this machine on 2026-11-08. Nothing here is a guessed latency, a guessed size, or a screenshot that was not captured. iOS was not built and was not run.
 
-The plan's "fully working" bar is items 1–16 in [runtime-feasibility.md](runtime-feasibility.md). That bar is **not met**: items 15 and 16 were not run, and the original hot-reload gate asked for n=20. Debug in-place reload of the screen assembly does work, measured below at n=10. `dotnet watch` still restarts the process. The screen works on Debug, on Release Mono AOT, and on experimental NativeAOT, on an x86_64 emulator. The Mono AOT and NativeAOT emulator runs predate the screen-assembly split and were not repeated.
+The plan's "fully working" bar is items 1–16 in [runtime-feasibility.md](runtime-feasibility.md). Items 15 and 16 are still unmet: no MAUI baseline was built. Debug in-place reload of the screen assembly works. `dotnet watch` still restarts the process. The screen works on Debug, on Release Mono AOT, and on experimental NativeAOT, on an x86_64 emulator.
+
+Clone URL: `github.com/filipef101/c-sharp-native`
+
+## Verification of 464b63e
+
+App sources for the Release rebuilds match `464b63ed71629aee53dfc24a00acc2ff74c58f06`. `git diff 464b63e -- src tests` is empty. The measurement host under `tools/NativePoc.HotReload.Host/Program.cs` changed after that commit and is not in either APK.
+
+| | BUILT | TESTED (unit) | RUN ON EMULATOR | UNVERIFIED |
+| --- | --- | --- | --- | --- |
+| Release Mono AOT `android-x64` from that commit | publish exit 0, log has no `warning` line, APK 3778681 bytes | — | functional checks and 10 cold starts | arm64 was not reinstalled |
+| NativeAOT `android-x64`, experimental, separate publish | publish exit 0, IL3053, XA1040 absent, APK 2294109 bytes | — | the same checks, its own process | arm64 was not reinstalled |
+| Debug clocks (a)(b)(c), n=20 | host build 0 warnings | — | pid stable, `Ada` and counter 1 kept | Release has no listener, so these clocks were not run there |
+| Edit classes | the failing `Badge` edit failed in the host compiler | — | the device trials below | a Core shape change was not installed as a new process |
+
+### Release Mono AOT x64
+
+Clean `bin/Release` and `obj/Release`, then `dotnet publish -c Release -f net10.0-android -r android-x64`. Log: `evidence/mono-aot-x64-rebuild.log`. Installed `evidence/apk/mono-aot-x64-rebuild.apk` (3778681 bytes). It contains `libaot-NativePoc.Screen.dll.so` (5168 uncompressed). Activity `crc64ee53024f7ed0aa60.MainActivity`.
+
+Pid 13736. `IsDynamicCodeSupported=True IsDynamicCodeCompiled=True`. Empty UI: `Counter 0`, hint `Name`, `Save`, `Enter a name`. Typing `Ada` logged `field-handle 14758` three times and showed `Hello Ada`. Save logged `clipboard-ok poc-1` and showed `Counter 1` / `Ada` / `Hello Ada`. Rotation and the return to portrait each logged a new `activity-start` on pid 13736, with the same three strings. The rotated activity's field handle was 16870, then 17638 after rotating back: the views were recreated and `AppSession` was kept. `evidence/logcat-mono-aot-x64-rebuild.log`.
+
+`am start -W` for the 10 cold starts, force-stop between them, every `LaunchState: COLD`, no run dropped. `TotalTime`: 1488, 1124, 1449, 1068, 1152, 1331, 1382, 1551, 1513, 1414. Sorted: 1068, 1124, 1152, 1331, 1382, 1414, 1449, 1488, 1513, 1551. p50 is the mean of the 5th and 6th, **1398 ms**. Min 1068, max 1551. The functional launch before that series was also `COLD` at 1433 ms and is not in the ten. `evidence/am-start-mono-aot-x64-rebuild.log`.
+
+### NativeAOT x64
+
+Separate clean publish with `-p:PublishAot=true -p:EnablePreviewFeatures=true -p:TreatWarningsAsErrors=false`. Log: `evidence/nativeaot-x64-rebuild.log`. Workload warning IL3053. ILC repeated the `monodroid_unhandled_exception` / `monodroid_debugger_unhandled_exception` "will always throw" notes. XA1040 is absent. APK `evidence/apk/nativeaot-x64-rebuild.apk`, 2294109 bytes, sha256 `00b0bd4ab81bca73f16fbb1764710d6e999a34a866bfe2d28e5bc4284ce8153a`. The pre-split NativeAOT x64 APK hashes to `919087af22ee67ce63e01ed4cbcb9b12ca85a3c3e6df4cb0e4795732fa7ec5ab`. Uncompressed `lib/x86_64/libNativePoc.Android.so` is 5164368 bytes and contains the ASCII name `NativePoc.Screen` and the UTF-16 string `activity-start`. The manifest provider is `net.dot.jni.nativeaot.NativeAotRuntimeProvider`.
+
+Pid 14459. `IsDynamicCodeSupported=False IsDynamicCodeCompiled=False`. Empty UI: `Counter 0`, `Name`, `Save`, `Enter a name`. `Ada` logged `field-handle 12006` three times, then `Hello Ada`. Save logged `clipboard-ok poc-1`, UI `Counter 1` / `Ada` / `Hello Ada`. Rotation kept those strings on pid 14459. `evidence/logcat-nativeaot-x64-rebuild.log`. That log has no `hotreload` line.
+
+Ten cold starts, all `LaunchState: COLD`, none dropped. `TotalTime`: 1475, 1254, 1342, 1411, 1088, 1246, 1204, 1348, 1251, 1368. Sorted: 1088, 1204, 1246, 1251, 1254, 1342, 1348, 1368, 1411, 1475. p50 **1298 ms**. Min 1088, max 1475. The functional launch before the ten was `COLD` at 1140 ms and is not in the ten. `evidence/am-start-nativeaot-x64-rebuild.log`.
+
+### What the earlier 18.1 ms covers
+
+That figure is the n=10 series on pid 13248 in `evidence/hot-reload-inplace.log`. The host `Stopwatch` started before `File.WriteAllText` of `Screen.cs` and stopped when the TCP reply had been read. The app writes that reply after `RenderNow` returns, so the interval contains the file write, the Roslyn compile, the socket transfer, the collectible `AssemblyLoadContext` load, and the render. The `uiautomator` dump ran after the clock. An untimed warmup compile-and-send ran before sample 0, so sample 0 was not the first load after process start. Sorted samples 13.8, 14.6, 15.3, 16.0, 17.8, 18.4, 18.7, 21.1, 30.1, 129.9. p50, the mean of the 5th and 6th, is 18.1 ms.
+
+### n=20 clocks, measured again
+
+Debug deploy of the same commit, interpreter (`IsDynamicCodeCompiled=False`). Each series restarts the process, types `Ada`, presses Save, and then takes sample 0 with no earlier compile and no earlier send in that process. Sample 0 is the cold sample. Samples 1–19 are warm. The UI dump is outside every clock. Every sample kept the pid, `Ada`, `Hello Ada`, and counter 1. `collectible=True` on every apply.
+
+**(a) file save, Roslyn compile, transfer, load, render.** Clock starts before the write and stops when the post-render reply is read. Pid 15262. Milliseconds: 758.4, 52.8, 24.2, 23.6, 22.0, 23.7, 18.2, 16.7, 17.0, 17.1, 15.2, 17.4, 18.5, 15.4, 14.5, 17.6, 16.1, 16.7, 24.7, 16.4. Cold 758.4. Sorted center pair 17.4 and 17.6, so p50 of all 20 is **17.5 ms**. p50 of the 19 warm samples is **17.4 ms**. Min 14.5, max 758.4. `evidence/hot-reload-a.log`, `evidence/logcat-hotreload-a.log`.
+
+**(b) send, load, and render of a DLL compiled before the clock.** The 20 DLLs were compiled, then the process was restarted, then each sample timed only `Send` through the post-render reply. The file write in this mode sits before the clock. Pid 15856. Milliseconds: 99.6, 47.8, 8.3, 8.4, 10.2, 5.6, 6.7, 5.8, 5.8, 5.6, 5.5, 5.4, 5.5, 5.8, 5.7, 5.8, 5.6, 5.9, 13.5, 6.3. Cold 99.6. p50 of all 20 is **5.8 ms**. p50 of the warm 19 is **5.8 ms**. Min 5.4, max 99.6. `evidence/hot-reload-b.log`, `evidence/logcat-hotreload-b.log`.
+
+**(c) compile only.** In-memory Roslyn emit, no file write, no socket, first compilation in that host process. Milliseconds: 406.5, 10.5, 8.4, 7.4, 7.0, 6.1, 6.8, 6.6, 6.9, 7.0, 7.4, 7.5, 6.7, 6.1, 6.5, 6.6, 6.4, 6.6, 6.7, 6.7. Cold 406.5. Sorted center pair 6.7 and 6.8, so p50 of all 20 is **6.75 ms**. The tool's one-decimal line prints `p50-all-ms=6.7`. p50 of the warm 19 is **6.7 ms**. Min 6.1, max 406.5. `evidence/hot-reload-c.log`.
+
+### Edit classes
+
+Tried on pid 15856 after series (b), still `Ada` and count 1. Log: `evidence/hot-reload-edits.log`.
+
+| Edit | Result |
+| --- | --- |
+| Render body that still emits `Column`, `Text`, `TextField`, and `Button`. Button title `Save` changed to `Store`. A new `Text` appended. A new non-element helper type `Marker` in the screen assembly. | Applied. UI `Counter 1`, `Ada`, `Store`, `Hello Ada`, `Extra line`. Pid stayed 15856. The button handle stayed 15302. |
+| Screen rebuilt against a Core DLL that differs by a comment, public shape unchanged, title set to `Rebound `. | Applied. UI `Rebound 1`, `Ada`, `Save`, `Hello Ada`. Pid stayed 15856. The running process kept the Core it started with; the host resolved `NativePoc.Core` by simple name. |
+| `public sealed record Badge(string Value) : Element` in the screen assembly. | Host compile failed: `CS0122: 'Element.Element()' is inaccessible due to its protection level`. Nothing was sent. |
+| `AppState.Extra` added, Core rebuilt, Screen read `state.Extra`. | The device refused the DLL. Log: `hotreload-error MissingMethodException Method not found: int NativePoc.AppState.get_Extra()`. Pid stayed 15856. The screen stayed on `Rebound 1` / `Ada` / `Hello Ada`. Sending the original Screen afterward restored `Counter 1` / `Ada` / `Hello Ada` on the same pid. |
+
+A Core edit is not pushed by this loader. The listener accepts one `NativePoc.Screen` DLL. A new `Element` subtype cannot be declared outside `NativePoc.Core`. A new member on `AppState` fails at apply time and leaves the previous screen and the previous state in place.
+
+### Loader is Debug-only and loopback-only
+
+`src/NativePoc.Android/HotReloadServer.cs` is wrapped in `#if DEBUG` from the first line through the end of the file. `MainActivity.OnCreate` calls `HotReloadServer.Start()` inside `#if DEBUG` (`MainActivity.cs` lines 40–41). `HotReload.cs` and `RecreateReceiver.cs` are also `#if DEBUG`. The socket is `new TcpListener(IPAddress.Loopback, 18765)`.
+
+On the running Debug process, `/proc/net/tcp` shows `0100007F:494D` in state `0A` (LISTEN). `0x494D` is 18765 and `0100007F` is 127.0.0.1. `/proc/net/tcp6` has no 18765 listener.
+
+The Release `NativePoc.Android.dll` from the Mono AOT build (11264 bytes) has ASCII strings `NativePoc`, `NativePoc.Screen`, and the assembly attributes. It has no `HotReload`, `HotReloadServer`, `TcpListener`, `LoadFromStream`, or `AssemblyLoadContext`. The Debug DLL from the same tree has `HotReloadServer`, `TcpListener`, `LoadFromStream`, `AssemblyLoadContext`, and UTF-16 `hotreload-listen`. Scan: `evidence/mono-aot-x64-loader-scan.txt`.
+
+Inside the Mono AOT APK, `hotreload-listen`, `HotReloadServer`, `18765`, and `nativepoc-screen` are absent from every entry, including `libassemblies.x86_64.blob.so` and `libaot-NativePoc.Android.dll.so`. `libmonosgen-2.0.so` and `libmonodroid.so` contain the runtime type name `AssemblyLoadContext`. That string is the Mono runtime, and the same scan shows it is absent from `NativePoc.Android.dll`. `aapt dump permissions` on the APK prints `android.permission.INTERNET`. The merged manifest has that permission and the main activity, and it has no `RECREATE` receiver. `evidence/mono-aot-x64-AndroidManifest.xml`.
+
+The NativeAOT `.so` has no `hotreload-listen`, `HotReloadServer`, or `18765`. Its manifest also declares `INTERNET` and names `NativeAotRuntimeProvider`. `evidence/nativeaot-x64-AndroidManifest.xml`.
 
 ## File tree
 
@@ -61,8 +129,11 @@ dotnet build src/NativePoc.Android/NativePoc.Android.csproj \
 Debug in-place reload, after that deploy. The app listens on `127.0.0.1:18765`. The host forwards the port, compiles `src/NativePoc.Screen/Screen.cs` with the SDK Roslyn compiler, and sends the DLL. `AppSession` stays in the already-loaded `NativePoc.Core` assembly.
 
 ```bash
-dotnet run --project tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
+dotnet build tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
+dotnet tools/NativePoc.HotReload.Host/bin/Debug/net10.0/NativePoc.HotReload.Host.dll a
 ```
+
+`a` times file write, compile, transfer, and render. `b` times send and render of a DLL already compiled. `c` times compile only.
 
 Release Mono AOT, then NativeAOT:
 
@@ -101,20 +172,20 @@ Statuses use the plan's item numbers. "Pass" means the check was observed. A pas
 | Item | Status | Evidence |
 | --- | --- | --- |
 | 1. Four widgets, runtime flags | **Pass** (Debug, Mono AOT x64, NativeAOT x64) | Debug UI dump: `Button` text `Save`, content-desc `Save name`, `TextView` `Counter 0`, `EditText`. `evidence/debug-empty-ui.xml`, `evidence/debug-empty.png`. Debug log: `IsDynamicCodeSupported=True IsDynamicCodeCompiled=False` (`evidence/logcat-debug-runtime.log`). Mono AOT x64: `Supported=True Compiled=True` (`evidence/logcat-mono-x64-series.log`). NativeAOT x64: `Supported=False Compiled=False` (`evidence/logcat-nativeaot-x64-series.log`). |
-| 2. `Ada` / 20 keystrokes, same `EditText` | **Pass** on Debug and NativeAOT x64. Mono AOT x64 was one typing sequence, not 20 handles | Debug: 20 `field-handle` lines, all `15046`, UI `Hello abcdefghijklmnopqrst`. `evidence/logcat-field-handles.log`. NativeAOT rebuild: 20 lines, all `12006`. `evidence/logcat-nativeaot-handles.log`. Debug pid 6501 typed `Ada` and the dump was `Hello Ada` (`evidence/debug-typed-ui.xml`). Mono AOT pid 7935 typed `Ada` and the dump was `Hello Ada`; that process did not log 20 handles. |
+| 2. `Ada` / 20 keystrokes, same `EditText` | **Pass** on the pre-split Debug and NativeAOT 20-keystroke runs. The 464b63e Mono AOT and NativeAOT runs typed `Ada` (three keystrokes, one handle each) and did not repeat 20 keystrokes | Debug: 20 `field-handle` lines, all `15046`. `evidence/logcat-field-handles.log`. Pre-split NativeAOT: 20 lines, all `12006`. `evidence/logcat-nativeaot-handles.log`. On 464b63e, Mono AOT pid 13736 and NativeAOT pid 14459 each kept one handle across `A`, `d`, and `a` (`14758` and `12006`). |
 | 3. Save → `Counter 1`, field kept | **Pass** | Debug pid 6501: `clipboard-ok poc-1`, dump `Counter 1` / `Ada` / `Hello Ada`. `evidence/logcat-save.log`, `evidence/debug-saved.png`. Mono AOT pid 7935: same text, `evidence/logcat-mono-x64-save.log`. NativeAOT pid 8254 (the publish before the handle log was added): same text. |
 | 4. Empty name, Save still counts | **Pass** | Debug pid 9673: `rendered count=1 name-length=0`, dump `Counter 1` / `Enter a name`. `evidence/logcat-empty-save.log`. NativeAOT pid 12212: `clipboard-ok poc-1`, same dump. `evidence/logcat-nativeaot-empty-save.log`. |
 | 5. Recreate and rotation keep state | **Pass** on Debug and Mono AOT; rotation **Pass** on NativeAOT | Debug broadcast `com.scratch.nativepoc.RECREATE`: pid stayed 6501, second `runtime` line, dump still `Counter 1` / `Ada`. Then rotation, pid 6501, same dump. `evidence/logcat-recreate.log`, `evidence/debug-recreate-ui.xml`, `evidence/debug-rotate-ui.xml`. The receiver is `#if DEBUG`. It is absent from the Release APK (`RECREATE` is not in the binary manifest). Mono AOT rotation: pid 7935, new `runtime` line, dump still `Counter 1` / `Ada`. NativeAOT rotation: pid 8254, `rendered count=1 name-length=3`. |
 | 6. Clipboard round-trip, no binding project | **Pass** | `PlatformBridge.CopyNonce` uses `ClipboardManager` and throws if the read differs. Log `clipboard-ok poc-1` on Debug, Mono AOT, and NativeAOT. No `ApiDefinition` / binding project in the tree. |
-| 7–10. In-place hot reload, n=20, p50 ≤ 1500 ms, pid and text stable | **Pass for the follow-up bar (n=10, same pid, text and counter kept). The plan's n=20 was not repeated. `dotnet watch` still fails.** | See the hot-reload section. p50 of the 10 samples is 18.1 ms. Pid stayed 13248. The field stayed `Ada` and the counter stayed 1. |
-| 11. Rude edit | **Recorded, not an in-place update** | Adding `AppState.Extra` made watch launch `DOTNET_WATCH_ITERATION=2`. Pid went 9931 → 10056. The field was reverted. `evidence/dotnet-watch-rude.log`. |
-| 12. Release Mono AOT installs and items 1–6 pass | **Pass on android-x64**, with item 2's 20-handle count done on Debug and NativeAOT rather than on this process | `adb install` streamed install, `am start -W` `Status: ok`. Widgets, `Ada` → `Hello Ada`, Save, rotation, clipboard as above. **Not run** on arm64. |
+| 7–10. In-place hot reload, n=20, p50 ≤ 1500 ms, pid and text stable | **Pass on the n=20 end-to-end series. `dotnet watch` still restarts.** | Series (a): pid 15262, p50 17.5 ms, cold 758.4 ms, `Ada` and counter 1 kept. The earlier 18.1 ms is the n=10 combined clock described above. |
+| 11. Rude edit | **Watch restarts. The in-place loader refuses a shape change and keeps the process.** | `dotnet watch` on `AppState.Extra`: pid 9931 → 10056, field reverted (`evidence/dotnet-watch-rude.log`). The same shape change sent as a screen DLL on pid 15856 returned `MissingMethodException` for `AppState.get_Extra()` and left `Rebound 1` / `Ada` on screen. |
+| 12. Release Mono AOT installs and items 1–6 pass | **Pass on android-x64** for the 464b63e rebuild. The 20-handle count was not repeated on this process | Pid 13736: widgets, `Ada` with handle 14758 across three keystrokes, Save, rotation, clipboard. Ten cold starts, p50 1398 ms. **Not run** on arm64. |
 | 13. `libaot-*.so` in the arm64 APK | **Pass** | `lib/arm64-v8a/libaot-NativePoc.Core.dll.so`, `libaot-NativePoc.Android.dll.so`, `libmonosgen-2.0.so`, `libmonodroid.so`. No `libNativePoc.Android.so`. `evidence/apk-listings.txt`. APK 3606628 bytes. |
 | 14. No trim/AOT warnings in this repo's source | **Pass** | Debug build `0 Warning(s)`. Release Mono logs have no `warning` lines. NativeAOT's only warning is IL3053 on `Mono.Android.dll` (workload). |
 | 15. APK smaller than `dotnet new maui` | **Not run** | No MAUI template was built. Own sizes are below. |
 | 16. Startup median ≤ MAUI, 10 runs | **Not run** as a comparison | Own `TotalTime` series is below. No MAUI process was started. |
 | 17. NativeAOT publish, XA1040 present | **Partial** | `dotnet publish -p:PublishAot=true` exit 0 for `android-arm64` and `android-x64`. **XA1040 does not appear** in `evidence/nativeaot-arm64.log` or `evidence/nativeaot-x64.log`. Workload warning IL3053 does. |
-| 18. NativeAOT runs items 1–4 | **Pass on android-x64** | The rebuilt APK: widgets and runtime flags in the startup series, 20 handles all `12006`, empty Save → `Counter 1` / `Enter a name` / `clipboard-ok poc-1` at pid 12212. The previous NativeAOT publish (pid 8254) typed `Ada`, showed `Hello Ada`, and kept it across rotation. **Not run** on arm64. |
+| 18. NativeAOT runs items 1–4 | **Pass on android-x64** for the 464b63e rebuild | Pid 14459: `Supported=False Compiled=False`, widgets, `Ada` with handle 12006 across three keystrokes, Save `clipboard-ok poc-1`, rotation kept `Counter 1` / `Ada`. Ten cold starts, p50 1298 ms. The earlier pid 12212 empty-save and the 20-handle series were the pre-split publish. **Not run** on arm64. |
 | 19. NativeAOT failed | **Does not apply** to the x64 run | The arm64 link failed once, before the NDK was installed. After `ndk;26.3.11579264` the link succeeded. |
 
 ## In-place hot reload
@@ -145,7 +216,7 @@ Clock: host `Stopwatch` starts before the `Screen.cs` write and stops when the a
 | 8 | 13.8 | 13248 | `H8 1 collectible=True` | `H8 1`, `Ada`, `Hello Ada` |
 | 9 | 21.1 | 13248 | `H9 1 collectible=True` | `H9 1`, `Ada`, `Hello Ada` |
 
-Sorted: 13.8, 14.6, 15.3, 16.0, 17.8, 18.4, 18.7, 21.1, 30.1, 129.9. p50 is the mean of the 5th and 6th, **18.1 ms**. Min 13.8 ms, max 129.9 ms. The counter stayed 1, so Save was not run again. `evidence/hot-reload-inplace.log`, `evidence/logcat-hotreload.log` (every `hotreload-applied` line is pid 13248, `name-length=3`), `evidence/hot-reload-h0.png`, `evidence/hot-reload-h9.png`. Logcat also shows the setup keystrokes on the same pid: `field-handle 15014` three times, then `clipboard-ok poc-1`, then `title=Counter 1`, then the ten titles. The process that logged `hotreload-listen 18765` is the same pid.
+Sorted: 13.8, 14.6, 15.3, 16.0, 17.8, 18.4, 18.7, 21.1, 30.1, 129.9. p50 is the mean of the 5th and 6th, **18.1 ms**. Min 13.8 ms, max 129.9 ms. The counter stayed 1, so Save was not run again. `evidence/hot-reload-inplace.log`, `evidence/logcat-hotreload.log` (every `hotreload-applied` line is pid 13248, `name-length=3`), `evidence/hot-reload-h0.png`, `evidence/hot-reload-h9.png`. Logcat also shows the setup keystrokes on the same pid: `field-handle 15014` three times, then `clipboard-ok poc-1`, then `title=Counter 1`, then the ten titles. The process that logged `hotreload-listen 18765` is the same pid. What that 18.1 ms includes, and the later n=20 split into file-to-render, transfer-only, and compile-only, is in the verification section above.
 
 ## Reconciler review
 
@@ -199,7 +270,7 @@ XA1040 was not emitted. `WarningsNotAsErrors` includes it so a future emission w
 
 ## Blockers
 
-- `dotnet watch` still does not reach the Android process on workload 36.1.2. The in-place path that was measured is the Debug assembly swap, not MetadataUpdater deltas and not `dotnet watch`. A rude edit that changes `AppState` was not retried on that path. The plan's n=20 series was not repeated.
+- `dotnet watch` still does not reach the Android process on workload 36.1.2. The in-place path is the Debug screen-assembly swap. An `AppState` shape change fails in place with `MissingMethodException` and leaves the previous screen up. The Release APKs declare `INTERNET` and contain no listener.
 - Items 15 and 16 have no MAUI baseline. `dotnet new maui` was not built or installed.
 - arm64 Mono AOT and arm64 NativeAOT were built and not installed. This host's emulator image is x86_64.
 - NativeAOT is experimental. IL3053 is in the workload assembly. XA1040 did not show up, which disagrees with the plan's expectation that the warning is present. The x64 app ran anyway.
@@ -214,6 +285,16 @@ XA1040 was not emitted. `WarningsNotAsErrors` includes it so a future emission w
 - `evidence/debug-watch-restart-tally.png` — after a watch restart, `Tally 0`, field cleared
 - `evidence/hot-reload-h0.png` — in-place reload, pid 13248, `H0 1`, field `Ada`, `Hello Ada`
 - `evidence/hot-reload-h9.png` — same process, `H9 1`, field still `Ada`
+- `evidence/mono-aot-x64-rebuild-empty.png` — Mono AOT rebuild, pid 13736, `Counter 0`
+- `evidence/mono-aot-x64-rebuild-saved.png` — same process, `Counter 1`, `Ada`, `Hello Ada`
+- `evidence/mono-aot-x64-rebuild-rotated.png` — same process after rotation, state kept
+- `evidence/nativeaot-x64-rebuild-empty.png` — NativeAOT rebuild, pid 14459, `Counter 0`
+- `evidence/nativeaot-x64-rebuild-saved.png` — same process, `Counter 1`, `Ada`, `Hello Ada`
+- `evidence/nativeaot-x64-rebuild-rotated.png` — same process after rotation, state kept
+- `evidence/hot-reload-a-cold.png` — end-to-end sample 0, pid 15262, `A00 1`, `Ada`
+- `evidence/hot-reload-a-warm.png` — end-to-end sample 19, same process, `A19 1`, `Ada`
+- `evidence/hot-reload-extra-line.png` — pid 15856, button `Store`, text `Extra line`, `Ada` kept
+- `evidence/hot-reload-shape.png` — same process after the rejected `AppState.Extra` edit, still `Rebound 1` / `Ada`
 - `evidence/mono-aot-x64.png` and `evidence/mono-aot-x64-saved.png`
 - `evidence/nativeaot-x64.png` and `evidence/nativeaot-x64-saved.png`
 - `evidence/debug-launch.png` — home screen after the fast-deployment abort, not the app

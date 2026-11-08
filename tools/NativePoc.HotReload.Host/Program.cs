@@ -6,71 +6,210 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
 const int Port = 18765;
-const int Samples = 10;
+const int Samples = 20;
+if (args.Length != 1 || args[0] is not ("a" or "b" or "c" or "once"))
+{
+	Console.Error.WriteLine("Usage: NativePoc.HotReload.Host <a|b|c|once>");
+	return 2;
+}
+
+var mode = args[0];
 var root = RepoRoot();
 var screenFile = Path.Combine(root, "src", "NativePoc.Screen", "Screen.cs");
 var original = File.ReadAllText(screenFile);
-var logPath = Path.Combine(root, "evidence", "hot-reload-inplace.log");
+var logPath = Path.Combine(root, "evidence", "hot-reload-" + mode + ".log");
 Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
 var log = new StringBuilder();
+var exit = 0;
 try
 {
-	var references = References(root);
+	switch (mode)
+	{
+		case "a":
+			MeasureEndToEnd(root, original);
+			break;
+		case "b":
+			MeasureTransfer(root, original);
+			break;
+		case "c":
+			MeasureCompile(original, root);
+			break;
+		case "once":
+			SendOnce(root, screenFile);
+			break;
+		default:
+			exit = 2;
+			break;
+	}
+}
+catch (Exception ex)
+{
+	Line("exception=" + ex.GetType().Name + " " + ex.Message);
+	exit = 1;
+}
+finally
+{
+	if (mode is "a" or "b")
+		File.WriteAllText(screenFile, original);
+	File.WriteAllText(logPath, log.ToString());
+}
+
+return exit;
+
+void MeasureEndToEnd(string repo, string source)
+{
+	Line("clock=file-write then Roslyn compile then TCP send through the post-render reply");
+	Line("cold=sample 0, the first load after process start; no compile and no send before it");
+	var references = References(repo);
 	Adb("forward", "tcp:" + Port, "tcp:" + Port);
-	var warmup = Compile(original, references);
-	var warmupReply = Send(warmup);
-	Line("warmup bytes=" + warmup.Length + " reply=" + warmupReply);
+	RestartApp();
 	PrepareState();
 	var pid = Pid();
-	Line("pid-before=" + pid);
+	Line("pid=" + pid);
 	var samples = new List<double>();
 	for (var i = 0; i < Samples; i++)
 	{
-		var prefix = "H" + i + " ";
-		var source = WithPrefix(original, prefix);
+		var prefix = "A" + i.ToString("00") + " ";
+		var next = WithPrefix(source, prefix);
 		var started = Stopwatch.GetTimestamp();
-		File.WriteAllText(screenFile, source);
-		var dll = Compile(source, references);
+		File.WriteAllText(screenFile, next);
+		var dll = Compile(next, references);
 		var reply = Send(dll);
 		var elapsedMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+		samples.Add(elapsedMs);
 		var pidNow = Pid();
-		var texts = UiTexts();
-		var expected = prefix + "1";
+		var ui = UiTexts();
+		var expected = prefix.TrimEnd() + " 1";
 		var ok = reply.StartsWith(expected + " ", StringComparison.Ordinal)
 			&& pidNow == pid
-			&& texts.Contains(expected)
-			&& texts.Contains("Ada")
-			&& texts.Contains("Hello Ada");
+			&& ui.Contains(expected)
+			&& ui.Contains("Ada")
+			&& ui.Contains("Hello Ada");
 		Line(
 			"sample=" + i
 			+ " ms=" + elapsedMs.ToString("F1")
 			+ " pid=" + pidNow
 			+ " reply=" + reply
-			+ " ui=" + string.Join(" | ", texts)
+			+ " ui=" + string.Join(" | ", ui)
+			+ " ok=" + ok);
+		if (i == 0)
+			Shot(Path.Combine(repo, "evidence", "hot-reload-a-cold.png"));
+		if (i == Samples - 1)
+			Shot(Path.Combine(repo, "evidence", "hot-reload-a-warm.png"));
+		if (!ok)
+			throw new InvalidOperationException("Sample " + i + " did not stay in place.");
+	}
+
+	Summarize(samples);
+}
+
+void MeasureTransfer(string repo, string source)
+{
+	Line("clock=TCP send of an already compiled DLL through the post-render reply");
+	Line("compile and file write happen before the clock; the app is restarted after the DLLs exist");
+	var references = References(repo);
+	var dlls = new byte[Samples][];
+	for (var i = 0; i < Samples; i++)
+	{
+		var prefix = "B" + i.ToString("00") + " ";
+		dlls[i] = Compile(WithPrefix(source, prefix), references);
+		Line("precompiled=" + i + " bytes=" + dlls[i].Length);
+	}
+
+	Adb("forward", "tcp:" + Port, "tcp:" + Port);
+	RestartApp();
+	PrepareState();
+	var pid = Pid();
+	Line("pid=" + pid);
+	var samples = new List<double>();
+	for (var i = 0; i < Samples; i++)
+	{
+		var prefix = "B" + i.ToString("00") + " ";
+		File.WriteAllText(screenFile, WithPrefix(source, prefix));
+		var started = Stopwatch.GetTimestamp();
+		var reply = Send(dlls[i]);
+		var elapsedMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+		samples.Add(elapsedMs);
+		var pidNow = Pid();
+		var ui = UiTexts();
+		var expected = prefix.TrimEnd() + " 1";
+		var ok = reply.StartsWith(expected + " ", StringComparison.Ordinal)
+			&& pidNow == pid
+			&& ui.Contains(expected)
+			&& ui.Contains("Ada")
+			&& ui.Contains("Hello Ada");
+		Line(
+			"sample=" + i
+			+ " ms=" + elapsedMs.ToString("F1")
+			+ " pid=" + pidNow
+			+ " reply=" + reply
+			+ " ui=" + string.Join(" | ", ui)
 			+ " ok=" + ok);
 		if (!ok)
 			throw new InvalidOperationException("Sample " + i + " did not stay in place.");
-		samples.Add(elapsedMs);
-		if (i == 0 || i == Samples - 1)
-			Shot(Path.Combine(root, "evidence", "hot-reload-h" + i + ".png"));
 	}
 
-	var ordered = samples.OrderBy(value => value).ToArray();
-	var median = (ordered[4] + ordered[5]) / 2;
-	Line("median-ms=" + median.ToString("F1"));
-	Line("samples-ms=" + string.Join(",", samples.Select(value => value.ToString("F1"))));
+	Summarize(samples);
 }
-finally
+
+void MeasureCompile(string source, string repo)
 {
-	File.WriteAllText(screenFile, original);
-	File.WriteAllText(logPath, log.ToString());
-	Console.Write(log.ToString());
+	Line("clock=Roslyn compile of an in-memory source string; no file write and no TCP");
+	Line("cold=sample 0, the first compilation in this process");
+	var references = References(repo);
+	var samples = new List<double>();
+	for (var i = 0; i < Samples; i++)
+	{
+		var next = WithPrefix(source, "C" + i.ToString("00") + " ");
+		var started = Stopwatch.GetTimestamp();
+		var dll = Compile(next, references);
+		var elapsedMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+		samples.Add(elapsedMs);
+		Line("sample=" + i + " ms=" + elapsedMs.ToString("F1") + " bytes=" + dll.Length);
+	}
+
+	Summarize(samples);
+}
+
+void SendOnce(string repo, string path)
+{
+	var references = References(repo);
+	var source = File.ReadAllText(path);
+	var dll = Compile(source, references);
+	Adb("forward", "tcp:" + Port, "tcp:" + Port);
+	var started = Stopwatch.GetTimestamp();
+	var reply = Send(dll);
+	var elapsedMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+	Line("once-ms=" + elapsedMs.ToString("F1") + " bytes=" + dll.Length + " reply=" + reply);
+	Line("ui=" + string.Join(" | ", UiTexts()));
+	Line("pid=" + Pid());
+}
+
+void Summarize(List<double> samples)
+{
+	Line("samples-ms=" + string.Join(",", samples.Select(value => value.ToString("F1"))));
+	Line("cold-ms=" + samples[0].ToString("F1"));
+	Line("p50-all-ms=" + Median(samples).ToString("F1"));
+	Line("p50-warm-ms=" + Median(samples.Skip(1).ToList()).ToString("F1"));
+	Line("min-ms=" + samples.Min().ToString("F1"));
+	Line("max-ms=" + samples.Max().ToString("F1"));
 }
 
 void Line(string text)
 {
 	log.AppendLine(text);
 	Console.WriteLine(text);
+}
+
+static double Median(IReadOnlyList<double> values)
+{
+	var ordered = values.OrderBy(value => value).ToArray();
+	var count = ordered.Length;
+	if (count == 0)
+		throw new InvalidOperationException("No samples.");
+	if (count % 2 == 1)
+		return ordered[count / 2];
+	return (ordered[count / 2 - 1] + ordered[count / 2]) / 2;
 }
 
 static string RepoRoot()
@@ -161,6 +300,8 @@ static string Send(byte[] dll)
 	ReadExact(stream, response);
 	var ok = response[0] == 1;
 	var length = response[1] | (response[2] << 8) | (response[3] << 16) | (response[4] << 24);
+	if (length < 0 || length > 1024 * 1024)
+		throw new InvalidOperationException("Rejected reply length " + length + ".");
 	var body = new byte[length];
 	ReadExact(stream, body);
 	var text = Encoding.UTF8.GetString(body);
@@ -184,24 +325,73 @@ static void ReadExact(Stream stream, byte[] buffer)
 static void PrepareState()
 {
 	var texts = UiTexts();
-	if (texts.Contains("Ada") && texts.Contains("Hello Ada") && texts.Any(text => text.EndsWith(" 1", StringComparison.Ordinal)))
+	if (texts.Contains("Ada") && texts.Contains("Hello Ada") && texts.Contains("Counter 1"))
 		return;
-	Adb("shell", "input", "tap", "540", "427");
-	Thread.Sleep(300);
+	var edit = Center("android.widget.EditText");
+	var button = Center("android.widget.Button");
+	Adb("shell", "input", "tap", edit.X.ToString(), edit.Y.ToString());
+	Thread.Sleep(400);
 	Adb("shell", "input", "text", "Ada");
-	Thread.Sleep(600);
+	Thread.Sleep(700);
 	Adb("shell", "input", "keyevent", "4");
-	Thread.Sleep(300);
-	Adb("shell", "input", "tap", "540", "549");
-	Thread.Sleep(600);
+	Thread.Sleep(400);
+	button = Center("android.widget.Button");
+	Adb("shell", "input", "tap", button.X.ToString(), button.Y.ToString());
+	Thread.Sleep(700);
 	texts = UiTexts();
 	if (!texts.Contains("Ada") || !texts.Contains("Hello Ada") || !texts.Contains("Counter 1"))
 		throw new InvalidOperationException("Setup did not reach Counter 1 / Ada. UI: " + string.Join(" | ", texts));
 }
 
+static (int X, int Y) Center(string className)
+{
+	var xml = LastUiXml();
+	foreach (var node in System.Text.RegularExpressions.Regex.Matches(xml, "<node [^>]+>").Select(match => match.Value))
+	{
+		if (!node.Contains("class=\"" + className + "\"", StringComparison.Ordinal))
+			continue;
+		var match = System.Text.RegularExpressions.Regex.Match(node, "bounds=\"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]\"");
+		if (!match.Success)
+			continue;
+		var left = int.Parse(match.Groups[1].Value);
+		var top = int.Parse(match.Groups[2].Value);
+		var right = int.Parse(match.Groups[3].Value);
+		var bottom = int.Parse(match.Groups[4].Value);
+		return ((left + right) / 2, (top + bottom) / 2);
+	}
+
+	throw new InvalidOperationException("No " + className + " in the UI dump.");
+}
+
+static string LastUiXml()
+{
+	Adb("shell", "uiautomator", "dump", "/sdcard/nativepoc-ui.xml");
+	var local = Path.Combine(Path.GetTempPath(), "nativepoc-ui.xml");
+	Adb("pull", "/sdcard/nativepoc-ui.xml", local);
+	return File.ReadAllText(local);
+}
+
+static void RestartApp()
+{
+	Adb("logcat", "-c");
+	Adb("shell", "am", "force-stop", "com.scratch.nativepoc");
+	Thread.Sleep(400);
+	Adb("shell", "am", "start", "-n", "com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity");
+	for (var i = 0; i < 50; i++)
+	{
+		Thread.Sleep(200);
+		var listed = AdbAllowFail("shell", "pidof", "com.scratch.nativepoc").Trim();
+		var logged = AdbAllowFail("logcat", "-d", "-s", "NativePoc:I");
+		if (listed.Length > 0 && logged.Contains("hotreload-listen", StringComparison.Ordinal))
+			return;
+	}
+
+	throw new InvalidOperationException("The app did not open the hot reload port.");
+}
+
 static string Pid()
 {
-	var pid = Adb("shell", "pidof", "com.scratch.nativepoc").Trim();
+	var pid = AdbAllowFail("shell", "pidof", "com.scratch.nativepoc").Trim();
 	if (pid.Length == 0)
 		throw new InvalidOperationException("The app process is not running.");
 	return pid;
@@ -209,10 +399,7 @@ static string Pid()
 
 static List<string> UiTexts()
 {
-	Adb("shell", "uiautomator", "dump", "/sdcard/nativepoc-ui.xml");
-	var local = Path.Combine(Path.GetTempPath(), "nativepoc-ui.xml");
-	Adb("pull", "/sdcard/nativepoc-ui.xml", local);
-	var xml = File.ReadAllText(local);
+	var xml = LastUiXml();
 	var texts = new List<string>();
 	var cursor = 0;
 	const string marker = "text=\"";
@@ -242,6 +429,20 @@ static void Shot(string path)
 
 static string Adb(params string[] args)
 {
+	var (code, stdout, stderr) = AdbRaw(args);
+	if (code != 0)
+		throw new InvalidOperationException("adb " + string.Join(" ", args) + " failed: " + stderr + stdout);
+	return stdout;
+}
+
+static string AdbAllowFail(params string[] args)
+{
+	var (_, stdout, _) = AdbRaw(args);
+	return stdout;
+}
+
+static (int Code, string Stdout, string Stderr) AdbRaw(string[] args)
+{
 	var start = new ProcessStartInfo("adb")
 	{
 		RedirectStandardOutput = true,
@@ -254,7 +455,5 @@ static string Adb(params string[] args)
 	var stdout = process.StandardOutput.ReadToEnd();
 	var stderr = process.StandardError.ReadToEnd();
 	process.WaitForExit();
-	if (process.ExitCode != 0)
-		throw new InvalidOperationException("adb " + string.Join(" ", args) + " failed: " + stderr + stdout);
-	return stdout;
+	return (process.ExitCode, stdout, stderr);
 }
