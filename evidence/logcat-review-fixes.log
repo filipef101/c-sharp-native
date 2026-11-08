@@ -1,0 +1,41 @@
+11-08 12:31:11.876  5119  5119 W monodroid-assembly: open_from_bundles: failed to load bundled assembly NativePoc.Android.dll
+11-08 12:31:11.985  5119  5119 W monodroid-assembly: open_from_bundles: failed to load bundled assembly NativePoc.Core.dll
+11-08 12:31:11.993  5119  5119 W monodroid-assembly: open_from_bundles: failed to load bundled assembly NativePoc.Screen.dll
+11-08 12:31:12.038  5119  5119 I NativePoc: activity-start tick=276339
+11-08 12:31:12.040  5119  5119 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=False
+11-08 12:31:12.128  5119  5119 I NativePoc: field-handle 14982
+11-08 12:31:12.147  5119  5119 I NativePoc: button-mounted handle=15270 tick=276483
+11-08 12:31:12.150  5119  5119 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 12:31:12.178  5119  5149 I NativePoc: hotreload-listen localabstract:npoc-<redacted-token>
+11-08 12:31:16.310  5119  5149 E NativePoc: hotreload-error UnauthorizedAccessException Rejected hot reload token.
+11-08 12:31:17.251  5119  5119 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 12:31:17.251  5119  5119 I NativePoc: hotreload-applied Counter 0 collectible=True
+11-08 12:31:22.380  5119  5119 I NativePoc: field-handle 14982
+11-08 12:31:22.386  5119  5119 I NativePoc: rendered count=0 name-length=1 title=Counter 0
+11-08 12:31:22.506  5119  5119 I NativePoc: field-handle 14982
+11-08 12:31:22.507  5119  5119 I NativePoc: rendered count=0 name-length=2 title=Counter 0
+11-08 12:31:22.627  5119  5119 I NativePoc: field-handle 14982
+11-08 12:31:22.633  5119  5119 I NativePoc: rendered count=0 name-length=3 title=Counter 0
+11-08 12:31:28.455  5119  5119 I NativePoc: clipboard-ok poc-1
+11-08 12:31:28.457  5119  5119 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 12:31:33.518  5119  5119 I NativePoc: rendered count=1 name-length=3 title=Reloaded 1
+11-08 12:31:33.520  5119  5119 I NativePoc: hotreload-applied Reloaded 1 collectible=True
+11-08 12:31:40.092  5119  5149 E NativePoc: hotreload-error MissingMethodException Method not found: int NativePoc.AppState.get_Extra()
+11-08 12:31:43.287  5119  5119 I NativePoc: field-handle 14982
+11-08 12:31:43.289  5119  5119 I NativePoc: rendered count=1 name-length=4 title=Reloaded 1
+11-08 12:31:48.671  5119  5119 I NativePoc: rendered count=1 name-length=4 title=Counter 1
+11-08 12:31:48.671  5119  5119 I NativePoc: hotreload-applied Counter 1 collectible=True
+11-08 12:31:54.038  5119  5119 I NativePoc: activity-start tick=318375
+11-08 12:31:54.042  5119  5119 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=False
+11-08 12:31:54.053  5119  5119 I NativePoc: field-handle 18022
+11-08 12:31:54.071  5119  5119 I NativePoc: button-mounted handle=18182 tick=318407
+11-08 12:31:54.072  5119  5119 I NativePoc: rendered count=1 name-length=4 title=Counter 1
+11-08 12:31:54.094  5119  5119 I NativePoc: hotreload-listen already
+11-08 12:31:55.417  5119  5119 I NativePoc: activity-start tick=319755
+11-08 12:31:55.417  5119  5119 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=False
+11-08 12:31:55.427  5119  5119 I NativePoc: field-handle 18854
+11-08 12:31:55.432  5119  5119 I NativePoc: button-mounted handle=19014 tick=319771
+11-08 12:31:55.433  5119  5119 I NativePoc: rendered count=1 name-length=4 title=Counter 1
+11-08 12:31:55.454  5119  5119 I NativePoc: hotreload-listen already
+11-08 12:31:57.261  5119  5119 I NativePoc: rendered count=1 name-length=4 title=Counter 1
+11-08 12:31:57.261  5119  5119 I NativePoc: hotreload-applied Counter 1 collectible=True

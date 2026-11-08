@@ -28,7 +28,7 @@ dotnet build src/NativePoc.Android/NativePoc.Android.csproj \
 
 Use `android-arm64` for a phone. A plain `adb install` of the Debug APK aborts: Debug uses fast deployment, and the assemblies are pushed by `-t:Run`.
 
-Debug in-place reload, after that deploy. The app listens on `127.0.0.1:18765`. The host forwards that port, compiles `src/NativePoc.Screen/Screen.cs`, and sends the DLL. State stays in `NativePoc.Core`, which is already loaded.
+Debug in-place reload, after that deploy. A launcher start does not open the loader. The host generates a 16-byte token, starts the activity with the `nativepoc_hotreload` intent extra, and forwards `tcp:18765` to the abstract socket `localabstract:npoc-<hex>`. The app checks that token before it loads a screen DLL. State stays in `NativePoc.Core`, which is already loaded.
 
 ```bash
 dotnet build tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj

@@ -1,0 +1,6 @@
+command: rg -n --heading XA1040 evidence/nativeaot-x64-review.log
+ABSENT exit=1
+--- IL3053 count ---
+1
+--- EXIT line ---
+EXIT:0

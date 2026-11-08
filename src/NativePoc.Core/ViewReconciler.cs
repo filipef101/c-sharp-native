@@ -13,9 +13,11 @@ public interface IElementHost<TView>
 
 	void SetButton(TView view, string title, string accessibilityLabel);
 
-	void SetTextField(TView view, string value, string placeholder);
+	void SetTextField(TView view, string value, string placeholder, string accessibilityLabel);
 
 	void OnMounted(NodePath path, TView view);
+
+	void Retarget(NodePath path, TView view);
 
 	void OnUnmounted(NodePath path, TView view);
 }
@@ -79,7 +81,10 @@ public sealed class ViewReconciler<TView>
 				_host.SetButton(ViewAt(setButton.Path), setButton.Title, setButton.AccessibilityLabel);
 				return;
 			case SetTextField setField:
-				_host.SetTextField(ViewAt(setField.Path), setField.Value, setField.Placeholder);
+				_host.SetTextField(ViewAt(setField.Path), setField.Value, setField.Placeholder, setField.AccessibilityLabel);
+				return;
+			case Reorder reorder:
+				ApplyReorder(reorder.Parent, reorder.Sources);
 				return;
 			default:
 				throw Unknown(patch);
@@ -107,6 +112,78 @@ public sealed class ViewReconciler<TView>
 			_host.Remove(ViewAt(path.Parent()), path.LastIndex());
 		_views.Remove(path);
 		_host.OnUnmounted(path, view);
+	}
+
+	void ApplyReorder(NodePath parent, IReadOnlyList<int> sources)
+	{
+		var oldCount = CountDirectChildren(parent);
+		var extracted = new (TView View, List<(NodePath Path, TView View)> Nodes)[oldCount];
+		for (var index = oldCount - 1; index >= 0; index--)
+		{
+			var path = parent.Child(index);
+			var view = ViewAt(path);
+			var nodes = new List<(NodePath Path, TView View)>();
+			foreach (var pair in _views)
+			{
+				if (pair.Key.Equals(path) || pair.Key.IsDescendantOf(path))
+					nodes.Add((pair.Key, pair.Value));
+			}
+			_host.Remove(ViewAt(parent), index);
+			foreach (var node in nodes)
+				_views.Remove(node.Path);
+			extracted[index] = (view, nodes);
+		}
+
+		var kept = new bool[oldCount];
+		var packed = 0;
+		for (var newIndex = 0; newIndex < sources.Count; newIndex++)
+		{
+			var oldIndex = sources[newIndex];
+			if (oldIndex < 0)
+				continue;
+			if ((uint)oldIndex >= (uint)oldCount)
+				throw new InvalidOperationException("Reorder names a child that is not mounted.");
+			kept[oldIndex] = true;
+			var (view, nodes) = extracted[oldIndex];
+			_host.Insert(ViewAt(parent), packed, view);
+			packed++;
+			foreach (var node in nodes)
+			{
+				var updated = ReplaceSegment(node.Path, parent.Length, newIndex);
+				_views[updated] = node.View;
+				if (!updated.Equals(node.Path))
+					_host.Retarget(updated, node.View);
+			}
+		}
+
+		for (var oldIndex = 0; oldIndex < oldCount; oldIndex++)
+		{
+			if (kept[oldIndex])
+				continue;
+			var nodes = extracted[oldIndex].Nodes;
+			nodes.Sort(static (left, right) => right.Path.Length.CompareTo(left.Path.Length));
+			foreach (var node in nodes)
+				_host.OnUnmounted(node.Path, node.View);
+		}
+	}
+
+	int CountDirectChildren(NodePath parent)
+	{
+		var count = 0;
+		foreach (var path in _views.Keys)
+		{
+			if (path.Length == parent.Length + 1 && path.Parent().Equals(parent))
+				count++;
+		}
+		return count;
+	}
+
+	static NodePath ReplaceSegment(NodePath path, int depth, int index)
+	{
+		var rewritten = NodePath.Root;
+		for (var i = 0; i < path.Length; i++)
+			rewritten = rewritten.Child(i == depth ? index : path.Segment(i));
+		return rewritten;
 	}
 
 	void UnmountDescendants(NodePath path)

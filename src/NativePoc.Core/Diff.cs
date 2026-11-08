@@ -82,7 +82,9 @@ public sealed record SetText(NodePath Path, string Value) : Patch;
 
 public sealed record SetButton(NodePath Path, string Title, string AccessibilityLabel) : Patch;
 
-public sealed record SetTextField(NodePath Path, string Value, string Placeholder) : Patch;
+public sealed record SetTextField(NodePath Path, string Value, string Placeholder, string AccessibilityLabel) : Patch;
+
+public sealed record Reorder(NodePath Parent, IReadOnlyList<int> Sources) : Patch;
 
 public static class TreeDiff
 {
@@ -144,6 +146,12 @@ public static class TreeDiff
 		NodePath path,
 		List<Patch> patches)
 	{
+		if (UsesKeys(previous) || UsesKeys(next))
+		{
+			DiffKeyedChildren(previous, next, path, patches);
+			return;
+		}
+
 		var shared = previous.Count < next.Count ? previous.Count : next.Count;
 		for (var i = 0; i < shared; i++)
 			DiffNode(previous[i], next[i], path.Child(i), patches);
@@ -151,6 +159,74 @@ public static class TreeDiff
 			patches.Add(new Unmount(path.Child(i)));
 		for (var i = shared; i < next.Count; i++)
 			MountTree(next[i], path.Child(i), patches);
+	}
+
+	static bool UsesKeys(IReadOnlyList<Element> children)
+	{
+		foreach (var child in children)
+		{
+			if (child.Key is not null)
+				return true;
+		}
+		return false;
+	}
+
+	static void DiffKeyedChildren(
+		IReadOnlyList<Element> previous,
+		IReadOnlyList<Element> next,
+		NodePath path,
+		List<Patch> patches)
+	{
+		RequireKeys(previous);
+		RequireKeys(next);
+		var oldIndex = new Dictionary<string, int>(previous.Count);
+		for (var i = 0; i < previous.Count; i++)
+		{
+			var key = previous[i].Key!;
+			if (!oldIndex.TryAdd(key, i))
+				throw new InvalidOperationException("Duplicate child key.");
+		}
+		var seen = new HashSet<string>(next.Count);
+		var sources = new int[next.Count];
+		for (var i = 0; i < next.Count; i++)
+		{
+			var key = next[i].Key!;
+			if (!seen.Add(key))
+				throw new InvalidOperationException("Duplicate child key.");
+			sources[i] = oldIndex.TryGetValue(key, out var index) ? index : -1;
+		}
+
+		var moved = previous.Count != next.Count;
+		if (!moved)
+		{
+			for (var i = 0; i < sources.Length; i++)
+			{
+				if (sources[i] != i)
+				{
+					moved = true;
+					break;
+				}
+			}
+		}
+		if (moved)
+			patches.Add(new Reorder(path, sources));
+
+		for (var i = 0; i < next.Count; i++)
+		{
+			if (sources[i] < 0)
+				MountTree(next[i], path.Child(i), patches);
+			else
+				DiffNode(previous[sources[i]], next[i], path.Child(i), patches);
+		}
+	}
+
+	static void RequireKeys(IReadOnlyList<Element> children)
+	{
+		foreach (var child in children)
+		{
+			if (child.Key is null)
+				throw new InvalidOperationException("Keyed children cannot be mixed with unkeyed children.");
+		}
 	}
 
 	static void ApplyProps(Element? previous, Element next, NodePath path, List<Patch> patches)
@@ -174,9 +250,10 @@ public static class TreeDiff
 			case TextField field:
 				if (previous is not TextField previousField
 					|| previousField.Value != field.Value
-					|| previousField.Placeholder != field.Placeholder)
+					|| previousField.Placeholder != field.Placeholder
+					|| previousField.AccessibilityLabel != field.AccessibilityLabel)
 				{
-					patches.Add(new SetTextField(path, field.Value, field.Placeholder));
+					patches.Add(new SetTextField(path, field.Value, field.Placeholder, field.AccessibilityLabel));
 				}
 				return;
 			default:

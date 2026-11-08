@@ -46,13 +46,18 @@ sealed class MemoryHost : IElementHost<MemoryNode>
 		view.AccessibilityLabel = accessibilityLabel;
 	}
 
-	public void SetTextField(MemoryNode view, string value, string placeholder)
+	public void SetTextField(MemoryNode view, string value, string placeholder, string accessibilityLabel)
 	{
 		view.Value = value;
 		view.Placeholder = placeholder;
+		view.AccessibilityLabel = accessibilityLabel;
 	}
 
 	public void OnMounted(NodePath path, MemoryNode view)
+	{
+	}
+
+	public void Retarget(NodePath path, MemoryNode view)
 	{
 	}
 

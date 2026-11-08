@@ -1,22 +1,50 @@
 #if DEBUG
 using System.Diagnostics.CodeAnalysis;
-using System.Net;
-using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Security.Cryptography;
 using System.Text;
+using Android.Net;
 
 namespace NativePoc;
 
 static class HotReloadServer
 {
-	public const int Port = 18765;
+	const int TokenBytes = 16;
+
+	static readonly object Gate = new();
+
+	static int _started;
+
+	static byte[]? _token;
 
 	static AssemblyLoadContext? _loaded;
 
-	public static void Start()
+	public static void Start(string tokenHex)
 	{
-		var thread = new Thread(Listen)
+		if (Interlocked.CompareExchange(ref _started, 1, 0) != 0)
+		{
+			Android.Util.Log.Info(MainActivity.Tag, "hotreload-listen already");
+			return;
+		}
+
+		byte[] token;
+		try
+		{
+			if (tokenHex.Length != TokenBytes * 2)
+				throw new FormatException("The hot reload token is the wrong length.");
+			token = Convert.FromHexString(tokenHex);
+		}
+		catch (Exception ex)
+		{
+			Interlocked.Exchange(ref _started, 0);
+			Android.Util.Log.Error(MainActivity.Tag, "hotreload-error " + ex.GetType().Name + " " + ex.Message);
+			return;
+		}
+
+		lock (Gate)
+			_token = token;
+		var thread = new Thread(() => Listen(tokenHex.ToLowerInvariant()))
 		{
 			IsBackground = true,
 			Name = "hot-reload",
@@ -24,46 +52,71 @@ static class HotReloadServer
 		thread.Start();
 	}
 
-	static void Listen()
+	static void Listen(string tokenHex)
 	{
-		var listener = new TcpListener(IPAddress.Loopback, Port);
-		listener.Start();
-		Android.Util.Log.Info(MainActivity.Tag, "hotreload-listen " + Port);
+		var name = "npoc-" + tokenHex;
+		LocalServerSocket listener;
+		try
+		{
+			listener = new LocalServerSocket(name);
+		}
+		catch (Exception ex)
+		{
+			Interlocked.Exchange(ref _started, 0);
+			Android.Util.Log.Error(MainActivity.Tag, "hotreload-error " + ex.GetType().Name + " " + ex.Message);
+			return;
+		}
+
+		Android.Util.Log.Info(MainActivity.Tag, "hotreload-listen localabstract:" + name);
 		while (true)
 		{
-			var client = listener.AcceptTcpClient();
+			LocalSocket? client = null;
 			try
 			{
-				client.NoDelay = true;
+				client = listener.Accept();
+				if (client is null)
+					throw new InvalidOperationException("The abstract socket accept returned no peer.");
 				Handle(client);
 			}
 			catch (Exception ex)
 			{
 				Android.Util.Log.Error(MainActivity.Tag, "hotreload-error " + ex.GetType().Name + " " + ex.Message);
-				try
+				if (client is not null)
 				{
-					WriteResponse(client.GetStream(), false, ex.GetType().Name + ": " + ex.Message);
-				}
-				catch (Exception writeError)
-				{
-					Android.Util.Log.Error(MainActivity.Tag, "hotreload-reply-failed " + writeError.Message);
+					try
+					{
+						WriteResponse(Output(client), false, ex.GetType().Name + ": " + ex.Message);
+					}
+					catch (Exception writeError)
+					{
+						Android.Util.Log.Error(MainActivity.Tag, "hotreload-reply-failed " + writeError.Message);
+					}
 				}
 			}
 			finally
 			{
-				client.Dispose();
+				client?.Dispose();
 			}
 		}
 	}
 
-	static void Handle(TcpClient client)
+	static void Handle(LocalSocket client)
 	{
-		var stream = client.GetStream();
-		var length = ReadInt(stream);
+		var input = Input(client);
+		var output = Output(client);
+		var presented = new byte[TokenBytes];
+		ReadExact(input, presented);
+		byte[] expected;
+		lock (Gate)
+			expected = _token ?? throw new InvalidOperationException("The hot reload listener has no token.");
+		if (!CryptographicOperations.FixedTimeEquals(presented, expected))
+			throw new UnauthorizedAccessException("Rejected hot reload token.");
+
+		var length = ReadInt(input);
 		if (length <= 0 || length > 8 * 1024 * 1024)
 			throw new InvalidOperationException("Rejected screen assembly length " + length + ".");
 		var dll = new byte[length];
-		ReadExact(stream, dll);
+		ReadExact(input, dll);
 		var activity = MainActivity.Current;
 		if (activity is null)
 			throw new InvalidOperationException("No activity is current.");
@@ -90,7 +143,7 @@ static class HotReloadServer
 			throw new TimeoutException("The UI thread did not apply the screen assembly.");
 		if (error is not null)
 			throw error;
-		WriteResponse(stream, true, title);
+		WriteResponse(output, true, title);
 	}
 
 	[UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Debug-only loader for a screen assembly compiled on the host.")]
@@ -152,14 +205,40 @@ static class HotReloadServer
 
 	static Assembly? Resolve(AssemblyName name)
 	{
-		if (name.Name == "NativePoc.Core")
+		var simple = name.Name;
+		if (simple == "NativePoc.Core")
 			return typeof(AppSession).Assembly;
-		foreach (var loaded in AssemblyLoadContext.Default.Assemblies)
+		if (IsFrameworkName(simple))
 		{
-			if (loaded.GetName().Name == name.Name)
-				return loaded;
+			foreach (var loaded in AssemblyLoadContext.Default.Assemblies)
+			{
+				if (loaded.GetName().Name == simple)
+					return loaded;
+			}
 		}
 		return null;
+	}
+
+	static bool IsFrameworkName(string? name)
+	{
+		if (string.IsNullOrEmpty(name))
+			return false;
+		return name == "System.Private.CoreLib"
+			|| name == "netstandard"
+			|| name == "mscorlib"
+			|| name.StartsWith("System.", StringComparison.Ordinal);
+	}
+
+	static Stream Input(LocalSocket socket)
+	{
+		var stream = socket.InputStream ?? throw new InvalidOperationException("The hot reload socket has no input stream.");
+		return stream;
+	}
+
+	static Stream Output(LocalSocket socket)
+	{
+		var stream = socket.OutputStream ?? throw new InvalidOperationException("The hot reload socket has no output stream.");
+		return stream;
 	}
 
 	static int ReadInt(Stream stream)

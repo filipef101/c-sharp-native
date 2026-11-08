@@ -16,6 +16,7 @@ public static class Screen
 					state.Name = value;
 					platform.RequestRender();
 				},
+				"Name",
 				"Name"),
 			new Button(
 				"Save",

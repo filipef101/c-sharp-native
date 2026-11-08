@@ -10,6 +10,8 @@ public enum ElementKind
 
 public abstract record Element
 {
+	public string? Key { get; init; }
+
 	private protected Element()
 	{
 	}
@@ -21,7 +23,7 @@ public sealed record Text(string Value) : Element;
 
 public sealed record Button(string Title, Action OnPress, string AccessibilityLabel) : Element;
 
-public sealed record TextField(string Value, Action<string> OnChange, string Placeholder) : Element;
+public sealed record TextField(string Value, Action<string> OnChange, string Placeholder, string AccessibilityLabel) : Element;
 
 public interface IPlatform
 {

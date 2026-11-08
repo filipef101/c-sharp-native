@@ -1,0 +1,5 @@
+11-08 12:35:19.866  5806  5806 I NativePoc: activity-start tick=524199
+11-08 12:35:19.866  5806  5806 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 12:35:19.948  5806  5806 I NativePoc: field-handle 14758
+11-08 12:35:19.957  5806  5806 I NativePoc: button-mounted handle=15046 tick=524295
+11-08 12:35:19.958  5806  5806 I NativePoc: rendered count=0 name-length=0 title=Counter 0

@@ -1,0 +1,7 @@
+apk mono-aot-x64-review.apk bytes=3795146
+APK lib/x86_64/libSystem.IO.Compression.Native.so size=825832 title=:ascii
+APK lib/x86_64/libarc.bin.so size=19112 MetadataUpdater:ascii
+APK lib/x86_64/libmonodroid.so size=1431240 AssemblyLoadContext:ascii
+APK lib/x86_64/libmonosgen-2.0.so size=3290280 LoadFromStream:ascii,AssemblyLoadContext:ascii,MetadataUpdater:ascii,title=:ascii
+DLL /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll bytes=22016 LoadFromStream:ascii,HotReloadServer:ascii,AssemblyLoadContext:ascii,hotreload-listen:utf16,nativepoc-screen:utf16,LocalServerSocket:ascii,localabstract:utf16,MetadataUpdater:ascii,title=:utf16
+DLL /workspace/src/NativePoc.Android/bin/Release/net10.0-android/android-x64/NativePoc.Android.dll bytes=12800 title=:utf16

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -58,10 +59,9 @@ return exit;
 
 void MeasureEndToEnd(string repo, string source)
 {
-	Line("clock=file-write then Roslyn compile then TCP send through the post-render reply");
+	Line("clock=file-write then Roslyn compile then abstract-socket send through the post-render reply");
 	Line("cold=sample 0, the first load after process start; no compile and no send before it");
 	var references = References(repo);
-	Adb("forward", "tcp:" + Port, "tcp:" + Port);
 	RestartApp();
 	PrepareState();
 	var pid = Pid();
@@ -105,7 +105,7 @@ void MeasureEndToEnd(string repo, string source)
 
 void MeasureTransfer(string repo, string source)
 {
-	Line("clock=TCP send of an already compiled DLL through the post-render reply");
+	Line("clock=abstract-socket send of an already compiled DLL through the post-render reply");
 	Line("compile and file write happen before the clock; the app is restarted after the DLLs exist");
 	var references = References(repo);
 	var dlls = new byte[Samples][];
@@ -116,7 +116,6 @@ void MeasureTransfer(string repo, string source)
 		Line("precompiled=" + i + " bytes=" + dlls[i].Length);
 	}
 
-	Adb("forward", "tcp:" + Port, "tcp:" + Port);
 	RestartApp();
 	PrepareState();
 	var pid = Pid();
@@ -176,7 +175,8 @@ void SendOnce(string repo, string path)
 	var references = References(repo);
 	var source = File.ReadAllText(path);
 	var dll = Compile(source, references);
-	Adb("forward", "tcp:" + Port, "tcp:" + Port);
+	LoadToken();
+	ForwardAbstract();
 	var started = Stopwatch.GetTimestamp();
 	var reply = Send(dll);
 	var elapsedMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
@@ -293,6 +293,9 @@ static string Send(byte[] dll)
 	header[1] = (byte)(dll.Length >> 8);
 	header[2] = (byte)(dll.Length >> 16);
 	header[3] = (byte)(dll.Length >> 24);
+	if (HotReloadSession.Token.Length != 16)
+		throw new InvalidOperationException("The hot reload token is missing.");
+	stream.Write(HotReloadSession.Token);
 	stream.Write(header);
 	stream.Write(dll);
 	stream.Flush();
@@ -373,20 +376,57 @@ static string LastUiXml()
 
 static void RestartApp()
 {
+	MintToken();
 	Adb("logcat", "-c");
 	Adb("shell", "am", "force-stop", "com.scratch.nativepoc");
 	Thread.Sleep(400);
-	Adb("shell", "am", "start", "-n", "com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity");
+	Adb(
+		"shell",
+		"am",
+		"start",
+		"-n",
+		"com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity",
+		"--es",
+		"nativepoc_hotreload",
+		HotReloadSession.Hex);
+	var marker = "hotreload-listen localabstract:npoc-" + HotReloadSession.Hex;
 	for (var i = 0; i < 50; i++)
 	{
 		Thread.Sleep(200);
 		var listed = AdbAllowFail("shell", "pidof", "com.scratch.nativepoc").Trim();
 		var logged = AdbAllowFail("logcat", "-d", "-s", "NativePoc:I");
-		if (listed.Length > 0 && logged.Contains("hotreload-listen", StringComparison.Ordinal))
+		if (listed.Length > 0 && logged.Contains(marker, StringComparison.Ordinal))
+		{
+			ForwardAbstract();
 			return;
+		}
 	}
 
-	throw new InvalidOperationException("The app did not open the hot reload port.");
+	throw new InvalidOperationException("The app did not open the hot reload socket.");
+}
+
+static void MintToken()
+{
+	var token = RandomNumberGenerator.GetBytes(16);
+	HotReloadSession.Token = token;
+	HotReloadSession.Hex = Convert.ToHexString(token).ToLowerInvariant();
+	File.WriteAllText(HotReloadSession.TokenPath, HotReloadSession.Hex);
+}
+
+static void LoadToken()
+{
+	if (HotReloadSession.Token.Length == 16)
+		return;
+	var hex = File.ReadAllText(HotReloadSession.TokenPath).Trim();
+	HotReloadSession.Hex = hex;
+	HotReloadSession.Token = Convert.FromHexString(hex);
+}
+
+static void ForwardAbstract()
+{
+	LoadToken();
+	AdbAllowFail("forward", "--remove", "tcp:" + Port);
+	Adb("forward", "tcp:" + Port, "localabstract:npoc-" + HotReloadSession.Hex);
 }
 
 static string Pid()
@@ -456,4 +496,13 @@ static (int Code, string Stdout, string Stderr) AdbRaw(string[] args)
 	var stderr = process.StandardError.ReadToEnd();
 	process.WaitForExit();
 	return (process.ExitCode, stdout, stderr);
+}
+
+static class HotReloadSession
+{
+	public static byte[] Token { get; set; } = [];
+
+	public static string Hex { get; set; } = "";
+
+	public static string TokenPath => Path.Combine(Path.GetTempPath(), "nativepoc-hotreload.token");
 }

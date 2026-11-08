@@ -224,6 +224,7 @@ public sealed class ReconcilerTests
 					state.Name = value;
 					platform.RequestRender();
 				},
+				"Name",
 				"Name"),
 			new Button(
 				"Save",
@@ -236,6 +237,77 @@ public sealed class ReconcilerTests
 				"Save name"),
 			new Text(state.Name.Length == 0 ? "Enter a name" : "Hello " + state.Name),
 		]);
+	}
+
+	[Fact]
+	public void Deleting_a_middle_keyed_child_keeps_the_other_views()
+	{
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(new Column(
+		[
+			new Text("a") { Key = "a" },
+			new Text("b") { Key = "b" },
+			new Text("c") { Key = "c" },
+		]));
+		var first = reconciler.ViewAt(NodePath.Root.Child(0)).Identity;
+		var third = reconciler.ViewAt(NodePath.Root.Child(2)).Identity;
+
+		reconciler.Render(new Column(
+		[
+			new Text("a") { Key = "a" },
+			new Text("c") { Key = "c" },
+		]));
+
+		Assert.Equal(first, reconciler.ViewAt(NodePath.Root.Child(0)).Identity);
+		Assert.Equal("a", reconciler.ViewAt(NodePath.Root.Child(0)).Text);
+		Assert.Equal(third, reconciler.ViewAt(NodePath.Root.Child(1)).Identity);
+		Assert.Equal("c", reconciler.ViewAt(NodePath.Root.Child(1)).Text);
+		Assert.Equal(2, reconciler.Root!.Children.Count);
+	}
+
+	[Fact]
+	public void Reordering_keyed_children_keeps_each_view()
+	{
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(new Column(
+		[
+			new Text("a") { Key = "a" },
+			new Text("b") { Key = "b" },
+		]));
+		var first = reconciler.ViewAt(NodePath.Root.Child(0)).Identity;
+		var second = reconciler.ViewAt(NodePath.Root.Child(1)).Identity;
+
+		reconciler.Render(new Column(
+		[
+			new Text("b") { Key = "b" },
+			new Text("a") { Key = "a" },
+		]));
+
+		Assert.Equal(second, reconciler.ViewAt(NodePath.Root.Child(0)).Identity);
+		Assert.Equal("b", reconciler.ViewAt(NodePath.Root.Child(0)).Text);
+		Assert.Equal(first, reconciler.ViewAt(NodePath.Root.Child(1)).Identity);
+		Assert.Equal("a", reconciler.ViewAt(NodePath.Root.Child(1)).Text);
+	}
+
+	[Fact]
+	public void Deleting_a_leading_keyed_field_keeps_the_shifted_field()
+	{
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(new Column(
+		[
+			new TextField("keep", _ => { }, "Keep", "Keep field") { Key = "keep" },
+			new TextField("shifted", _ => { }, "Shifted", "Shifted field") { Key = "shifted" },
+		]));
+		var shifted = reconciler.ViewAt(NodePath.Root.Child(1)).Identity;
+
+		reconciler.Render(new Column(
+		[
+			new TextField("shifted", _ => { }, "Shifted", "Shifted field") { Key = "shifted" },
+		]));
+
+		Assert.Equal(shifted, reconciler.ViewAt(NodePath.Root.Child(0)).Identity);
+		Assert.Equal("shifted", reconciler.ViewAt(NodePath.Root.Child(0)).Value);
+		Assert.Single(reconciler.Root!.Children);
 	}
 
 	[Fact]

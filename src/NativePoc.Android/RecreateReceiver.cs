@@ -3,7 +3,7 @@ using Android.Content;
 
 namespace NativePoc;
 
-[BroadcastReceiver(Enabled = true, Exported = true)]
+[BroadcastReceiver(Enabled = true, Exported = false, Permission = "android.permission.DUMP")]
 [IntentFilter(new[] { "com.scratch.nativepoc.RECREATE" })]
 public sealed class RecreateReceiver : BroadcastReceiver
 {

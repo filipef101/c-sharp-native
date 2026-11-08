@@ -38,7 +38,9 @@ public sealed class MainActivity : Activity
 			throw new InvalidOperationException("Screen did not mount a root view.");
 		SetContentView(_reconciler.Root);
 #if DEBUG
-		HotReloadServer.Start();
+		var token = Intent?.GetStringExtra("nativepoc_hotreload");
+		if (!string.IsNullOrEmpty(token))
+			HotReloadServer.Start(token);
 #endif
 	}
 
@@ -83,8 +85,17 @@ public sealed class MainActivity : Activity
 
 	public string UseRender(Func<AppState, IPlatform, Element> render)
 	{
+		var previous = _render;
 		_render = render;
-		RenderNow();
+		try
+		{
+			RenderNow();
+		}
+		catch
+		{
+			_render = previous;
+			throw;
+		}
 		return LastTitle;
 	}
 

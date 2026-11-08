@@ -1,0 +1,100 @@
+$ adb shell am force-stop com.companyname.mauibaseline
+$ adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1093
+WaitTime: 1127
+Complete
+
+$ adb shell am force-stop com.companyname.mauibaseline
+$ adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1129
+WaitTime: 1133
+Complete
+
+$ adb shell am force-stop com.companyname.mauibaseline
+$ adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1109
+WaitTime: 1126
+Complete
+
+$ adb shell am force-stop com.companyname.mauibaseline
+$ adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1144
+WaitTime: 1147
+Complete
+
+$ adb shell am force-stop com.companyname.mauibaseline
+$ adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1135
+WaitTime: 1152
+Complete
+
+$ adb shell am force-stop com.companyname.mauibaseline
+$ adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1010
+WaitTime: 1027
+Complete
+
+$ adb shell am force-stop com.companyname.mauibaseline
+$ adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1057
+WaitTime: 1060
+Complete
+
+$ adb shell am force-stop com.companyname.mauibaseline
+$ adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1067
+WaitTime: 1159
+Complete
+
+$ adb shell am force-stop com.companyname.mauibaseline
+$ adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1177
+WaitTime: 1186
+Complete
+
+$ adb shell am force-stop com.companyname.mauibaseline
+$ adb shell am start -W -n com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+Starting: Intent { cmp=com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.companyname.mauibaseline/crc64d72af147769f1039.MainActivity
+TotalTime: 1083
+WaitTime: 1087
+Complete
+

@@ -1,0 +1,5 @@
+command: rg -n XA1040 <existing nativeaot logs>
+ABSENT /workspace/evidence/nativeaot-arm64.log exit=1
+ABSENT /workspace/evidence/nativeaot-x64.log exit=1
+ABSENT /workspace/evidence/nativeaot-x64-rebuild.log exit=1
+MISSING /workspace/evidence/nativeaot-arm64-nowarnserror.log

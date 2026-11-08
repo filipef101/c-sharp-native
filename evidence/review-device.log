@@ -1,0 +1,66 @@
+token-bytes=16
+am-start Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity (has extras) }
+listen-seen
+pid-start=5119
+screenshot=review-empty.png
+empty-text=Name
+empty-content-desc=Name
+forward 18765
+wrong-token-reply-len=5
+wrong-token-logged=True
+host-current-exit=0
+host-current once-ms=27.2 bytes=7168 reply=Counter 0 collectible=True
+host-current ui=Native PoC | Counter 0 | Name | Save | Enter a name
+host-current pid=5119
+typed-text=Ada
+typed-content-desc=Name
+saved-texts=Native PoC | Counter 1 | Ada | Save | Hello Ada
+screenshot=review-saved.png
+pid-saved=5119
+button-mounted-before-reload=1
+host-reloaded-exit=0
+host-reloaded once-ms=56.1 bytes=7168 reply=Reloaded 1 collectible=True
+host-reloaded ui=Native PoC | Reloaded 1 | Ada | Store | Hello Ada
+host-reloaded pid=5119
+reloaded-texts=Native PoC | Reloaded 1 | Ada | Store | Hello Ada
+pid-reloaded=5119
+button-mounted-after-reload=1
+screenshot=review-reloaded.png
+core-extra-build=0
+host-shape-exit=1
+host-shape exception=InvalidOperationException MissingMethodException: Method not found: int NativePoc.AppState.get_Extra()
+shape-exit-wanted-nonzero=True
+shape-missing-method=True
+shape-missing-count=1
+shape-texts=Native PoC | Reloaded 1 | AdaX | Store | Hello AdaX
+pid-shape=5119
+shape-missing-count-after-key=1
+shape-last-rendered=11-08 12:31:43.289  5119  5119 I NativePoc: rendered count=1 name-length=4 title=Reloaded 1
+screenshot=review-shape-rollback.png
+core-restore-build=0
+host-restored-exit=0
+host-restored once-ms=16.4 bytes=7168 reply=Counter 1 collectible=True
+host-restored ui=Native PoC | Counter 1 | AdaX | Save | Hello AdaX
+host-restored pid=5119
+restore-exit=0
+restored-texts=Native PoC | Counter 1 | AdaX | Save | Hello AdaX
+pid-restored=5119
+button-mounted-after-restore=1
+broadcast=Broadcasting: Intent { act=com.scratch.nativepoc.RECREATE flg=0x400000 cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.RecreateReceiver } Broadcast completed: result=0
+pid-after-broadcast=5119
+listen-already-after-broadcast=0
+pid-landscape=5119
+pid-portrait=5119
+listen-lines=1
+listen-already=2
+button-mounted-after-rotation=3
+screenshot=review-rotated.png
+host-after-recreate-exit=0
+host-after-recreate once-ms=19.3 bytes=7168 reply=Counter 1 collectible=True
+host-after-recreate ui=Native PoC | Counter 1 | AdaX | Save | Hello AdaX
+host-after-recreate pid=5119
+after-recreate-exit=0
+after-recreate-texts=Native PoC | Counter 1 | AdaX | Save | Hello AdaX
+pid-after-recreate-send=5119
+tcp-has-494D=False
+unix-has-token=True
