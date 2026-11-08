@@ -2,7 +2,7 @@
 
 Measured on this machine on 2026-11-08. Nothing here is a guessed latency, a guessed size, or a screenshot that was not captured. iOS was not built and was not run.
 
-The current measured result is the KVM round below. Release publish is NativeAOT. On that x64 boot its 10-run `TotalTime` median is under the MAUI template median measured next. Profiled Mono AOT and full Mono AOT were not. TCG startup numbers further down are withdrawn. Sentences that still mention `TcpListener`, port 18765, or `localabstract:npoc-hotreload` describe an earlier listener. The current Debug listener is the cnative contract below. Release does not contain it. The android-arm64 APKs in the next section were built later, on workload `android` 36.1.118, and were not timed on this host.
+The current measured result is the KVM round below. Release publish is NativeAOT. On that x64 boot its 10-run `TotalTime` median is under the MAUI template median measured next. Profiled Mono AOT and full Mono AOT were not. TCG startup numbers further down are withdrawn. Sentences that still mention `TcpListener`, port 18765, or `localabstract:npoc-hotreload` describe an earlier listener. The current Debug listener is the cnative contract below. Release does not contain it. The android-arm64 APKs in the next section were built later, on workload `android` 36.1.118. They were not timed on this host. The coordinator measured them on a Mac arm64 emulator. NativeAOT had the lowest p50.
 
 ## cnative token contract
 
@@ -37,7 +37,42 @@ A scan of the three NativePoc APKs found no `nativepoc-hotreload.token`, `hotrel
 | `nativepoc-full-aot-android-arm64-release.apk` | 4376847 | `28ead001f58aba1f001a3f4fb348283f14885ef970fe542840ddd8d88e631401` | `com.scratch.nativepoc` / `crc64ee53024f7ed0aa60.MainActivity` |
 | `nativepoc-nativeaot-android-arm64-release.apk` | 2359648 | `6d13987efec45db1a517e1f801f61ab25976f4cd01f1d2759e4d883515563739` | `com.scratch.nativepoc` / `crc64ee53024f7ed0aa60.MainActivity` |
 
-The copies and `measure.sh` are under `/opt/cursor/artifacts/`. The script in this repo is `tools/measure-arm64-startup.sh`, the same file. It checks those sha256 values, installs with `adb install -r -d`, then runs 20 `adb shell am start -W -S -n <package>/<activity>` starts. A sample without exactly one `TotalTime`, or with `LaunchState` other than `COLD`, stops the script. Nothing is dropped. p50 and p90 are Hyndman-Fan type 7: for n=20, p50 is the mean of the 10th and 11th sorted `TotalTime` values, and p90 interpolates the 18th and 19th at h=18.1. The script uses `adb`, `sh`, `awk`, `sort`, and `sha256sum` or `shasum`. It was exercised here against a fake `adb` that returned `TotalTime` 1 through 20. That run printed p50 `10.5` and p90 `18.1` for each APK. It was not run against a device, and it produced no startup numbers for these APKs.
+The copies and `measure.sh` are under `/opt/cursor/artifacts/`. The script in this repo is `tools/measure-arm64-startup.sh`, the same file. It checks those sha256 values, installs with `adb install -r -d`, then runs 20 `adb shell am start -W -S -n <package>/<activity>` starts. A sample without exactly one `TotalTime`, or with `LaunchState` other than `COLD`, stops the script. Nothing is dropped. p50 and p90 are Hyndman-Fan type 7: for n=20, p50 is the mean of the 10th and 11th sorted `TotalTime` values, and p90 interpolates the 18th and 19th at h=18.1. The script uses `adb`, `sh`, `awk`, `sort`, and `sha256sum` or `shasum`. It was exercised here against a fake `adb` that returned `TotalTime` 1 through 20. That run printed p50 `10.5` and p90 `18.1` for each APK. This host did not run it against an arm64 emulator.
+
+Measured on Mac arm64 emulator by coordinator. The device was `pixel_8`, API 36. Each figure is `TotalTime` from `adb shell am start -W -S`, n=20. The raw samples were not in the report given to this host, so only the percentiles below are recorded.
+
+| Config | p50 | p90 |
+| --- | --- | --- |
+| MAUI empty baseline | 1604 | 1729 |
+| Mono profiled AOT | 1533.5 | 1804 |
+| Mono full AOT | 1428.5 | 1682.9 |
+| NativeAOT | 1300 | 1711.3 |
+
+An earlier pass on that emulator, also measured on Mac arm64 emulator by coordinator, gave NativeAOT p50 1305.5 and full AOT p50 1548.5. No p90 was given for that pass. NativeAOT is the lowest p50 in both passes. These numbers are not from the x64 KVM boot.
+
+## NativeAOT on the same KVM boot
+
+**RUN** for the screen. **BUILT** for the warning change. Not a new timing series.
+
+`dotnet publish -c Release -f net10.0-android -r android-x64` after `IL3053` was removed from the warning list. Log `evidence/nativeaot-x64-validate-publish.log`, exit 0. `rg -n "warning |error "` on that log prints nothing. `XA1040` is absent. ILC still prints two notes, not warnings, that `monodroid_unhandled_exception` and `monodroid_debugger_unhandled_exception` will always throw. The signed APK is 2490717 bytes, `native-code: x86_64`, activity `crc64ee53024f7ed0aa60.MainActivity`, one native library `lib/x86_64/libNativePoc.Android.so` of 5748992 bytes. Workload `android` is `36.1.118`. The emulator is the same QEMU pid 4661, API 34, `x86_64`, holding `/dev/kvm`.
+
+Turning `TrimmerSingleWarn` off makes the old `IL3053` into three `IL3050` errors, all inside the linked `Mono.Android.dll`, none in `NativePoc.Android.dll`, `NativePoc.Core.dll`, or `NativePoc.Screen.dll`. `evidence/il3053-detail.log`.
+
+| Method | Call |
+| --- | --- |
+| `ManagedTypeManager.<GetInvokerTypeCore>g__MakeGenericType\|4_1` | `Type.MakeGenericType` |
+| `JNIEnv.MakeArrayType` | `Type.MakeArrayType` |
+| `JNINativeWrapper.CreateDelegate` | `DynamicMethod` constructor |
+
+The workload source disables `IL3050` with a pragma around those calls (dotnet/android issue 8724). The pragma does not put `UnconditionalSuppressMessage` for `IL3050` on the IL, so ILC still reports them and `--singlewarn` collapses them to `IL3053`. `CreateDelegate` has no caller in the linked assemblies. `MakeArrayType` is called from `JNIEnv.CopyArray` and `JNIEnv._GetArray`. `MakeGenericType` is the managed type map's invoker helper. Workload 36.1.118 has no trimmable type map to switch to. An `ILLink.LinkAttributes.xml` does not reach ILC: the linker applies it only to its own pass and does not write the attribute into the assembly ILC reads. `<NoWarn>$(NoWarn);IL3053</NoWarn>` is what ILC receives as `--nowarn`. `IL3050` is not in that list, and `IL3053` is not in `WarningsNotAsErrors`, so a warning in this repo's assemblies still fails the publish. Host tests: 26 passed, 0 failed. `evidence/unit-tests-il3053.log`.
+
+The installed process is pid 16198. `IsDynamicCodeSupported=False` and `IsDynamicCodeCompiled=False`. The first frame is `Counter 0`, an empty `EditText` whose hint is `Name`, `Save`, and `Enter a name`. `evidence/kvm-nativeaot-validate-render.png`. Typing `Ada` kept field handle 11974, title handle 11814, button handle 12294, and greeting handle 12458, and the greeting became `Hello Ada`. `evidence/kvm-nativeaot-validate-typed.png`. Save logged `clipboard-ok poc-1` and showed `Counter 1` on those same four handles. `evidence/kvm-nativeaot-validate-saved.png`. `button-mounted` happened once before the rotation.
+
+`settings put system user_rotation 1` recreated the activity on pid 16198. The new field handle is 14310 and the new button handle is 12846. The UI stayed `Counter 1`, `Ada`, `Hello Ada`. `evidence/kvm-nativeaot-validate-rotated.png`. Rotation back to portrait was another `activity-start` on pid 16198, field handle 14918, button handle 15110, same three strings. `evidence/kvm-nativeaot-validate-portrait.png`.
+
+A second process, pid 16467, was started with `--es nativepoc_keyed_move 1` after `force-stop`. The first render mounted title 11814, field 11974, button 12294, greeting 12458. The second render, still inside `OnCreate`, moved the greeting to index 0 and the title to index 3 and kept those four handles. `button-mounted` was logged once. The UI order was `Enter a name`, `Name`, `Save`, `Counter 0`. `evidence/kvm-nativeaot-validate-keyed.png`. The full log is `evidence/kvm-nativeaot-validate.log`. It has no `hotreload` line. A launch without the extra keeps the original order. The Mac percentiles above were measured on the APKs built before this extra and the tree log existed.
+
+Release publish stays NativeAOT. Mono AOT remains `-p:PublishAot=false`, and full AOT adds `-p:AndroidEnableProfiledAot=false`.
 
 ## KVM round
 
