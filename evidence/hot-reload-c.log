@@ -1,28 +1,28 @@
 clock=Roslyn compile of an in-memory source string; no file write and no socket
 cold=sample 0, the first compilation in this process
-sample=0 ms=456.8 bytes=7680
-sample=1 ms=14.2 bytes=7680
-sample=2 ms=8.9 bytes=7680
-sample=3 ms=7.5 bytes=7680
-sample=4 ms=8.1 bytes=7680
-sample=5 ms=8.2 bytes=7680
-sample=6 ms=8.5 bytes=7680
-sample=7 ms=7.4 bytes=7680
-sample=8 ms=7.0 bytes=7680
-sample=9 ms=7.6 bytes=7680
-sample=10 ms=7.4 bytes=7680
-sample=11 ms=7.5 bytes=7680
-sample=12 ms=7.2 bytes=7680
-sample=13 ms=6.9 bytes=7680
-sample=14 ms=7.5 bytes=7680
-sample=15 ms=7.5 bytes=7680
-sample=16 ms=7.3 bytes=7680
-sample=17 ms=7.3 bytes=7680
-sample=18 ms=7.2 bytes=7680
-sample=19 ms=7.7 bytes=7680
-samples-ms=456.8,14.2,8.9,7.5,8.1,8.2,8.5,7.4,7.0,7.6,7.4,7.5,7.2,6.9,7.5,7.5,7.3,7.3,7.2,7.7
-cold-ms=456.8
-p50-all-ms=7.5
-p50-warm-ms=7.5
-min-ms=6.9
-max-ms=456.8
+sample=0 ms=431.2 bytes=3584
+sample=1 ms=9.5 bytes=3584
+sample=2 ms=6.1 bytes=3584
+sample=3 ms=6.6 bytes=3584
+sample=4 ms=5.3 bytes=3584
+sample=5 ms=5.7 bytes=3584
+sample=6 ms=5.4 bytes=3584
+sample=7 ms=5.4 bytes=3584
+sample=8 ms=7.1 bytes=3584
+sample=9 ms=5.4 bytes=3584
+sample=10 ms=6.1 bytes=3584
+sample=11 ms=5.3 bytes=3584
+sample=12 ms=5.3 bytes=3584
+sample=13 ms=5.2 bytes=3584
+sample=14 ms=4.6 bytes=3584
+sample=15 ms=8.4 bytes=3584
+sample=16 ms=5.3 bytes=3584
+sample=17 ms=4.9 bytes=3584
+sample=18 ms=15.9 bytes=3584
+sample=19 ms=6.3 bytes=3584
+samples-ms=431.2,9.5,6.1,6.6,5.3,5.7,5.4,5.4,7.1,5.4,6.1,5.3,5.3,5.2,4.6,8.4,5.3,4.9,15.9,6.3
+cold-ms=431.2
+p50-all-ms=5.5
+p50-warm-ms=5.4
+min-ms=4.6
+max-ms=431.2

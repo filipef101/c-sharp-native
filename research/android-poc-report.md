@@ -2,11 +2,11 @@
 
 Measured on this machine on 2026-11-08. Nothing here is a guessed latency, a guessed size, or a screenshot that was not captured. iOS was not built and was not run.
 
-The current measured result is the KVM round below. Release publish is NativeAOT. On that x64 boot its 10-run `TotalTime` median is under the MAUI template median measured next. Profiled Mono AOT and full Mono AOT were not. TCG startup numbers further down are withdrawn. Sentences that still mention `TcpListener` or port 18765 describe an earlier listener. The current Debug listener is the cnative contract below: the abstract name is the fixed non-secret `npoc-hotreload`, and the file token is checked in the handshake. `localabstract:npoc-<hex>` was the previous name and is not current. Release does not contain the listener. The android-arm64 APKs in the next section were built later, on workload `android` 36.1.118. They were not timed on this host. The coordinator measured them on a Mac arm64 emulator. NativeAOT had the lowest p50. Its p90 was not the lowest.
+The current measured result is the KVM round below. Release publish is NativeAOT. On that x64 boot its 10-run `TotalTime` median is under the MAUI template median measured next. Profiled Mono AOT and full Mono AOT were not. TCG startup numbers further down are withdrawn. Sentences that describe a `TcpListener` inside the app are an earlier listener. The current Debug listener is the cnative contract below: the abstract name is the fixed non-secret `npoc-hotreload`, and the file token is checked in the handshake. The host forwards `tcp:18765` to that socket. `localabstract:npoc-<hex>` was the previous name and is not current. Release does not contain the listener. The android-arm64 APKs in the next section were built later, on workload `android` 36.1.118. They were not timed on this host. The coordinator measured them on a Mac arm64 emulator. NativeAOT had the lowest p50. Its p90 was not the lowest.
 
 ## cnative token contract
 
-Debug only. `OnCreate` calls `HotReloadServer.Start` with no launch extra. The process draws 16 random bytes, deletes a stale `files/hotreload.token` if that older file is present, binds the fixed abstract name `localabstract:npoc-hotreload`, and only then writes the 32 hex characters to the private file `files/nativepoc-hotreload.token`. The socket name is not the token. The first 16 handshake bytes are compared with that file. The log line is `hotreload-listen`, with no token and no socket name. In code, a second `Start` logs `hotreload-listen already` and does not bind again. `tools/NativePoc.HotReload.Host` forwards `tcp:18765` to `localabstract:npoc-hotreload` and still sends the file token as the handshake. `tools/devx` was not changed.
+Debug only. `OnCreate` calls `HotReloadServer.Start` with no launch extra. The process draws 16 random bytes, deletes a stale `files/hotreload.token` if that older file is present, binds the fixed abstract name `localabstract:npoc-hotreload`, and only then writes the 32 hex characters to the private file `files/nativepoc-hotreload.token`. The socket name is not the token. The token is a per-process bearer value. The host copies it to its temp file, `nativepoc-hotreload.token` under `Path.GetTempPath()`, and sends those 16 bytes on each connection. A new process mints a new token. The first 16 handshake bytes are compared with the process token. The log line is `hotreload-listen`, with no token and no socket name. In code, a second `Start` logs `hotreload-listen already` and does not bind again. `tools/NativePoc.HotReload.Host` forwards `tcp:18765` to `localabstract:npoc-hotreload`. Release does not compile the listener. `tools/devx` was not changed.
 
 The previous device check, `evidence/token-contract-check.log`, is the loader that bound `localabstract:npoc-<hex>`. On that boot a forward to `localabstract:npoc-hotreload` did not complete the handshake, because that name was not the socket. A launch with `--es nativepoc_hotreload 00112233445566778899aabbccddeeff` published a different 32-hex file. The forged extra and the file token were absent from logcat. `files/hotreload.token` was gone. `run-as` could not read `/proc/net/unix` (`Permission denied`). A forward to `localabstract:npoc-<file token>` rejected the forged 16 bytes with `UnauthorizedAccessException` and accepted the file token through to `Rejected screen assembly length 0.`
 
@@ -30,7 +30,19 @@ A new process, pid 17069, got one `set-content-view` on launch. A second `am sta
 
 `NoWarn` for `IL3053` stays project-wide. A per-assembly `nowarn` is not in this ILC. The probe that shows an `IL3050` in this repo still fails is in the NativeAOT section.
 
-**UNVERIFIED.** `View.Dispose` was not observed on an `android.view.View`. iOS was not built. The arm64 APKs were not installed here.
+**UNVERIFIED.** `View.Dispose` was not observed on an `android.view.View`. iOS was not built. The arm64 APKs were not installed here. Items 7–10 are not passed. They wait on `cnative run android` evidence from `feat-cnative-kvm-evidence-025b`.
+
+### Debug loader clocks after the socket rename
+
+**RUN** on the same KVM boot. QEMU pid 4661, `emulator-5554`, API 34, `x86_64`. These are the Debug loader in `tools/NativePoc.HotReload.Host`, not `cnative run android`, and they do not pass items 7–10. The socket is `localabstract:npoc-hotreload`. The token is the per-process bearer value. The host forwards `tcp:18765`. Cold is sample 0. No sample was dropped. Every device sample stayed on one pid, kept `Ada` and `Hello Ada`, and the reply was `collectible=True`. The listen line is `hotreload-listen`, with no token. `evidence/logcat-hotreload-a-handshake.log`, `evidence/logcat-hotreload-b-handshake.log`.
+
+| Mode | Clock | Samples ms | Cold | p50 all | p50 warm | min | max | Pid |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| (a) end to end | file write, Roslyn compile, abstract-socket send, post-render reply | 641.3, 36.8, 20.7, 16.8, 17.9, 15.5, 18.4, 24.0, 14.7, 15.2, 14.6, 14.7, 13.2, 12.3, 14.2, 13.1, 13.6, 14.4, 15.2, 13.3 | 641.3 | 14.95 | 14.7 | 12.3 | 641.3 | 17211 |
+| (b) precompiled DLL | send through the post-render reply; 20 DLLs of 3584 bytes compiled first | 130.5, 17.5, 7.5, 6.7, 7.3, 5.6, 6.8, 8.2, 6.3, 6.9, 5.7, 10.0, 6.3, 6.3, 6.3, 5.8, 6.6, 7.4, 7.7, 6.3 | 130.5 | 6.75 | 6.7 | 5.6 | 130.5 | 17828 |
+| (c) compile only | in-memory Roslyn emit, no file write, no socket | 431.2, 9.5, 6.1, 6.6, 5.3, 5.7, 5.4, 5.4, 7.1, 5.4, 6.1, 5.3, 5.3, 5.2, 4.6, 8.4, 5.3, 4.9, 15.9, 6.3 | 431.2 | 5.55 | 5.4 | 4.6 | 431.2 |  |
+
+(a) sorted center pair is 14.7 and 15.2, so the p50 is 14.95. The tool prints `p50-all-ms=14.9` and `p50-warm-ms=14.7`. Warm n=19, middle sample 14.7. (b) sorted center pair is 6.7 and 6.8, so the p50 is 6.75. The tool prints `p50-all-ms=6.8` and `p50-warm-ms=6.7`. (c) sorted center pair is 5.4 and 5.7, so the p50 is 5.55. The tool prints `p50-all-ms=5.5` and `p50-warm-ms=5.4`. Logs: `evidence/hot-reload-a.log`, `evidence/hot-reload-b.log`, `evidence/hot-reload-c.log`. Screenshots: `evidence/hot-reload-a-cold.png`, `evidence/hot-reload-a-warm.png`. The earlier series on this boot is `evidence/hot-reload-a-pre-handshake.log`, `evidence/hot-reload-b-pre-handshake.log`, and `evidence/hot-reload-c-pre-handshake.log`.
 
 ## android-arm64 APKs
 
@@ -200,7 +212,7 @@ A separate rotation of the explicit NativeAOT APK kept pid 11906 through landsca
 
 ### Hot reload on this KVM boot, n=20
 
-The listen line in these logs is `hotreload-listen localabstract:npoc-hotreload`. That is this boot's loader. The clocks were not repeated after the socket name stopped being the token.
+The listen line in these logs is `hotreload-listen localabstract:npoc-hotreload`. That is this boot's loader, before the handshake used a separate bearer token. The files are `evidence/hot-reload-a-pre-handshake.log`, `evidence/hot-reload-b-pre-handshake.log`, and `evidence/hot-reload-c-pre-handshake.log`.
 
 Debug only, after `-t:Run`. The host is `tools/NativePoc.HotReload.Host`. Cold is sample 0. Warm is samples 1–19. No sample was dropped. Every device sample stayed on one pid, kept `Ada`, `Hello Ada`, and count 1, and the reply started with the expected title plus `collectible=True`.
 
@@ -210,7 +222,7 @@ Debug only, after `-t:Run`. The host is `tools/NativePoc.HotReload.Host`. Cold i
 | (b) precompiled DLL | send through the post-render reply; 20 DLLs of 7680 bytes compiled first | 63.8, 87.6, 8.3, 7.3, 7.0, 5.6, 7.0, 7.8, 5.7, 6.2, 5.5, 5.3, 5.1, 7.1, 6.2, 8.2, 5.9, 6.3, 5.8, 9.6 | 63.8 | 6.65 | 6.3 | 5.1 | 87.6 | 15006 |
 | (c) compile only | in-memory Roslyn emit, no file write, no socket | 456.8, 14.2, 8.9, 7.5, 8.1, 8.2, 8.5, 7.4, 7.0, 7.6, 7.4, 7.5, 7.2, 6.9, 7.5, 7.5, 7.3, 7.3, 7.2, 7.7 | 456.8 | 7.5 | 7.5 | 6.9 | 456.8 |  |
 
-(a) sorted center pair is 15.4 and 15.4. (b) sorted center pair is 6.3 and 7.0, so the p50 is 6.65; the tool prints `p50-all-ms=6.7`. Sample 1 of (b) is 87.6, which is above the cold sample. (c) sorted center pair is 7.5 and 7.5. Logs: `evidence/hot-reload-a.log`, `evidence/hot-reload-b.log`, `evidence/hot-reload-c.log`. Logcat: `evidence/logcat-hotreload-a-kvm.log` (20 `hotreload-applied`, one listen line, pid 14365), `evidence/logcat-hotreload-b-kvm.log` (20 applies, pid 15006). `Screen.cs` was restored to `TitlePrefix = "Counter "` after (a) and (b). (c) does not write the file.
+(a) sorted center pair is 15.4 and 15.4. (b) sorted center pair is 6.3 and 7.0, so the p50 is 6.65; the tool prints `p50-all-ms=6.7`. Sample 1 of (b) is 87.6, which is above the cold sample. (c) sorted center pair is 7.5 and 7.5. Logs: `evidence/hot-reload-a-pre-handshake.log`, `evidence/hot-reload-b-pre-handshake.log`, `evidence/hot-reload-c-pre-handshake.log`. Logcat: `evidence/logcat-hotreload-a-kvm.log` (20 `hotreload-applied`, one listen line, pid 14365), `evidence/logcat-hotreload-b-kvm.log` (20 applies, pid 15006). `Screen.cs` was restored to `TitlePrefix = "Counter "` after (a) and (b). (c) does not write the file. These clocks were not repeated as the current series. The run after the socket rename is the later section.
 
 ### Screenshots from this boot
 
@@ -223,8 +235,8 @@ Debug only, after `-t:Run`. The host is `tools/NativePoc.HotReload.Host`. Cold i
 - `evidence/kvm-default-empty.png` — default NativeAOT, `Counter 0`, `Name`, `Save`, `Enter a name`
 - `evidence/kvm-default-saved.png` — same config, `Counter 1`, `Ada`, `Hello Ada`, clipboard chip `poc-1`
 - `evidence/kvm-default-rotated.png` — same process after rotation
-- `evidence/hot-reload-a-cold.png` — pid 14365, `A00 1`, `Ada`, `Save`, `Hello Ada`
-- `evidence/hot-reload-a-warm.png` — same process, `A19 1`, `Ada` still in the field
+- `evidence/hot-reload-a-cold-pre-handshake.png` — pid 14365, `A00 1`, `Ada`, `Save`, `Hello Ada`
+- `evidence/hot-reload-a-warm-pre-handshake.png` — same process, `A19 1`, `Ada` still in the field
 - `evidence/hot-reload-b-last.png` — after sample 19 of mode (b), not a timed frame, `B19 1`, `Ada`, `Save`, `Hello Ada`
 
 ### Still unverified
@@ -439,7 +451,7 @@ src/NativePoc.Android/
   MainActivity.cs      holds the render delegate, logs RuntimeFeature
   AndroidHost.cs       LinearLayout, TextView, Button, EditText, ClipboardManager
   HotReload.cs         DEBUG MetadataUpdateHandler, calls RequestRender
-  HotReloadServer.cs   DEBUG abstract socket npoc-<hex>, file nativepoc-hotreload.token, collectible AssemblyLoadContext
+  HotReloadServer.cs   DEBUG localabstract:npoc-hotreload, file token, handshake, collectible AssemblyLoadContext
   RecreateReceiver.cs  DEBUG broadcast com.scratch.nativepoc.RECREATE
   Resources/values/strings.xml
 tools/NativePoc.HotReload.Host/
@@ -471,7 +483,7 @@ dotnet build src/NativePoc.Android/NativePoc.Android.csproj \
   -c Debug -f net10.0-android -r android-x64 -t:Run -p:AdbTarget=-e
 ```
 
-Debug in-place reload, after that deploy. The process generates the token itself. There is no launch extra. The private file is `files/nativepoc-hotreload.token` and the socket is `localabstract:npoc-<hex>`. The token is not logged. The host reads the temp file written by `cnative`, or the same private file, and forwards `tcp:18765` to that socket. It compiles `src/NativePoc.Screen/Screen.cs` with the SDK Roslyn compiler and sends the DLL. `AppSession` stays in the already-loaded `NativePoc.Core` assembly.
+Debug in-place reload, after that deploy. The process generates the token itself. There is no launch extra. The socket is `localabstract:npoc-hotreload`. The handshake checks the token. The token is a per-process bearer value, Debug only. The app writes it to the private file `files/nativepoc-hotreload.token`. The host keeps the same value in its temp file, `nativepoc-hotreload.token` under `Path.GetTempPath()`, and forwards `tcp:18765` to `localabstract:npoc-hotreload`. It compiles `src/NativePoc.Screen/Screen.cs` with the SDK Roslyn compiler and sends the DLL. `AppSession` stays in the already-loaded `NativePoc.Core` assembly. Release does not compile the listener. The supported edit path for acceptance items 7–10 is `cnative run android`. `dotnet watch` restarts the app on this workload. That is a known limitation.
 
 ```bash
 dotnet build tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
@@ -522,7 +534,7 @@ Statuses use the plan's item numbers. "Pass" means the check was observed. A pas
 | 4. Empty name, Save still counts | **Pass** | Debug pid 9673: `rendered count=1 name-length=0`, dump `Counter 1` / `Enter a name`. `evidence/logcat-empty-save.log`. NativeAOT pid 12212: `clipboard-ok poc-1`, same dump. `evidence/logcat-nativeaot-empty-save.log`. |
 | 5. Recreate and rotation keep state | **Pass** on Debug and Mono AOT; rotation **Pass** on NativeAOT | `evidence/logcat-recreate.log` has one `runtime` line and one `rendered count=1 name-length=3` line, both pid 6501. It does not contain a second `runtime` line. That pid matches `evidence/logcat-save.log` at 10:48:50, about 17 seconds earlier. `evidence/debug-recreate-ui.xml` and `evidence/debug-rotate-ui.xml` are the dumps. The receiver is `#if DEBUG`. Mono AOT rotation: pid 7935, new `runtime` line, dump still `Counter 1` / `Ada`. NativeAOT rotation: pid 8254, `rendered count=1 name-length=3`. |
 | 6. Clipboard round-trip, no binding project | **Pass** | `PlatformBridge.CopyNonce` uses `ClipboardManager` and throws if the read differs. Log `clipboard-ok poc-1` on Debug, Mono AOT, and NativeAOT. No `ApiDefinition` / binding project in the tree. |
-| 7–10. In-place hot reload, n=20, p50 ≤ 1500 ms, pid and text stable | **Pass on the n=20 end-to-end series. `dotnet watch` still restarts.** | Series (a): pid 15262, p50 17.5 ms, cold 758.4 ms, `Ada` and counter 1 kept. The earlier 18.1 ms is the n=10 combined clock described above. |
+| 7–10. `cnative run android`, n=20, p50 ≤ 1500 ms, same pid, `Ada` kept | **Not passed.** | The gate is `cnative run android` (`tools/devx` on `feat-cnative-kvm-evidence-025b`). Evidence is linked when that branch lands. `dotnet watch` restarts the app on this workload and is a known limitation, not these items. The Debug loader clocks are a separate measurement. |
 | 11. Rude edit | **Watch restarts. The in-place loader refuses a shape change and keeps the process.** | `evidence/dotnet-watch-rude.log` logs `Stopping: com.scratch.nativepoc` and the `dotnet` host process ids 11554, 11652, 11724, 11829, 11920, and 12024. It does not contain app pids 9931 or 10056. The screen-DLL shape change on pid 15856 returned `MissingMethodException` for `AppState.get_Extra()` and left `Rebound 1` / `Ada` on screen. That trial did not type into the field after the exception. The later trial that does is in the review section. |
 | 12. Release Mono AOT installs and items 1–6 pass | **Pass on android-x64** for the 464b63e rebuild. The 20-handle count was not repeated on this process | Pid 13736: widgets, `Ada` with handle 14758 across three keystrokes, Save, rotation, clipboard. Ten cold starts, p50 1398 ms. **Not run** on arm64. |
 | 13. `libaot-*.so` in the arm64 APK | **Pass** | `lib/arm64-v8a/libaot-NativePoc.Core.dll.so`, `libaot-NativePoc.Android.dll.so`, `libmonosgen-2.0.so`, `libmonodroid.so`. No `libNativePoc.Android.so`. `evidence/apk-listings.txt`. APK 3606628 bytes. |
@@ -534,6 +546,8 @@ Statuses use the plan's item numbers. "Pass" means the check was observed. A pas
 | 19. NativeAOT failed | **Does not apply** to the x64 run | The arm64 link failed once, before the NDK was installed. After `ndk;26.3.11579264` the link succeeded. |
 
 ## In-place hot reload
+
+Items 7–10 are `cnative run android`. They are not passed. Evidence from `feat-cnative-kvm-evidence-025b` is linked when that branch lands. `dotnet watch` restarts the app on this workload. That is a known limitation, and it is not the gate.
 
 `dotnet watch` on SDK 10.0.403 does not update this app in place. Workload `android` 36.1.2, the version installed for that run, has no `HotReloadWebSockets` capability, does not package the startup hook onto the device, and does not reverse a socket. With `StartupHookSupport` left false, `evidence/dotnet-watch.log` says `Project does not support Hot Reload` and then `Stopping: com.scratch.nativepoc`. An earlier draft of this section gave write timestamps, 5459 ms and 5502 ms, and app pids 7177, 7320, and 7443. Those timestamps, deltas, and the pids 7177 and 7443 are not in `evidence/`. The saved UI poll is `evidence/hot-reload-poll.txt`: pid 7320, texts `Tally 0` / `Name` / `Save` / `Enter a name`. `evidence/debug-watch-restart-tally.png` is that cleared screen. `evidence/dotnet-watch-rude.log` is the later `AppState.Extra` watch run. Its process ids are the `dotnet` host, and it logs `Stopping: com.scratch.nativepoc`. Setting `StartupHookSupport` true attached `Microsoft.Extensions.DotNetDeltaApplier` to the short-lived `dotnet run` host (`Process id 9775 ran for 2986ms`, then `Disposing agent communication pipe`). The Android process never connected.
 
@@ -610,7 +624,7 @@ XA1040 was not emitted. `rg -n XA1040` exits 1 on the NativeAOT logs named in it
 
 ## Blockers
 
-- `dotnet watch` still does not reach the Android process. The in-place path is the Debug screen-assembly swap, now on an abstract socket with a per-start token. An `AppState` shape change fails in place with `MissingMethodException`, the previous delegate is restored, and a later keystroke renders the previous screen. The new Release APK does not declare `INTERNET`. The Debug manifest still does, because the SDK adds it.
+- `dotnet watch` restarts the app on this workload. That is a known limitation. Items 7–10 are `cnative run android` and are not passed. The Debug loader is a separate measurement: `localabstract:npoc-hotreload`, a per-process bearer token in the host temp file, and a forward of `tcp:18765`. An `AppState` shape change fails in place with `MissingMethodException`, the previous delegate is restored, and a later keystroke renders the previous screen. The new Release APK does not declare `INTERNET`. The Debug manifest still does, because the SDK adds it.
 - Item 15 passed on this emulator. Item 16, on the earlier KVM boot, did not for profiled Mono AOT: p50 1517.5 ms against the MAUI template p50 1101 ms. That KVM then faulted in `kvm_arch_vcpu_create`. The TCG pass is withdrawn. On the KVM boot in the section above, the NativeAOT default's 10-run p50 is under the MAUI p50 measured immediately after it.
 - arm64 Mono AOT and arm64 NativeAOT were built and not installed. This host's emulator image is x86_64. The review NativeAOT x64 APK was installed on the TCG emulator.
 - NativeAOT is experimental. IL3053 is in the workload assembly. XA1040 did not show up, which disagrees with the plan's expectation that the warning is present. The earlier x64 app ran anyway.

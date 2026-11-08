@@ -1,0 +1,156 @@
+--------- beginning of main
+11-08 19:46:24.532 17828 17828 I NativePoc: activity-start tick=7139628
+11-08 19:46:24.532 17828 17828 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=False
+11-08 19:46:24.582 17828 17828 I NativePoc: field-handle 14982
+11-08 19:46:24.590 17828 17828 I NativePoc: button-mounted handle=15270 tick=7139696
+11-08 19:46:24.609 17828 17828 I NativePoc: set-content-view
+11-08 19:46:24.611 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=Counter 0
+11-08 19:46:24.611 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=
+11-08 19:46:24.612 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:24.612 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Enter a name
+11-08 19:46:24.612 17828 17828 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 19:46:24.639 17828 17856 I NativePoc: hotreload-listen
+11-08 19:46:32.258 17828 17828 I NativePoc: field-handle 14982
+11-08 19:46:32.260 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=Counter 0
+11-08 19:46:32.261 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=A
+11-08 19:46:32.261 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:32.261 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello A
+11-08 19:46:32.261 17828 17828 I NativePoc: rendered count=0 name-length=1 title=Counter 0
+11-08 19:46:32.293 17828 17828 I NativePoc: field-handle 14982
+11-08 19:46:32.294 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=Counter 0
+11-08 19:46:32.295 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ad
+11-08 19:46:32.295 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:32.296 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ad
+11-08 19:46:32.296 17828 17828 I NativePoc: rendered count=0 name-length=2 title=Counter 0
+11-08 19:46:32.466 17828 17828 I NativePoc: field-handle 14982
+11-08 19:46:32.468 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=Counter 0
+11-08 19:46:32.468 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:46:32.469 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:32.474 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:46:32.475 17828 17828 I NativePoc: rendered count=0 name-length=3 title=Counter 0
+11-08 19:46:36.035 17828 17828 I NativePoc: clipboard-ok poc-1
+11-08 19:46:36.035 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=Counter 1
+11-08 19:46:36.036 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:46:36.036 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:36.036 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:46:36.036 17828 17828 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 19:46:39.529 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B00 1
+11-08 19:46:39.531 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:46:39.531 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:39.531 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:46:39.531 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B00 1
+11-08 19:46:39.532 17828 17828 I NativePoc: hotreload-applied B00 1 collectible=True
+11-08 19:46:42.085 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B01 1
+11-08 19:46:42.085 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:46:42.085 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:42.085 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:46:42.086 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B01 1
+11-08 19:46:42.086 17828 17828 I NativePoc: hotreload-applied B01 1 collectible=True
+11-08 19:46:44.629 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B02 1
+11-08 19:46:44.630 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:46:44.631 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:44.631 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:46:44.631 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B02 1
+11-08 19:46:44.631 17828 17828 I NativePoc: hotreload-applied B02 1 collectible=True
+11-08 19:46:46.657 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B03 1
+11-08 19:46:46.657 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:46:46.657 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:46.657 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:46:46.657 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B03 1
+11-08 19:46:46.657 17828 17828 I NativePoc: hotreload-applied B03 1 collectible=True
+11-08 19:46:48.706 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B04 1
+11-08 19:46:48.706 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:46:48.707 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:48.707 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:46:48.707 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B04 1
+11-08 19:46:48.707 17828 17828 I NativePoc: hotreload-applied B04 1 collectible=True
+11-08 19:46:50.739 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B05 1
+11-08 19:46:50.739 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:46:50.739 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:50.739 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:46:50.740 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B05 1
+11-08 19:46:50.740 17828 17828 I NativePoc: hotreload-applied B05 1 collectible=True
+11-08 19:46:52.793 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B06 1
+11-08 19:46:52.793 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:46:52.793 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:52.793 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:46:52.793 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B06 1
+11-08 19:46:52.793 17828 17828 I NativePoc: hotreload-applied B06 1 collectible=True
+11-08 19:46:54.831 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B07 1
+11-08 19:46:54.832 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:46:54.832 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:54.833 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:46:54.833 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B07 1
+11-08 19:46:54.833 17828 17828 I NativePoc: hotreload-applied B07 1 collectible=True
+11-08 19:46:56.910 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B08 1
+11-08 19:46:56.910 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:46:56.910 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:56.910 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:46:56.910 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B08 1
+11-08 19:46:56.910 17828 17828 I NativePoc: hotreload-applied B08 1 collectible=True
+11-08 19:46:58.966 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B09 1
+11-08 19:46:58.967 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:46:58.967 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:46:58.967 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:46:58.968 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B09 1
+11-08 19:46:58.968 17828 17828 I NativePoc: hotreload-applied B09 1 collectible=True
+11-08 19:47:01.046 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B10 1
+11-08 19:47:01.046 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:47:01.047 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:47:01.047 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:47:01.047 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B10 1
+11-08 19:47:01.047 17828 17828 I NativePoc: hotreload-applied B10 1 collectible=True
+11-08 19:47:03.091 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B11 1
+11-08 19:47:03.092 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:47:03.092 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:47:03.092 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:47:03.092 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B11 1
+11-08 19:47:03.092 17828 17828 I NativePoc: hotreload-applied B11 1 collectible=True
+11-08 19:47:05.153 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B12 1
+11-08 19:47:05.153 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:47:05.154 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:47:05.154 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:47:05.154 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B12 1
+11-08 19:47:05.154 17828 17828 I NativePoc: hotreload-applied B12 1 collectible=True
+11-08 19:47:07.244 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B13 1
+11-08 19:47:07.244 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:47:07.244 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:47:07.244 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:47:07.244 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B13 1
+11-08 19:47:07.244 17828 17828 I NativePoc: hotreload-applied B13 1 collectible=True
+11-08 19:47:09.272 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B14 1
+11-08 19:47:09.273 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:47:09.273 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:47:09.273 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:47:09.273 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B14 1
+11-08 19:47:09.273 17828 17828 I NativePoc: hotreload-applied B14 1 collectible=True
+11-08 19:47:11.310 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B15 1
+11-08 19:47:11.310 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:47:11.310 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:47:11.310 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:47:11.310 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B15 1
+11-08 19:47:11.310 17828 17828 I NativePoc: hotreload-applied B15 1 collectible=True
+11-08 19:47:13.353 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B16 1
+11-08 19:47:13.353 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:47:13.353 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:47:13.354 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:47:13.354 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B16 1
+11-08 19:47:13.354 17828 17828 I NativePoc: hotreload-applied B16 1 collectible=True
+11-08 19:47:15.398 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B17 1
+11-08 19:47:15.399 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:47:15.399 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:47:15.399 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:47:15.399 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B17 1
+11-08 19:47:15.399 17828 17828 I NativePoc: hotreload-applied B17 1 collectible=True
+11-08 19:47:17.449 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B18 1
+11-08 19:47:17.449 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:47:17.450 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:47:17.450 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:47:17.450 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B18 1
+11-08 19:47:17.450 17828 17828 I NativePoc: hotreload-applied B18 1 collectible=True
+11-08 19:47:19.503 17828 17828 I NativePoc: tree index=0 handle=14822 class=TextView text=B19 1
+11-08 19:47:19.503 17828 17828 I NativePoc: tree index=1 handle=14982 class=EditText text=Ada
+11-08 19:47:19.503 17828 17828 I NativePoc: tree index=2 handle=15270 class=Button text=Save
+11-08 19:47:19.504 17828 17828 I NativePoc: tree index=3 handle=15434 class=TextView text=Hello Ada
+11-08 19:47:19.504 17828 17828 I NativePoc: rendered count=1 name-length=3 title=B19 1
+11-08 19:47:19.504 17828 17828 I NativePoc: hotreload-applied B19 1 collectible=True

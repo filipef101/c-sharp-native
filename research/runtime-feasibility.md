@@ -14,7 +14,7 @@ Scope of this revision: a plan for both Android and iOS. The first goal is a ful
 
 ## Decision
 
-Build a small C# element tree and reconcile it onto real `android.view.View` instances, using the .NET for Android SDK bindings. Ship that as a `net10.0-android` app, not a .NET MAUI app. Debug it with Mono's default Debug configuration and `dotnet watch`. On a non-MAUI Android app that default packages the interpreter instead of the JIT. Publish a Release build with Mono AOT, which is the .NET 10 Android default, and also publish NativeAOT and record the result. NativeAOT on Android is still experimental.
+Build a small C# element tree and reconcile it onto real `android.view.View` instances, using the .NET for Android SDK bindings. Ship that as a `net10.0-android` app, not a .NET MAUI app. Debug it with Mono's default Debug configuration. The supported hot reload path is `cnative run android`. On this workload `dotnet watch` restarts the app, and that is a known limitation. On a non-MAUI Android app the Debug default packages the interpreter instead of the JIT. Publish a Release build with Mono AOT, which is the .NET 10 Android default, and also publish NativeAOT and record the result. NativeAOT on Android is still experimental.
 
 Keep the element types, the state object, and the prop updates free of reflection and free of Android types, so the same tree can later drive UIKit. Hot reload stays a debug host that patches method bodies. It does not load new assemblies in the shipping app.
 
@@ -176,7 +176,7 @@ Empty state is the greeting `"Enter a name"` when `Name` is empty. The button st
 
 **Fact.** .NET hot reload applies method-body edits through `MetadataUpdater`. Adding a method can be supported. Renames, deleting members, and signature changes are rude edits and need a restart. [Supported code changes](https://learn.microsoft.com/en-us/visualstudio/debugger/supported-code-changes-csharp). The runtime test gate enables `ApplyUpdate` on Mono only when the interpreter is the execution engine, the process is not Mono AOT, and the runtime advertises capabilities. [ApplyUpdateUtil.cs](https://github.com/dotnet/runtime/blob/9a975e65/src/libraries/System.Runtime.Loader/tests/ApplyUpdateUtil.cs).
 
-**Fact.** Visual Studio's hot-reload matrix lists MAUI (WinUI, Android, iOS) as working with the debugger attached, not working without the debugger, and without `MetadataUpdateHandler` support in that matrix. [Hot Reload](https://learn.microsoft.com/en-us/visualstudio/debugger/hot-reload). `dotnet watch` is still the tool the proof should try first, because the .NET 11 MAUI notes describe hot reload via the IDEs and `dotnet watch` on CoreCLR, and the Mono interpreter is what makes hot reload possible on the .NET 10 Mono runtime. [CoreCLR progress](https://devblogs.microsoft.com/dotnet/coreclr-progress-and-mono-timeline-dotnet-maui/).
+**Fact.** Visual Studio's hot-reload matrix lists MAUI (WinUI, Android, iOS) as working with the debugger attached, not working without the debugger, and without `MetadataUpdateHandler` support in that matrix. [Hot Reload](https://learn.microsoft.com/en-us/visualstudio/debugger/hot-reload). The .NET 11 MAUI notes describe hot reload via the IDEs and `dotnet watch` on CoreCLR, and the Mono interpreter is what makes hot reload possible on the .NET 10 Mono runtime. [CoreCLR progress](https://devblogs.microsoft.com/dotnet/coreclr-progress-and-mono-timeline-dotnet-maui/). On this workload `dotnet watch` restarts the app. That is a known limitation. It is not items 7–10.
 
 **Fact.** NativeAOT has no interpreter and cannot load assemblies. Hot reload is a Debug activity. MAUI's own guidance is to develop on the normal runtime and publish NativeAOT at the end. [Native AOT deployment](https://learn.microsoft.com/en-us/dotnet/maui/deployment/nativeaot?view=net-maui-10.0).
 
@@ -184,7 +184,7 @@ Approach for the proof:
 
 - Debug build, interpreter left at the default, linker/trimmer off.
 - Change a string literal inside `Render`. That is a method-body edit.
-- `dotnet watch` applies the delta.
+- `cnative run android` applies the edit. That command is `tools/devx`. `dotnet watch` is not the gate.
 - A `MetadataUpdateHandler` on the application type posts `Render` to the UI thread after an update. Guard it with `MetadataUpdater.IsSupported` so Release and NativeAOT trim it out.
 - The handler is what makes the title change without a further tap. If the runtime applies the new IL but never calls the handler, the proof records that and the hot-reload gate fails. Do not "fix" it by reinstalling the APK.
 
@@ -240,15 +240,15 @@ Functional, Debug:
 5. `Activity.Recreate()` (a debug affordance or an instrumentation call) leaves `Ada` in the field and leaves the counter value. One manual rotation on the emulator is recorded as well.
 6. Save copies a nonce through `ClipboardManager` and reads it back. The test fails if the read value differs. There is no binding project in the repository.
 
-Hot reload, Debug, n = 20, same process:
+Hot reload, Debug, n = 20, same process. The supported path is `cnative run android` (`tools/devx`). `dotnet watch` restarts the app on this workload and is a known limitation. It is not these items.
 
-7. With `Ada` in the field, change the literal `"Counter "` to `"Tally "` and save.
-8. p50 time from the file's save timestamp to the on-screen text `Tally <n>` is ≤ 1500 ms. p95 ≤ 3000 ms.
-9. `adb shell pidof <package>` is unchanged for every successful sample.
-10. The field still contains `Ada` after every sample.
+7. With `Ada` in the field, `cnative run android` changes the literal `"Counter "` to `"Tally "` and the on-screen title updates in the same process.
+8. p50 time from the file's save timestamp to the on-screen text `Tally <n>` is ≤ 1500 ms. p95 ≤ 3000 ms. The clock is that `cnative` run.
+9. `adb shell pidof <package>` is unchanged for every successful sample of `cnative run android`.
+10. The field still contains `Ada` after every sample of `cnative run android`.
 11. A rude edit (add a field to `AppState`) is attempted once. The log records whether the runtime refused it or the process restarted. This item does not have to succeed as an in-place update.
 
-A reinstall, a new pid, or a wiped field fails items 7–10 even if the new string appears quickly.
+A reinstall, a new pid, or a wiped field fails items 7–10 even if the new string appears quickly. Evidence for items 7–10 is linked when `feat-cnative-kvm-evidence-025b` lands. Until that evidence is in this report, items 7–10 are not passed. The Debug loader clocks are a separate measurement and do not pass these items.
 
 Release Mono AOT:
 
@@ -407,7 +407,7 @@ The second risk, module hosting, is easier to avoid than to solve. Pulling Herme
 
 1. The first build is a fully working `net10.0-android` proof: a C# element tree reconciled onto real Android views, in an app that does not reference MAUI.
 2. The component set is `Column`, `Text`, `Button`, and `TextField`, on one screen with typed text, a counter, an empty-state greeting, and state that survives activity recreation.
-3. Debug uses Mono's default interpreter-instead-of-JIT setting and `dotnet watch` method-body hot reload; the title must change in place, the typed text and process id must stay, and p50 must be within 1.5 seconds.
+3. Debug uses Mono's default interpreter-instead-of-JIT setting. Hot reload is `cnative run android`: the title changes in place, the typed text and process id stay, and p50 is within 1.5 seconds. `dotnet watch` restarts this workload and is a known limitation.
 4. Release Mono AOT is the functional ship gate; NativeAOT is published and scored separately because XA1040 still marks it experimental and not for production.
 5. Android Release Mono AOT can still JIT leftover methods, so the proof also turns on AOT analyzers and treats NativeAOT warnings in its own code as failures of the design.
 6. iOS is phase two on ARM64, where there is no JIT: the same elements map to UIKit, Debug hot reload needs the interpreter and linking off, and Release is full AOT or NativeAOT.

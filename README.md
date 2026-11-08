@@ -28,7 +28,7 @@ dotnet build src/NativePoc.Android/NativePoc.Android.csproj \
 
 Use `android-arm64` for a phone. A plain `adb install` of the Debug APK aborts: Debug uses fast deployment, and the assemblies are pushed by `-t:Run`.
 
-Debug in-place reload, after that deploy. The process starts the listener with no launch extra. It generates a 32-hex token, writes it to the private file `files/nativepoc-hotreload.token`, and listens on the fixed abstract name `localabstract:npoc-hotreload`. That name is not the token. The handshake checks the file token. The token is not logged. `adb shell run-as com.scratch.nativepoc cat files/nativepoc-hotreload.token` reads it. The host forwards `tcp:18765` to `localabstract:npoc-hotreload`. State stays in `NativePoc.Core`, which is already loaded. Release does not compile the listener.
+Debug in-place reload, after that deploy. The process starts the listener with no launch extra. It listens on `localabstract:npoc-hotreload` and checks the token in the handshake. The token is a per-process bearer value, Debug only. The app writes it to the private file `files/nativepoc-hotreload.token`. The host keeps that value in its temp file, `nativepoc-hotreload.token` under the temp directory, and forwards `tcp:18765` to `localabstract:npoc-hotreload`. The token is not logged. A new process mints a new token. State stays in `NativePoc.Core`, which is already loaded. Release does not compile the listener. Acceptance items 7–10 are `cnative run android`. Their evidence is linked when `feat-cnative-kvm-evidence-025b` lands. They are not passed yet.
 
 ```bash
 dotnet build tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
@@ -37,7 +37,7 @@ dotnet tools/NativePoc.HotReload.Host/bin/Debug/net10.0/NativePoc.HotReload.Host
 
 `a` is file write plus compile plus transfer plus render, `b` is send plus render of a DLL compiled beforehand, and `c` is compile only. Each mode records 20 samples.
 
-`dotnet watch` still does not apply edits in place on this workload. See the report.
+`dotnet watch` restarts the app on this workload. That is a known limitation. It is not the hot reload path.
 
 ## Release
 
