@@ -37,6 +37,8 @@ public sealed class AppState
 	public int Count { get; set; }
 
 	public string Name { get; set; } = "";
+
+	public bool GreetingFirst { get; set; }
 }
 
 public sealed class AppSession

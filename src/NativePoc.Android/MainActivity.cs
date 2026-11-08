@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Android.OS;
 using Android.Util;
 using Android.Views;
+using Android.Widget;
 
 namespace NativePoc;
 
@@ -34,6 +35,11 @@ public sealed class MainActivity : Activity
 		_host = new AndroidHost(this, () => _reconciler?.Current);
 		_reconciler = new ViewReconciler<View>(_host);
 		RenderNow();
+		if (string.Equals(Intent?.GetStringExtra("nativepoc_keyed_move"), "1", StringComparison.Ordinal))
+		{
+			AppSession.Shared.State.GreetingFirst = true;
+			RenderNow();
+		}
 #if DEBUG
 		HotReloadServer.Start(this);
 #endif
@@ -109,7 +115,24 @@ public sealed class MainActivity : Activity
 		if (!ReferenceEquals(previousRoot, _reconciler.Root))
 			SetContentView(_reconciler.Root);
 		LastTitle = TitleOf(tree);
+		LogTree();
 		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length + " title=" + LastTitle);
+	}
+
+	void LogTree()
+	{
+		if (_reconciler?.Root is not ViewGroup group)
+			return;
+		for (var index = 0; index < group.ChildCount; index++)
+		{
+			var child = group.GetChildAt(index);
+			if (child is null)
+				continue;
+			var text = child is TextView view ? view.Text ?? "" : "";
+			Log.Info(
+				Tag,
+				"tree index=" + index + " handle=" + child.Handle.ToInt64() + " class=" + child.GetType().Name + " text=" + text);
+		}
 	}
 
 	static string TitleOf(Element element)

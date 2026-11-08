@@ -1,0 +1,66 @@
+--------- beginning of main
+11-08 19:07:33.847 16198 16198 I NativePoc: activity-start tick=4808956
+11-08 19:07:33.847 16198 16198 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 19:07:33.867 16198 16198 I NativePoc: field-handle 11974
+11-08 19:07:33.868 16198 16198 I NativePoc: button-mounted handle=12294 tick=4808976
+11-08 19:07:33.879 16198 16198 I NativePoc: tree index=0 handle=11814 class=TextView text=Counter 0
+11-08 19:07:33.879 16198 16198 I NativePoc: tree index=1 handle=11974 class=EditText text=
+11-08 19:07:33.879 16198 16198 I NativePoc: tree index=2 handle=12294 class=Button text=Save
+11-08 19:07:33.879 16198 16198 I NativePoc: tree index=3 handle=12458 class=TextView text=Enter a name
+11-08 19:07:33.879 16198 16198 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 19:07:47.489 16198 16198 I NativePoc: field-handle 11974
+11-08 19:07:47.489 16198 16198 I NativePoc: tree index=0 handle=11814 class=TextView text=Counter 0
+11-08 19:07:47.489 16198 16198 I NativePoc: tree index=1 handle=11974 class=EditText text=A
+11-08 19:07:47.489 16198 16198 I NativePoc: tree index=2 handle=12294 class=Button text=Save
+11-08 19:07:47.489 16198 16198 I NativePoc: tree index=3 handle=12458 class=TextView text=Hello A
+11-08 19:07:47.489 16198 16198 I NativePoc: rendered count=0 name-length=1 title=Counter 0
+11-08 19:07:47.558 16198 16198 I NativePoc: field-handle 11974
+11-08 19:07:47.558 16198 16198 I NativePoc: tree index=0 handle=11814 class=TextView text=Counter 0
+11-08 19:07:47.558 16198 16198 I NativePoc: tree index=1 handle=11974 class=EditText text=Ad
+11-08 19:07:47.558 16198 16198 I NativePoc: tree index=2 handle=12294 class=Button text=Save
+11-08 19:07:47.558 16198 16198 I NativePoc: tree index=3 handle=12458 class=TextView text=Hello Ad
+11-08 19:07:47.558 16198 16198 I NativePoc: rendered count=0 name-length=2 title=Counter 0
+11-08 19:07:47.561 16198 16198 I NativePoc: field-handle 11974
+11-08 19:07:47.561 16198 16198 I NativePoc: tree index=0 handle=11814 class=TextView text=Counter 0
+11-08 19:07:47.561 16198 16198 I NativePoc: tree index=1 handle=11974 class=EditText text=Ada
+11-08 19:07:47.561 16198 16198 I NativePoc: tree index=2 handle=12294 class=Button text=Save
+11-08 19:07:47.561 16198 16198 I NativePoc: tree index=3 handle=12458 class=TextView text=Hello Ada
+11-08 19:07:47.561 16198 16198 I NativePoc: rendered count=0 name-length=3 title=Counter 0
+11-08 19:08:01.467 16198 16198 I NativePoc: clipboard-ok poc-1
+11-08 19:08:01.468 16198 16198 I NativePoc: tree index=0 handle=11814 class=TextView text=Counter 1
+11-08 19:08:01.468 16198 16198 I NativePoc: tree index=1 handle=11974 class=EditText text=Ada
+11-08 19:08:01.468 16198 16198 I NativePoc: tree index=2 handle=12294 class=Button text=Save
+11-08 19:08:01.468 16198 16198 I NativePoc: tree index=3 handle=12458 class=TextView text=Hello Ada
+11-08 19:08:01.468 16198 16198 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 19:08:05.181 16198 16198 I NativePoc: activity-start tick=4840288
+11-08 19:08:05.181 16198 16198 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 19:08:05.197 16198 16198 I NativePoc: field-handle 14310
+11-08 19:08:05.198 16198 16198 I NativePoc: button-mounted handle=12846 tick=4840304
+11-08 19:08:05.212 16198 16198 I NativePoc: tree index=0 handle=14246 class=TextView text=Counter 1
+11-08 19:08:05.212 16198 16198 I NativePoc: tree index=1 handle=14310 class=EditText text=Ada
+11-08 19:08:05.212 16198 16198 I NativePoc: tree index=2 handle=12846 class=Button text=Save
+11-08 19:08:05.212 16198 16198 I NativePoc: tree index=3 handle=14410 class=TextView text=Hello Ada
+11-08 19:08:05.212 16198 16198 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 19:08:09.802 16198 16198 I NativePoc: activity-start tick=4844908
+11-08 19:08:09.802 16198 16198 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 19:08:09.811 16198 16198 I NativePoc: field-handle 14918
+11-08 19:08:09.812 16198 16198 I NativePoc: button-mounted handle=15110 tick=4844920
+11-08 19:08:09.820 16198 16198 I NativePoc: tree index=0 handle=14854 class=TextView text=Counter 1
+11-08 19:08:09.825 16198 16198 I NativePoc: tree index=1 handle=14918 class=EditText text=Ada
+11-08 19:08:09.825 16198 16198 I NativePoc: tree index=2 handle=15110 class=Button text=Save
+11-08 19:08:09.825 16198 16198 I NativePoc: tree index=3 handle=15210 class=TextView text=Hello Ada
+11-08 19:08:09.825 16198 16198 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 19:08:24.076 16467 16467 I NativePoc: activity-start tick=4859184
+11-08 19:08:24.076 16467 16467 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 19:08:24.133 16467 16467 I NativePoc: field-handle 11974
+11-08 19:08:24.136 16467 16467 I NativePoc: button-mounted handle=12294 tick=4859244
+11-08 19:08:24.143 16467 16467 I NativePoc: tree index=0 handle=11814 class=TextView text=Counter 0
+11-08 19:08:24.145 16467 16467 I NativePoc: tree index=1 handle=11974 class=EditText text=
+11-08 19:08:24.145 16467 16467 I NativePoc: tree index=2 handle=12294 class=Button text=Save
+11-08 19:08:24.145 16467 16467 I NativePoc: tree index=3 handle=12458 class=TextView text=Enter a name
+11-08 19:08:24.145 16467 16467 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 19:08:24.145 16467 16467 I NativePoc: tree index=0 handle=12458 class=TextView text=Enter a name
+11-08 19:08:24.145 16467 16467 I NativePoc: tree index=1 handle=11974 class=EditText text=
+11-08 19:08:24.145 16467 16467 I NativePoc: tree index=2 handle=12294 class=Button text=Save
+11-08 19:08:24.145 16467 16467 I NativePoc: tree index=3 handle=11814 class=TextView text=Counter 0
+11-08 19:08:24.145 16467 16467 I NativePoc: rendered count=0 name-length=0 title=Enter a name

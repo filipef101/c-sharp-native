@@ -1,0 +1,18 @@
+  Determining projects to restore...
+  Restored /workspace/src/NativePoc.Core/NativePoc.Core.csproj (in 393 ms).
+  Restored /workspace/src/NativePoc.Screen/NativePoc.Screen.csproj (in 393 ms).
+  Restored /workspace/src/NativePoc.Android/NativePoc.Android.csproj (in 393 ms).
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Release/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Release/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Release/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Release/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Release/net10.0/NativePoc.Screen.dll
+  Optimizing assemblies for size may change the behavior of the app. Be sure to test after publishing. See: https://aka.ms/dotnet-illink
+  Optimizing assemblies for size. This process might take a while.
+  Generating native code
+ILC : AOT analysis error IL3050: Microsoft.Android.Runtime.ManagedTypeManager.<GetInvokerTypeCore>g__MakeGenericType|4_1(Type,Type[]): Using member 'System.Type.MakeGenericType(Type[])' which has 'RequiresDynamicCodeAttribute' can break functionality when AOT compiling. The native code for this instantiation might not be available at runtime. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+ILC : AOT analysis error IL3050: Android.Runtime.JNIEnv.MakeArrayType(Type): Using member 'System.Type.MakeArrayType()' which has 'RequiresDynamicCodeAttribute' can break functionality when AOT compiling. The code for an array of the specified type might not be available. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+ILC : AOT analysis error IL3050: Android.Runtime.JNINativeWrapper.CreateDelegate(Delegate): Using member 'System.Reflection.Emit.DynamicMethod.DynamicMethod(String,Type,Type[],Type,Boolean)' which has 'RequiresDynamicCodeAttribute' can break functionality when AOT compiling. Creating a DynamicMethod requires dynamic code. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+  ILC: Method '[Mono.Android.Runtime]Android.Runtime.RuntimeNativeMethods.monodroid_unhandled_exception(Exception)' will always throw because: Invalid IL or CLR metadata in 'Void Android.Runtime.RuntimeNativeMethods.monodroid_unhandled_exception(System.Exception)'
+  ILC: Method '[Mono.Android.Runtime]Android.Runtime.RuntimeNativeMethods.monodroid_debugger_unhandled_exception(Exception)' will always throw because: Invalid IL or CLR metadata in 'Void Android.Runtime.RuntimeNativeMethods.monodroid_debugger_unhandled_exception(System.Exception)'
+/home/ubuntu/.nuget/packages/microsoft.dotnet.ilcompiler/10.0.14/build/Microsoft.NETCore.Native.targets(330,5): error MSB3077: The command ""/home/ubuntu/.nuget/packages/runtime.linux-x64.microsoft.dotnet.ilcompiler/10.0.14/tools/ilc" @"obj/Release/net10.0-android/android-x64/native/NativePoc.Android.ilc.rsp"" exited with return value 0, but errors were detected during execution. ExitCode was set to -1. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]

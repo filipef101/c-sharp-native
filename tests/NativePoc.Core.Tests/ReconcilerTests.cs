@@ -321,6 +321,34 @@ public sealed class ReconcilerTests
 	}
 
 	[Fact]
+	public void Screen_render_keeps_the_field_and_button_when_the_greeting_moves_first()
+	{
+		var platform = new RecordingPlatform();
+		var state = new AppState();
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(Screen.Render(state, platform));
+		var title = reconciler.ViewAt(NodePath.Root.Child(0));
+		var field = reconciler.ViewAt(NodePath.Root.Child(1));
+		var button = reconciler.ViewAt(NodePath.Root.Child(2));
+		var greeting = reconciler.ViewAt(NodePath.Root.Child(3));
+
+		state.GreetingFirst = true;
+		reconciler.Render(Screen.Render(state, platform));
+
+		Assert.Equal("greeting,name,save,title", string.Join(",", ((Column)Screen.Render(state, platform)).Children.Select(child => child.Key)));
+		Assert.Same(greeting, reconciler.ViewAt(NodePath.Root.Child(0)));
+		Assert.Same(field, reconciler.ViewAt(NodePath.Root.Child(1)));
+		Assert.Same(button, reconciler.ViewAt(NodePath.Root.Child(2)));
+		Assert.Same(title, reconciler.ViewAt(NodePath.Root.Child(3)));
+		Assert.Equal(0, field.Removed);
+		Assert.Equal(0, button.Removed);
+		Assert.False(field.Disposed);
+		Assert.False(button.Disposed);
+		Assert.False(title.Disposed);
+		Assert.False(greeting.Disposed);
+	}
+
+	[Fact]
 	public void Deleting_a_middle_keyed_child_leaves_the_other_views_attached()
 	{
 		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());

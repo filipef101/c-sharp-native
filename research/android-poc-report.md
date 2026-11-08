@@ -2,7 +2,7 @@
 
 Measured on this machine on 2026-11-08. Nothing here is a guessed latency, a guessed size, or a screenshot that was not captured. iOS was not built and was not run.
 
-The current result is the KVM round below. Release publish is NativeAOT. On this boot its 10-run `TotalTime` median is under the MAUI template median measured next. Profiled Mono AOT and full Mono AOT were not. TCG startup numbers further down are withdrawn. Sentences that still mention `TcpListener`, port 18765, or `localabstract:npoc-hotreload` describe an earlier listener. The current Debug listener is the cnative contract below. Release does not contain it.
+The current measured result is the KVM round below. Release publish is NativeAOT. On that x64 boot its 10-run `TotalTime` median is under the MAUI template median measured next. Profiled Mono AOT and full Mono AOT were not. TCG startup numbers further down are withdrawn. Sentences that still mention `TcpListener`, port 18765, or `localabstract:npoc-hotreload` describe an earlier listener. The current Debug listener is the cnative contract below. Release does not contain it. The android-arm64 APKs in the next section were built later, on workload `android` 36.1.118. They were not timed on this host. The coordinator measured them on a Mac arm64 emulator. NativeAOT had the lowest p50.
 
 ## cnative token contract
 
@@ -14,13 +14,73 @@ The host `once` path, given the temp file `cnative` writes, applied the current 
 
 The Release `NativePoc.Android.dll` from `dotnet build -c Release -f net10.0-android -r android-x64 -p:PublishAot=false` is 12800 bytes and has no ASCII or UTF-16 `HotReloadServer`, `nativepoc-hotreload.token`, `hotreload-listen`, `LocalServerSocket`, `LoadFromStream`, `npoc-`, `AssemblyLoadContext`, or `18765`. `evidence/release-build-token-contract.log`, 0 warnings. Host tests: 24 passed, 0 failed. `evidence/unit-tests-token-contract.log`.
 
+## android-arm64 APKs
+
+**BUILT.** Not installed. Not timed. This host is x86_64 and has no `pixel_8` arm64 AVD, so none of the KVM `TotalTime` numbers apply to these files. The x64 series used workload `android` 36.1.2. These four APKs were published after `dotnet workload update --version android@36.1.118 maui-android@10.0.110`. `dotnet workload list` then reported workload version 10.0.403, `android` `36.1.118/10.0.100`, and `maui-android` `10.0.110/10.0.100`. `evidence/workload-list-arm64.txt`. The NativeAOT and MAUI `build.props` files both record `androidnetsdkversion=36.1.118`. Each publish exited 0.
+
+RID is `android-arm64`. `aapt dump badging` reports `native-code: 'arm64-v8a'` and no other ABI. `apksigner verify` reports signature schemes v2 and v3. The signer is the SDK debug certificate `CN=Android Debug, O=Android, C=US`, SHA-256 `4bae00fb1165509f3080e2e3689a43a6149bb7abeccdda51ad132f46b236097c`. No release keystore was configured. The three Mono APKs contain the same `libmonosgen-2.0.so`, 3123640 bytes, sha256 `f03c6356b2412f4879005e8877c785441bf6380e6cd79700a39c0e7264bb4542`, which is the file in `Microsoft.NETCore.App.Runtime.Mono.android-arm64` 10.0.14.
+
+The MAUI project is `dotnet new maui -n MauiBaseline -o /tmp/maui-baseline-arm64 -f net10.0`. Restore succeeded. On Linux the template's own condition leaves `TargetFrameworks` at `net10.0-android` and appends iOS and Mac Catalyst only when the host is not Linux. That project is not in this repo. Publish: `dotnet publish -c Release -f net10.0-android -r android-arm64`. Log `evidence/arm64-publish-maui.log`. 89 `libaot-*.so` entries. Uncompressed CoreLib AOT is 2429384 bytes.
+
+NativePoc profiled Mono AOT is `dotnet publish -c Release -f net10.0-android -r android-arm64 -p:PublishAot=false`. Release `bin` and `obj` for the three projects were deleted before it. 13 AOT images. CoreLib AOT is 1185568 bytes. Log `evidence/arm64-publish-profiled.log`. No `warning` line.
+
+Full Mono AOT is the same command plus `-p:AndroidEnableProfiledAot=false`, again after deleting those Release outputs. 13 AOT images. CoreLib AOT is 2621688 bytes. `libaot-NativePoc.Core.dll.so` is 83976 bytes and `libaot-NativePoc.Screen.dll.so` is 8512 bytes, against 28064 and 5336 in the profiled APK. Log `evidence/arm64-publish-fullaot.log`. No `warning` line.
+
+NativeAOT is `dotnet publish -c Release -f net10.0-android -r android-arm64` with no extra AOT property, after the same clean. The only native library is `lib/arm64-v8a/libNativePoc.Android.so`, 5948968 bytes, sha256 `5496a94291a58fac70e1c2d60c45acd38eb1dfe1b990400423092fc58848d39e`. Log `evidence/arm64-publish-nativeaot.log`: one `IL3053` on the linked `Mono.Android.dll`, and the two ILC notes that `monodroid_unhandled_exception` and `monodroid_debugger_unhandled_exception` will always throw. No `XA1040`.
+
+A scan of the three NativePoc APKs found no `nativepoc-hotreload.token`, `hotreload-listen`, `LocalServerSocket`, `nativepoc_hotreload`, or `npoc-hotreload`.
+
+| File | Bytes | sha256 | Package / activity |
+| --- | --- | --- | --- |
+| `maui-baseline-android-arm64-release.apk` | 18604174 | `72f71f151fb6f661329f22e09b26c70d1e48130872531157439dc189b475f8bc` | `com.companyname.mauibaseline` / `crc64d72af147769f1039.MainActivity` |
+| `nativepoc-profiled-aot-android-arm64-release.apk` | 3668239 | `69a43923cc1b9106b8bc65e4246403be06cf1095c4e183976a307162bc267cb2` | `com.scratch.nativepoc` / `crc64ee53024f7ed0aa60.MainActivity` |
+| `nativepoc-full-aot-android-arm64-release.apk` | 4376847 | `28ead001f58aba1f001a3f4fb348283f14885ef970fe542840ddd8d88e631401` | `com.scratch.nativepoc` / `crc64ee53024f7ed0aa60.MainActivity` |
+| `nativepoc-nativeaot-android-arm64-release.apk` | 2359648 | `6d13987efec45db1a517e1f801f61ab25976f4cd01f1d2759e4d883515563739` | `com.scratch.nativepoc` / `crc64ee53024f7ed0aa60.MainActivity` |
+
+The copies and `measure.sh` are under `/opt/cursor/artifacts/`. The script in this repo is `tools/measure-arm64-startup.sh`, the same file. It checks those sha256 values, installs with `adb install -r -d`, then runs 20 `adb shell am start -W -S -n <package>/<activity>` starts. A sample without exactly one `TotalTime`, or with `LaunchState` other than `COLD`, stops the script. Nothing is dropped. p50 and p90 are Hyndman-Fan type 7: for n=20, p50 is the mean of the 10th and 11th sorted `TotalTime` values, and p90 interpolates the 18th and 19th at h=18.1. The script uses `adb`, `sh`, `awk`, `sort`, and `sha256sum` or `shasum`. It was exercised here against a fake `adb` that returned `TotalTime` 1 through 20. That run printed p50 `10.5` and p90 `18.1` for each APK. This host did not run it against an arm64 emulator.
+
+Measured on Mac arm64 emulator by coordinator. The device was `pixel_8`, API 36. Each figure is `TotalTime` from `adb shell am start -W -S`, n=20. The raw samples were not in the report given to this host, so only the percentiles below are recorded.
+
+| Config | p50 | p90 |
+| --- | --- | --- |
+| MAUI empty baseline | 1604 | 1729 |
+| Mono profiled AOT | 1533.5 | 1804 |
+| Mono full AOT | 1428.5 | 1682.9 |
+| NativeAOT | 1300 | 1711.3 |
+
+An earlier pass on that emulator, also measured on Mac arm64 emulator by coordinator, gave NativeAOT p50 1305.5 and full AOT p50 1548.5. No p90 was given for that pass. NativeAOT is the lowest p50 in both passes. These numbers are not from the x64 KVM boot.
+
+## NativeAOT on the same KVM boot
+
+**RUN** for the screen. **BUILT** for the warning change. Not a new timing series.
+
+`dotnet publish -c Release -f net10.0-android -r android-x64` after `IL3053` was removed from the warning list. Log `evidence/nativeaot-x64-validate-publish.log`, exit 0. `rg -n "warning |error "` on that log prints nothing. `XA1040` is absent. ILC still prints two notes, not warnings, that `monodroid_unhandled_exception` and `monodroid_debugger_unhandled_exception` will always throw. The signed APK is 2490717 bytes, `native-code: x86_64`, activity `crc64ee53024f7ed0aa60.MainActivity`, one native library `lib/x86_64/libNativePoc.Android.so` of 5748992 bytes. Workload `android` is `36.1.118`. The emulator is the same QEMU pid 4661, API 34, `x86_64`, holding `/dev/kvm`.
+
+Turning `TrimmerSingleWarn` off makes the old `IL3053` into three `IL3050` errors, all inside the linked `Mono.Android.dll`, none in `NativePoc.Android.dll`, `NativePoc.Core.dll`, or `NativePoc.Screen.dll`. `evidence/il3053-detail.log`.
+
+| Method | Call |
+| --- | --- |
+| `ManagedTypeManager.<GetInvokerTypeCore>g__MakeGenericType\|4_1` | `Type.MakeGenericType` |
+| `JNIEnv.MakeArrayType` | `Type.MakeArrayType` |
+| `JNINativeWrapper.CreateDelegate` | `DynamicMethod` constructor |
+
+The workload source disables `IL3050` with a pragma around those calls (dotnet/android issue 8724). The pragma does not put `UnconditionalSuppressMessage` for `IL3050` on the IL, so ILC still reports them and `--singlewarn` collapses them to `IL3053`. `CreateDelegate` has no caller in the linked assemblies. `MakeArrayType` is called from `JNIEnv.CopyArray` and `JNIEnv._GetArray`. `MakeGenericType` is the managed type map's invoker helper. Workload 36.1.118 has no trimmable type map to switch to. An `ILLink.LinkAttributes.xml` does not reach ILC: the linker applies it only to its own pass and does not write the attribute into the assembly ILC reads. `<NoWarn>$(NoWarn);IL3053</NoWarn>` is what ILC receives as `--nowarn`. `IL3050` is not in that list, and `IL3053` is not in `WarningsNotAsErrors`, so a warning in this repo's assemblies still fails the publish. Host tests: 26 passed, 0 failed. `evidence/unit-tests-il3053.log`.
+
+The installed process is pid 16198. `IsDynamicCodeSupported=False` and `IsDynamicCodeCompiled=False`. The first frame is `Counter 0`, an empty `EditText` whose hint is `Name`, `Save`, and `Enter a name`. `evidence/kvm-nativeaot-validate-render.png`. Typing `Ada` kept field handle 11974, title handle 11814, button handle 12294, and greeting handle 12458, and the greeting became `Hello Ada`. `evidence/kvm-nativeaot-validate-typed.png`. Save logged `clipboard-ok poc-1` and showed `Counter 1` on those same four handles. `evidence/kvm-nativeaot-validate-saved.png`. `button-mounted` happened once before the rotation.
+
+`settings put system user_rotation 1` recreated the activity on pid 16198. The new field handle is 14310 and the new button handle is 12846. The UI stayed `Counter 1`, `Ada`, `Hello Ada`. `evidence/kvm-nativeaot-validate-rotated.png`. Rotation back to portrait was another `activity-start` on pid 16198, field handle 14918, button handle 15110, same three strings. `evidence/kvm-nativeaot-validate-portrait.png`.
+
+A second process, pid 16467, was started with `--es nativepoc_keyed_move 1` after `force-stop`. The first render mounted title 11814, field 11974, button 12294, greeting 12458. The second render, still inside `OnCreate`, moved the greeting to index 0 and the title to index 3 and kept those four handles. `button-mounted` was logged once. The UI order was `Enter a name`, `Name`, `Save`, `Counter 0`. `evidence/kvm-nativeaot-validate-keyed.png`. The full log is `evidence/kvm-nativeaot-validate.log`. It has no `hotreload` line. A launch without the extra keeps the original order. The Mac percentiles above were measured on the APKs built before this extra and the tree log existed.
+
+Release publish stays NativeAOT. Mono AOT remains `-p:PublishAot=false`, and full AOT adds `-p:AndroidEnableProfiledAot=false`.
+
 ## KVM round
 
 One boot of AVD `poc34`. API 34, `x86_64`, `google_apis`. Emulator 37.2.13.0. Command line: `-accel on -gpu swiftshader_indirect -memory 2048 -cores 2 -no-window -no-snapshot -port 5554`. The log then says RAM was raised to 2560MB. `adb shell getprop ro.build.version.sdk` is 34, `ro.product.cpu.abi` is `x86_64`, `sys.boot_completed` is 1. Boot completed in 41238 ms. `evidence/emulator-kvm-boot.log`.
 
 `emulator -accel-check` exited 0 and printed `KVM (version 12) is installed and usable.` `evidence/emulator-accel-check-kvm.txt`. QEMU pid 4661 holds `/dev/kvm`. `/dev/kvm` is mode `crw-rw-rw-`. `window_animation_scale` was left at `1.0`. `evidence/kvm-animation-scale.txt`. No sample below was taken with `-no-accel` or TCG.
 
-SDK 10.0.403. Workload `android` is `36.1.2/10.0.100`. Workload `maui-android` is `10.0.0/10.0.100`. `evidence/workload-list-kvm.txt`. This machine did not upgrade `android` to 36.1.118. NDK `26.3.11579264`. JDK 21.
+SDK 10.0.403. Workload `android` is `36.1.2/10.0.100`. Workload `maui-android` is `10.0.0/10.0.100`. `evidence/workload-list-kvm.txt`. These x64 numbers were taken before this machine moved to `android` 36.1.118. NDK `26.3.11579264`. JDK 21.
 
 `dotnet new maui -n MauiBaseline -o /tmp/maui-baseline -f net10.0` now targets `android;ios;maccatalyst`. The restore failed with `NETSDK1178` because `Microsoft.iOS.Sdk.net10.0_26.0` is not installed. `evidence/maui-new-kvm.log`. The generated `TargetFrameworks` was then set to `net10.0-android` only. That project is not in this repo. Publish log `evidence/maui-x64-publish-kvm.log`, exit 0. 88 `libaot-*.so` entries. Activity `crc64d72af147769f1039.MainActivity`.
 

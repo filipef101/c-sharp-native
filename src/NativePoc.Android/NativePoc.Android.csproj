@@ -12,7 +12,8 @@
 		<AcceptAndroidSDKLicenses>true</AcceptAndroidSDKLicenses>
 		<IsAotCompatible>true</IsAotCompatible>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-		<WarningsNotAsErrors>XA1040;IL3053</WarningsNotAsErrors>
+		<NoWarn>$(NoWarn);IL3053</NoWarn>
+		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
 		<PublishAot>true</PublishAot>
