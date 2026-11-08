@@ -56,6 +56,8 @@ The generator still warns `BG8C01` because `SparkView` implements the package-pr
 
 `docs/compatibility/evidence/release-publish.log` records two ILC notes from `Android.Runtime.RuntimeNativeMethods` in `Mono.Android.Runtime`. That log does not contain `XA1040`. No trim warning was printed from `Sparkline.Adapter` or `Sparkline.Probe`.
 
+[Explain SDK binding path](bc-86745731-869d-567e-b4ba-8815b3983615) later inferred that reflection emitted into a binding `ProjectReference` would stay `IL3050` and fail `TreatWarningsAsErrors`, the way the removed `AotProbe` in `NativePoc.Core` did. That inference came from `research/android-poc-report.md`. It was not re-run. This Spark publish is the test of that inference, and it did not fail that way. The adapter and the probe set `TreatWarningsAsErrors`. The Release NativeAOT publish exited 0, and the emulator ran the callback.
+
 ## Why this does not belong in the framework
 
 A direct SDK call, such as the existing `ClipboardManager` use in `src/NativePoc.Android`, needs no binding project, no `Metadata.xml`, and no extra `classes.dex` types. The workload owns those wrappers.
@@ -103,7 +105,9 @@ Files read and applied:
 
 The matched playbook is Prototype, not Investigation. The question is settled by running the callback, not by reading about it. Step 2 was skipped because the library and the question were already fixed. Step 4 was skipped because a second SDK-wrapper app would copy the sample writer's surface. The comparison is the existing `ClipboardManager` call, which was read, not rebuilt. Step 6 did not open the Feature playbook. A framework change was the thing this result argues against, and `src/` was out of bounds.
 
-The how skill's simple path spawned one explainer, [Explain SDK binding path](bc-86745731-869d-567e-b4ba-8815b3983615), `subagent_type` `generalPurpose`, model `grok-4.7-xhigh`. The Task tool has no readonly flag. The prompt forbade writes. That agent's explanation was not delivered back before the probe had to be built, so the grounding used in the code is the parent read of `src/NativePoc.Android/NativePoc.Android.csproj`, `MainActivity.cs`, `AndroidManifest.xml`, `research/runtime-feasibility.md`, `research/android-poc-report.md`, `global.json`, and `README.md`.
+The how skill's simple path spawned one explainer, [Explain SDK binding path](bc-86745731-869d-567e-b4ba-8815b3983615), `subagent_type` `generalPurpose`, model `grok-4.7-xhigh`. The Task tool has no readonly flag. The prompt forbade writes. The explanation arrived after the probe was already built and run. The code was grounded on a parent read of `src/NativePoc.Android/NativePoc.Android.csproj`, `MainActivity.cs`, `AndroidManifest.xml`, `research/runtime-feasibility.md`, `research/android-poc-report.md`, `global.json`, and `README.md`. The explainer read those same files plus `NativePoc.Core`, `NativePoc.Screen`, `AndroidHost.cs`, and `ViewReconciler.cs`, and it built nothing.
+
+The explainer and the probe agree on the split. `ClipboardManager` and the widgets are workload peers in `Mono.Android`. A third-party AAR is a separate binding project. The explainer described that project as a reference from `NativePoc.Android`. The probe stayed a separate executable, because this result argues against editing `src/`. The explainer's `IL3050` failure inference is recorded above, next to the publish that did not fail.
 
 Architect and arena leaves ran in this same Grok 4.7 non-fast session, sequentially. They were not spawned. The user required every role to be Grok 4.7 without `-fast`, forbade other model families, and said not to stop after intermediate playbook steps. A cross-family judge was therefore not run. Same-model independent review was not a second agent in the end. It was this session's own pass over the logs, the APK listing, and the screenshots. No timing number is reported, so the benchmark checklist was read and not applied.
 
