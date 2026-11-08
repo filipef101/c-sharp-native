@@ -14,7 +14,7 @@ The Xamarin compatibility matrix was dropped before any package restore. No lega
 
 ## What the probe consumes
 
-The activity in `compatibility/Sparkline.Probe/MainActivity.cs` does not mention a Java type. It builds a `SparklineSeries`, hosts a `SparklineViewAdapter`, and listens for `SparklineScrub`. `OnDestroy` removes that listener and calls `Dispose`. The Recreate button calls `Activity.Recreate`. The Unsubscribe button clears the Java listener and leaves the view on screen.
+The activity in `compatibility/Sparkline.Probe/MainActivity.cs` does not mention a Java type. It builds a `SparklineSeries`, hosts a `SparklineViewAdapter`, and listens for `SparklineScrub`. `OnDestroy` removes the C# handler and calls `Dispose`. The Recreate button calls `Activity.Recreate`. The Unsubscribe button calls `Unsubscribe` only. That clears the Java listener and leaves the view on screen. It does not dispose the peers.
 
 `SparklineViewAdapter` is the only type that touches `Com.Robinhood.Spark.SparkView`. It sets the line, turns scrubbing on, installs one `SparkAdapter` and one `OnScrubListener`, and clears that listener on `Unsubscribe`. The packaged Spark style sets `spark_scrubEnabled` to false, so the adapter sets `ScrubEnabled` itself. A move that arrives before 250 ms cancels the gesture inside Spark, so the harness holds the pointer for 700 ms before it moves.
 
@@ -27,9 +27,9 @@ Two shapes were compared in this session, without a second app. Calling `SparkVi
 | KVM boot | RUN | `emulator -accel-check` reported KVM usable. QEMU pid 6985 held `/dev/kvm`. `sys.boot_completed` was `1`. No TCG run. |
 | Debug `android-x64` | RUN | `dynamic=True compiled=False`. One raw scrub became one emit, `index=1 value=4`, then one ended event. |
 | Release NativeAOT `android-x64` | RUN | `dynamic=False compiled=False`. Same scrub, recreate, and unsubscribe sequence. APK contains `classes.dex` and `lib/x86_64/libSparkline.Probe.so` only. |
-| Activity recreate | RUN | Same pid. `destroy id=1`, `unsubscribe` with `listener-null=True`, `dispose id=1`, then `create id=2`. The next scrub is `id=2` only. |
-| Unsubscribe | RUN | After Unsubscribe, another slow press did not add a `raw index=` line. Screen text became `unsubscribed`. |
-| Duplicate delivery | RUN | Each gesture logged one `raw index=` and one `emit index=`. The same-index suppressor did not run, because Spark did not repeat an index before the finger lifted. |
+| Activity recreate | RUN | Same pid. Logs `destroy id=1`, `unsubscribe` with `listener-null=True`, then `dispose id=1` after `Dispose()` returns, then `create id=2`. The next scrub is `id=2` only. The log does not record the Java peer handle becoming invalid. |
+| Unsubscribe | RUN | The button calls `Unsubscribe` only. That sets `ScrubListener` to null, logs `listener-null=True`, and does not call `Dispose`. A later press added no `raw index=` line. Screen text became `unsubscribed`. |
+| Same-index suppressor | NOT TESTED | Neither log contains `suppress-duplicate`. Each gesture has one `raw index=` and one `emit index=`. |
 | `arm64` device | UNVERIFIED | The publish that ran is `android-x64`, which is the emulator ABI. |
 
 Screenshots from the release process:
@@ -54,9 +54,9 @@ The AAR bytes were not recompiled. SHA256 of `com.robinhood.spark:spark:1.2.0` i
 
 The generator still warns `BG8C01` because `SparkView` implements the package-private `ScrubGestureDetector.ScrubListener`. The public callback used here is `SparkView.OnScrubListener`. The warning did not stop the build or the run.
 
-`docs/compatibility/evidence/release-publish.log` records two ILC notes from `Android.Runtime.RuntimeNativeMethods` in `Mono.Android.Runtime`. That log does not contain `XA1040`. No trim warning was printed from `Sparkline.Adapter` or `Sparkline.Probe`.
+`docs/compatibility/evidence/release-publish.log` records two ILC notes from `Android.Runtime.RuntimeNativeMethods` in `Mono.Android.Runtime`. The file contains no `XA1040` line, no trim warning from `Sparkline.Adapter` or `Sparkline.Probe`, and no exit line. Missing warning lines are not a general NativeAOT safety result. The measured Release result is the installed APK and the emulator log.
 
-[Explain SDK binding path](bc-86745731-869d-567e-b4ba-8815b3983615) later inferred that reflection emitted into a binding `ProjectReference` would stay `IL3050` and fail `TreatWarningsAsErrors`, the way the removed `AotProbe` in `NativePoc.Core` did. That inference came from `research/android-poc-report.md`. It was not re-run. This Spark publish is the test of that inference, and it did not fail that way. The adapter and the probe set `TreatWarningsAsErrors`. The Release NativeAOT publish exited 0, and the emulator ran the callback.
+[Explain SDK binding path](bc-86745731-869d-567e-b4ba-8815b3983615) later inferred that reflection emitted into a binding `ProjectReference` would stay `IL3050` and fail `TreatWarningsAsErrors`, the way the removed `AotProbe` in `NativePoc.Core` did. That inference came from `research/android-poc-report.md`. It was not re-run. This Spark publish log has no `IL3050` line. The adapter and the probe set `TreatWarningsAsErrors`. The saved log does not record the process exit code. The APK from that publish installed, and the emulator logged the callback.
 
 ## Why this does not belong in the framework
 
