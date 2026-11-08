@@ -1,0 +1,12 @@
+Command, run on Linux, 2026-11-08, SDK 10.0.403.
+
+dotnet build spikes/ios/NativePoc.iOS/NativePoc.iOS.csproj -c Debug -f net10.0-ios -r iossimulator-arm64
+
+Exit code 1.
+
+/home/ubuntu/.dotnet/sdk/10.0.403/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.Sdk.ImportWorkloads.targets(38,5): error NETSDK1147: To build this project, the following workloads must be installed: wasm-tools
+/home/ubuntu/.dotnet/sdk/10.0.403/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.Sdk.ImportWorkloads.targets(38,5): error NETSDK1147: To install these workloads, run the following command: dotnet workload restore
+
+A diagnostic build of the same command records TargetPlatformIdentifier = ios and MissingWorkloadPack = Microsoft.iOS.Sdk.net10.0_26.0.
+
+That pack is listed only under the ios workload in sdk-manifests/10.0.100/microsoft.net.sdk.ios/26.0.11017/WorkloadManifest.json on this machine. It is not listed under any wasm-tools manifest in that tree. The wasm-tools workload was not installed. The ios workload was not installed. No UIKit compile ran.
