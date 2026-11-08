@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<RootNamespace>NativePoc.HotReload.Host</RootNamespace>
+	</PropertyGroup>
+	<ItemGroup>
+		<Reference Include="Microsoft.CodeAnalysis">
+			<HintPath>$(NetCoreRoot)sdk/$(NETCoreSdkVersion)/Microsoft.CodeAnalysis.dll</HintPath>
+			<Private>true</Private>
+		</Reference>
+		<Reference Include="Microsoft.CodeAnalysis.CSharp">
+			<HintPath>$(NetCoreRoot)sdk/$(NETCoreSdkVersion)/Microsoft.CodeAnalysis.CSharp.dll</HintPath>
+			<Private>true</Private>
+		</Reference>
+	</ItemGroup>
+</Project>

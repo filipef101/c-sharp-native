@@ -12,6 +12,7 @@ public sealed class MainActivity : Activity
 
 	public static MainActivity? Current { get; private set; }
 
+	Func<AppState, IPlatform, Element> _render = Screen.Render;
 	AndroidHost? _host;
 	ViewReconciler<View>? _reconciler;
 	PlatformBridge? _platform;
@@ -36,6 +37,9 @@ public sealed class MainActivity : Activity
 		if (_reconciler.Root is null)
 			throw new InvalidOperationException("Screen did not mount a root view.");
 		SetContentView(_reconciler.Root);
+#if DEBUG
+		HotReloadServer.Start();
+#endif
 	}
 
 	protected override void OnDestroy()
@@ -77,12 +81,42 @@ public sealed class MainActivity : Activity
 			RunOnUiThread(Run);
 	}
 
+	public string UseRender(Func<AppState, IPlatform, Element> render)
+	{
+		_render = render;
+		RenderNow();
+		return LastTitle;
+	}
+
+	public string LastTitle { get; private set; } = "";
+
 	void RenderNow()
 	{
 		if (_reconciler is null || _platform is null)
 			return;
 		var state = AppSession.Shared.State;
-		_reconciler.Render(Screen.Render(state, _platform));
-		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length);
+		var tree = _render(state, _platform);
+		_reconciler.Render(tree);
+		LastTitle = TitleOf(tree);
+		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length + " title=" + LastTitle);
 	}
+
+	static string TitleOf(Element element)
+	{
+		switch (element)
+		{
+			case Column column:
+				return column.Children.Count == 0 ? "" : TitleOf(column.Children[0]);
+			case Text text:
+				return text.Value;
+			case Button:
+			case TextField:
+				return "";
+			default:
+				throw Unknown(element);
+		}
+	}
+
+	static InvalidOperationException Unknown(Element element) =>
+		new("Unknown element.");
 }

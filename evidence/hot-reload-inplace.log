@@ -1,0 +1,14 @@
+warmup bytes=7168 reply=Counter 0 collectible=True
+pid-before=13248
+sample=0 ms=129.9 pid=13248 reply=H0 1 collectible=True ui=Native PoC | H0 1 | Ada | Save | Hello Ada ok=True
+sample=1 ms=30.1 pid=13248 reply=H1 1 collectible=True ui=Native PoC | H1 1 | Ada | Save | Hello Ada ok=True
+sample=2 ms=17.8 pid=13248 reply=H2 1 collectible=True ui=Native PoC | H2 1 | Ada | Save | Hello Ada ok=True
+sample=3 ms=18.7 pid=13248 reply=H3 1 collectible=True ui=Native PoC | H3 1 | Ada | Save | Hello Ada ok=True
+sample=4 ms=16.0 pid=13248 reply=H4 1 collectible=True ui=Native PoC | H4 1 | Ada | Save | Hello Ada ok=True
+sample=5 ms=18.4 pid=13248 reply=H5 1 collectible=True ui=Native PoC | H5 1 | Ada | Save | Hello Ada ok=True
+sample=6 ms=15.3 pid=13248 reply=H6 1 collectible=True ui=Native PoC | H6 1 | Ada | Save | Hello Ada ok=True
+sample=7 ms=14.6 pid=13248 reply=H7 1 collectible=True ui=Native PoC | H7 1 | Ada | Save | Hello Ada ok=True
+sample=8 ms=13.8 pid=13248 reply=H8 1 collectible=True ui=Native PoC | H8 1 | Ada | Save | Hello Ada ok=True
+sample=9 ms=21.1 pid=13248 reply=H9 1 collectible=True ui=Native PoC | H9 1 | Ada | Save | Hello Ada ok=True
+median-ms=18.1
+samples-ms=129.9,30.1,17.8,18.7,16.0,18.4,15.3,14.6,13.8,21.1

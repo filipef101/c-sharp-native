@@ -28,7 +28,13 @@ dotnet build src/NativePoc.Android/NativePoc.Android.csproj \
 
 Use `android-arm64` for a phone. A plain `adb install` of the Debug APK aborts: Debug uses fast deployment, and the assemblies are pushed by `-t:Run`.
 
-`dotnet watch` does not apply method-body edits in place. The Android SDK sets `StartupHookSupport` to false, and `dotnet run` exits after launch, so the hot-reload pipe never reaches the app process. A file change rebuilds and restarts the process. See the report.
+Debug in-place reload, after that deploy. The app listens on `127.0.0.1:18765`. The host forwards that port, compiles `src/NativePoc.Screen/Screen.cs`, and sends the DLL. State stays in `NativePoc.Core`, which is already loaded.
+
+```bash
+dotnet run --project tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
+```
+
+`dotnet watch` still does not apply edits in place on this workload. See the report.
 
 ## Release Mono AOT
 

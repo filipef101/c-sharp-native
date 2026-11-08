@@ -17,5 +17,6 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\NativePoc.Core\NativePoc.Core.csproj" />
+		<ProjectReference Include="..\..\src\NativePoc.Screen\NativePoc.Screen.csproj" />
 	</ItemGroup>
 </Project>

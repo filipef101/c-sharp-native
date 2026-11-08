@@ -164,6 +164,81 @@ public sealed class ReconcilerTests
 	}
 
 	[Fact]
+	public void A_title_only_render_keeps_the_field_the_button_and_the_state()
+	{
+		var harness = new Harness();
+		harness.Render();
+		harness.ChangeName("Ada");
+		harness.PressSave();
+		var field = harness.Reconciler.ViewAt(Field).Identity;
+		var button = harness.Reconciler.ViewAt(Save).Identity;
+		var greeting = harness.Reconciler.ViewAt(Greeting).Identity;
+
+		harness.Reconciler.Render(Reloaded(harness.State, harness.Platform, "Tally "));
+
+		Assert.Equal("Tally 1", harness.Reconciler.ViewAt(Counter).Text);
+		Assert.Equal("Ada", harness.State.Name);
+		Assert.Equal(1, harness.State.Count);
+		Assert.Equal("Ada", harness.Reconciler.ViewAt(Field).Value);
+		Assert.Equal("Hello Ada", harness.Reconciler.ViewAt(Greeting).Text);
+		Assert.Equal(field, harness.Reconciler.ViewAt(Field).Identity);
+		Assert.Equal(button, harness.Reconciler.ViewAt(Save).Identity);
+		Assert.Equal(greeting, harness.Reconciler.ViewAt(Greeting).Identity);
+	}
+
+	[Fact]
+	public void Replacing_a_nested_column_drops_its_descendants_and_keeps_the_sibling()
+	{
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		var nested = NodePath.Root.Child(0);
+		var leaf = nested.Child(0);
+		reconciler.Render(new Column(
+		[
+			new Column([new Text("inner")]),
+			new Text("sib"),
+		]));
+		var sibling = reconciler.ViewAt(NodePath.Root.Child(1)).Identity;
+
+		reconciler.Render(new Column(
+		[
+			new Text("flat"),
+			new Text("sib"),
+		]));
+
+		Assert.Equal("flat", reconciler.ViewAt(nested).Text);
+		Assert.Equal(sibling, reconciler.ViewAt(NodePath.Root.Child(1)).Identity);
+		Assert.Equal(2, reconciler.Root!.Children.Count);
+		Assert.Empty(reconciler.ViewAt(nested).Children);
+		Assert.Throws<InvalidOperationException>(() => reconciler.ViewAt(leaf));
+	}
+
+	static Element Reloaded(AppState state, IPlatform platform, string prefix)
+	{
+		return new Column(
+		[
+			new Text(prefix + state.Count),
+			new TextField(
+				state.Name,
+				value =>
+				{
+					state.Name = value;
+					platform.RequestRender();
+				},
+				"Name"),
+			new Button(
+				"Save",
+				() =>
+				{
+					state.Count++;
+					platform.CopyNonce("poc-" + state.Count);
+					platform.RequestRender();
+				},
+				"Save name"),
+			new Text(state.Name.Length == 0 ? "Enter a name" : "Hello " + state.Name),
+		]);
+	}
+
+	[Fact]
 	public void Inserting_a_child_keeps_the_existing_child()
 	{
 		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());

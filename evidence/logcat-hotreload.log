@@ -1,0 +1,31 @@
+--------- beginning of main
+11-08 11:26:01.792 13248 13248 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 11:26:01.793 13248 13248 I NativePoc: hotreload-applied Counter 0 collectible=True
+11-08 11:26:04.322 13248 13248 I NativePoc: field-handle 15014
+11-08 11:26:04.323 13248 13248 I NativePoc: rendered count=0 name-length=1 title=Counter 0
+11-08 11:26:04.404 13248 13248 I NativePoc: field-handle 15014
+11-08 11:26:04.425 13248 13248 I NativePoc: rendered count=0 name-length=2 title=Counter 0
+11-08 11:26:04.540 13248 13248 I NativePoc: field-handle 15014
+11-08 11:26:04.544 13248 13248 I NativePoc: rendered count=0 name-length=3 title=Counter 0
+11-08 11:26:05.718 13248 13248 I NativePoc: clipboard-ok poc-1
+11-08 11:26:05.718 13248 13248 I NativePoc: rendered count=1 name-length=3 title=Counter 1
+11-08 11:26:09.097 13248 13248 I NativePoc: rendered count=1 name-length=3 title=H0 1
+11-08 11:26:09.101 13248 13248 I NativePoc: hotreload-applied H0 1 collectible=True
+11-08 11:26:12.988 13248 13248 I NativePoc: rendered count=1 name-length=3 title=H1 1
+11-08 11:26:12.988 13248 13248 I NativePoc: hotreload-applied H1 1 collectible=True
+11-08 11:26:15.135 13248 13248 I NativePoc: rendered count=1 name-length=3 title=H2 1
+11-08 11:26:15.135 13248 13248 I NativePoc: hotreload-applied H2 1 collectible=True
+11-08 11:26:17.173 13248 13248 I NativePoc: rendered count=1 name-length=3 title=H3 1
+11-08 11:26:17.173 13248 13248 I NativePoc: hotreload-applied H3 1 collectible=True
+11-08 11:26:19.235 13248 13248 I NativePoc: rendered count=1 name-length=3 title=H4 1
+11-08 11:26:19.235 13248 13248 I NativePoc: hotreload-applied H4 1 collectible=True
+11-08 11:26:21.299 13248 13248 I NativePoc: rendered count=1 name-length=3 title=H5 1
+11-08 11:26:21.299 13248 13248 I NativePoc: hotreload-applied H5 1 collectible=True
+11-08 11:26:23.390 13248 13248 I NativePoc: rendered count=1 name-length=3 title=H6 1
+11-08 11:26:23.390 13248 13248 I NativePoc: hotreload-applied H6 1 collectible=True
+11-08 11:26:25.433 13248 13248 I NativePoc: rendered count=1 name-length=3 title=H7 1
+11-08 11:26:25.434 13248 13248 I NativePoc: hotreload-applied H7 1 collectible=True
+11-08 11:26:27.477 13248 13248 I NativePoc: rendered count=1 name-length=3 title=H8 1
+11-08 11:26:27.477 13248 13248 I NativePoc: hotreload-applied H8 1 collectible=True
+11-08 11:26:29.546 13248 13248 I NativePoc: rendered count=1 name-length=3 title=H9 1
+11-08 11:26:29.546 13248 13248 I NativePoc: hotreload-applied H9 1 collectible=True
