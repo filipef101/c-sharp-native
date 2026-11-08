@@ -1,0 +1,43 @@
+--------- beginning of main
+11-08 11:05:57.836 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:57.837 12212 12212 I NativePoc: rendered count=0 name-length=19
+11-08 11:05:57.918 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:57.918 12212 12212 I NativePoc: rendered count=0 name-length=18
+11-08 11:05:57.994 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:57.994 12212 12212 I NativePoc: rendered count=0 name-length=17
+11-08 11:05:58.131 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:58.131 12212 12212 I NativePoc: rendered count=0 name-length=16
+11-08 11:05:58.264 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:58.265 12212 12212 I NativePoc: rendered count=0 name-length=15
+11-08 11:05:58.353 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:58.353 12212 12212 I NativePoc: rendered count=0 name-length=14
+11-08 11:05:58.397 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:58.397 12212 12212 I NativePoc: rendered count=0 name-length=13
+11-08 11:05:58.508 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:58.508 12212 12212 I NativePoc: rendered count=0 name-length=12
+11-08 11:05:58.552 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:58.552 12212 12212 I NativePoc: rendered count=0 name-length=11
+11-08 11:05:58.609 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:58.610 12212 12212 I NativePoc: rendered count=0 name-length=10
+11-08 11:05:58.715 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:58.716 12212 12212 I NativePoc: rendered count=0 name-length=9
+11-08 11:05:58.759 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:58.759 12212 12212 I NativePoc: rendered count=0 name-length=8
+11-08 11:05:58.878 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:58.878 12212 12212 I NativePoc: rendered count=0 name-length=7
+11-08 11:05:59.012 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:59.012 12212 12212 I NativePoc: rendered count=0 name-length=6
+11-08 11:05:59.114 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:59.114 12212 12212 I NativePoc: rendered count=0 name-length=5
+11-08 11:05:59.214 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:59.214 12212 12212 I NativePoc: rendered count=0 name-length=4
+11-08 11:05:59.253 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:59.253 12212 12212 I NativePoc: rendered count=0 name-length=3
+11-08 11:05:59.319 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:59.319 12212 12212 I NativePoc: rendered count=0 name-length=2
+11-08 11:05:59.421 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:59.427 12212 12212 I NativePoc: rendered count=0 name-length=1
+11-08 11:05:59.533 12212 12212 I NativePoc: field-handle 12006
+11-08 11:05:59.534 12212 12212 I NativePoc: rendered count=0 name-length=0
+11-08 11:06:00.735 12212 12212 I NativePoc: clipboard-ok poc-1
+11-08 11:06:00.736 12212 12212 I NativePoc: rendered count=1 name-length=0

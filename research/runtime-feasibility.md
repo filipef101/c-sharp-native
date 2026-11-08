@@ -1,6 +1,6 @@
 # Runtime feasibility
 
-Research and plan only. No framework was implemented. No emulator, simulator, or device was run. Figures below are from the cited docs or are acceptance gates for a later spike, not measurements from this repo.
+This file is the plan. The Android proof of concept that followed it, and every number measured on this machine, is in [android-poc-report.md](android-poc-report.md). Figures below are from the cited docs or are the plan's acceptance gates. They are not the measurements.
 
 Retrieved 2026-11-08.
 

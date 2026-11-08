@@ -1,0 +1,6 @@
+--------- beginning of main
+11-08 10:55:01.279  8254  8254 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 10:55:01.393  8254  8254 I NativePoc: rendered count=0 name-length=0
+11-08 10:55:00.979  8254  8254 D JavaInteropRuntime: Loading NativePoc.Android.so...
+11-08 10:55:01.279  8254  8254 I NativePoc: runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+11-08 10:55:01.393  8254  8254 I NativePoc: rendered count=0 name-length=0

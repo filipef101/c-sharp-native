@@ -1,0 +1,2 @@
+Broadcasting: Intent { act=com.scratch.nativepoc.RECREATE flg=0x400000 cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.RecreateReceiver }
+Broadcast completed: result=0

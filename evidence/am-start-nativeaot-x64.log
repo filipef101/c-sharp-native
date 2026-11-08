@@ -1,0 +1,7 @@
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1540
+WaitTime: 1545
+Complete

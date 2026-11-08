@@ -1,0 +1,88 @@
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1668
+WaitTime: 1684
+Complete
+---- run 1 ----
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1656
+WaitTime: 1708
+Complete
+---- run 2 ----
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1789
+WaitTime: 1855
+Complete
+---- run 3 ----
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1842
+WaitTime: 1865
+Complete
+---- run 4 ----
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1869
+WaitTime: 1878
+Complete
+---- run 5 ----
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1617
+WaitTime: 1625
+Complete
+---- run 6 ----
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1591
+WaitTime: 1604
+Complete
+---- run 7 ----
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1806
+WaitTime: 1830
+Complete
+---- run 8 ----
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1421
+WaitTime: 1426
+Complete
+---- run 9 ----
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1723
+WaitTime: 1726
+Complete
+---- run 10 ----
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+TotalTime: 1628
+WaitTime: 1634
+Complete
+---- run 11 ----

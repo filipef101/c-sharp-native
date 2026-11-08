@@ -1,0 +1,20 @@
+  Determining projects to restore...
+  Restored /workspace/src/NativePoc.Core/NativePoc.Core.csproj (in 185 ms).
+  Restored /workspace/src/NativePoc.Android/NativePoc.Android.csproj (in 185 ms).
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Tooling.targets(58,5): warning XA5300: The Android SDK directory could not be found. Install the Android SDK by following the instructions at: https://aka.ms/dotnet-android-install-sdk [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Tooling.targets(58,5): warning XA5300: To use a custom SDK path for a command line build, set the 'AndroidSdkDirectory' MSBuild property to the custom path. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/targets/Microsoft.Android.Sdk.Tooling.targets(35,5): warning XARAT7001: System.NullReferenceException: Object reference not set to an instance of an object. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/targets/Microsoft.Android.Sdk.Tooling.targets(35,5): warning XARAT7001:    at Xamarin.Android.Tasks.ResolveAndroidTooling.RunTask() [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/targets/Microsoft.Android.Sdk.Tooling.targets(35,5): warning XARAT7001:    at Microsoft.Android.Build.Tasks.AndroidTask.Execute() [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+
+Build succeeded.
+
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Tooling.targets(58,5): warning XA5300: The Android SDK directory could not be found. Install the Android SDK by following the instructions at: https://aka.ms/dotnet-android-install-sdk [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Tooling.targets(58,5): warning XA5300: To use a custom SDK path for a command line build, set the 'AndroidSdkDirectory' MSBuild property to the custom path. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/targets/Microsoft.Android.Sdk.Tooling.targets(35,5): warning XARAT7001: System.NullReferenceException: Object reference not set to an instance of an object. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/targets/Microsoft.Android.Sdk.Tooling.targets(35,5): warning XARAT7001:    at Xamarin.Android.Tasks.ResolveAndroidTooling.RunTask() [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/targets/Microsoft.Android.Sdk.Tooling.targets(35,5): warning XARAT7001:    at Microsoft.Android.Build.Tasks.AndroidTask.Execute() [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+    2 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:06.90

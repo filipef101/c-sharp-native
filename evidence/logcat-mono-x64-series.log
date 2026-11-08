@@ -1,0 +1,77 @@
+---- run 1 ----
+--------- beginning of main
+11-08 11:04:07.169 11632 11632 I NativePoc: activity-start tick=1109933
+11-08 11:04:07.169 11632 11632 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:04:07.226 11632 11632 I NativePoc: field-handle 14790
+11-08 11:04:07.267 11632 11632 I NativePoc: button-mounted handle=15046 tick=1110041
+11-08 11:04:07.273 11632 11632 I NativePoc: rendered count=0 name-length=0
+---- run 2 ----
+--------- beginning of main
+11-08 11:04:10.162 11679 11679 I NativePoc: activity-start tick=1112857
+11-08 11:04:10.163 11679 11679 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:04:10.221 11679 11679 I NativePoc: field-handle 14790
+11-08 11:04:10.227 11679 11679 I NativePoc: button-mounted handle=15046 tick=1113001
+11-08 11:04:10.228 11679 11679 I NativePoc: rendered count=0 name-length=0
+---- run 3 ----
+--------- beginning of main
+11-08 11:04:13.752 11726 11726 I NativePoc: activity-start tick=1116521
+11-08 11:04:13.753 11726 11726 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:04:13.785 11726 11726 I NativePoc: field-handle 14790
+11-08 11:04:13.792 11726 11726 I NativePoc: button-mounted handle=15046 tick=1116565
+11-08 11:04:13.792 11726 11726 I NativePoc: rendered count=0 name-length=0
+---- run 4 ----
+--------- beginning of main
+11-08 11:04:17.664 11773 11773 I NativePoc: activity-start tick=1120433
+11-08 11:04:17.673 11773 11773 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:04:17.706 11773 11773 I NativePoc: field-handle 14790
+11-08 11:04:17.717 11773 11773 I NativePoc: button-mounted handle=15046 tick=1120493
+11-08 11:04:17.717 11773 11773 I NativePoc: rendered count=0 name-length=0
+---- run 5 ----
+--------- beginning of main
+11-08 11:04:21.217 11818 11818 I NativePoc: activity-start tick=1123989
+11-08 11:04:21.217 11818 11818 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:04:21.246 11818 11818 I NativePoc: field-handle 14790
+11-08 11:04:21.252 11818 11818 I NativePoc: button-mounted handle=15046 tick=1124025
+11-08 11:04:21.252 11818 11818 I NativePoc: rendered count=0 name-length=0
+---- run 6 ----
+--------- beginning of main
+11-08 11:04:24.410 11864 11864 I NativePoc: activity-start tick=1127173
+11-08 11:04:24.410 11864 11864 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:04:24.453 11864 11864 I NativePoc: field-handle 14790
+11-08 11:04:24.458 11864 11864 I NativePoc: button-mounted handle=15046 tick=1127233
+11-08 11:04:24.459 11864 11864 I NativePoc: rendered count=0 name-length=0
+---- run 7 ----
+--------- beginning of main
+11-08 11:04:27.747 11910 11910 I NativePoc: activity-start tick=1130517
+11-08 11:04:27.747 11910 11910 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:04:27.793 11910 11910 I NativePoc: field-handle 14790
+11-08 11:04:27.809 11910 11910 I NativePoc: button-mounted handle=15046 tick=1130585
+11-08 11:04:27.809 11910 11910 I NativePoc: rendered count=0 name-length=0
+---- run 8 ----
+--------- beginning of main
+11-08 11:04:30.888 11956 11956 I NativePoc: activity-start tick=1133657
+11-08 11:04:30.892 11956 11956 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:04:30.981 11956 11956 I NativePoc: field-handle 14790
+11-08 11:04:30.987 11956 11956 I NativePoc: button-mounted handle=15046 tick=1133761
+11-08 11:04:30.988 11956 11956 I NativePoc: rendered count=0 name-length=0
+---- run 9 ----
+--------- beginning of main
+11-08 11:04:34.279 12002 12002 I NativePoc: activity-start tick=1137049
+11-08 11:04:34.279 12002 12002 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:04:34.303 12002 12002 I NativePoc: field-handle 14758
+11-08 11:04:34.312 12002 12002 I NativePoc: button-mounted handle=15046 tick=1137085
+11-08 11:04:34.315 12002 12002 I NativePoc: rendered count=0 name-length=0
+---- run 10 ----
+--------- beginning of main
+11-08 11:04:37.624 12048 12048 I NativePoc: activity-start tick=1140393
+11-08 11:04:37.624 12048 12048 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:04:37.648 12048 12048 I NativePoc: field-handle 14822
+11-08 11:04:37.653 12048 12048 I NativePoc: button-mounted handle=15078 tick=1140429
+11-08 11:04:37.654 12048 12048 I NativePoc: rendered count=0 name-length=0
+---- run 11 ----
+--------- beginning of main
+11-08 11:04:40.759 12094 12094 I NativePoc: activity-start tick=1143529
+11-08 11:04:40.759 12094 12094 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=True
+11-08 11:04:40.829 12094 12094 I NativePoc: field-handle 14790
+11-08 11:04:40.834 12094 12094 I NativePoc: button-mounted handle=15046 tick=1143609
+11-08 11:04:40.835 12094 12094 I NativePoc: rendered count=0 name-length=0

@@ -1,0 +1,11 @@
+bin/
+obj/
+agent-tools/
+.vs/
+*.user
+*.apk
+*.aab
+*.apk.idsig
+*.apks
+TestResults/
+evidence/*.apk

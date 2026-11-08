@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NativePoc.Android/NativePoc.Android.csproj" />
+    <Project Path="src/NativePoc.Core/NativePoc.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NativePoc.Core.Tests/NativePoc.Core.Tests.csproj" />
+  </Folder>
+</Solution>

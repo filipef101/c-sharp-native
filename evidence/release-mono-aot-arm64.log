@@ -1,0 +1,18 @@
+  Determining projects to restore...
+  Restored /workspace/src/NativePoc.Android/NativePoc.Android.csproj (in 231 ms).
+  Restored /workspace/src/NativePoc.Core/NativePoc.Core.csproj (in 231 ms).
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Release/net10.0/NativePoc.Core.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Release/net10.0-android/android-arm64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Release/net10.0/NativePoc.Core.dll
+  Optimizing assemblies for size. This process might take a while.
+  [1/11] NativePoc.Core.dll -> NativePoc.Core.dll.so
+  [2/11] NativePoc.Android.dll -> NativePoc.Android.dll.so
+  [3/11] System.Console.dll -> System.Console.dll.so
+  [4/11] _Microsoft.Android.Resource.Designer.dll -> _Microsoft.Android.Resource.Designer.dll.so
+  [5/11] System.Runtime.InteropServices.dll -> System.Runtime.InteropServices.dll.so
+  [6/11] System.Runtime.dll -> System.Runtime.dll.so
+  [7/11] System.Linq.dll -> System.Linq.dll.so
+  [8/11] Mono.Android.Runtime.dll -> Mono.Android.Runtime.dll.so
+  [9/11] Java.Interop.dll -> Java.Interop.dll.so
+  [10/11] Mono.Android.dll -> Mono.Android.dll.so
+  [11/11] System.Private.CoreLib.dll -> System.Private.CoreLib.dll.so

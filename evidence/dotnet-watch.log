@@ -1,0 +1,305 @@
+dotnet watch : Working directory: '/workspace'
+dotnet watch : Watching with Hot Reload.
+dotnet watch : Hot reload enabled. For a list of supported edits, see https://aka.ms/dotnet/hot-reload.
+dotnet watch : Press Ctrl+R to restart.
+dotnet watch : Building /workspace/src/NativePoc.Android/NativePoc.Android.csproj ...
+dotnet watch : Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'build /workspace/src/NativePoc.Android/NativePoc.Android.csproj --property:NuGetInteractive=false --property:RuntimeIdentifier=android-x64 --property:_CommandLineDefinedRuntimeIdentifier=true --framework net10.0-android': process id 9538
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:06.05
+dotnet watch : Process id 9538 ran for 6898ms and exited with exit code 0.
+dotnet watch : Project graph loaded in 0.4s.
+dotnet watch : Loading projects ...
+dotnet watch : Design-time build completed in 0.5s.
+dotnet watch : Loaded 2 project(s) in 0.5s.
+dotnet watch : Watching 14 file(s) for changes
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Core'
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0-android/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Android'
+dotnet watch : msbuild: [Warning] Found project reference without a matching metadata reference: /workspace/src/NativePoc.Core/NativePoc.Core.csproj
+dotnet watch : Solution after project update: v1
+dotnet watch : Hot reload session started.
+dotnet watch : Application kind: Default.
+dotnet watch : launchSettings does not allow launching browsers.
+dotnet watch : [NativePoc.Android (net10.0-android)] Waiting for application to connect to pipe '<redacted-token>'.
+dotnet watch : [NativePoc.Android (net10.0-android)] Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'run --no-build --framework net10.0-android --device emulator-5554 -e DOTNET_WATCH=1 -e DOTNET_WATCH_ITERATION=1 -e DOTNET_MODIFIABLE_ASSEMBLIES=debug -e DOTNET_STARTUP_HOOKS=/home/ubuntu/.dotnet/sdk/10.0.403/DotnetTools/dotnet-watch/10.0.403/tools/net10.0/any/hotreload/net10.0/Microsoft.Extensions.DotNetDeltaApplier.dll -e DOTNET_WATCH_HOTRELOAD_NAMEDPIPE_NAME=<redacted-token> --project src/NativePoc.Android/NativePoc.Android.csproj -r android-x64': process id 9775
+Stopping: com.scratch.nativepoc
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+dotnet watch : [NativePoc.Android (net10.0-android)] Process id 9775 ran for 2986ms and exited with exit code 0.
+dotnet watch : [NativePoc.Android (net10.0-android)] Exited
+dotnet watch : [NativePoc.Android (net10.0-android)] Disposing agent communication pipe
+dotnet watch : Terminating remaining child processes.
+dotnet watch : Waiting for a file to change before restarting ...
+dotnet watch : Building /workspace/src/NativePoc.Android/NativePoc.Android.csproj ...
+dotnet watch : Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'build /workspace/src/NativePoc.Android/NativePoc.Android.csproj --property:NuGetInteractive=false --property:RuntimeIdentifier=android-x64 --property:_CommandLineDefinedRuntimeIdentifier=true --framework net10.0-android': process id 9889
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.02
+dotnet watch : Process id 9889 ran for 1895ms and exited with exit code 0.
+dotnet watch : Project graph loaded in 0.1s.
+dotnet watch : Loading projects ...
+dotnet watch : Design-time build completed in 0.2s.
+dotnet watch : Loaded 2 project(s) in 0.2s.
+dotnet watch : Watching 14 file(s) for changes
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Core'
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0-android/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Android'
+dotnet watch : msbuild: [Warning] Found project reference without a matching metadata reference: /workspace/src/NativePoc.Core/NativePoc.Core.csproj
+dotnet watch : Solution after project update: v1
+dotnet watch : Hot reload session started.
+dotnet watch : Application kind: Default.
+dotnet watch : launchSettings does not allow launching browsers.
+dotnet watch : [NativePoc.Android (net10.0-android)] Waiting for application to connect to pipe '<redacted-token>'.
+dotnet watch : [NativePoc.Android (net10.0-android)] Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'run --no-build --framework net10.0-android --device emulator-5554 -e DOTNET_WATCH=1 -e DOTNET_WATCH_ITERATION=2 -e DOTNET_MODIFIABLE_ASSEMBLIES=debug -e DOTNET_STARTUP_HOOKS=/home/ubuntu/.dotnet/sdk/10.0.403/DotnetTools/dotnet-watch/10.0.403/tools/net10.0/any/hotreload/net10.0/Microsoft.Extensions.DotNetDeltaApplier.dll -e DOTNET_WATCH_HOTRELOAD_NAMEDPIPE_NAME=<redacted-token> --project src/NativePoc.Android/NativePoc.Android.csproj -r android-x64': process id 9948
+Stopping: com.scratch.nativepoc
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+dotnet watch : [NativePoc.Android (net10.0-android)] Process id 9948 ran for 2702ms and exited with exit code 0.
+dotnet watch : [NativePoc.Android (net10.0-android)] Exited
+dotnet watch : [NativePoc.Android (net10.0-android)] Disposing agent communication pipe
+dotnet watch : Terminating remaining child processes.
+dotnet watch : Waiting for a file to change before restarting ...
+dotnet watch : Building /workspace/src/NativePoc.Android/NativePoc.Android.csproj ...
+dotnet watch : Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'build /workspace/src/NativePoc.Android/NativePoc.Android.csproj --property:NuGetInteractive=false --property:RuntimeIdentifier=android-x64 --property:_CommandLineDefinedRuntimeIdentifier=true --framework net10.0-android': process id 10048
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.93
+dotnet watch : Process id 10048 ran for 1803ms and exited with exit code 0.
+dotnet watch : Project graph loaded in 0.1s.
+dotnet watch : Loading projects ...
+dotnet watch : Design-time build completed in 0.1s.
+dotnet watch : Loaded 2 project(s) in 0.1s.
+dotnet watch : Watching 14 file(s) for changes
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Core'
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0-android/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Android'
+dotnet watch : msbuild: [Warning] Found project reference without a matching metadata reference: /workspace/src/NativePoc.Core/NativePoc.Core.csproj
+dotnet watch : Solution after project update: v1
+dotnet watch : Hot reload session started.
+dotnet watch : Application kind: Default.
+dotnet watch : launchSettings does not allow launching browsers.
+dotnet watch : [NativePoc.Android (net10.0-android)] Waiting for application to connect to pipe '<redacted-token>'.
+dotnet watch : [NativePoc.Android (net10.0-android)] Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'run --no-build --framework net10.0-android --device emulator-5554 -e DOTNET_WATCH=1 -e DOTNET_WATCH_ITERATION=3 -e DOTNET_MODIFIABLE_ASSEMBLIES=debug -e DOTNET_STARTUP_HOOKS=/home/ubuntu/.dotnet/sdk/10.0.403/DotnetTools/dotnet-watch/10.0.403/tools/net10.0/any/hotreload/net10.0/Microsoft.Extensions.DotNetDeltaApplier.dll -e DOTNET_WATCH_HOTRELOAD_NAMEDPIPE_NAME=<redacted-token> --project src/NativePoc.Android/NativePoc.Android.csproj -r android-x64': process id 10107
+Stopping: com.scratch.nativepoc
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+dotnet watch : [NativePoc.Android (net10.0-android)] Process id 10107 ran for 2533ms and exited with exit code 0.
+dotnet watch : [NativePoc.Android (net10.0-android)] Exited
+dotnet watch : [NativePoc.Android (net10.0-android)] Disposing agent communication pipe
+dotnet watch : Terminating remaining child processes.
+dotnet watch : Waiting for a file to change before restarting ...
+dotnet watch : Building /workspace/src/NativePoc.Android/NativePoc.Android.csproj ...
+dotnet watch : Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'build /workspace/src/NativePoc.Android/NativePoc.Android.csproj --property:NuGetInteractive=false --property:RuntimeIdentifier=android-x64 --property:_CommandLineDefinedRuntimeIdentifier=true --framework net10.0-android': process id 10712
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018: The "ManifestMerger" task failed unexpectedly. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018: System.IO.FileNotFoundException: Could not find file '/workspace/src/NativePoc.Android/obj/Debug/net10.0-android/android-x64/android/AndroidManifest.xml.tmp'. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018: File name: '/workspace/src/NativePoc.Android/obj/Debug/net10.0-android/android-x64/android/AndroidManifest.xml.tmp' [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Interop.ThrowExceptionForIoErrno(ErrorInfo errorInfo, String path, Boolean isDirError) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Microsoft.Win32.SafeHandles.SafeFileHandle.Open(String path, OpenFlags flags, Int32 mode, Boolean failForSymlink, Boolean& wasSymlink, Func`4 createOpenException) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Microsoft.Win32.SafeHandles.SafeFileHandle.Open(String fullPath, FileMode mode, FileAccess access, FileShare share, FileOptions options, Int64 preallocationSize, UnixFileMode openPermissions, Int64& fileLength, UnixFileMode& filePermissions, Boolean failForSymlink, Boolean& wasSymlink, Func`4 createOpenException) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at System.IO.Strategies.OSFileStreamStrategy..ctor(String path, FileMode mode, FileAccess access, FileShare share, FileOptions options, Int64 preallocationSize, Nullable`1 unixCreateMode) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at System.IO.FileStream..ctor(String path, FileMode mode, FileAccess access, FileShare share, Int32 bufferSize) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at System.Xml.XmlDownloadManager.GetStream(Uri uri, ICredentials credentials, IWebProxy proxy) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at System.Xml.XmlTextReaderImpl.FinishInitUriString() [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at System.Xml.XmlReaderSettings.CreateReader(String inputUri, XmlParserContext inputContext) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at System.Xml.Linq.XDocument.Load(String uri, LoadOptions options) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Xamarin.Android.Tasks.ManifestDocument..ctor(String templateFilename) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Xamarin.Android.Tasks.ManifestMerger.Execute() [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Microsoft.Build.BackEnd.TaskExecutionHost.Execute() [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Microsoft.Build.BackEnd.TaskBuilder.ExecuteInstantiatedTask(TaskExecutionHost taskExecutionHost, TaskLoggingContext taskLoggingContext, TaskHost taskHost, ItemBucket bucket, TaskExecutionMode howToExecuteTask) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+
+Build FAILED.
+
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018: The "ManifestMerger" task failed unexpectedly. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018: System.IO.FileNotFoundException: Could not find file '/workspace/src/NativePoc.Android/obj/Debug/net10.0-android/android-x64/android/AndroidManifest.xml.tmp'. [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018: File name: '/workspace/src/NativePoc.Android/obj/Debug/net10.0-android/android-x64/android/AndroidManifest.xml.tmp' [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Interop.ThrowExceptionForIoErrno(ErrorInfo errorInfo, String path, Boolean isDirError) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Microsoft.Win32.SafeHandles.SafeFileHandle.Open(String path, OpenFlags flags, Int32 mode, Boolean failForSymlink, Boolean& wasSymlink, Func`4 createOpenException) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Microsoft.Win32.SafeHandles.SafeFileHandle.Open(String fullPath, FileMode mode, FileAccess access, FileShare share, FileOptions options, Int64 preallocationSize, UnixFileMode openPermissions, Int64& fileLength, UnixFileMode& filePermissions, Boolean failForSymlink, Boolean& wasSymlink, Func`4 createOpenException) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at System.IO.Strategies.OSFileStreamStrategy..ctor(String path, FileMode mode, FileAccess access, FileShare share, FileOptions options, Int64 preallocationSize, Nullable`1 unixCreateMode) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at System.IO.FileStream..ctor(String path, FileMode mode, FileAccess access, FileShare share, Int32 bufferSize) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at System.Xml.XmlDownloadManager.GetStream(Uri uri, ICredentials credentials, IWebProxy proxy) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at System.Xml.XmlTextReaderImpl.FinishInitUriString() [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at System.Xml.XmlReaderSettings.CreateReader(String inputUri, XmlParserContext inputContext) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at System.Xml.Linq.XDocument.Load(String uri, LoadOptions options) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Xamarin.Android.Tasks.ManifestDocument..ctor(String templateFilename) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Xamarin.Android.Tasks.ManifestMerger.Execute() [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Microsoft.Build.BackEnd.TaskExecutionHost.Execute() [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+/home/ubuntu/.dotnet/packs/Microsoft.Android.Sdk.Linux/36.1.2/tools/Xamarin.Android.Common.targets(1689,3): error MSB4018:    at Microsoft.Build.BackEnd.TaskBuilder.ExecuteInstantiatedTask(TaskExecutionHost taskExecutionHost, TaskLoggingContext taskLoggingContext, TaskHost taskHost, ItemBucket bucket, TaskExecutionMode howToExecuteTask) [/workspace/src/NativePoc.Android/NativePoc.Android.csproj]
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:01.12
+dotnet watch : Process id 10712 ran for 2028ms and exited with exit code 1.
+dotnet watch : Project graph loaded in 0.0s.
+dotnet watch : Loading projects ...
+dotnet watch : Design-time build completed in 0.3s.
+dotnet watch : Loaded 2 project(s) in 0.3s.
+dotnet watch : Watching 14 file(s) for changes
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Core'
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0-android/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Android'
+dotnet watch : Terminating remaining child processes.
+dotnet watch : Fix the error to continue or press Ctrl+C to exit.
+dotnet watch : Building /workspace/src/NativePoc.Android/NativePoc.Android.csproj ...
+dotnet watch : Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'build /workspace/src/NativePoc.Android/NativePoc.Android.csproj --property:NuGetInteractive=false --property:RuntimeIdentifier=android-x64 --property:_CommandLineDefinedRuntimeIdentifier=true --framework net10.0-android': process id 10969
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.51
+dotnet watch : Process id 10969 ran for 2317ms and exited with exit code 0.
+dotnet watch : Project graph loaded in 0.1s.
+dotnet watch : Loading projects ...
+dotnet watch : Design-time build completed in 0.1s.
+dotnet watch : Loaded 2 project(s) in 0.1s.
+dotnet watch : Watching 14 file(s) for changes
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Core'
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0-android/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Android'
+dotnet watch : msbuild: [Warning] Found project reference without a matching metadata reference: /workspace/src/NativePoc.Core/NativePoc.Core.csproj
+dotnet watch : Solution after project update: v1
+dotnet watch : Hot reload session started.
+dotnet watch : Application kind: Default.
+dotnet watch : [NativePoc.Android (net10.0-android)] Project does not support Hot Reload: 'StartupHookSupport' property is 'False'. Application will be restarted when updated. Set 'StartupHookSupport' project property to 'True' to enable Hot Reload.
+dotnet watch : launchSettings does not allow launching browsers.
+dotnet watch : [NativePoc.Android (net10.0-android)] Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'run --no-build --framework net10.0-android --device emulator-5554 -e DOTNET_WATCH=1 -e DOTNET_WATCH_ITERATION=5 --project src/NativePoc.Android/NativePoc.Android.csproj -r android-x64': process id 11023
+dotnet watch : Waiting for changes
+/workspace/src/NativePoc.Android/MainActivity.cs(25,42): error CS0104: 'Environment' is an ambiguous reference between 'Android.OS.Environment' and 'System.Environment'
+Running the ComputeRunArguments target to discover run commands failed for this project. Fix the errors and warnings and run again.
+dotnet watch : [NativePoc.Android (net10.0-android)] Process id 11023 ran for 1079ms and exited with exit code 1.
+dotnet watch : [NativePoc.Android (net10.0-android)] Exited with error code 1
+dotnet watch : Terminating remaining child processes.
+dotnet watch : Waiting for a file to change before restarting ...
+dotnet watch : Building /workspace/src/NativePoc.Android/NativePoc.Android.csproj ...
+dotnet watch : Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'build /workspace/src/NativePoc.Android/NativePoc.Android.csproj --property:NuGetInteractive=false --property:RuntimeIdentifier=android-x64 --property:_CommandLineDefinedRuntimeIdentifier=true --framework net10.0-android': process id 11118
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.37
+dotnet watch : Process id 11118 ran for 2235ms and exited with exit code 0.
+dotnet watch : Project graph loaded in 0.0s.
+dotnet watch : Loading projects ...
+dotnet watch : Design-time build completed in 0.1s.
+dotnet watch : Loaded 2 project(s) in 0.1s.
+dotnet watch : Watching 14 file(s) for changes
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Core'
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0-android/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Android'
+dotnet watch : msbuild: [Warning] Found project reference without a matching metadata reference: /workspace/src/NativePoc.Core/NativePoc.Core.csproj
+dotnet watch : Solution after project update: v1
+dotnet watch : Hot reload session started.
+dotnet watch : Application kind: Default.
+dotnet watch : [NativePoc.Android (net10.0-android)] Project does not support Hot Reload: 'StartupHookSupport' property is 'False'. Application will be restarted when updated. Set 'StartupHookSupport' project property to 'True' to enable Hot Reload.
+dotnet watch : launchSettings does not allow launching browsers.
+dotnet watch : [NativePoc.Android (net10.0-android)] Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'run --no-build --framework net10.0-android --device emulator-5554 -e DOTNET_WATCH=1 -e DOTNET_WATCH_ITERATION=6 --project src/NativePoc.Android/NativePoc.Android.csproj -r android-x64': process id 11166
+dotnet watch : Waiting for changes
+Stopping: com.scratch.nativepoc
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+dotnet watch : [NativePoc.Android (net10.0-android)] Process id 11166 ran for 10898ms and exited with exit code 0.
+dotnet watch : [NativePoc.Android (net10.0-android)] Exited
+dotnet watch : Terminating remaining child processes.
+dotnet watch : Waiting for a file to change before restarting ...
+dotnet watch : Building /workspace/src/NativePoc.Android/NativePoc.Android.csproj ...
+dotnet watch : Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'build /workspace/src/NativePoc.Android/NativePoc.Android.csproj --property:NuGetInteractive=false --property:RuntimeIdentifier=android-x64 --property:_CommandLineDefinedRuntimeIdentifier=true --framework net10.0-android': process id 11726
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.66
+dotnet watch : Process id 11726 ran for 2463ms and exited with exit code 0.
+dotnet watch : Project graph loaded in 0.0s.
+dotnet watch : Loading projects ...
+dotnet watch : Design-time build completed in 0.1s.
+dotnet watch : Loaded 2 project(s) in 0.1s.
+dotnet watch : Watching 14 file(s) for changes
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Core'
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0-android/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Android'
+dotnet watch : msbuild: [Warning] Found project reference without a matching metadata reference: /workspace/src/NativePoc.Core/NativePoc.Core.csproj
+dotnet watch : Solution after project update: v1
+dotnet watch : Hot reload session started.
+dotnet watch : Application kind: Default.
+dotnet watch : [NativePoc.Android (net10.0-android)] Project does not support Hot Reload: 'StartupHookSupport' property is 'False'. Application will be restarted when updated. Set 'StartupHookSupport' project property to 'True' to enable Hot Reload.
+dotnet watch : launchSettings does not allow launching browsers.
+dotnet watch : [NativePoc.Android (net10.0-android)] Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'run --no-build --framework net10.0-android --device emulator-5554 -e DOTNET_WATCH=1 -e DOTNET_WATCH_ITERATION=7 --project src/NativePoc.Android/NativePoc.Android.csproj -r android-x64': process id 11817
+dotnet watch : Waiting for changes
+Stopping: com.scratch.nativepoc
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+dotnet watch : [NativePoc.Android (net10.0-android)] Process id 11817 ran for 2840ms and exited with exit code 0.
+dotnet watch : [NativePoc.Android (net10.0-android)] Exited
+dotnet watch : Terminating remaining child processes.
+dotnet watch : Waiting for a file to change before restarting ...
+dotnet watch : Building /workspace/src/NativePoc.Android/NativePoc.Android.csproj ...
+dotnet watch : Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'build /workspace/src/NativePoc.Android/NativePoc.Android.csproj --property:NuGetInteractive=false --property:RuntimeIdentifier=android-x64 --property:_CommandLineDefinedRuntimeIdentifier=true --framework net10.0-android': process id 11922
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.47
+dotnet watch : Process id 11922 ran for 2300ms and exited with exit code 0.
+dotnet watch : Project graph loaded in 0.0s.
+dotnet watch : Loading projects ...
+dotnet watch : Design-time build completed in 0.2s.
+dotnet watch : Loaded 2 project(s) in 0.2s.
+dotnet watch : Watching 14 file(s) for changes
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Core'
+dotnet watch : Exclusion glob: 'bin\Debug//**;obj\Debug//**;bin\/**;obj\/**;bin\Debug/net10.0-android/android-x64/publish//**;**/*.user;**/*.*proj;**/*.sln;**/*.slnx;**/*.vssscc;**/.DS_Store' under project '/workspace/src/NativePoc.Android'
+dotnet watch : msbuild: [Warning] Found project reference without a matching metadata reference: /workspace/src/NativePoc.Core/NativePoc.Core.csproj
+dotnet watch : Solution after project update: v1
+dotnet watch : Hot reload session started.
+dotnet watch : Application kind: Default.
+dotnet watch : [NativePoc.Android (net10.0-android)] Project does not support Hot Reload: 'StartupHookSupport' property is 'False'. Application will be restarted when updated. Set 'StartupHookSupport' project property to 'True' to enable Hot Reload.
+dotnet watch : launchSettings does not allow launching browsers.
+dotnet watch : [NativePoc.Android (net10.0-android)] Launched '/home/ubuntu/.dotnet/dotnet' with arguments 'run --no-build --framework net10.0-android --device emulator-5554 -e DOTNET_WATCH=1 -e DOTNET_WATCH_ITERATION=8 --project src/NativePoc.Android/NativePoc.Android.csproj -r android-x64': process id 12016
+dotnet watch : Waiting for changes
+Stopping: com.scratch.nativepoc
+Starting: Intent { cmp=com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity }
+dotnet watch : [NativePoc.Android (net10.0-android)] Process id 12016 ran for 2525ms and exited with exit code 0.
+dotnet watch : [NativePoc.Android (net10.0-android)] Exited
+dotnet watch : Terminating remaining child processes.
+dotnet watch : Waiting for a file to change before restarting ...
