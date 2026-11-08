@@ -1,0 +1,11 @@
+11-08 19:10:02.910  6379  6379 W monodroid-assembly: open_from_bundles: failed to load bundled assembly NativePoc.Android.dll
+11-08 19:10:03.062  6379  6379 W monodroid-assembly: open_from_bundles: failed to load bundled assembly NativePoc.Core.dll
+11-08 19:10:03.064  6379  6379 W monodroid-assembly: open_from_bundles: failed to load bundled assembly NativePoc.Screen.dll
+11-08 19:10:03.149  6379  6379 I NativePoc: activity-start tick=293841
+11-08 19:10:03.150  6379  6379 I NativePoc: runtime IsDynamicCodeSupported=True IsDynamicCodeCompiled=False
+11-08 19:10:03.333  6379  6379 I NativePoc: field-handle 15014
+11-08 19:10:03.376  6379  6379 I NativePoc: button-mounted handle=15302 tick=294117
+11-08 19:10:03.416  6379  6379 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 19:10:03.521  6379  6420 I NativePoc: hotreload-listen
+11-08 19:10:05.034  6379  6379 I NativePoc: rendered count=0 name-length=0 title=Counter 0
+11-08 19:10:05.034  6379  6379 I NativePoc: hotreload-applied Counter 0 collectible=True

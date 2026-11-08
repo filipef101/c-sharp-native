@@ -1,0 +1,15 @@
+Poll started after adb start-server, with the emulator already launched.
+t is the shell SECONDS counter for that poll, not a qemu uptime.
+
+t=0s tainted=0 bugs=0 cpu=70.3 devices=none boot=none
+t=5s tainted=0 bugs=0 cpu=76.3 devices=none boot=none
+t=10s tainted=0 bugs=0 cpu=114 devices=emulator-5554 boot=none
+t=15s tainted=0 bugs=0 cpu=142 devices=emulator-5554 boot=none
+t=20s tainted=0 bugs=0 cpu=142 devices=emulator-5554 boot=none
+t=25s tainted=0 bugs=0 cpu=154 devices=emulator-5554 boot=none
+t=31s tainted=0 bugs=0 cpu=160 devices=emulator-5554 boot=none
+t=36s tainted=0 bugs=0 cpu=171 devices=emulator-5554 boot=1
+BOOT_COMPLETED
+34
+x86_64
+14

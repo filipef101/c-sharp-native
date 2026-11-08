@@ -1,0 +1,9 @@
+date=2026-11-08T19:04:53Z
+uname=6.12.113+
+tainted_before=0
+---- emulator -accel-check ----
+accel:
+0
+KVM (version 12) is installed and usable.
+accel
+accel_check_exit=0
