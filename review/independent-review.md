@@ -1,5 +1,53 @@
 # Independent review: Android native-widget proof of concept
 
+## Re-review of 4147a5b
+
+Re-reviewed `4147a5b` ("Separate the hot reload socket name from the token") against the blockers in the `0a45484` pass. Sources were read from that commit. `src/` was not modified. The APK named in the scan log is not in git, so the scan was not repeated on the bytes.
+
+### Verdict
+
+**Not acceptance-ready.** The blockers from the previous pass are fixed in code and match the new logs: the socket name is no longer the token, the Release NativeAOT scan records no loader strings, the Mac samples recompute to the published percentiles, an `IL3050` in this repo fails the publish, and the device run kept the IME across a keyed move, swapped the root, and logged a second `Start`. Items 1–16 are still short of the plan because items 7–10 require `dotnet watch` to apply the edit in place, and that tool still restarts the process. The in-place path that does meet the timing rules is the Debug socket loader.
+
+### What was executed
+
+- `dotnet test tests/NativePoc.Core.Tests` on the `4147a5b` tree, SDK 10.0.403. **Passed 27, failed 0, skipped 0, 122 ms.** `evidence/unit-tests-rereview.log` is 27/0 at 62 ms.
+- Recomputed the Mac arm64 type-7 percentiles from `evidence/mac-arm64-startup-run2.txt`. They match the table.
+
+### Previous blockers
+
+| Blocker | Verdict | Evidence |
+| --- | --- | --- |
+| Socket name was the token | **Fixed.** | The listener binds the constant `npoc-hotreload` (`HotReloadServer.cs:16`, `:72`). The 16 random bytes are only the handshake and the private file. Pid 16763: `unix-has-npoc-hotreload=True`, `unix-has-token=False`, `token-in-logcat=False`, `npoc-hex-in-logcat=False`. The log file does not print the 32 hex characters. `evidence/rereview-device.log`. |
+| No Release APK string scan | **Recorded. Not re-run here.** | `evidence/nativeaot-release-listener-scan.log`: APK 2490717 bytes, sha256 `83ba4c35…a05a`, `libNativePoc.Android.so` 5753808 bytes. ASCII and UTF-16 `HotReloadServer`, `npoc`, and `nativepoc-hotreload` are `-1` in the APK bytes, the manifest, `classes.dex`, the `.so`, and the linked DLL (13312 bytes). The DLL does contain UTF-16 `set-content-view` and `nativepoc_root_swap`. `AotProbe` is `-1`. `evidence/nativeaot-release-scan-publish.log` is the single line `PUBLISH_EXIT:0`, so that file cannot show whether ILC printed a warning. |
+| Mac percentiles had no samples | **Fixed.** | Twenty `TotalTime` values per config. Type-7 p50 / p90 recompute to MAUI 1604.0 / 1729.0, profiled 1533.5 / 1804.0, full AOT 1428.5 / 1682.9, NativeAOT 1300.0 / 1711.3. NativeAOT has the lowest p50. Full AOT has the lower p90. |
+| `IL3053` in `NoWarn` might hide this repo | **The probe fails the build.** | `evidence/il3050-probe-compiler.log`: `error IL3050` and `error IL2055` in `NativePoc.Core/AotProbe.cs`, `PROBE_EXIT:1`. With the compiler warnings pragma'd and no `UnconditionalSuppressMessage`, ILC still reports `IL3050` and `IL2055` on `NativePoc.AotProbe.Touch` and the publish exits 1 (`evidence/il3050-probe-publish.log`). The method was not folded into `IL3053`. `AotProbe.cs` is not in the tree. The scan's linked DLL has no `AotProbe` string. |
+| Keyed move drops focus and the IME | **Fixed on device for this move.** | Pid 16763, same activity (`Activity not started`). After typing `A`, `focused=true`, `mInputShown=true`, served `EditText{964d9a7 … 42,93-1038,211}`. After `--es nativepoc_keyed_move 1`, greeting handle 15434 is index 0 and title handle 14822 is index 3. Field 14982 and button 15270 stay. The served view is still `964d9a7` with the same bounds, still focused, `mInputShown=true`. A later `d` leaves `Ad`, still focused. |
+| Root swap never calls `SetContentView` again | **Fixed on device.** | Pid 17069 logs `set-content-view` on launch and again after `--es nativepoc_root_swap 1`. The UI classes are `FrameLayout` and `TextView`, texts `Native PoC` and `Counter 0`. `Screen.Render` returns the title `Text` when `PlainRoot` is set (`Screen.cs:10-11`). |
+| Second `Start` unverified | **Fixed.** | Rotation on pid 16763: `hotreload-listen` once, then `hotreload-listen already`. `listen-after-rotate=2`. The pid stays 16763. |
+
+### Handshake
+
+The compare is `CryptographicOperations.FixedTimeEquals` on two 16-byte arrays (`HotReloadServer.cs:120-126`). The read is exact-length before the compare, so a short guess does not take the compare path. A mismatch throws `UnauthorizedAccessException` and does not read the DLL.
+
+The token is a bearer secret for the life of the process. Nothing in the handshake is a nonce, a challenge, or single-use. `Start` keeps the first token when it logs `already`, including across the rotation above. A second connection that presents the same 16 bytes is accepted. That is what the host does: `Program.cs:295-298` writes the token, then the length, then the DLL, on every send. The first `once` on the fixed socket was rejected because `/tmp/nativepoc-hotreload.token` still held an older token. After that file was removed, the host read the private file and applied (`once-ms=24.4`, pid 17069). An old process's token does not survive. A token that is still current can be sent again.
+
+`adb forward tcp:18765 localabstract:npoc-hotreload` (`Program.cs:453-454`) publishes the now-fixed name on the host loopback port. The device process does not listen on TCP 18765. A client of that forward still has to present the 16 bytes. The practical copy of those bytes on the host is the temp file. Another app on the device can connect to the abstract name `npoc-hotreload` and cannot read `files/nativepoc-hotreload.token`. The compare does not give it a timing oracle on the token.
+
+### Acceptance
+
+The plan's "fully working" bar is items 1–16. This commit does not change the `dotnet watch` result. Items 7–10 on the plan are a file save applied by `dotnet watch` in the same process. The measured in-place path is still the Debug loader (series (a) p50 15.4 ms, pid 14365, `Ada` kept). Those clocks were not repeated after the socket name stopped being the token. The report says that.
+
+Item 16, as written, is the Mono AOT median against MAUI, discarding the first run and taking ten. The Mac file is twenty cold `am start -W -S` samples and a type-7 percentile of all twenty. On those samples both Mono configs are under MAUI (profiled 1533.5, full AOT 1428.5, MAUI 1604.0). Dropping the first sample and taking the even-n median of the next ten still puts profiled at 1580.0, full AOT at 1455.0, and MAUI at 1586.5. The earlier x64 KVM profiled series remains the one whose median was above the MAUI series beside it.
+
+Item 17 still fails the plan's wording: XA1040 is absent. The plan says that item does not rewrite 1–16.
+
+### What is still open
+
+- Items 7–10, because `dotnet watch` restarts the process. That is the acceptance gap.
+- `View.Dispose` was not observed on an `android.view.View`. iOS was not built. The arm64 APKs were not installed, and the report says their string scan was not saved.
+- The how-to around line 474 still says the socket is `localabstract:npoc-<hex>`. The opening sentence says a mention of port 18765 is an earlier listener. The host forward of that port is current. The KVM hot-reload section still describes the listen line from the boot that used the older log text, and it says those clocks were not repeated.
+- The bearer token above. It is the remaining Debug exposure: a known abstract name, a host loopback forward, and a token that stays valid until the process exits.
+
 ## Re-review of 0a45484
 
 Re-reviewed `0a45484` ("Record the Mac arm64 startup percentiles and validate NativeAOT"), including the commits after `c9f454f`. Sources were read from that commit. `src/` was not modified. The signed APKs are not in git and are not under `/opt/cursor/artifacts/` on this machine. The Android workload is not installed here, so this pass did not publish or strings-scan an APK.
