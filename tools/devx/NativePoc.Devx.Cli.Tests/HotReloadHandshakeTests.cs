@@ -6,11 +6,13 @@ namespace NativePoc.Devx.Tests;
 public sealed class HotReloadHandshakeTests
 {
 	[Fact]
-	public void Socket_name_is_the_lower_hex_token()
+	public void Socket_name_is_fixed_and_the_frame_still_starts_with_the_token()
 	{
-		Assert.Equal(
-			"npoc-0123456789abcdef0123456789abcdef",
-			HotReloadHandshake.AbstractSocketName("0123456789ABCDEF0123456789ABCDEF"));
+		Assert.Equal("npoc-hotreload", HotReloadHandshake.AbstractSocketName);
+		Assert.DoesNotContain("0123456789abcdef", HotReloadHandshake.AbstractSocketName, StringComparison.Ordinal);
+		var token = HotReloadHandshake.Token("0123456789ABCDEF0123456789ABCDEF");
+		var frame = HotReloadHandshake.Frame(token, [1]);
+		Assert.Equal(token, frame[..16]);
 	}
 
 	[Fact]

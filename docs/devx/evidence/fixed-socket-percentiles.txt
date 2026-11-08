@@ -1,0 +1,32 @@
+socket=localabstract:npoc-hotreload
+handshake=first 16 bytes are files/nativepoc-hotreload.token
+token_length=32
+forward-during-series=emulator-5554 tcp:18765 localabstract:npoc-hotreload
+forward-after-20=emulator-5554 tcp:18765 localabstract:npoc-hotreload
+clock=perf_counter immediately before Screen.cs write_text until the reply line is observed
+log poll=2 ms
+n=20 pid=11096
+ui gate=title Sxx 0, Ada, Hello Ada, pid unchanged
+edit-to-screen p50=statistics.median=59.8246
+edit-to-screen p90=statistics.quantiles(n=10, method=inclusive)[8]=74.8963
+edit-to-screen sorted=56.2,56.2,56.3,57.0,58.0,58.3,58.3,58.6,59.1,59.8,59.9,59.9,62.1,62.4,62.7,63.9,70.9,74.9,75.1,96.2
+reloaded-in p50=statistics.median=18.0000
+reloaded-in p90=statistics.quantiles(n=10, method=inclusive)[8]=31.1500
+reloaded-in sorted=14.0,16.4,16.5,16.6,16.6,16.7,17.2,17.3,17.4,17.9,18.1,18.3,19.4,20.1,20.2,20.4,30.9,30.9,33.4,51.9
+apply p50=statistics.median=8.6000
+apply p90=statistics.quantiles(n=10, method=inclusive)[8]=18.1600
+apply sorted=6.5,6.7,7.0,7.6,7.7,8.0,8.1,8.2,8.2,8.4,8.8,8.8,9.4,9.8,10.1,10.5,11.0,18.1,18.7,25.2
+cli-edit-to-reply p50=statistics.median=60.0000
+cli-edit-to-reply p90=statistics.quantiles(n=10, method=inclusive)[8]=72.0000
+cli-edit-to-reply sorted=56,56,56,56,56,56,56,56,56,60,60,60,60,60,60,64,72,72,72,92
+compile-error:
+src/NativePoc.Screen/Screen.cs:5:36: error CS1525: Invalid expression term ';'
+compile-error-pid=11096
+compile-error-ui=Native PoC | S19 0 | Ada | Save | Hello Ada
+recovery-pid=11096
+recovery-ui=Native PoC | S19 0 | Ada | Save | Hello Ada
+restart-log-pid=11820
+restart-live-pid=11820
+forward-after-restart=emulator-5554 tcp:18765 localabstract:npoc-hotreload
+restart-ui=Native PoC | S19 0 | Name | Save | Enter a name
+name-before=Native PoC | Counter 0 | Ada | Save | Hello Ada

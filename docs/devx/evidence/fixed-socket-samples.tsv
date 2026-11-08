@@ -1,0 +1,21 @@
+index	edit_to_screen_ms	reloaded_in_ms	apply_ms	cli_edit_to_reply_ms	pid	ok	ui
+0	96.2	51.9	25.2	92	11096	1	Native PoC | S00 0 | Ada | Save | Hello Ada
+1	75.1	33.4	18.1	72	11096	1	Native PoC | S01 0 | Ada | Save | Hello Ada
+2	59.9	17.9	8.8	60	11096	1	Native PoC | S02 0 | Ada | Save | Hello Ada
+3	58.3	17.3	8.4	56	11096	1	Native PoC | S03 0 | Ada | Save | Hello Ada
+4	62.4	20.4	11.0	60	11096	1	Native PoC | S04 0 | Ada | Save | Hello Ada
+5	62.1	20.1	8.2	64	11096	1	Native PoC | S05 0 | Ada | Save | Hello Ada
+6	74.9	30.9	9.4	72	11096	1	Native PoC | S06 0 | Ada | Save | Hello Ada
+7	62.7	20.2	10.5	60	11096	1	Native PoC | S07 0 | Ada | Save | Hello Ada
+8	59.9	18.3	7.7	56	11096	1	Native PoC | S08 0 | Ada | Save | Hello Ada
+9	58.3	16.5	7.6	56	11096	1	Native PoC | S09 0 | Ada | Save | Hello Ada
+10	59.1	16.6	7.0	60	11096	1	Native PoC | S10 0 | Ada | Save | Hello Ada
+11	59.8	18.1	8.8	60	11096	1	Native PoC | S11 0 | Ada | Save | Hello Ada
+12	58.0	16.4	8.2	56	11096	1	Native PoC | S12 0 | Ada | Save | Hello Ada
+13	56.2	16.6	6.5	56	11096	1	Native PoC | S13 0 | Ada | Save | Hello Ada
+14	70.9	30.9	18.7	72	11096	1	Native PoC | S14 0 | Ada | Save | Hello Ada
+15	63.9	19.4	8.1	60	11096	1	Native PoC | S15 0 | Ada | Save | Hello Ada
+16	58.6	17.2	10.1	56	11096	1	Native PoC | S16 0 | Ada | Save | Hello Ada
+17	56.3	16.7	8.0	56	11096	1	Native PoC | S17 0 | Ada | Save | Hello Ada
+18	57.0	14.0	6.7	56	11096	1	Native PoC | S18 0 | Ada | Save | Hello Ada
+19	56.2	17.4	9.8	56	11096	1	Native PoC | S19 0 | Ada | Save | Hello Ada

@@ -13,9 +13,9 @@ tools/devx/cnative run android --device emulator-5554 --once
 
 `--debounce` defaults to 40 ms. `--abi` is `android-x64` or `android-arm64` (otherwise the device ABI). `--once` pushes the current screen once and exits. `--restart-on-rude` rebuilds and relaunches instead of waiting for an answer. On a terminal, a rude edit asks `Restart the app? [y/N]`.
 
-The Debug app has to publish the token itself. Before `am start`, `cnative` deletes the previous token files so a stale `files/nativepoc-hotreload.token` cannot be forwarded at the next process. The file it then reads is `files/nativepoc-hotreload.token` (`adb shell run-as com.scratch.nativepoc cat files/nativepoc-hotreload.token`): 32 hex characters. The process listens on `localabstract:npoc-<hex>`. `HotReloadConnection` forwards that name to `tcp:18765` once per session. The device still closes each accepted socket after one exchange, so each push opens a new TCP connection on the forward that is already up. The CLI also accepts `files/hotreload.token`, `cache/nativepoc-hotreload.token`, any other `*.token` name in those two directories, and an `npoc-<hex>` name if `run-as` can read `/proc/net/unix`. It never passes `--es nativepoc_hotreload`.
+The Debug app has to publish the token itself. Before `am start`, `cnative` deletes the previous token files so a stale `files/nativepoc-hotreload.token` cannot be forwarded at the next process. The file it then reads is `files/nativepoc-hotreload.token` (`adb shell run-as com.scratch.nativepoc cat files/nativepoc-hotreload.token`): 32 hex characters. The process listens on the fixed name `localabstract:npoc-hotreload`. `HotReloadConnection` forwards that name to `tcp:18765` once per session. The first 16 handshake bytes are the file token. The device still closes each accepted socket after one exchange, so each push opens a new TCP connection on the forward that is already up. The CLI also accepts `files/hotreload.token`, `cache/nativepoc-hotreload.token`, any other `*.token` name in those two directories, and an `npoc-<hex>` name if `run-as` can read `/proc/net/unix`. It never passes `--es nativepoc_hotreload`.
 
-The screen compile references the net10.0 reference pack and `NativePoc.Core.dll` read into memory, plus a generated syntax tree with the SDK implicit global usings (`System`, `System.Collections.Generic`, `System.IO`, `System.Linq`, `System.Net.Http`, `System.Threading`, `System.Threading.Tasks`). That is what lets the committed `Screen.cs` use `IReadOnlyList<>` without its own `using`.
+The screen compile references the net10.0 reference pack and `NativePoc.Core.dll` read into memory, plus a generated syntax tree with the SDK implicit global usings (`System`, `System.Collections.Generic`, `System.IO`, `System.Linq`, `System.Net.Http`, `System.Threading`, `System.Threading.Tasks`). The screen at `4147a5b` has no `using` of its own.
 
 ## Resident reload
 
@@ -29,7 +29,7 @@ The measured series below used `tools/devx/cnative run android --device emulator
 
 ### TESTED
 
-CLI suite from that log: `Passed: 49, Failed: 0, Skipped: 0`, duration `569 ms`. These tests do not talk to a device. They cover the committed `Screen.cs` compiling with the implicit-usings tree, a syntax error staying on `src/NativePoc.Screen/Screen.cs` and the same compiler recovering, the `npoc-<hex>` frame, and the 40 ms default.
+CLI suite from that log: `Passed: 49, Failed: 0, Skipped: 0`, duration `569 ms`. These tests do not talk to a device. They cover the committed `Screen.cs` compiling with the implicit-usings tree, a syntax error staying on `src/NativePoc.Screen/Screen.cs` and the same compiler recovering, the fixed `npoc-hotreload` name with the token still in the first 16 frame bytes, and the 40 ms default.
 
 ### RUN
 
@@ -80,8 +80,67 @@ The redeploy build was `Time Elapsed 00:00:03.60`. The new process was pid `1074
 
 - The 20, the compile error, and the rude restart inside one `cnative` process. The rude restart is the second launch above.
 - Time from `RenderNow` to the next scanned framebuffer. The edit-to-screen clock ends when the reply line is observed.
-- A socket name that is not `npoc-<token>`. The framing is isolated in `HotReloadHandshake`; this device still uses the token as the socket name.
+- The fixed socket `localabstract:npoc-hotreload` on a device run. This section's n=20 was measured against `npoc-<token>`.
 - Any percentile other than the clocks in [evidence/resident-percentiles.txt](evidence/resident-percentiles.txt). The startup `683.3 / 105.3` is not in the 20.
+
+## Fixed socket `npoc-hotreload`
+
+Rebased onto `4147a5b` (`Separate the hot reload socket name from the token`). `HotReloadHandshake.AbstractSocketName` is `npoc-hotreload`. The first 16 frame bytes are still the file token. `src/` was not edited by this change. `origin/main` at the fetch was `e280ddc`, one commit after `4147a5b` that does not change the listener; this branch is based on `4147a5b`.
+
+### BUILT
+
+`dotnet test tools/devx/NativePoc.Devx.Cli.Tests` after rebuilding `NativePoc.Core` (the checked-out `AppState.PlainRoot` was not in the previous DLL): `Passed: 49, Failed: 0, Skipped: 0`, duration `458 ms`. Log: [evidence/unit-tests-fixed-socket.log](evidence/unit-tests-fixed-socket.log).
+
+The device command was `tools/devx/cnative run android --device emulator-5554 --restart-on-rude`. CLI build `Time Elapsed 00:00:00.78` (`0 Warning(s)`, `0 Error(s)`). Debug `android-x64` deploy `Time Elapsed 00:00:08.06`. Transcript: [evidence/cnative-fixed-socket.log](evidence/cnative-fixed-socket.log).
+
+### TESTED
+
+The 49 tests do not talk to a device. The handshake test expects the socket name `npoc-hotreload` and a frame that still begins with the 16 token bytes.
+
+### RUN
+
+The same AVD `poc34` was still up. qemu pid `5338` still had `-accel on`. `sys.boot_completed` was `1`, `ro.build.version.sdk` was `34`, `ro.product.cpu.abi` was `x86_64`.
+
+After launch, `adb forward --list` was `emulator-5554 tcp:18765 localabstract:npoc-hotreload`. The token file was 32 hex characters and that hex was not in the forward line. Startup push, outside the 20: `reloaded in 651.0 ms (apply 196.2 ms)`, reply `Counter 0 collectible=True`, pid `11096`.
+
+The harness then typed `Ada`. The dump was `Native PoC | Counter 0 | Ada | Save | Hello Ada`. Frame: [evidence/fixed-socket-name.png](evidence/fixed-socket-name.png).
+
+The 20 edits changed `TitlePrefix` to `S00 ` through `S19 ` on the screen from `4147a5b` and were restored afterward. `git diff -- src` is empty. Each edit-to-screen clock is `time.perf_counter` immediately before `write_text`, until the new `reply Sxx ` line is observed (log poll 2 ms). The reply is written after `RenderNow`. After the clock, the dump had to contain `Sxx 0`, `Ada`, and `Hello Ada`, and `pidof` had to stay `11096`. All 20 passed. The forward was still `localabstract:npoc-hotreload`. Rows: [evidence/fixed-socket-samples.tsv](evidence/fixed-socket-samples.tsv). Frames: [evidence/fixed-socket-reload-00.png](evidence/fixed-socket-reload-00.png), [evidence/fixed-socket-reload-19.png](evidence/fixed-socket-reload-19.png) (`S19 0`, `Ada`, `Hello Ada`).
+
+From [evidence/fixed-socket-percentiles.txt](evidence/fixed-socket-percentiles.txt):
+
+- edit-to-screen p50 `59.8246` ms, p90 `74.8963` ms
+- `reloaded in` p50 `18.0000` ms, p90 `31.1500` ms
+- apply p50 `8.6000` ms, p90 `18.1600` ms
+- CLI `edit-to-reply` p50 `60.0000` ms, p90 `72.0000` ms
+
+Sorted edit-to-screen times, displayed to 0.1 ms: `56.2, 56.2, 56.3, 57.0, 58.0, 58.3, 58.3, 58.6, 59.1, 59.8, 59.9, 59.9, 62.1, 62.4, 62.7, 63.9, 70.9, 74.9, 75.1, 96.2`. The p50 is the median of the unrounded samples.
+
+The next edit made `TitlePrefix` syntactically invalid. The CLI printed:
+
+```
+src/NativePoc.Screen/Screen.cs:5:36: error CS1525: Invalid expression term ';'
+```
+
+`pidof` was still `11096`. The dump was `Native PoC | S19 0 | Ada | Save | Hello Ada`. Frame: [evidence/fixed-socket-compile-error.png](evidence/fixed-socket-compile-error.png).
+
+Restoring `S19 ` printed `reloaded in 21.6 ms (apply 13.8 ms)` on pid `11096`, and the dump still had `Ada` and `Hello Ada`. That recovery is outside the 20.
+
+Adding `RudeGeneration` to `AppState` in the same `cnative` process printed:
+
+```
+rude edit -> restart required
+src/NativePoc.Core/Elements.cs
+restarting
+```
+
+The redeploy build was `Time Elapsed 00:00:03.42`. The new process was pid `11820`, and `pidof` was `11820`. The forward was again `emulator-5554 tcp:18765 localabstract:npoc-hotreload`. The new process showed `S19 0` with an empty name (`Enter a name`): [evidence/fixed-socket-after-restart.png](evidence/fixed-socket-after-restart.png). `Screen.cs` and `Elements.cs` were restored after `cnative` stopped.
+
+### UNVERIFIED
+
+- Time from `RenderNow` to the next scanned framebuffer.
+- `origin/main` `e280ddc` as the base. This run is on `4147a5b`.
+- The typed name across the redeploy. Pid `11820` started with an empty `AppState`.
 
 ## E2E after the once-ms parser fix
 

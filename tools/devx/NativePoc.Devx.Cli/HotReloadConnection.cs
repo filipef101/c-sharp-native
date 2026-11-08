@@ -12,18 +12,15 @@ enum HotReloadExchange
 
 readonly record struct ApplyResult(double Milliseconds, bool Ok, string Text);
 
-// Socket name and handshake live here. The device still names the abstract socket
-// npoc-<token> and closes the accepted socket after one exchange. The adb forward
-// and this session stay up for the whole watch. A later contract that splits the
-// socket name from the token, or that keeps the accepted socket open, changes this
-// file and not the watch loop.
+// Socket name and handshake live here. The device listens on the fixed abstract
+// name npoc-hotreload. The first 16 bytes are the token from
+// files/nativepoc-hotreload.token. The accepted socket still closes after one
+// exchange, so this session keeps the adb forward and opens a TCP connection per push.
 static class HotReloadHandshake
 {
 	public const int TokenBytes = 16;
+	public const string AbstractSocketName = "npoc-hotreload";
 	public const HotReloadExchange Exchange = HotReloadExchange.OneShot;
-
-	public static string AbstractSocketName(string tokenHex) =>
-		"npoc-" + tokenHex.Trim().ToLowerInvariant();
 
 	public static byte[] Token(string tokenHex)
 	{
@@ -87,7 +84,7 @@ sealed class HotReloadConnection : IDisposable
 	{
 		_serial = serial;
 		_token = HotReloadHandshake.Token(tokenHex);
-		SocketName = HotReloadHandshake.AbstractSocketName(tokenHex);
+		SocketName = HotReloadHandshake.AbstractSocketName;
 	}
 
 	public string SocketName { get; }

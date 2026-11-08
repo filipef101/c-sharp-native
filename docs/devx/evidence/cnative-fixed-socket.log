@@ -1,0 +1,136 @@
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.78
+cnative: building Debug android-x64 for emulator-5554
+  Determining projects to restore...
+  Restored /workspace/src/NativePoc.Core/NativePoc.Core.csproj (in 202 ms).
+  2 of 3 projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:08.06
+cnative: launching com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+cnative: pid 11096
+cnative: waiting for a hot reload token via adb run-as
+cnative: token read via adb run-as (files/nativepoc-hotreload.token)
+reloaded in 651.0 ms (apply 196.2 ms)
+reply Counter 0 collectible=True
+cnative: watching src/NativePoc.Screen
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 51.9 ms (apply 25.2 ms)
+reply S00 0 collectible=True
+edit-to-reply 92 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 33.4 ms (apply 18.1 ms)
+reply S01 0 collectible=True
+edit-to-reply 72 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 17.9 ms (apply 8.8 ms)
+reply S02 0 collectible=True
+edit-to-reply 60 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 17.3 ms (apply 8.4 ms)
+reply S03 0 collectible=True
+edit-to-reply 56 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 20.4 ms (apply 11.0 ms)
+reply S04 0 collectible=True
+edit-to-reply 60 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 20.1 ms (apply 8.2 ms)
+reply S05 0 collectible=True
+edit-to-reply 64 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 30.9 ms (apply 9.4 ms)
+reply S06 0 collectible=True
+edit-to-reply 72 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 20.2 ms (apply 10.5 ms)
+reply S07 0 collectible=True
+edit-to-reply 60 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 18.3 ms (apply 7.7 ms)
+reply S08 0 collectible=True
+edit-to-reply 56 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 16.5 ms (apply 7.6 ms)
+reply S09 0 collectible=True
+edit-to-reply 56 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 16.6 ms (apply 7.0 ms)
+reply S10 0 collectible=True
+edit-to-reply 60 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 18.1 ms (apply 8.8 ms)
+reply S11 0 collectible=True
+edit-to-reply 60 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 16.4 ms (apply 8.2 ms)
+reply S12 0 collectible=True
+edit-to-reply 56 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 16.6 ms (apply 6.5 ms)
+reply S13 0 collectible=True
+edit-to-reply 56 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 30.9 ms (apply 18.7 ms)
+reply S14 0 collectible=True
+edit-to-reply 72 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 19.4 ms (apply 8.1 ms)
+reply S15 0 collectible=True
+edit-to-reply 60 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 17.2 ms (apply 10.1 ms)
+reply S16 0 collectible=True
+edit-to-reply 56 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 16.7 ms (apply 8.0 ms)
+reply S17 0 collectible=True
+edit-to-reply 56 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 14.0 ms (apply 6.7 ms)
+reply S18 0 collectible=True
+edit-to-reply 56 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 17.4 ms (apply 9.8 ms)
+reply S19 0 collectible=True
+edit-to-reply 56 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+src/NativePoc.Screen/Screen.cs:5:36: error CS1525: Invalid expression term ';'
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 21.6 ms (apply 13.8 ms)
+reply S19 0 collectible=True
+edit-to-reply 60 ms
+rude edit -> restart required
+src/NativePoc.Core/Elements.cs
+restarting
+cnative: building Debug android-x64 for emulator-5554
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:03.42
+cnative: launching com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+cnative: pid 11820
+cnative: waiting for a hot reload token via adb run-as
+cnative: token read via adb run-as (files/nativepoc-hotreload.token)
+cnative: stopped
