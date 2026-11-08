@@ -1,0 +1,15 @@
+CORE
+Test run for /workspace/tests/NativePoc.Core.Tests/bin/Debug/net10.0/NativePoc.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    27, Skipped:     0, Total:    27, Duration: 80 ms - NativePoc.Core.Tests.dll (net10.0)
+PACKING
+Test run for /workspace/tests/NativePoc.Packing.Tests/bin/Debug/net10.0/NativePoc.Packing.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 70 ms - NativePoc.Packing.Tests.dll (net10.0)
+CLI
+Test run for /workspace/tools/devx/NativePoc.Devx.Cli.Tests/bin/Debug/net10.0/NativePoc.Devx.Cli.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    54, Skipped:     0, Total:    54, Duration: 484 ms - NativePoc.Devx.Cli.Tests.dll (net10.0)

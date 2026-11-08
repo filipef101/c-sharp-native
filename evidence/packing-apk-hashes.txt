@@ -1,0 +1,2 @@
+81ea4480512ded55bbe7289b4cf967743472e15ad01859d0bd2b6b582144f351  /opt/cursor/artifacts/nativepoc-packing-debug-x64.apk
+651c5d3deb5e6ee4e60b0923c5c26f118850f37bd9f5bc8d7a349419c9cad112  /opt/cursor/artifacts/nativepoc-packing-nativeaot-x64.apk

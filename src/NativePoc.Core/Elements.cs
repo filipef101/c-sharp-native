@@ -6,6 +6,7 @@ public enum ElementKind
 	Text = 2,
 	Button = 3,
 	TextField = 4,
+	Switch = 5,
 }
 
 public abstract record Element
@@ -24,6 +25,15 @@ public sealed record Text(string Value) : Element;
 public sealed record Button(string Title, Action OnPress, string AccessibilityLabel) : Element;
 
 public sealed record TextField(string Value, Action<string> OnChange, string Placeholder, string AccessibilityLabel) : Element;
+
+public sealed record Switch(bool Value, Action<bool> OnChange, string AccessibilityLabel) : Element;
+
+public interface INativeServices : IDisposable
+{
+	void CopyText(string label, string text);
+
+	void Pulse();
+}
 
 public interface IPlatform
 {

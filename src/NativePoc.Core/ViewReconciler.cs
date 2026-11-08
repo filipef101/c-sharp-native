@@ -15,6 +15,8 @@ public interface IElementHost<TView>
 
 	void SetTextField(TView view, string value, string placeholder, string accessibilityLabel);
 
+	void SetSwitch(TView view, bool value, string accessibilityLabel);
+
 	void OnMounted(NodePath path, TView view);
 
 	void Retarget(NodePath path, TView view);
@@ -45,6 +47,15 @@ public sealed class ViewReconciler<TView>
 		if (!_views.TryGetValue(path, out var view))
 			throw new InvalidOperationException("No view is mounted at that path.");
 		return view;
+	}
+
+	public void Release()
+	{
+		if (_current is null)
+			return;
+		RemoveSubtree(NodePath.Root);
+		_previous = null;
+		_current = null;
 	}
 
 	public IReadOnlyList<Patch> Render(Element next)
@@ -80,6 +91,9 @@ public sealed class ViewReconciler<TView>
 				return;
 			case SetTextField setField:
 				_host.SetTextField(ViewAt(setField.Path), setField.Value, setField.Placeholder, setField.AccessibilityLabel);
+				return;
+			case SetSwitch setSwitch:
+				_host.SetSwitch(ViewAt(setSwitch.Path), setSwitch.Value, setSwitch.AccessibilityLabel);
 				return;
 			case Reorder reorder:
 				ApplyReorder(reorder.Parent, reorder.Sources);

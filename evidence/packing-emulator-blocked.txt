@@ -1,0 +1,7 @@
+KVM boot did not reach a guest shell.
+
+accel-check: KVM (version 12) is installed and usable.
+First process: qemu pid 37379, command included -accel on, fds /dev/kvm and anon_inode:kvm-vm. It ran about 32 minutes at about 0.2 percent CPU. adb listed emulator-5554 offline. The log never grew past "Activated packet streamer for bluetooth emulation".
+That process was killed once and started again as pid 38635 with the same -accel on flags. After about four minutes it was the same. 0 percent CPU on every thread, adb offline, log still 83 lines, still holding /dev/kvm.
+The older evidence/emulator-kvm-boot.log from a previous boot records "Boot completed in 41238 ms" after that same packet-streamer line. This session never got that line.
+No app was installed. No screenshot was taken. No TCG fallback was used.

@@ -168,6 +168,7 @@ public sealed class MainActivity : Activity
 				return text.Value;
 			case Button:
 			case TextField:
+			case Switch:
 				return "";
 			default:
 				throw Unknown(element);

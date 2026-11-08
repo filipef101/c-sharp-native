@@ -4,6 +4,7 @@ using Android.Util;
 using Android.Views;
 using Android.Widget;
 using AndroidButton = Android.Widget.Button;
+using AndroidSwitch = Android.Widget.Switch;
 
 namespace NativePoc;
 
@@ -13,6 +14,7 @@ sealed class AndroidHost : IElementHost<View>
 	readonly Func<Element?> _current;
 	readonly Dictionary<View, Listener> _listeners = new();
 	bool _applyingText;
+	bool _applyingSwitch;
 
 	public AndroidHost(Activity activity, Func<Element?> current)
 	{
@@ -35,6 +37,8 @@ sealed class AndroidHost : IElementHost<View>
 				return new AndroidButton(_activity);
 			case ElementKind.TextField:
 				return new EditText(_activity);
+			case ElementKind.Switch:
+				return new AndroidSwitch(_activity);
 			default:
 				throw UnknownKind(kind);
 		}
@@ -91,6 +95,24 @@ sealed class AndroidHost : IElementHost<View>
 		finally
 		{
 			_applyingText = false;
+		}
+	}
+
+	public void SetSwitch(View view, bool value, string accessibilityLabel)
+	{
+		if (view is not AndroidSwitch toggle)
+			throw new InvalidOperationException("Switch patch targeted a non-switch view.");
+		toggle.ContentDescription = accessibilityLabel;
+		if (toggle.Checked == value)
+			return;
+		_applyingSwitch = true;
+		try
+		{
+			toggle.Checked = value;
+		}
+		finally
+		{
+			_applyingSwitch = false;
 		}
 	}
 
@@ -155,6 +177,26 @@ sealed class AndroidHost : IElementHost<View>
 			};
 			edit.TextChanged += handler;
 			_listeners[view] = new Listener { TextChanged = handler };
+			return;
+		}
+
+		if (view is AndroidSwitch toggle)
+		{
+			EventHandler<CompoundButton.CheckedChangeEventArgs> handler = (_, args) =>
+			{
+				if (_applyingSwitch)
+					return;
+				if (CurrentElement(path) is Switch current)
+					current.OnChange(args.IsChecked);
+			};
+			toggle.CheckedChange += handler;
+			_listeners[view] = new Listener { Checked = handler };
+			if (logMount)
+			{
+				Log.Info(
+					MainActivity.Tag,
+					"switch-subscribe handle=" + toggle.Handle.ToInt64());
+			}
 		}
 	}
 
@@ -166,6 +208,11 @@ sealed class AndroidHost : IElementHost<View>
 			button.Click -= listener.Click;
 		if (view is EditText edit && listener.TextChanged is not null)
 			edit.TextChanged -= listener.TextChanged;
+		if (view is AndroidSwitch toggle && listener.Checked is not null)
+		{
+			toggle.CheckedChange -= listener.Checked;
+			Log.Info(MainActivity.Tag, "switch-unsubscribe handle=" + toggle.Handle.ToInt64());
+		}
 	}
 
 	sealed class Listener
@@ -173,6 +220,8 @@ sealed class AndroidHost : IElementHost<View>
 		public EventHandler? Click { get; init; }
 
 		public EventHandler<TextChangedEventArgs>? TextChanged { get; init; }
+
+		public EventHandler<CompoundButton.CheckedChangeEventArgs>? Checked { get; init; }
 	}
 
 	Element? CurrentElement(NodePath path)

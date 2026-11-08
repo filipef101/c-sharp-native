@@ -84,6 +84,8 @@ public sealed record SetButton(NodePath Path, string Title, string Accessibility
 
 public sealed record SetTextField(NodePath Path, string Value, string Placeholder, string AccessibilityLabel) : Patch;
 
+public sealed record SetSwitch(NodePath Path, bool Value, string AccessibilityLabel) : Patch;
+
 public sealed record Reorder(NodePath Parent, IReadOnlyList<int> Sources) : Patch;
 
 public static class TreeDiff
@@ -263,6 +265,14 @@ public static class TreeDiff
 					patches.Add(new SetTextField(path, field.Value, field.Placeholder, field.AccessibilityLabel));
 				}
 				return;
+			case Switch toggle:
+				if (previous is not Switch previousToggle
+					|| previousToggle.Value != toggle.Value
+					|| previousToggle.AccessibilityLabel != toggle.AccessibilityLabel)
+				{
+					patches.Add(new SetSwitch(path, toggle.Value, toggle.AccessibilityLabel));
+				}
+				return;
 			default:
 				throw UnknownElement(next);
 		}
@@ -277,6 +287,7 @@ public static class TreeDiff
 			case Text:
 			case Button:
 			case TextField:
+			case Switch:
 				return Array.Empty<Element>();
 			default:
 				throw UnknownElement(element);
@@ -295,6 +306,8 @@ public static class TreeDiff
 				return ElementKind.Button;
 			case TextField:
 				return ElementKind.TextField;
+			case Switch:
+				return ElementKind.Switch;
 			default:
 				throw UnknownElement(element);
 		}

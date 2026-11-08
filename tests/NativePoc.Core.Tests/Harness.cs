@@ -33,6 +33,8 @@ sealed class MemoryNode
 
 	public string? Placeholder { get; set; }
 
+	public bool Checked { get; set; }
+
 	public List<MemoryNode> Children { get; } = new();
 }
 
@@ -66,6 +68,12 @@ sealed class MemoryHost : IElementHost<MemoryNode>
 	{
 		view.Value = value;
 		view.Placeholder = placeholder;
+		view.AccessibilityLabel = accessibilityLabel;
+	}
+
+	public void SetSwitch(MemoryNode view, bool value, string accessibilityLabel)
+	{
+		view.Checked = value;
 		view.AccessibilityLabel = accessibilityLabel;
 	}
 

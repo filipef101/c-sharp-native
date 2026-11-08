@@ -1,0 +1,73 @@
+pstack poteto-mode evidence
+recorded: 2026-11-08
+plugin: pstack
+version: 0.15.36
+source: /home/ubuntu/.cursor/plugins/cache/cursor-public/9717366/ae5650febf4320793844c12c4adaa937f417f8da
+manifest: .cursor-plugin/plugin.json and plugin.json
+author: Lauren Tan
+homepage: https://github.com/cursor/plugins/tree/main/pstack
+setup-pstack: not run
+pstack-models.mdc: absent under /home/ubuntu/.cursor
+
+files loaded this session
+- skills/poteto-mode/SKILL.md
+- skills/poteto-mode/playbooks/feature.md
+- skills/poteto-mode/playbooks/prototype.md
+- skills/how/SKILL.md
+- skills/how/references/explainer-prompt.md
+- skills/architect/SKILL.md
+- skills/arena/SKILL.md
+- skills/principle-prove-it-works/SKILL.md
+- skills/benchmark-checklist/SKILL.md
+- skills/principle-model-the-domain/SKILL.md
+
+playbook
+matched: Feature (new packing checklist behavior on the existing element host)
+prototype loaded and not used to build a throwaway. Direction is already set: Switch element plus INativeServices. Revisit only if architect leaves an empirical fork.
+
+model override (user, every role, fast=false)
+inspected slugs include grok-4.7-low, grok-4.7-medium, grok-4.7-high, grok-4.7-xhigh, and the same with -fast.
+chosen slug: grok-4.7-xhigh
+not used: grok-4.7-xhigh-fast, claude-opus-5-5-xhigh, inherit, auto
+plugin defaults overridden, not rewritten.
+diverse-model seats become independent same-model checks on grok-4.7-xhigh.
+Task schema has no readonly field. How explorers are instructed not to edit.
+
+steps
+1 how: started. Simple path, one explainer, no explorers. Subsystem is the element reconciler and Android host already read in this session.
+2 architect: not started. Waits on how.
+3 throughput checkpoint: not written yet.
+4 delegate: packing sources already on the branch from before this load. Not discarded. Remaining implementation waits on the design pass.
+5 verify: not started. Benchmark checklist loaded and not applied. This slice is a functional emulator proof, not a speed claim.
+6 commits: not started.
+7 interrogate: not started.
+8 opening a PR: will skip. User forbade publication. Private draft. Commit and push only.
+
+how integration
+The how explainer bc-53854752-c3f3-525d-93f2-bced44965712 was still RUNNING when architect started. Its transcript had no Overview section. The parent used the files it had already read. The agent was not stopped.
+
+architect
+runners: two poteto-agents, both model grok-4.7-xhigh, fast off, foreground.
+candidate-1: /tmp/arena-packing/candidate-1/sketch.md closed Switch union and INativeServices.
+candidate-2: /tmp/arena-packing/candidate-2/sketch.md NativeControl kind string and IPlatform methods.
+cross-judge: skipped. Arena requires another model family. The user forced every role, including judge, onto grok-4.7 non-fast, which is the parent family. Pick was made by the parent alone.
+base: candidate 1. A second kind string is a hand-synced list, and growing IPlatform leaks packing into the counter host.
+graft: system Back uses the same leave path as the Back button. Persistence stays the static session. Activity recreation keeps it. Process restart reseeds. No saved-instance bundle.
+prototype: still no throwaway. The fork was settled by the two sketches, not by a visual prototype.
+
+harness results
+unit: evidence/packing-unit-tests.log. Core 27 passed, packing 11 passed, CLI 54 passed. Host only. No device.
+debug apk build: exit 0, 0 warnings. Signed android-x64, assemblies embedded. sha256 81ea4480512ded55bbe7289b4cf967743472e15ad01859d0bd2b6b582144f351. Artifact /opt/cursor/artifacts/nativepoc-packing-debug-x64.apk.
+release publish: evidence/packing-nativeaot-publish.log exit 0. android-x64 NativeAOT. native-code x86_64. libNativePoc.Android.so contains UTF-16 packing-rendered and PackingActivity, and does not contain HotReloadServer. sha256 651c5d3deb5e6ee4e60b0923c5c26f118850f37bd9f5bc8d7a349419c9cad112. Artifact /opt/cursor/artifacts/nativepoc-packing-nativeaot-x64.apk.
+arm64 apk found under bin/Release with a 1981 timestamp was not produced by this publish and was not copied.
+emulator: first qemu 37379 and replacement 38635 both held /dev/kvm. accel-check printed "KVM (version 12) is installed and usable." Both stayed at 0.2 percent CPU or less. adb showed emulator-5554 offline. packing-kvm-boot.log stopped at "Activated packet streamer for bluetooth emulation" and never reached the historical "Boot completed" line. No guest command ran. No screenshot. No TCG.
+
+feature steps after architect
+4 implementation stayed on this run. A second writer on the dirty worktree would race the existing slice. Model grok-4.7-xhigh, fast off, same as this parent.
+5 device verify blocked by the guest. Unit tests and APK contents were checked.
+6 one commit. The slice was verified as one unit.
+7 interrogate skipped. The two sketches were scored and one base was picked. No later contest.
+8 opening a PR skipped. The user forbade publication.
+prototype skipped. No visual fork remained after the sketch pick.
+deslop read. No comment or cast cleanup was required.
+benchmark checklist not applied. No speed number was measured.
