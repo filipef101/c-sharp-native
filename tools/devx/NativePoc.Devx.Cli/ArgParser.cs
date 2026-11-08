@@ -25,7 +25,11 @@ static class ArgParser
 		cnative run android [options]
 
 		  Build Debug, install it on the running emulator or device, launch it,
-		  read the hot reload token with adb run-as, and push Screen.cs edits.
+		  and push Screen.cs edits. The emulator or device must already be online.
+
+		  Only src/NativePoc.Screen/Screen.cs reloads in place. A save under
+		  src/NativePoc.Core or src/NativePoc.Android asks before a restart.
+		  "reloaded in" is the whole push. "apply" is the device exchange.
 
 		  --device <serial>     adb serial. Default: the only online device.
 		  --abi <rid>           android-x64 or android-arm64. Default: the device ABI.

@@ -11,6 +11,31 @@ enum ReloadStatus
 	Failed,
 }
 
+enum InitialDecision
+{
+	ExitSuccess,
+	ExitFailure,
+	Watch,
+	WatchAfterFailure,
+}
+
+static class InitialPush
+{
+	public const string FailureLine =
+		"cnative: the first push failed. Still watching. Save src/NativePoc.Screen/Screen.cs again.";
+
+	public static InitialDecision Decide(ReloadStatus status, bool restarting, bool once)
+	{
+		if (once)
+			return status == ReloadStatus.Applied || restarting
+				? InitialDecision.ExitSuccess
+				: InitialDecision.ExitFailure;
+		if (status == ReloadStatus.Failed)
+			return InitialDecision.WatchAfterFailure;
+		return InitialDecision.Watch;
+	}
+}
+
 sealed record FormattedDiagnostic(string File, int Line, int Column, string Code, string Message)
 {
 	public string Display => string.Create(

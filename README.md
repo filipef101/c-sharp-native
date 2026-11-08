@@ -28,7 +28,21 @@ dotnet build src/NativePoc.Android/NativePoc.Android.csproj \
 
 Use `android-arm64` for a phone. A plain `adb install` of the Debug APK aborts: Debug uses fast deployment, and the assemblies are pushed by `-t:Run`.
 
-Debug in-place reload, after that deploy. The process starts the listener with no launch extra. It listens on `localabstract:npoc-hotreload` and checks the token in the handshake. The token is a per-process bearer value, Debug only. The app writes it to the private file `files/nativepoc-hotreload.token`. The host keeps that value in its temp file, `nativepoc-hotreload.token` under the temp directory, and forwards `tcp:18765` to `localabstract:npoc-hotreload`. The token is not logged. A new process mints a new token. State stays in `NativePoc.Core`, which is already loaded. Release does not compile the listener. Acceptance items 7–10 are `cnative run android`. They pass on the series in `docs/devx/comparison.md` and the merged-main smoke. Frame time to pixels, and typed state across a redeploy, stay unverified.
+## Dev loop
+
+```bash
+export DOTNET_ROOT="$HOME/.dotnet"
+export ANDROID_HOME="$HOME/android-sdk"
+export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+export PATH="$DOTNET_ROOT:$ANDROID_HOME/platform-tools:$PATH"
+tools/devx/cnative run android
+```
+
+The emulator or device has to be online already. This command does not boot one. It builds Debug, installs, launches, and watches `src`. Saving `src/NativePoc.Screen/Screen.cs` reloads that screen in place and keeps the process. Saving `src/NativePoc.Core` or `src/NativePoc.Android` prints `rude edit -> restart required` and asks before a rebuild. `reloaded in` is the whole push. `apply` is the device exchange. A compile error stays in the terminal as `file:line:col` and the app keeps the previous screen. Pass `--restart-on-rude` to skip the question.
+
+The `NativePoc.HotReload.Host` modes below are 20-sample benchmarks. Mode `a` restarts the app, types its own name, and rewrites `evidence/hot-reload-a.log`. It is not the edit loop.
+
+Debug in-place reload, after that deploy. The process starts the listener with no launch extra. It listens on `localabstract:npoc-hotreload` and checks the token in the handshake. The token is a per-process bearer value, Debug only. The app writes it to the private file `files/nativepoc-hotreload.token`. The host keeps that value in its temp file, `nativepoc-hotreload.token` under the temp directory, and forwards `tcp:18765` to `localabstract:npoc-hotreload`. The token is not logged. A new process mints a new token. State stays in `NativePoc.Core`, which is already loaded. Release does not compile the listener. Acceptance items 7–10 are `cnative run android`. They pass on the series in `docs/devx/comparison.md`, the merged-main smoke, and persona B. Frame time to pixels stays unverified. A redeploy drops the typed name.
 
 ```bash
 tools/devx/cnative run android --restart-on-rude
@@ -39,7 +53,7 @@ dotnet build tools/NativePoc.HotReload.Host/NativePoc.HotReload.Host.csproj
 dotnet tools/NativePoc.HotReload.Host/bin/Debug/net10.0/NativePoc.HotReload.Host.dll a
 ```
 
-`a` is file write plus compile plus transfer plus render, `b` is send plus render of a DLL compiled beforehand, and `c` is compile only. Each mode records 20 samples.
+`a` is a benchmark that restarts the app: file write plus compile plus transfer plus render. `b` is send plus render of a DLL compiled beforehand, and `c` is compile only. Each mode records 20 samples. `a` is not the edit loop.
 
 `dotnet watch` restarts the app on this workload. That is a known limitation. It is not the hot reload path.
 

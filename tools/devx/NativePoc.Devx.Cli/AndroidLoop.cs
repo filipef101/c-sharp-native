@@ -85,11 +85,21 @@ static class AndroidLoop
 				session.Open(repo, serial);
 			}
 
-			if (options.Once)
-				return initial.Status == ReloadStatus.Applied || initial.Restarting ? 0 : 1;
-			if (initial.Status == ReloadStatus.Failed)
-				return 1;
-			return Watch(repo, rid, serial, session, options, cancel.Token);
+			var decision = InitialPush.Decide(initial.Status, initial.Restarting, options.Once);
+			switch (decision)
+			{
+				case InitialDecision.ExitSuccess:
+					return 0;
+				case InitialDecision.ExitFailure:
+					return 1;
+				case InitialDecision.WatchAfterFailure:
+					Console.Error.WriteLine(InitialPush.FailureLine);
+					return Watch(repo, rid, serial, session, options, cancel.Token);
+				case InitialDecision.Watch:
+					return Watch(repo, rid, serial, session, options, cancel.Token);
+				default:
+					throw UnhandledDecision(decision);
+			}
 		}
 		finally
 		{
@@ -165,7 +175,7 @@ static class AndroidLoop
 					ReportFileRude(batch.Paths);
 					var interactive = Interactive();
 					var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
-					var follow = ReloadConsole.FollowUp(restarting, !restarting && !interactive && !options.RestartOnRude);
+					var follow = ReloadConsole.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude));
 					if (follow is not null)
 						Console.WriteLine(follow);
 					if (restarting)
@@ -183,6 +193,15 @@ static class AndroidLoop
 		Console.WriteLine("cnative: stopped");
 		return 0;
 	}
+
+	static Exception UnhandledDecision(InitialDecision decision) =>
+		decision switch
+		{
+			InitialDecision.ExitSuccess => new InvalidOperationException("ExitSuccess is handled."),
+			InitialDecision.ExitFailure => new InvalidOperationException("ExitFailure is handled."),
+			InitialDecision.Watch => new InvalidOperationException("Watch is handled."),
+			InitialDecision.WatchAfterFailure => new InvalidOperationException("WatchAfterFailure is handled."),
+		};
 
 	static Exception Unhandled(ChangeEffect effect) =>
 		effect switch
@@ -264,7 +283,7 @@ static class AndroidLoop
 				Console.WriteLine(applied.Text);
 				var interactive = Interactive();
 				var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
-				var follow = ReloadConsole.FollowUp(restarting, !restarting && !interactive && !options.RestartOnRude);
+				var follow = ReloadConsole.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude));
 				if (follow is not null)
 					Console.WriteLine(follow);
 				return new PushOutcome(ReloadStatus.RudeEdit, restarting);
@@ -321,12 +340,15 @@ static class AndroidLoop
 		if (LaunchCommand.PassesToken(startArgs))
 			throw new InvalidOperationException("Refusing to pass the hot reload token as a launch extra.");
 		Console.WriteLine("cnative: launching " + component);
-		Adb(serial, "shell", "am", "force-stop", LaunchCommand.Package);
-		Thread.Sleep(300);
-		ClearStaleTokens(serial);
-		var started = Adb(serial, startArgs);
-		if (started.Code != 0)
-			throw new InvalidOperationException("am start failed: " + started.Stderr + started.Stdout);
+		var commands = LaunchCommand.BeforeStart(LaunchCommand.Package, component);
+		for (var i = 0; i < commands.Count; i++)
+		{
+			if (i == 1)
+				Thread.Sleep(300);
+			var result = Adb(serial, commands[i]);
+			if (i == commands.Count - 1 && result.Code != 0)
+				throw new InvalidOperationException("am start failed: " + result.Stderr + result.Stdout);
+		}
 		var pid = WaitPid(serial);
 		Console.WriteLine("cnative: pid " + pid);
 		var token = WaitToken(serial);
@@ -363,12 +385,6 @@ static class AndroidLoop
 		}
 
 		throw new InvalidOperationException("The app process did not start.");
-	}
-
-	static void ClearStaleTokens(string serial)
-	{
-		foreach (var relative in TokenFiles.RelativePaths)
-			Adb(serial, "shell", "run-as", LaunchCommand.Package, "rm", "-f", relative);
 	}
 
 	static FoundToken WaitToken(string serial)

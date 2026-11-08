@@ -43,6 +43,9 @@ static class ReloadConsole
 		return null;
 	}
 
+	public static bool OfferRestartFlag(bool restarting, bool restartOnRude) =>
+		!restarting && !restartOnRude;
+
 	public static string? FollowUp(bool restarting, bool offerFlag)
 	{
 		if (restarting)

@@ -375,7 +375,7 @@ Not observed on the emulator, because the command stopped at the token:
 
 ### This command
 
-One process builds, installs, launches, and is supposed to stay up and push `Screen.cs`. The apply path is the measurement host: Roslyn emit of that one file, `adb forward tcp:18765` to `localabstract:npoc-<hex>`, 16 token bytes, then the DLL. On success the CLI prints the wall time around that process and the host's `once-ms` (send through the post-render reply). `src/NativePoc.Core` and `src/NativePoc.Android` edits are rude: the loader only swaps the screen assembly. A device `MissingMethodException`, `MissingFieldException`, `MissingMemberException`, or `TypeLoadException` is the same message. Other `.cs` files under `src/NativePoc.Screen` are not in the swapped assembly; the CLI says so and does not pretend they were included.
+One process builds, installs, launches, and stays up to push `Screen.cs`. It compiles that file in-process with the SDK implicit usings, forwards `tcp:18765` to `localabstract:npoc-hotreload`, sends the 16 token bytes, then the DLL. On success it prints `reloaded in` for the whole push and `apply` for the device exchange. `src/NativePoc.Core` and `src/NativePoc.Android` edits are rude: the loader only swaps the screen assembly. A device `MissingMethodException`, `MissingFieldException`, `MissingMemberException`, or `TypeLoadException` is the same message. Other `.cs` files under `src/NativePoc.Screen` are not in the swapped assembly; the CLI says so and does not pretend they were included.
 
 ### Expo
 
@@ -393,13 +393,11 @@ Visual Studio's Hot Reload matrix, from Microsoft's documentation, lists MAUI An
 
 The in-place mechanism this CLI drives is the Debug screen-assembly swap already in the app, not `MetadataUpdater` deltas. The report's n=20 series for that swap (file-to-render p50 17.5 ms on one Debug process) is the earlier measurement of the host, not a `cnative` session.
 
-## What is missing
+## What is still true
 
-- The running Debug app does not write the token file, so the command cannot forward the socket or push a DLL. Until `OnCreate` does that without an intent extra, the watch never starts.
-- `run-as cat /proc/net/unix` is `Permission denied` on this API 34 image, so the CLI cannot learn the abstract socket name from the process. The file has to exist.
 - The command does not boot an emulator. Expo and `ns run android` can. An online `adb` device is required.
 - Only `src/NativePoc.Screen/Screen.cs` is compiled into the swapped DLL. A second screen file, a new `Element` type, or an `AppState` shape change is not an in-place edit.
-- A rude restart is a full Debug `-t:Run`. That is a new process, so `AppState` is dropped. It was not exercised on the device.
+- A rude restart is a full Debug `-t:Run`. That is a new process, so `AppState` starts over. The field is empty after the relaunch.
 - There is no on-device error surface, no debugger, no IDE gutter, and no iOS path.
-- Release and NativeAOT are out of this command. The report says the listener is Debug-only; that scan was not repeated here.
-- No device reload time was recorded. The unit-test timing line is a fixture.
+- `run-as cat /proc/net/unix` is `Permission denied` on this API 34 image. The socket name is the fixed `localabstract:npoc-hotreload`. The token file is the per-process bearer, not the socket name.
+- Release and NativeAOT are outside this command. The listener is compiled only in Debug.

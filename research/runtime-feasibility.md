@@ -248,7 +248,7 @@ Hot reload, Debug, n = 20, same process. The supported path is `cnative run andr
 10. The field still contains `Ada` after every sample of `cnative run android`.
 11. A rude edit (add a field to `AppState`) is attempted once. The log records whether the runtime refused it or the process restarted. This item does not have to succeed as an in-place update.
 
-A reinstall, a new pid, or a wiped field fails items 7–10 even if the new string appears quickly. The evidence is [docs/devx/comparison.md](../docs/devx/comparison.md) and the merged-main smoke in the report. The Debug loader clocks are a separate measurement and do not by themselves pass these items. Time from `RenderNow` to the next scanned framebuffer, and typed state across a redeploy, are not part of the pass.
+A reinstall, a new pid, or a wiped field fails items 7–10 even if the new string appears quickly. The evidence is [docs/devx/comparison.md](../docs/devx/comparison.md) and the merged-main smoke in the report. The Debug loader clocks are a separate measurement and do not by themselves pass these items. Time from `RenderNow` to the next scanned framebuffer is not part of the pass. A redeploy drops the typed name; persona B ran that drop.
 
 Release Mono AOT:
 

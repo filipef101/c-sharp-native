@@ -119,6 +119,9 @@ public sealed class HostOutputTests
 		Assert.Equal("restarting", ReloadConsole.FollowUp(true, false));
 		Assert.Equal("pass --restart-on-rude to rebuild and relaunch", ReloadConsole.FollowUp(false, true));
 		Assert.Null(ReloadConsole.FollowUp(false, false));
+		Assert.True(ReloadConsole.OfferRestartFlag(false, false));
+		Assert.False(ReloadConsole.OfferRestartFlag(true, false));
+		Assert.False(ReloadConsole.OfferRestartFlag(false, true));
 	}
 
 	[Fact]

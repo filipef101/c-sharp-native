@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using NativePoc.HotReload;
 
 const int Port = 18765;
 const int Samples = 20;
@@ -41,6 +42,12 @@ try
 			exit = 2;
 			break;
 	}
+}
+catch (RestartRequiredException ex)
+{
+	Line(HotReloadReply.Summary(ex.Message));
+	Line(ex.Message);
+	exit = 1;
 }
 catch (Exception ex)
 {
@@ -260,10 +267,14 @@ static IReadOnlyList<MetadataReference> References(string root)
 
 static byte[] Compile(string source, IReadOnlyList<MetadataReference> references)
 {
-	var tree = CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Preview));
+	var options = new CSharpParseOptions(LanguageVersion.Preview);
+	var usings = CSharpSyntaxTree.ParseText(
+		string.Join('\n', HotReloadReply.ImplicitGlobalUsings.Select(name => "global using global::" + name + ";")) + "\n",
+		options);
+	var tree = CSharpSyntaxTree.ParseText(source, options);
 	var compilation = CSharpCompilation.Create(
 		"NativePoc.Screen",
-		[tree],
+		[usings, tree],
 		references,
 		new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 	using var pe = new MemoryStream();
@@ -308,7 +319,12 @@ static string Send(byte[] dll)
 	ReadExact(stream, body);
 	var text = Encoding.UTF8.GetString(body);
 	if (!ok)
+	{
+		if (HotReloadReply.NeedsRestart(text))
+			throw new RestartRequiredException(text);
 		throw new InvalidOperationException(text);
+	}
+
 	return text;
 }
 

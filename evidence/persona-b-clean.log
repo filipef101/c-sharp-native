@@ -1,0 +1,64 @@
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.85
+cnative: building Debug android-x64 for emulator-5554
+  Determining projects to restore...
+  Restored /workspace/src/NativePoc.Screen/NativePoc.Screen.csproj (in 235 ms).
+  Restored /workspace/src/NativePoc.Core/NativePoc.Core.csproj (in 235 ms).
+  1 of 3 projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:11.25
+cnative: launching com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+cnative: pid 20410
+cnative: waiting for a hot reload token via adb run-as
+cnative: token read via adb run-as (files/nativepoc-hotreload.token)
+reloaded in 777.5 ms (apply 298.3 ms)
+reply Counter 0 collectible=True
+cnative: watching src/NativePoc.Screen
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 45.7 ms (apply 18.5 ms)
+reply Expo 1 collectible=True
+edit-to-reply 88 ms
+cnative: reload src/NativePoc.Screen/Screen.cs
+src/NativePoc.Screen/Screen.cs:5:36: error CS1525: Invalid expression term ';'
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 18.8 ms (apply 7.8 ms)
+reply Fixed 1 collectible=True
+edit-to-reply 60 ms
+rude edit -> restart required
+src/NativePoc.Core/Elements.cs
+Restart the app? [y/N] pass --restart-on-rude to rebuild and relaunch
+rude edit -> restart required
+src/NativePoc.Core/Elements.cs
+Restart the app? [y/N] restarting
+cnative: building Debug android-x64 for emulator-5554
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:03.45
+cnative: launching com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+cnative: pid 20726
+cnative: waiting for a hot reload token via adb run-as
+cnative: token read via adb run-as (files/nativepoc-hotreload.token)
+cnative: stopped

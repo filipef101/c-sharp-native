@@ -72,6 +72,18 @@ static class LaunchCommand
 	public static string[] Start(string component) =>
 		["shell", "am", "start", "-n", component];
 
+	public static IReadOnlyList<string[]> BeforeStart(string package, string component)
+	{
+		var commands = new List<string[]>
+		{
+			new[] { "shell", "am", "force-stop", package },
+		};
+		foreach (var relative in TokenFiles.RelativePaths)
+			commands.Add(new[] { "shell", "run-as", package, "rm", "-f", relative });
+		commands.Add(Start(component));
+		return commands;
+	}
+
 	public static bool PassesToken(IReadOnlyList<string> args)
 	{
 		for (var i = 0; i < args.Count; i++)

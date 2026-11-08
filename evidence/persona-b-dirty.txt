@@ -1,0 +1,7 @@
+persona B dirty
+token-prefix-before=<redacted-token>
+dirty-launch-endofstream=no
+pid-dirty=20904
+token-prefix-after=<redacted-token>
+pid-dirty-edit=20904
+ui-dirty=Native PoC | Dirty 0 | Name | Save | Enter a name

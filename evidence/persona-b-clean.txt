@@ -1,0 +1,18 @@
+persona B clean
+pm-clear=Success 
+pid-after-launch=20410
+token-prefix=<redacted-token>
+ui-first=Native PoC | Counter 0 | Name | Save | Enter a name
+ui-typed=Native PoC | Counter 1 | Rio | Save | Hello Rio
+pid-typed=20410
+pid-expo=20410
+ui-expo=Native PoC | Expo 1 | Rio | Save | Hello Rio
+pid-error=20410
+ui-error=Native PoC | Expo 1 | Rio | Save | Hello Rio
+pid-fixed=20410
+ui-fixed=Native PoC | Fixed 1 | Rio | Save | Hello Rio
+pid-declined=20410
+declined-hint=yes
+pid-restarted=20726
+token-prefix-after-restart=<redacted-token>
+ui-restarted=Native PoC | Fixed 0 | Name | Save | Enter a name

@@ -19,6 +19,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\NativePoc.Devx.Cli\NativePoc.Devx.Cli.csproj" />
+		<ProjectReference Include="..\..\NativePoc.HotReload.Host\NativePoc.HotReload.Host.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<Reference Include="Microsoft.CodeAnalysis">

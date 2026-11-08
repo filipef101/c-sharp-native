@@ -39,6 +39,29 @@ public sealed class ScreenCompilerTests
 	}
 
 	[Fact]
+	public void A_screen_can_name_IReadOnlyList_without_its_own_using()
+	{
+		var repo = RepoRoot.Find(AppContext.BaseDirectory);
+		var compiler = ScreenCompiler.Create(repo);
+		var source = """
+			namespace NativePoc;
+			public static class Screen
+			{
+				public static Element Render(AppState state, IPlatform platform)
+				{
+					IReadOnlyList<Element> children = new Element[] { new Text("Hi") };
+					return new Column(children);
+				}
+			}
+			""";
+
+		var compiled = compiler.Compile(source);
+
+		Assert.Empty(compiled.Errors);
+		Assert.NotNull(compiled.Assembly);
+	}
+
+	[Fact]
 	public void Implicit_usings_match_the_sdk_global_set()
 	{
 		var source = ScreenCompiler.ImplicitUsingsSource();

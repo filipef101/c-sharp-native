@@ -5,6 +5,24 @@ namespace NativePoc.Devx.Tests;
 public sealed class LoopRuleTests
 {
 	[Fact]
+	public void Launch_deletes_the_stale_token_before_am_start()
+	{
+		var commands = LaunchCommand.BeforeStart(
+			LaunchCommand.Package,
+			"com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity");
+		var lines = commands.Select(command => string.Join(' ', command)).ToArray();
+		var delete = Array.IndexOf(lines, "shell run-as com.scratch.nativepoc rm -f files/nativepoc-hotreload.token");
+		var start = Array.FindIndex(lines, line => line.StartsWith("shell am start ", StringComparison.Ordinal));
+
+		Assert.Equal("shell am force-stop com.scratch.nativepoc", lines[0]);
+		Assert.Contains("shell run-as com.scratch.nativepoc rm -f files/hotreload.token", lines);
+		Assert.Contains("shell run-as com.scratch.nativepoc rm -f cache/nativepoc-hotreload.token", lines);
+		Assert.True(delete > 0);
+		Assert.True(start == lines.Length - 1);
+		Assert.True(delete < start);
+	}
+
+	[Fact]
 	public void Launch_does_not_carry_the_token()
 	{
 		var args = LaunchCommand.Start("com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity");
