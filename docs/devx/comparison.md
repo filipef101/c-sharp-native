@@ -15,6 +15,66 @@ tools/devx/cnative run android --device emulator-5554 --once
 
 The Debug app has to publish the token itself. The file `cnative` reads is `files/nativepoc-hotreload.token` inside the app data directory (`adb shell run-as com.scratch.nativepoc cat files/nativepoc-hotreload.token`): 32 hex characters. The process then listens on `localabstract:npoc-<hex>`, which is the socket the host already forwards to `tcp:18765`. The CLI also accepts `files/hotreload.token`, `cache/nativepoc-hotreload.token`, any other `*.token` name in those two directories, and an `npoc-<hex>` name if `run-as` can read `/proc/net/unix`. It never passes `--es nativepoc_hotreload`.
 
+## E2E after the once-ms parser fix
+
+`origin/main` `0a45484` is merged. `dotnet workload install android@36.1.118` installed android `36.1.118/10.0.100` (workload version `10.0.403`). Record: [evidence/workload-e2e.txt](evidence/workload-e2e.txt). `src/` and `tools/NativePoc.HotReload.Host` were not changed by the parser fix. The Screen and Core edits used to drive the loop were reverted; `git diff -- src` is empty.
+
+### BUILT
+
+`HostOutput` accepts `once-ms=<ms> bytes=<n> reply=<text>` and the older line that is only `once-ms=<ms>`. A Roslyn diagnostic with no path is printed as `src/NativePoc.Screen/Screen.cs:<line>:<col>`.
+
+`dotnet test tools/devx/NativePoc.Devx.Cli.Tests` built the host, `cnative`, and the test assembly. Log: [evidence/unit-tests-parser.log](evidence/unit-tests-parser.log).
+
+`tools/devx/cnative run android --device emulator-5554 --restart-on-rude` built the CLI in `00:00:01.01` (`0 Warning(s)`, `0 Error(s)`) and Debug `android-x64` in `00:00:01.57` (`0 Warning(s)`, `0 Error(s)`). The rude-edit redeploy built in `00:00:03.65`. Transcript: [evidence/cnative-e2e.log](evidence/cnative-e2e.log).
+
+### TESTED
+
+Host suite from that log: `Passed: 41, Failed: 0, Skipped: 0`, duration `326 ms`. The new cases use the device line `once-ms=220.1 bytes=7680 reply=Counter 0 collectible=True` and the pathless diagnostic `(5,36): error CS1525: Invalid expression term ';'`. These tests do not talk to a device.
+
+### RUN
+
+The same AVD `poc34` was still up. At `2026-11-08T19:34:23Z`, after the session below, `sys.boot_completed` was `1`, `ro.build.version.sdk` was `34`, `ro.product.cpu.abi` was `x86_64`, `tainted` was `0`, and qemu pid `5338` still had `-accel on`.
+
+The command was `tools/devx/cnative run android --device emulator-5554 --restart-on-rude`. It launched `com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity`, printed `cnative: pid 8318`, read the token, and printed `reloaded in 3557.9 ms (apply 279.4 ms)` with `reply Counter 0 collectible=True`. That startup push is outside the 20.
+
+For the measured edits, `Screen.cs` on disk began with `using System.Collections.Generic;` so the host could compile `IReadOnlyList<>`, which the merged screen names and the host compiles as one file without implicit usings. Each of the 20 edits changed `TitlePrefix` to `N00 ` through `N19 `. The UI dump after each edit contained that label, and `adb shell pidof com.scratch.nativepoc` stayed `8318`. Rows: [evidence/e2e-samples.tsv](evidence/e2e-samples.tsv). First and last frames: [evidence/e2e-reload-00.png](evidence/e2e-reload-00.png), [evidence/e2e-reload-19.png](evidence/e2e-reload-19.png) (`N19 0`).
+
+The 20 `reloaded in` wall times and the 20 `apply` times, from [evidence/e2e-percentiles.txt](evidence/e2e-percentiles.txt):
+
+- wall `reloaded in`, `statistics.median` p50 `2541.0000` ms, `statistics.quantiles(n=10, method=inclusive)[8]` p90 `2609.3100` ms
+- host `apply` (`once-ms`), p50 `14.0000` ms, p90 `17.3200` ms
+
+Sorted wall times: `2495.4, 2504.2, 2504.6, 2509.4, 2513.4, 2520.9, 2522.9, 2525.8, 2535.1, 2536.6, 2545.4, 2545.7, 2546.8, 2556.1, 2557.5, 2559.9, 2569.1, 2609.0, 2612.1, 2612.8`.
+
+Sorted apply times: `12.7, 13.4, 13.4, 13.4, 13.5, 13.6, 13.6, 13.6, 13.8, 13.9, 14.1, 14.3, 14.4, 14.5, 15.2, 15.3, 16.1, 16.8, 22.0, 31.6`.
+
+The next edit made `TitlePrefix` syntactically invalid. The CLI printed:
+
+```
+src/NativePoc.Screen/Screen.cs:7:36: error CS1525: Invalid expression term ';'
+src/NativePoc.Screen/Screen.cs:7:37: error CS1519: Invalid token ';' in a member declaration
+```
+
+`pidof` was still `8318`. The framebuffer still showed `N19 0`: [evidence/e2e-compile-error.png](evidence/e2e-compile-error.png).
+
+Restoring `TitlePrefix` to `N19 ` printed `reloaded in 2543.4 ms (apply 20.5 ms)` on pid `8318`. That recovery is outside the 20.
+
+Adding `RudeGeneration` to `AppState` then printed:
+
+```
+rude edit -> restart required
+src/NativePoc.Core/Elements.cs
+restarting
+```
+
+The redeploy printed `cnative: pid 9290`. `pidof` was `9290`. The new frame still shows `N19 0`: [evidence/e2e-after-restart.png](evidence/e2e-after-restart.png).
+
+### UNVERIFIED
+
+- A 20-edit series of the committed `Screen.cs`, which has no `using System.Collections.Generic`. The series above used that using, and the using was reverted.
+- A typed name kept across the 20 reloads. The greeting stayed `Enter a name`.
+- Any percentile other than the two clocks on those 20 lines. The startup `3557.9 / 279.4` and the recovery `2543.4 / 20.5` are not in the 20.
+
 ## This boot of 86d70ae
 
 Product sources are the tree at `86d70ae`. `src/` was not edited.
