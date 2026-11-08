@@ -1,0 +1,1 @@
+exception=InvalidOperationException (31,3): error CS0246: The type or namespace name 'IReadOnlyList<>' could not be found (are you missing a using directive or an assembly reference?)

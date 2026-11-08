@@ -1,0 +1,1 @@
+Usage: NativePoc.HotReload.Host <a|b|c|once>

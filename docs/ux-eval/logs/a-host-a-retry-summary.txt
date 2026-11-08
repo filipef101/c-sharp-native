@@ -1,0 +1,11 @@
+clock=file-write then Roslyn compile then abstract-socket send through the post-render reply
+cold=sample 0, the first load after process start; no compile and no send before it
+pid=6872
+sample=0 ms=829.9 pid=6872 reply=A00 1 collectible=True ui=Native PoC | A00 1 | Ada | Save | Hello Ada ok=True
+sample=19 ms=16.6 pid=6872 reply=A19 1 collectible=True ui=Native PoC | A19 1 | Ada | Save | Hello Ada ok=True
+samples-ms=829.9,45.8,27.3,20.2,18.5,15.8,17.2,17.4,16.0,16.5,25.4,16.7,15.2,19.1,16.0,20.9,16.6,14.8,14.0,16.6
+cold-ms=829.9
+p50-all-ms=17.0
+p50-warm-ms=16.7
+min-ms=14.0
+max-ms=829.9

@@ -1,0 +1,4 @@
+clock=file-write then Roslyn compile then abstract-socket send through the post-render reply
+cold=sample 0, the first load after process start; no compile and no send before it
+pid=6573
+exception=InvalidOperationException (31,3): error CS0246: The type or namespace name 'IReadOnlyList<>' could not be found (are you missing a using directive or an assembly reference?)

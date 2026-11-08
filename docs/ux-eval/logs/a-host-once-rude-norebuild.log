@@ -1,0 +1,1 @@
+exception=InvalidOperationException (11,65): error CS1061: 'AppState' does not contain a definition for 'RudeGeneration' and no accessible extension method 'RudeGeneration' accepting a first argument of type 'AppState' could be found (are you missing a using directive or an assembly reference?)

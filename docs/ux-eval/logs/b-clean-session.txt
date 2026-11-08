@@ -1,0 +1,60 @@
+Script started on 2026-11-08 20:00:01+00:00 [COMMAND="tools/devx/cnative run android" TERM="tmux-256color" TTY="/dev/pts/3" COLUMNS="80" LINES="24"]
+
+csproj
+
+cnative: building Debug android-x64 for emulator-5554
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:10.38
+cnative: launching com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+cnative: pid 8995
+cnative: waiting for a hot reload token via adb run-as
+cnative: token read via adb run-as (files/nativepoc-hotreload.token)
+src/NativePoc.Screen/Screen.cs:31:3: error CS0246: The type or namespace name 'IReadOnlyList<>' could not be found (are you missing a using directive or an assembly reference?)
+cnative: watching src/NativePoc.Screen
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 2682.9 ms (apply 47.3 ms)
+reply Expo 1 collectible=True
+cnative: reload src/NativePoc.Screen/Screen.cs
+src/NativePoc.Screen/Screen.cs:7:36: error CS1525: Invalid expression term ';'
+cnative: reload src/NativePoc.Screen/Screen.cs
+reloaded in 2517.0 ms (apply 21.0 ms)
+reply Fixed 1 collectible=True
+rude edit -> restart required
+src/NativePoc.Core/Elements.cs
+Restart the app? [y/N] n
+rude edit -> restart required
+src/NativePoc.Core/Elements.cs
+Restart the app? [y/N] y
+restarting
+cnative: building Debug android-x64 for emulator-5554
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:04.20
+cnative: launching com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+cnative: pid 9323
+cnative: waiting for a hot reload token via adb run-as
+cnative: token read via adb run-as (files/nativepoc-hotreload.token)
+cnative: stopped
+
+Script done on 2026-11-08 20:04:15+00:00 [COMMAND_EXIT_CODE="0"]

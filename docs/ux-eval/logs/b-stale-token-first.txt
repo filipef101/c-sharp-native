@@ -1,0 +1,35 @@
+Script started on 2026-11-08 19:56:14+00:00 [COMMAND="tools/devx/cnative run android" TERM="tmux-256color" TTY="/dev/pts/3" COLUMNS="80" LINES="24"]
+echo "CNATIVE_SCRIPT_EXIT $? $(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a /tmp/ux-eval-logs/persona-b/marker.txt
+
+csproj
+
+cnative: building Debug android-x64 for emulator-5554
+  Determining projects to restore...
+  Restored /workspace/src/NativePoc.Core/NativePoc.Core.csproj (in 189 ms).
+  2 of 3 projects are up-to-date for restore.
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:04.43
+cnative: launching com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+cnative: pid 7932
+cnative: waiting for a hot reload token via adb run-as
+cnative: token read via adb run-as (files/nativepoc-hotreload.token)
+src/NativePoc.Screen/Screen.cs:31:3: error CS0246: The type or namespace name 'IReadOnlyList<>' could not be found (are you missing a using directive or an assembly reference?)
+cnative: watching src/NativePoc.Screen
+cnative: reload src/NativePoc.Screen/Screen.cs
+reload failed
+exception=EndOfStreamException The hot reload connection closed early.
+cnative: reload src/NativePoc.Screen/Screen.cs
+reload failed
+exception=EndOfStreamException The hot reload connection closed early.
+^Ccnative: stopped
+
+Script done on 2026-11-08 19:59:55+00:00 [COMMAND_EXIT_CODE="0"]

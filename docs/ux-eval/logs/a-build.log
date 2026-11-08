@@ -1,0 +1,16 @@
+  Determining projects to restore...
+  Restored /workspace/src/NativePoc.Android/NativePoc.Android.csproj (in 699 ms).
+  Restored /workspace/src/NativePoc.Core/NativePoc.Core.csproj (in 4.3 sec).
+  Restored /workspace/src/NativePoc.Screen/NativePoc.Screen.csproj (in 4.3 sec).
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:25.69
+A_BUILD_EXIT 0 2026-11-08T19:49:50Z
