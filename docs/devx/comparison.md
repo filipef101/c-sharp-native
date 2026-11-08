@@ -15,14 +15,48 @@ tools/devx/cnative run android --device emulator-5554 --once
 
 The Debug app has to publish the token itself. The file `cnative` reads is `files/nativepoc-hotreload.token` inside the app data directory (`adb shell run-as com.scratch.nativepoc cat files/nativepoc-hotreload.token`): 32 hex characters. The process then listens on `localabstract:npoc-<hex>`, which is the socket the host already forwards to `tcp:18765`. The CLI also accepts `files/hotreload.token`, `cache/nativepoc-hotreload.token`, any other `*.token` name in those two directories, and an `npoc-<hex>` name if `run-as` can read `/proc/net/unix`. It never passes `--es nativepoc_hotreload`.
 
-## BUILT
+## Token contract retry
+
+The branch is rebased onto `e2d588d` (`Publish the Debug hot reload token where cnative reads it`). `git diff e2d588d -- src tools/NativePoc.HotReload.Host` is empty. `src/` was not edited here.
+
+### BUILT
+
+`dotnet test tools/devx/NativePoc.Devx.Cli.Tests` after that rebase: build succeeded and the tests ran. Log: [evidence/unit-tests-after-rebase.log](evidence/unit-tests-after-rebase.log).
+
+### TESTED
+
+Same suite: `Passed: 39, Failed: 0, Skipped: 0`, duration 297 ms. That log is the one above. These tests still do not talk to a device.
+
+### RUN
+
+KVM was checked before any `cnative` command. `emulator -accel-check` printed `KVM (version 12) is installed and usable`. A separate probe, `KVM_GET_API_VERSION` then `KVM_CREATE_VM` then `KVM_CREATE_VCPU`, segfaulted. Exit 139. `dmesg` shows `kernel BUG at arch/x86/kvm/x86.c:689!` in `kvm_arch_vcpu_create` for `Comm: kvmprobe` and for `Comm: qemu-system-x86`. The kernel is `6.12.113+`, tainted `D` after an earlier oops in this boot. Excerpt: [evidence/kvm-vcpu-bug.txt](evidence/kvm-vcpu-bug.txt).
+
+AVD `poc34` was then started with `-accel on -gpu swiftshader_indirect -memory 2048 -cores 2 -no-snapshot -port 5554`. `adb devices` stayed empty for twelve polls, five seconds apart. At elapsed `01:26`, `ps` showed that qemu pid at `%CPU 0.6`. The same BUG line names `qemu-system-x86` at dmesg timestamp `2042.422682`. The process was killed. No `cnative` process was started.
+
+### UNVERIFIED
+
+Because the API 34 emulator never reached `adb`, these were not run:
+
+- n=20 Screen edits through `cnative run android`, with p50, p90, and a stable pid
+- a compile error printed as `file:line:col` with the app still alive
+- `rude edit -> restart required` followed by `--restart-on-rude` and a new pid
+
+No reload milliseconds are reported for this attempt. There is no new screenshot.
+
+The earlier launch transcript and `evidence/launched.png` are from before this rebase, on the app that did not write the token file. They are not a run of the token-contract tree.
+
+## Earlier launch, before the token file
+
+This section is the run on `c9f5bb1`, before the rebase onto `e2d588d`. The Debug app in that tree did not write `files/nativepoc-hotreload.token`.
+
+### BUILT
 
 On this machine, SDK 10.0.403, workload `android` 36.1.118.
 
 - `dotnet test tools/devx/NativePoc.Devx.Cli.Tests` built `NativePoc.HotReload.Host`, `cnative`, and the test assembly. The test log is [evidence/unit-tests.log](evidence/unit-tests.log).
 - `tools/devx/cnative run android --device emulator-5554 --once` built Debug `android-x64` with `-t:Run`. The saved transcript says `Build succeeded`, `0 Warning(s)`, `0 Error(s)`, `Time Elapsed 00:00:01.53`. That run was incremental: the same command had already produced the assemblies. Transcript: [evidence/cnative-once.log](evidence/cnative-once.log).
 
-## TESTED
+### TESTED
 
 Host unit tests for the CLI, not the emulator. `Passed: 39, Failed: 0, Skipped: 0`, duration 278 ms in [evidence/unit-tests.log](evidence/unit-tests.log).
 
@@ -33,9 +67,9 @@ Host unit tests for the CLI, not the emulator. `Passed: 39, Failed: 0, Skipped: 
 
 The 24.8 ms and 19.3 ms figures are fixture strings in the unit test, not a device measurement.
 
-## RUN
+### RUN
 
-KVM accepted a VM and a vCPU (`KVM_CREATE_VM`, `KVM_CREATE_VCPU`). `emulator -accel-check` printed `KVM (version 12) is installed and usable` ([evidence/accel-check.txt](evidence/accel-check.txt)). AVD `poc34`, API 34, `google_apis` / `x86_64`, 1080×2400, started with `-accel on -gpu swiftshader_indirect -memory 2048 -no-window`. `sys.boot_completed=1`. `adb devices` showed `emulator-5554`. `ro.build.version.sdk` was `34`. `ro.product.cpu.abi` was `x86_64`.
+KVM accepted a VM and a vCPU (`KVM_CREATE_VM`, `KVM_CREATE_VCPU`). That was earlier in this boot, before `kernel BUG at arch/x86/kvm/x86.c:689`. `emulator -accel-check` printed `KVM (version 12) is installed and usable` ([evidence/accel-check.txt](evidence/accel-check.txt)). AVD `poc34`, API 34, `google_apis` / `x86_64`, 1080×2400, started with `-accel on -gpu swiftshader_indirect -memory 2048 -no-window`. `sys.boot_completed=1`. `adb devices` showed `emulator-5554`. `ro.build.version.sdk` was `34`. `ro.product.cpu.abi` was `x86_64`.
 
 `cnative run android --device emulator-5554 --once` then:
 
@@ -59,7 +93,7 @@ unix exit=1 cat: /proc/net/unix: Permission denied
 
 Exit code 1. `run-as` on this image cannot read `/proc/net/unix`, so the socket name is not available that way. The app sources on this branch are the tree at `c9f5bb1`: `HotReloadServer.Start` runs only when the `nativepoc_hotreload` intent extra is set, and nothing writes a token file. This command refuses that extra.
 
-## UNVERIFIED
+### UNVERIFIED
 
 Not observed on the emulator, because the command stopped at the token:
 
