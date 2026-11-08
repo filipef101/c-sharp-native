@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NativePoc.HotReload.Host -> /workspace/tools/NativePoc.HotReload.Host/bin/Debug/net10.0/NativePoc.HotReload.Host.dll
+  NativePoc.Devx.Cli -> /workspace/tools/devx/NativePoc.Devx.Cli/bin/Debug/net10.0/cnative.dll
+  NativePoc.Devx.Cli.Tests -> /workspace/tools/devx/NativePoc.Devx.Cli.Tests/bin/Debug/net10.0/NativePoc.Devx.Cli.Tests.dll
+Test run for /workspace/tools/devx/NativePoc.Devx.Cli.Tests/bin/Debug/net10.0/NativePoc.Devx.Cli.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    39, Skipped:     0, Total:    39, Duration: 278 ms - NativePoc.Devx.Cli.Tests.dll (net10.0)
