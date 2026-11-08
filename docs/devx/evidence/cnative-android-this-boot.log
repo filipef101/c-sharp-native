@@ -1,0 +1,30 @@
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.98
+cnative: building Debug android-x64 for emulator-5554
+  Determining projects to restore...
+  Restored /workspace/src/NativePoc.Android/NativePoc.Android.csproj (in 645 ms).
+  Restored /workspace/src/NativePoc.Core/NativePoc.Core.csproj (in 4.33 sec).
+  Restored /workspace/src/NativePoc.Screen/NativePoc.Screen.csproj (in 4.33 sec).
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+  NativePoc.Android -> /workspace/src/NativePoc.Android/bin/Debug/net10.0-android/android-x64/NativePoc.Android.dll
+  NativePoc.Core -> /workspace/src/NativePoc.Core/bin/Debug/net10.0/NativePoc.Core.dll
+  NativePoc.Screen -> /workspace/src/NativePoc.Screen/bin/Debug/net10.0/NativePoc.Screen.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:21.69
+cnative: launching com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity
+cnative: pid 6379
+cnative: waiting for a hot reload token via adb run-as
+cnative: token read via adb run-as (files/nativepoc-hotreload.token)
+reload failed
+once-ms=220.1 bytes=7680 reply=Counter 0 collectible=True
+ui=Native PoC | Counter 0 | Name | Save | Enter a name
+pid=6379

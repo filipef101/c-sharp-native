@@ -1,0 +1,34 @@
+KVM confirmation on this boot after the earlier emulator oops.
+accel-check reports the API version. vCPU creation does not succeed.
+
+date=2026-11-08T18:59:50Z
+uname=6.12.113+
+---- emulator -accel-check ----
+accel:
+0
+KVM (version 12) is installed and usable.
+accel
+---- kvmprobe ----
+--: line 13: 10736 Segmentation fault      /tmp/kvmprobe
+kvmprobe_exit=139
+
+---- dmesg BUG lines ----
+414:[ 1930.996620] kernel BUG at arch/x86/kvm/x86.c:689!
+416:[ 1930.997231] CPU: 0 UID: 1000 PID: 6892 Comm: qemu-system-x86 Not tainted 6.12.113+ #1
+476:[ 1931.069670] kernel BUG at arch/x86/kvm/x86.c:689!
+478:[ 1931.070046] CPU: 0 UID: 1000 PID: 6893 Comm: qemu-system-x86 Tainted: G      D            6.12.113+ #1
+569:[ 1953.116024] kernel BUG at arch/x86/kvm/x86.c:689!
+625:[ 2001.970917] kernel BUG at arch/x86/kvm/x86.c:689!
+627:[ 2001.971244] CPU: 3 UID: 1000 PID: 11634 Comm: kvmprobe Tainted: G      D            6.12.113+ #1
+681:[ 2014.182929] kernel BUG at arch/x86/kvm/x86.c:689!
+683:[ 2014.183299] CPU: 2 UID: 1000 PID: 11686 Comm: kvmprobe Tainted: G      D            6.12.113+ #1
+737:[ 2042.422682] kernel BUG at arch/x86/kvm/x86.c:689!
+739:[ 2042.423080] CPU: 2 UID: 1000 PID: 12043 Comm: qemu-system-x86 Tainted: G      D            6.12.113+ #1
+790:[ 2156.822308] kernel BUG at arch/x86/kvm/x86.c:689!
+792:[ 2156.822727] CPU: 1 UID: 1000 PID: 12389 Comm: kvmprobe Tainted: G      D            6.12.113+ #1
+
+---- emulator -accel on -avd poc34 ----
+Started qemu-system-x86_64-headless pid 10092 with -accel on -memory 2048 -cores 2 -port 5554.
+adb devices printed only the header. Twelve polls, 5 seconds apart, each had an empty device list. At elapsed 01:26, ps showed pid 10092 STAT Ssl+ %CPU 0.6.
+dmesg recorded kernel BUG at arch/x86/kvm/x86.c:689 for Comm qemu-system-x86 at timestamp 2042.422682, which is this start.
+The process was killed after that. No cnative run was started.

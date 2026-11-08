@@ -1,0 +1,52 @@
+# Reload profile, 2026-11-08, emulator-5554, before the resident cnative path.
+# Each block is a separate measurement. No block is a difference of two others.
+
+## dotnet --version (muxer, not the host)
+121.5 ms, 105.8 ms, 105.9 ms, exit 0, version 10.0.403
+
+## dotnet exec NativePoc.HotReload.Host.dll with no mode
+process start, prints usage, no compile
+first series: 24.5 ms, 21.0 ms, 23.8 ms, exit 2
+later sample: 44.8 ms, exit 2
+
+## host once on committed Screen.cs (no using System.Collections.Generic)
+433.4 ms exit 1
+397.1 ms exit 1
+stdout begins: exception=InvalidOperationException (31,3): error CS0246: The type or namespace name 'IReadOnlyList<>' could not be found
+This path fails in Compile and does not reach Send or UiTexts.
+
+## host mode c, one fresh process, after a temporary using was added to Screen.cs
+The using was removed with git checkout before the resident series.
+process wall: 740.7 ms, exit 0
+The mode loads references before the sample clock.
+host printed:
+cold-ms=497.9
+p50-all-ms=8.5
+p50-warm-ms=8.5
+min-ms=7.9
+max-ms=497.9
+samples-ms=497.9,15.6,8.9,9.2,8.6,8.7,8.3,8.4,8.5,8.8,8.1,9.2,8.7,8.0,8.2,8.0,7.9,8.1,8.5,8.4
+
+## host once, same temporary using, app already running
+process wall: 2770.4 ms, exit 0
+once-ms=66.4 bytes=7680 reply=Counter 0 collectible=True
+ui=Native PoC | Counter 0 | Name | Save | Enter a name
+pid=9290
+SendOnce starts once-ms after Compile, LoadToken, and ForwardAbstract, and calls UiTexts after the clock.
+
+## adb forward remove+add, tcp 18766 -> localabstract:npoc-profile (not the live 18765 forward)
+4.9 ms, 7.9 ms, 3.6 ms, 3.8 ms, 3.3 ms
+
+## uiautomator dump /sdcard/nativepoc-ui.xml
+2100.0 ms, 2005.1 ms
+2032.0 ms, 2011.8 ms, 2011.1 ms
+
+## adb pull of that xml
+6.4 ms, 4.5 ms, 3.4 ms
+
+## adb shell pidof com.scratch.nativepoc
+16.4 ms, 14.5 ms, 14.0 ms
+
+## source constants in the host-spawn cnative, not stopwatch samples
+ChangeDebouncer default window: 250 ms, applied before HotReloadHostClient.Once starts the reloaded-in clock
+watch loop WaitOne: 40 ms
