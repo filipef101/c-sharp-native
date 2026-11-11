@@ -1,0 +1,86 @@
+NativeAOT dev listener, cnative new, emulator-run.
+AVD poc34, serial emulator-5554, API 34, x86_64, KVM.
+Host load at 20:52:41 UTC: 0.16 0.44 0.74. The second process below did not record load.
+
+Debug listener publish, android-x64. lib/x86_64/libNativePoc.Android.so is 9728848 bytes.
+Signed APK is 3670963 bytes.
+Clean publish before the first cnative run: sha256 c9f6b89df55a76a0129884c199a60ebe641b25ebde160c9e7185927b2f025662.
+The APK on disk after the second cnative run android --listener: sha256 2bec24e4e7424c2bcd6c1b666cd3f6f80d084941c3eb75a9991e1d59c6314631.
+Same sizes. The two hashes are two publishes of the same sources. Built.
+
+First process, pid 3242. logcat:
+  runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+  hotreload-listen
+cnative: show samples/hello/HelloScreen.cs
+reloaded in 45.9 ms (apply 45.4 ms)
+reply Hello program=1 present=1
+uiautomator: Hello [42,170][1038,221], Count 0 [42,221][1038,272], ADD [42,272][1038,398]
+
+Title initializer "Hello" to "Hello again", same pid:
+reloaded in 7.4 ms (apply 6.6 ms)
+edit-to-reply 48 ms
+reply Hello program=1 present=1
+The dump text stayed Hello and the bounds stayed [42,170][1038,221]. The initializer did not replace the value already in the bag.
+
+Style FontSize 28 on the title, same pid:
+reloaded in 12.2 ms (apply 11.5 ms)
+edit-to-reply 56 ms
+Title bounds became [42,170][1038,268].
+
+Handler body state.Title = "Added", same pid:
+reloaded in 18.3 ms (apply 17.1 ms)
+edit-to-reply 56 ms
+Tap Add at 540,382. Dump: Added, Count 1. Same pid.
+
+state.Count += 1, outside the subset:
+samples/hello/HelloScreen.cs:18:30: subset.bad-lambda: A screen action can assign state, request a render, or copy text.
+The edit was not applied. The last program stays until relaunch.
+restarting
+cnative: relaunching the installed app
+cnative: pid 3456
+state restored
+cnative: restored last program samples/hello/HelloScreen.cs
+reloaded in 464.7 ms (apply 464.7 ms)
+reply Added program=1 present=1
+Dump on pid 3456: Added [42,170][1038,268], Count 1. The style height was still there.
+
+Rename Count to Total, same pid 3456:
+reloaded in 19.0 ms (apply 18.1 ms)
+edit-to-reply 60 ms
+Dump: Added, Total 0. The new field started at 0. Title stayed Added.
+
+cnative new notes, before the watcher was recorded in the known-screen set.
+Two reloads, same pid 3456:
+reloaded in 24.3 ms (apply 23.5 ms)
+reloaded in 21.8 ms (apply 21.2 ms)
+Dump: Hello, Count 1. That is the notes screen. The hello screen had just shown Total 0.
+
+Packing row label item.Name + " item", same pid:
+reloaded in 63.3 ms (apply 59.9 ms)
+edit-to-reply 104 ms
+Dump text included Canvas tent item.
+
+platform.Push("settings") on the notes button, same pid:
+reloaded in 21.5 ms (apply 20.7 ms)
+edit-to-reply 64 ms
+Tap Add. Dump: Day, Name, Note, SYSTEM, BACK.
+
+Screen.cs with the TitlePrefix semicolon removed, same pid 3456:
+src/NativePoc.Screen/Screen.cs:5:46: error CS1002: ; expected
+The semicolon put back:
+reloaded in 38.6 ms (apply 24.4 ms)
+edit-to-reply 76 ms
+Dump: Counter 0, Enter a name, PACKING. Same pid.
+
+Second process, pid 3730, after that duplicate reload was removed.
+The debug state file was still on the device, so the first dump was Added and Count 1, not the template's Hello and Count 0.
+"Count " changed to "Taps ", same pid:
+reloaded in 13.8 ms (apply 12.9 ms)
+Dump: Added, Taps 1.
+cnative new notes, one reload:
+reloaded in 13.6 ms (apply 12.9 ms)
+Dump: Hello, Count 2. Hello on that same pid still showed Taps 1 before the notes screen. Why the notes count was 2 was not traced.
+IsDynamicCodeSupported was not read from logcat for pid 3730. Unverified for that pid.
+
+Headless, this boot, no emulator: Core tests 55 passed, Packing tests 14 passed, Devx tests 98 passed.
+dotnet build src/NativePoc.Android/NativePoc.Android.csproj -c Debug -f net10.0-android succeeded, 0 warnings. Built.

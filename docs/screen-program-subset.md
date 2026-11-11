@@ -49,6 +49,8 @@ An action is a lambda. It may assign a property from the lambda argument, a lite
 | `subset.duplicate-key` | two children with the same literal key |
 | `subset.mixed-keys` | a parent mixes keyed and unkeyed children |
 
+A running `cnative run android` prints `path:line:column: id: message` and `The edit was not applied. The last program stays until relaunch.` The device overlay shows the same id and message. `--restart-on-rude` relaunches the installed process without publishing again, restores the checkpoint, and applies the last program that lowered. A Core or Android edit still rebuilds first. A parse error in a generated screen is `subset.not-a-screen` and uses that same relaunch. A parse error in `Screen.cs` is the compiler's `error CSxxxx` line, and that process stays up. Debug writes `files/nativepoc-state.bin` from `StateStore` on each render, including the nav bags, and the launch does not delete that file. A reload keeps a bag value when the property name and type are still there, so changing an initializer does not replace a title the screen is already showing. A string literal in the render does change.
+
 ## Scroll
 
 `ScrollView` is one keyed child. The Android host maps it to `android.widget.ScrollView` (`FillViewport`) and reconciles that child by key, the same way a column reuses a row. The packing list is a `ScrollView` of key `scroll` around the `list` column, in `PackingScreen.cs` and in the lowered program.

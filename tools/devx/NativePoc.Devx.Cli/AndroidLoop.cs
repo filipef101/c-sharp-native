@@ -81,6 +81,7 @@ static class AndroidLoop
 			cancel.Cancel();
 		};
 		var session = new ReloadSession();
+		var kept = new KeptPrograms();
 		try
 		{
 			var checkpoint = CaptureRunning(serial);
@@ -89,14 +90,14 @@ static class AndroidLoop
 			Restore(session, checkpoint);
 			var initial = Push(session, options, editStartedMs: null);
 			if (initial.Restarting)
-				Relaunch(session, repo, rid, serial, options.Listener);
+				Restart(session, repo, rid, serial, options, kept, initial.SubsetRefusal);
 			else
 			{
 				var packingStarted = Stopwatch.GetTimestamp();
-				var packing = SendPacking(session, repo);
-				if (!ReportPacking(packing, editStartedMs: null, packingStarted) && options.Once)
+				var packing = SendPacking(session, repo, kept);
+				if (!ReportApplied(PackingScreen, packing, editStartedMs: null, packingStarted) && options.Once)
 					return 1;
-				if (!ShowGenerated(session, repo) && options.Once)
+				if (!ShowGenerated(session, repo, kept) && options.Once)
 					return 1;
 			}
 
@@ -109,9 +110,9 @@ static class AndroidLoop
 					return 1;
 				case InitialDecision.WatchAfterFailure:
 					Console.Error.WriteLine(InitialPush.FailureLine);
-					return Watch(repo, rid, serial, session, options, cancel.Token);
+					return Watch(repo, rid, serial, session, options, kept, cancel.Token);
 				case InitialDecision.Watch:
-					return Watch(repo, rid, serial, session, options, cancel.Token);
+					return Watch(repo, rid, serial, session, options, kept, cancel.Token);
 				default:
 					throw UnhandledDecision(decision);
 			}
@@ -122,26 +123,49 @@ static class AndroidLoop
 		}
 	}
 
-	static int Watch(string repo, string rid, string serial, ReloadSession session, CliOptions options, CancellationToken cancel)
+	static int Watch(string repo, string rid, string serial, ReloadSession session, CliOptions options, KeptPrograms kept, CancellationToken cancel)
 	{
 		Console.WriteLine("cnative: watching src/NativePoc.Screen, samples/NativePoc.Packing, and samples/<name>");
 		var debouncer = new ChangeDebouncer(options.DebounceMs);
+		var knownScreens = new HashSet<string>(NewLoop.AppScreens(repo), StringComparer.Ordinal);
+		var knownGate = new object();
 		FileSystemEventHandler onChange = (_, args) =>
 		{
-			if (!string.IsNullOrEmpty(args.FullPath))
-				debouncer.Push(Path.GetRelativePath(repo, args.FullPath), Environment.TickCount64);
+			if (string.IsNullOrEmpty(args.FullPath))
+				return;
+			var relative = ChangeEffectRules.Normalize(Path.GetRelativePath(repo, args.FullPath));
+			lock (knownGate)
+				knownScreens.Add(relative);
+			debouncer.Push(relative, Environment.TickCount64);
 		};
 		RenamedEventHandler onRename = (_, args) =>
 		{
-			if (!string.IsNullOrEmpty(args.FullPath))
-				debouncer.Push(Path.GetRelativePath(repo, args.FullPath), Environment.TickCount64);
+			if (string.IsNullOrEmpty(args.FullPath))
+				return;
+			var relative = ChangeEffectRules.Normalize(Path.GetRelativePath(repo, args.FullPath));
+			lock (knownGate)
+				knownScreens.Add(relative);
+			debouncer.Push(relative, Environment.TickCount64);
 		};
 		ErrorEventHandler onError = (_, args) => Console.Error.WriteLine("cnative: watch error " + args.GetException().Message);
 		using var srcWatcher = WatchDirectory(Path.Combine(repo, "src"), onChange, onRename, onError);
 		using var sampleWatcher = WatchDirectory(Path.Combine(repo, "samples"), onChange, onRename, onError);
+		var scanned = Environment.TickCount64;
 		while (!cancel.IsCancellationRequested)
 		{
 			var now = Environment.TickCount64;
+			if (now - scanned >= 400)
+			{
+				scanned = now;
+				foreach (var relative in NewLoop.AppScreens(repo))
+				{
+					var added = false;
+					lock (knownGate)
+						added = knownScreens.Add(relative);
+					if (added)
+						debouncer.Push(relative, now);
+				}
+			}
 			var remaining = debouncer.Remaining(now);
 			if (remaining is null)
 			{
@@ -172,7 +196,7 @@ static class AndroidLoop
 						Console.WriteLine("cnative: reload src/NativePoc.Screen/Screen.cs");
 						var outcome = Push(session, options, batch.FirstMs);
 						if (outcome.Restarting)
-							Relaunch(session, repo, rid, serial, options.Listener);
+							Restart(session, repo, rid, serial, options, kept, outcome.SubsetRefusal);
 					}
 
 					foreach (var path in batch.Paths.Where(ChangeEffectRules.IsAppScreen))
@@ -180,34 +204,18 @@ static class AndroidLoop
 						var relative = ChangeEffectRules.Normalize(path);
 						Console.WriteLine("cnative: reload " + relative);
 						var startedApp = Stopwatch.GetTimestamp();
-						var sent = SendSource(session, repo, relative);
-						if (!ReportPacking(sent, batch.FirstMs, startedApp) && HostOutput.IsRude(sent.Text))
-						{
-							var appInteractive = Interactive();
-							var appRestart = RestartPolicy.ShouldRestart(true, options.RestartOnRude, appInteractive, ReadAnswer);
-							var appFollow = ReloadConsole.FollowUp(appRestart, ReloadConsole.OfferRestartFlag(appRestart, options.RestartOnRude));
-							if (appFollow is not null)
-								Console.WriteLine(appFollow);
-							if (appRestart)
-								Relaunch(session, repo, rid, serial, options.Listener);
-						}
+						var sent = SendSource(session, repo, relative, kept);
+						if (!ReportApplied(relative, sent, batch.FirstMs, startedApp) && (sent.Refused || HostOutput.IsRude(sent.Text)))
+							OfferRestart(session, repo, rid, serial, options, kept, sent.Refused);
 					}
 
 					if (batch.Paths.Any(ChangeEffectRules.IsPackingScreen))
 					{
 						Console.WriteLine("cnative: reload samples/NativePoc.Packing/PackingScreen.cs");
 						var started = Stopwatch.GetTimestamp();
-						var packing = SendPacking(session, repo);
-						if (!ReportPacking(packing, batch.FirstMs, started) && HostOutput.IsRude(packing.Text))
-						{
-							var packingInteractive = Interactive();
-							var packingRestart = RestartPolicy.ShouldRestart(true, options.RestartOnRude, packingInteractive, ReadAnswer);
-							var packingFollow = ReloadConsole.FollowUp(packingRestart, ReloadConsole.OfferRestartFlag(packingRestart, options.RestartOnRude));
-							if (packingFollow is not null)
-								Console.WriteLine(packingFollow);
-							if (packingRestart)
-								Relaunch(session, repo, rid, serial, options.Listener);
-						}
+						var packing = SendPacking(session, repo, kept);
+						if (!ReportApplied(PackingScreen, packing, batch.FirstMs, started) && (packing.Refused || HostOutput.IsRude(packing.Text)))
+							OfferRestart(session, repo, rid, serial, options, kept, packing.Refused);
 					}
 
 					break;
@@ -219,7 +227,7 @@ static class AndroidLoop
 					if (follow is not null)
 						Console.WriteLine(follow);
 					if (restarting)
-								Relaunch(session, repo, rid, serial, options.Listener);
+						Relaunch(session, repo, rid, serial, options.Listener, kept);
 
 					break;
 				default:
@@ -280,7 +288,9 @@ static class AndroidLoop
 		}
 	}
 
-	readonly record struct PushOutcome(ReloadStatus Status, bool Restarting);
+	const string PackingScreen = "samples/NativePoc.Packing/PackingScreen.cs";
+
+	readonly record struct PushOutcome(ReloadStatus Status, bool Restarting, bool SubsetRefusal = false);
 
 	static PushOutcome Push(ReloadSession session, CliOptions options, long? editStartedMs)
 	{
@@ -310,9 +320,18 @@ static class AndroidLoop
 		if (!lowered.Ok || lowered.Program is null)
 		{
 			ShowRefusal(session, lowered);
-			Console.WriteLine("screen program refused");
-			Console.WriteLine(lowered.Diagnostics.Count == 0 ? "The screen is not a program this runtime can carry." : lowered.Diagnostics[0].Message);
-			return new PushOutcome(ReloadStatus.Failed, false);
+			const string host = "src/NativePoc.Screen/Screen.cs";
+			if (lowered.Diagnostics.Count == 0)
+				Console.WriteLine(host + ": The screen is not a program this runtime can carry.");
+			else
+				Console.WriteLine(DeveloperRefusal.Line(host, lowered.Diagnostics[0]));
+			Console.WriteLine(DeveloperRefusal.Stays);
+			var interactive = Interactive();
+			var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
+			var follow = DeveloperRefusal.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude));
+			if (follow is not null)
+				Console.WriteLine(follow);
+			return new PushOutcome(ReloadStatus.Failed, restarting, true);
 		}
 
 		ApplyResult applied;
@@ -390,24 +409,24 @@ static class AndroidLoop
 		return new ProgramPush(applied.Ok, false, applied.Text);
 	}
 
-	internal readonly record struct PackingSend(bool Applied, bool Refused, string Text, double Milliseconds);
+	internal readonly record struct PackingSend(bool Applied, bool Refused, string Text, double Milliseconds, SubsetDiagnostic? Diagnostic = null);
 
-	static bool ShowGenerated(ReloadSession session, string repo)
+	static bool ShowGenerated(ReloadSession session, string repo, KeptPrograms kept)
 	{
 		var ok = true;
 		foreach (var relative in NewLoop.AppScreens(repo))
 		{
 			Console.WriteLine("cnative: show " + relative);
 			var started = Stopwatch.GetTimestamp();
-			var sent = SendSource(session, repo, relative);
-			if (!ReportPacking(sent, editStartedMs: null, started))
+			var sent = SendSource(session, repo, relative, kept);
+			if (!ReportApplied(relative, sent, editStartedMs: null, started))
 				ok = false;
 		}
 
 		return ok;
 	}
 
-	internal static PackingSend SendSource(ReloadSession session, string repo, string relative)
+	internal static PackingSend SendSource(ReloadSession session, string repo, string relative, KeptPrograms? kept = null, bool fault = true)
 	{
 		var path = Path.Combine(repo, relative.Replace('/', Path.DirectorySeparatorChar));
 		string source;
@@ -420,10 +439,10 @@ static class AndroidLoop
 			return new PackingSend(false, false, ex.Message, 0);
 		}
 
-		return ApplySource(session, source, "The screen is not a program this runtime can carry.");
+		return ApplySource(session, source, "The screen is not a program this runtime can carry.", kept, relative, fault);
 	}
 
-	internal static PackingSend SendPacking(ReloadSession session, string repo)
+	internal static PackingSend SendPacking(ReloadSession session, string repo, KeptPrograms? kept = null, bool fault = true)
 	{
 		var path = Path.Combine(repo, "samples", "NativePoc.Packing", "PackingScreen.cs");
 		string source;
@@ -436,20 +455,24 @@ static class AndroidLoop
 			return new PackingSend(false, false, ex.Message, 0);
 		}
 
-		return ApplySource(session, source, "The packing screen is not a program this runtime can carry.");
+		return ApplySource(session, source, "The packing screen is not a program this runtime can carry.", kept, PackingScreen, fault);
 	}
 
-	static PackingSend ApplySource(ReloadSession session, string source, string refused)
+	static PackingSend ApplySource(ReloadSession session, string source, string refused, KeptPrograms? kept, string? relative, bool fault)
 	{
 		var lowered = SubsetLowerer.TryLower(source);
 		if (!lowered.Ok || lowered.Program is null)
 		{
-			ShowRefusal(session, lowered);
-			return new PackingSend(false, true, lowered.Diagnostics.Count == 0 ? refused : lowered.Diagnostics[0].Message, 0);
+			if (fault)
+				ShowRefusal(session, lowered);
+			var diagnostic = lowered.Diagnostics.Count == 0 ? null : lowered.Diagnostics[0];
+			return new PackingSend(false, true, diagnostic is null ? refused : diagnostic.Message, 0, diagnostic);
 		}
 		try
 		{
 			var applied = session.Connection.Apply(lowered.Program);
+			if (applied.Ok && kept is not null && relative is not null)
+				kept.Remember(relative, lowered.Program);
 			return new PackingSend(applied.Ok, false, applied.Text, applied.Milliseconds);
 		}
 		catch (InvalidOperationException ex)
@@ -473,12 +496,12 @@ static class AndroidLoop
 		}
 	}
 
-	static bool ReportPacking(PackingSend sent, long? editStartedMs, long startedTimestamp)
+	static bool ReportApplied(string relative, PackingSend sent, long? editStartedMs, long startedTimestamp)
 	{
 		if (sent.Refused)
 		{
-			Console.WriteLine("packing program refused");
-			Console.WriteLine(sent.Text);
+			Console.WriteLine(sent.Diagnostic is null ? relative + ": " + sent.Text : DeveloperRefusal.Line(relative, sent.Diagnostic));
+			Console.WriteLine(DeveloperRefusal.Stays);
 			return false;
 		}
 
@@ -525,7 +548,27 @@ static class AndroidLoop
 		return Console.ReadLine();
 	}
 
-	static void Relaunch(ReloadSession session, string repo, string rid, string serial, bool listener)
+	static void OfferRestart(ReloadSession session, string repo, string rid, string serial, CliOptions options, KeptPrograms kept, bool subset)
+	{
+		var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, Interactive(), ReadAnswer);
+		var follow = subset
+			? DeveloperRefusal.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude))
+			: ReloadConsole.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude));
+		if (follow is not null)
+			Console.WriteLine(follow);
+		if (restarting)
+			Restart(session, repo, rid, serial, options, kept, subset);
+	}
+
+	static void Restart(ReloadSession session, string repo, string rid, string serial, CliOptions options, KeptPrograms kept, bool subset)
+	{
+		if (subset)
+			RelaunchInstalled(session, repo, serial, kept);
+		else
+			Relaunch(session, repo, rid, serial, options.Listener, kept);
+	}
+
+	static void Relaunch(ReloadSession session, string repo, string rid, string serial, bool listener, KeptPrograms kept)
 	{
 		byte[]? checkpoint = null;
 		try
@@ -540,11 +583,79 @@ static class AndroidLoop
 		session.Token = DeployAndLaunch(repo, rid, serial, listener: listener);
 		session.Open(repo, serial);
 		Restore(session, checkpoint);
+		Replay(session, repo, kept);
+	}
 
-		var pushed = SendFile(session);
-		if (!pushed.Applied)
-			Console.WriteLine("screen program was not restored: " + pushed.Text);
-		ReportPacking(SendPacking(session, repo), editStartedMs: null, Stopwatch.GetTimestamp());
+	static void RelaunchInstalled(ReloadSession session, string repo, string serial, KeptPrograms kept)
+	{
+		byte[]? checkpoint = null;
+		try
+		{
+			checkpoint = ReadCheckpoint(session.Connection);
+		}
+		catch (Exception ex) when (ex is InvalidOperationException or IOException)
+		{
+			Console.WriteLine("state was not captured: " + ex.Message);
+		}
+
+		Console.WriteLine("cnative: relaunching the installed app");
+		session.Token = LaunchInstalled(serial);
+		session.Open(repo, serial);
+		Restore(session, checkpoint);
+		Replay(session, repo, kept);
+	}
+
+	static void Replay(ReloadSession session, string repo, KeptPrograms kept)
+	{
+		var host = SendFile(session);
+		Console.WriteLine(host.Applied ? "screen program restored: " + host.Text : "screen program was not restored: " + host.Text);
+		var packingStarted = Stopwatch.GetTimestamp();
+		var packing = SendPacking(session, repo, kept, fault: false);
+		if (!ReportApplied(PackingScreen, packing, editStartedMs: null, packingStarted))
+			RestoreRemembered(session, PackingScreen, kept);
+		foreach (var relative in NewLoop.AppScreens(repo))
+		{
+			var started = Stopwatch.GetTimestamp();
+			var sent = SendSource(session, repo, relative, kept, fault: false);
+			if (sent.Applied)
+			{
+				Console.WriteLine("cnative: show " + relative);
+				ReportApplied(relative, sent, editStartedMs: null, started);
+				continue;
+			}
+
+			if (!RestoreRemembered(session, relative, kept))
+				ReportApplied(relative, sent, editStartedMs: null, started);
+		}
+	}
+
+	static bool RestoreRemembered(ReloadSession session, string relative, KeptPrograms kept)
+	{
+		if (!kept.TryGet(relative, out var program))
+			return false;
+		var started = Stopwatch.GetTimestamp();
+		try
+		{
+			var applied = session.Connection.Apply(program);
+			if (!applied.Ok)
+			{
+				Console.WriteLine("cnative: last program was not restored " + relative);
+				Console.WriteLine(applied.Text);
+				return true;
+			}
+
+			Console.WriteLine("cnative: restored last program " + relative);
+			var elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+			foreach (var line in ReloadConsole.AppliedLines(elapsed, applied.Milliseconds, applied.Text))
+				Console.WriteLine(line);
+			return true;
+		}
+		catch (InvalidOperationException ex)
+		{
+			Console.WriteLine("cnative: last program was not restored " + relative);
+			Console.WriteLine(ex.Message);
+			return true;
+		}
 	}
 
 	internal static byte[]? CaptureRunning(string serial)
@@ -661,6 +772,11 @@ static class AndroidLoop
 			if (build.Code != 0)
 				throw new InvalidOperationException("Debug deploy exited " + build.Code + ".");
 		}
+		return LaunchInstalled(serial);
+	}
+
+	internal static FoundToken LaunchInstalled(string serial)
+	{
 		var resolved = Adb(serial, "shell", "cmd", "package", "resolve-activity", "--brief", LaunchCommand.Package);
 		var component = ActivityName.FromResolve(resolved.Stdout)
 			?? throw new InvalidOperationException("The launcher activity was not resolved: " + resolved.Stdout + resolved.Stderr);

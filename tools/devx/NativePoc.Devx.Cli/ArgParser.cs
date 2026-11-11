@@ -33,7 +33,11 @@ static class ArgParser
 		  src/NativePoc.Core or src/NativePoc.Android asks before a restart.
 		  "reloaded in" is the whole push. "apply" is the device exchange.
 		  A screen edit is lowered to a program the running process interprets.
-		  An edit the program cannot carry is refused and the process stays up.
+		  An edit the program cannot carry is refused. cnative prints
+		  file:line:column: id: message and leaves the last program up.
+		  --restart-on-rude relaunches the installed process and restores
+		  state, then applies the last program that lowered. A Core or
+		  Android edit is rebuilt before that relaunch.
 
 		  cnative agent tree|state
 		  cnative agent screenshot <png>
@@ -63,7 +67,8 @@ static class ArgParser
 		  --abi <rid>           android-x64 or android-arm64. Default: the device ABI.
 		  --listener            publish the Debug NativeAOT listener for that ABI.
 		  --debounce <ms>       quiet period before a reload. Default: 40.
-		  --restart-on-rude     rebuild and relaunch when an edit needs a restart.
+		  --restart-on-rude     relaunch when an edit cannot be applied.
+		                        A Core or Android edit is rebuilt first.
 		  --once                push the current screens once and exit.
 		                    A samples/<name> screen from cnative new is shown too.
 		  --help                show this text.
