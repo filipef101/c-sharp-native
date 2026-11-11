@@ -69,6 +69,8 @@ sealed class ScreenCompiler
 
 	public CompileOutput CompileFile() => Compile(File.ReadAllText(_screenFile));
 
+	public string ReadSource() => File.ReadAllText(_screenFile);
+
 	public CompileOutput Compile(string source)
 	{
 		var tree = CSharpSyntaxTree.ParseText(

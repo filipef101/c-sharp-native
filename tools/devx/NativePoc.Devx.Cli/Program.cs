@@ -2,6 +2,8 @@ using NativePoc.Devx;
 
 try
 {
+	if (args.Length > 0 && args[0] == "agent")
+		return AgentLoop.Run(args);
 	var options = ArgParser.Parse(args);
 	if (options.Help)
 	{

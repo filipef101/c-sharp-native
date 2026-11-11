@@ -19,6 +19,7 @@ public sealed class MainActivity : Activity
 	AndroidHost? _host;
 	ViewReconciler<View>? _reconciler;
 	PlatformBridge? _platform;
+	string _programSource = "";
 	bool _inRender;
 	bool _renderAgain;
 
@@ -105,6 +106,53 @@ public sealed class MainActivity : Activity
 	}
 
 	public string UseRender(Func<AppState, IPlatform, Element> render)
+	{
+		var previousSource = _programSource;
+		_programSource = "";
+		try
+		{
+			return ApplyRender(render);
+		}
+		catch
+		{
+			_programSource = previousSource;
+			throw;
+		}
+	}
+
+	public string UseProgram(ScreenProgram.Bound program)
+	{
+		var previousSource = _programSource;
+		_programSource = program.SourceHash;
+		try
+		{
+			return ApplyRender(program.Render);
+		}
+		catch
+		{
+			_programSource = previousSource;
+			throw;
+		}
+	}
+
+	public string Answer(byte op, byte[] payload)
+	{
+		switch (op)
+		{
+			case ScreenQuery.Tree:
+				return "source=" + _programSource + "\n" + ScreenSnapshot.FormatTree(_reconciler?.Current);
+			case ScreenQuery.State:
+				return ScreenSnapshot.FormatState(AppSession.Shared.State);
+			case ScreenQuery.Restore:
+				StateCheckpoint.ReadInto(payload.AsSpan(6), AppSession.Shared.State);
+				RequestRender();
+				return "restored";
+			default:
+				throw new InvalidOperationException("Unknown screen query.");
+		}
+	}
+
+	string ApplyRender(Func<AppState, IPlatform, Element> render)
 	{
 		var previous = _render;
 		_render = render;

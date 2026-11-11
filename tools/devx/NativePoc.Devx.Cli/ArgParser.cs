@@ -30,6 +30,13 @@ static class ArgParser
 		  Only src/NativePoc.Screen/Screen.cs reloads in place. A save under
 		  src/NativePoc.Core or src/NativePoc.Android asks before a restart.
 		  "reloaded in" is the whole push. "apply" is the device exchange.
+		  A screen edit is lowered to a program the running process interprets.
+		  An edit the program cannot carry is refused and the process stays up.
+
+		  cnative agent tree|state
+		  cnative agent screenshot <png>
+		  cnative agent tap <x> <y>
+		  cnative agent type <text>
 
 		  --device <serial>     adb serial. Default: the only online device.
 		  --abi <rid>           android-x64 or android-arm64. Default: the device ABI.

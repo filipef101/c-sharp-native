@@ -11,6 +11,9 @@
 		<InvariantGlobalization>true</InvariantGlobalization>
 	</PropertyGroup>
 	<ItemGroup>
+		<ProjectReference Include="..\..\..\src\NativePoc.Core\NativePoc.Core.csproj" />
+	</ItemGroup>
+	<ItemGroup>
 		<Reference Include="Microsoft.CodeAnalysis">
 			<HintPath>$(NetCoreRoot)sdk/$(NETCoreSdkVersion)/Microsoft.CodeAnalysis.dll</HintPath>
 			<Private>true</Private>

@@ -165,6 +165,17 @@ static class HotReloadServer
 	[UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "Debug-only bind of NativePoc.Screen.Render.")]
 	static string Apply(byte[] dll, MainActivity activity)
 	{
+		if (ScreenQuery.IsQuery(dll))
+			return activity.Answer(ScreenQuery.Op(dll), dll);
+		if (ScreenProgram.IsProgram(dll))
+		{
+			var program = ScreenProgram.Bind(dll);
+			var programmed = activity.UseProgram(program);
+			var programmedMessage = programmed + " program=1";
+			Android.Util.Log.Info(MainActivity.Tag, "hotreload-applied " + programmedMessage);
+			return programmedMessage;
+		}
+
 		AssemblyLoadContext context;
 		Assembly assembly;
 		var collectible = true;
