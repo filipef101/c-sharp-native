@@ -96,6 +96,8 @@ static class AndroidLoop
 				var packing = SendPacking(session, repo);
 				if (!ReportPacking(packing, editStartedMs: null, packingStarted) && options.Once)
 					return 1;
+				if (!ShowGenerated(session, repo) && options.Once)
+					return 1;
 			}
 
 			var decision = InitialPush.Decide(initial.Status, initial.Restarting, options.Once);
@@ -389,6 +391,21 @@ static class AndroidLoop
 	}
 
 	internal readonly record struct PackingSend(bool Applied, bool Refused, string Text, double Milliseconds);
+
+	static bool ShowGenerated(ReloadSession session, string repo)
+	{
+		var ok = true;
+		foreach (var relative in NewLoop.AppScreens(repo))
+		{
+			Console.WriteLine("cnative: show " + relative);
+			var started = Stopwatch.GetTimestamp();
+			var sent = SendSource(session, repo, relative);
+			if (!ReportPacking(sent, editStartedMs: null, started))
+				ok = false;
+		}
+
+		return ok;
+	}
 
 	internal static PackingSend SendSource(ReloadSession session, string repo, string relative)
 	{

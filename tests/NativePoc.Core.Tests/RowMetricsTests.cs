@@ -81,6 +81,22 @@ public sealed class RowMetricsTests
 		Assert.Equal(0, new RowPrefix(0, 10).IndexAt(4));
 	}
 
+	[Fact]
+	public void A_one_row_scroll_keeps_the_other_slots()
+	{
+		var current = new int[20];
+		for (var index = 0; index < current.Length; index++)
+			current[index] = index;
+		var next = RowWindowPlan.Assign(current, 1, 1000, 20);
+		Assert.Equal(20, next[0]);
+		for (var index = 1; index < next.Length; index++)
+			Assert.Equal(index, next[index]);
+		var fresh = RowWindowPlan.Assign(new int[20], 0, 1000, 20);
+		for (var index = 0; index < fresh.Length; index++)
+			Assert.Equal(index, fresh[index]);
+		Assert.Equal(new[] { -1, -1, 2, 3 }, RowWindowPlan.Assign(new[] { 0, 1, 2, 3 }, 2, 4, 4));
+	}
+
 	static void Expect(RowPrefix prefix, int[] heights)
 	{
 		var y = 0;

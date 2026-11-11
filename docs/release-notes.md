@@ -53,7 +53,19 @@ packing1000 TotalTime, sample order: 436 302 359 498 377 427 353 656 620 578 447
 
 Counter is 63.0 ms over the floor at p50. The counter p90 is a fat tail (943 and 948). packing1000 does not have that tail; its largest sample is 656.
 
-`tools/bench/mac-bench.sh` repeats this interleaved method and also records logcat marks and the first gfxinfo framestats row. `--self-test` checks these three percentiles and the round order. That script was not run on the Mac.
+`tools/bench/mac-bench.sh` repeats this interleaved method and also records logcat marks, the first gfxinfo framestats row, and the host 1-minute load from `uptime` at each round. A floor sample above 1.5× the floor median is printed as contended and stays in p50 and p90. `--self-test` checks these three percentiles, the round order, both `uptime` load formats, and that flag. The self-test was run in this workspace. The measurement script was not run on the Mac from this workspace.
+
+## Coordinator-measured, second Mac run, host load 14.3
+
+Not measured in this workspace. Same machine, AVD `pixel_8`, arm64, Android 16. `tools/bench/mac-bench.sh --n 20`, interleaved, all COLD. Arm64 APK sha256 `ac502d27eae357b7514787abe4faa245a859380ca3322406cadc41d19905b3d4`. Floor APK sha256 `7a8b6e2daa328c69a943211fdba85daac225017ff760409d964bbb49b5fefb1c`. Host load average 14.3 at the start.
+
+| Series | n | total p50 | total p90 | present p50 | UI p50 | draw p50 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| counter | 20 | 423.5 | 784.5 | 213.5 | 24.8 | 0.2 |
+| floor | 20 | 362.5 | 744.0 | 196.0 | 21.9 | 0.1 |
+| packing | 20 | 413.0 | 562.6 | 246.0 | 23.9 | 0.2 |
+
+Rounds 0–11 were steady (counter about 378–430, floor about 354–388, packing about 305–505). Rounds 12–16 were noisy in every series, including the floor (floor 739, 1008, 789; counter 778, 1111, 688, 843). The p90 tail on this run is host contention. Counter is 61 ms over the floor at p50. This does not replace the earlier Mac table. Draw p50 here is 0.2 ms on the Mac GPU.
 
 ## Emulator-run, counter tail versus packing1000
 
@@ -73,9 +85,19 @@ Same x64 APK, sha256 `0ac29e1248567a90377ba68d5c4c179145cf8a5f4f7dd2ff5e52e3e671
 
 gfxinfo for those swipes: 283 frames, 80 janky (28.27%), p50 34ms, p90 53ms, p95 61ms, p99 69ms. 19 missed vsync. 36 slow UI thread. 1 slow bitmap upload. 78 slow issue-draw-commands. 80 frame deadlines missed. The UI-thread count and the draw-command count are separate. Draw commands are the larger bucket. This is not the earlier 135-frame session (16 slow UI thread, 36 slow issue-draw-commands).
 
+## Emulator-run, what the slow-draw count is
+
+Same eight-swipe script on this boot, before the slot change. That binary was the field-stroke publish sha256 `8c45935195126497b1dc3e6df2eeb48d83bf4ca9cdea6edf02075a5d9760a7e6`, which is not kept. Its list code matched the previous tree. 249 frames, 67 janky (26.91%), p50 34ms, p90 53ms, 24 slow UI thread, 65 slow issue-draw-commands, GPU p50 22ms, `first=168`. Two swipes, framestats still holding the frames: 55 frames, 16 janky, 16 slow issue-draw-commands. IssueDrawCommandsStart to SwapBuffers p50 2.65ms, max 17.0. SwapBuffers to GpuCompleted p50 22.11ms. IssueDrawCommandsStart to FrameCompleted p50 25.18ms. On Android 14 that gfxinfo line is `kSlowRT`: a missed-deadline frame whose IssueDrawCommandsStart to FrameCompleted is at least 0.75× the frame interval. Here that interval is GPU completion, which is why the count matches the janky frames. Command recording is the shorter interval.
+
+`RowWindowPlan` keeps a slot that already shows a still-visible row, so a one-row scroll rebinds one slot. The canvas layout changes only when its height changes. Same eight swipes on sha256 `011a9785723326e575abcf191ff4992e222a0a9a174c88dd9b91364c0276ea7f`, `.so` 6,301,632 bytes, host load 1.14: 236 frames, 66 janky (27.97%), p50 34ms, p90 48ms, 20 slow UI thread, 0 slow bitmap uploads, 65 slow issue-draw-commands, `first=159`, then `first=0`, canvas 59730. Item 0000 still had `Ridge line` and `marker`. Item 0004 had `marker` and no subtitle. The bucket did not move. An earlier pass of that source at host load 1.81 was 268 frames and 68 slow issue-draw-commands. A hardware layer on each slot was worse (229 frames, 86 slow issue-draw-commands, GPU p50 25ms) and is not kept. One draw call per row, instead of a title, a subtitle, and an image view, dropped `views=92` to `views=32` and left GPU p50 at 21ms (253 frames, 60 slow issue-draw-commands, host load 2.79). That draw change is not kept.
+
+## Emulator-run, counter field drawable
+
+First-frame issue-draw-commands, SwapBuffers minus IssueDrawCommandsStart, n=10, all COLD, Hyndman-Fan type 7. Host load 0.03. Samples 309.6 345.1 333.8 319.3 269.8 270.5 256.3 260.4 288.4 292.0. p50 290.2ms. One `GradientDrawable` stroke on the name field, n=10, host load 1.05 at the start: 303.6 290.0 266.4 230.7 267.1 238.3 304.2 302.1 279.5 267.1. p50 273.3ms. The ranges overlap, so the stroke is not in this tree. The Mac draw p50 is 0.2ms. This interval is the swiftshader first frame.
+
 ## Release builds, not published
 
-Built from this tree in this workspace. Not uploaded.
+The rows below are the previous tree. Not uploaded. This tree's x64 rebuild is sha256 `011a9785723326e575abcf191ff4992e222a0a9a174c88dd9b91364c0276ea7f`, 2724653 bytes, `.so` 6,301,632 bytes, not published. It is the slot-reuse measurement. arm64 was not rebuilt.
 
 | ABI | sha256 | APK bytes | `.so` bytes | Run |
 | --- | --- | ---: | ---: | --- |
@@ -93,3 +115,7 @@ First present p50 137.0. FrameCompleted p50 482.1. Present to FrameCompleted p50
 ## Emulator-run, variable-height rows
 
 One COLD packing1000 launch on the x86_64 API 34 emulator, not an n=20 series. `startup window rows=1000 built=20 views=92`. APK sha256 `25e14d2e2ae7a9d7d39a972fb6713d6b7df3a47fa32634f3e442b4effdc9c734`. Eight swipes moved the window to `first=106` (Item 0106 through Item 0124). Scrolling back returned `first=0` with Item 0000's subtitle and image still on that row. gfxinfo for the swipe session: 135 frames, 37 janky (27.41%), p50 34ms, p90 48ms, p95 53ms, p99 61ms. `cnative agent a11y --check` reported `violations=0` for packing at font scale 1, 1.3, and 2, and for trips at font scale 2. Density 420. The dump has no heading attribute.
+
+## Emulator-run, cnative new
+
+Debug, not NativeAOT. `cnative new preview`, then `cnative run android --once` on this x86_64 emulator. Pid 3027. `cnative: show samples/preview/PreviewScreen.cs`. `reloaded in 58.1 ms (apply 57.2 ms)`. `reply Hello program=1 present=1`. The accessibility dump showed Hello and Count 0. Tapping Add, same pid, showed Count 1. `samples/preview` was deleted and is not in the tree. Headless, `ScreenSession` on that template taps `preview/add` and the tree goes from Count 0 to Count 1. Tested: Core 55, Devx 97.

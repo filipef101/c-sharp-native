@@ -31,7 +31,7 @@ That writes `samples/hello/HelloScreen.cs`. The name is lowercase letters and di
 tools/devx/cnative run android
 ```
 
-That builds Debug (`dotnet build -c Debug -f net10.0-android -r <rid> -t:Run`) and installs on the online emulator. It does not publish NativeAOT. Leave it running.
+That builds Debug (`dotnet build -c Debug -f net10.0-android -r <rid> -t:Run`) and installs on the online emulator. It does not publish NativeAOT. Leave it running. After the host screen and the packing screen, it lowers every `samples/<name>/<Name>Screen.cs` from `cnative new` and shows it. The log line is `cnative: show samples/hello/HelloScreen.cs`. When several of those files exist, path order decides which one is on top.
 
 Change the title string in `samples/hello/HelloScreen.cs` and save. The watcher lowers that file and applies it in the same process. The log line is `cnative: reload samples/hello/HelloScreen.cs`.
 

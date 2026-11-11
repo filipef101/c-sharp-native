@@ -64,7 +64,8 @@ static class ArgParser
 		  --listener            publish the Debug NativeAOT listener for that ABI.
 		  --debounce <ms>       quiet period before a reload. Default: 40.
 		  --restart-on-rude     rebuild and relaunch when an edit needs a restart.
-		  --once                push the current screen once and exit.
+		  --once                push the current screens once and exit.
+		                    A samples/<name> screen from cnative new is shown too.
 		  --help                show this text.
 		""";
 

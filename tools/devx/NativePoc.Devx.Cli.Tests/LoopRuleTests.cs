@@ -149,6 +149,22 @@ public sealed class LoopRuleTests
 	}
 
 	[Fact]
+	public void A_new_screen_is_shown_and_add_counts()
+	{
+		var root = Directory.CreateTempSubdirectory("cnative-new-run-").FullName;
+		var file = NewLoop.Write(root, "preview");
+		Assert.Equal(new[] { "samples/preview/PreviewScreen.cs" }, NewLoop.AppScreens(root));
+		var lowered = SubsetLowerer.TryLower(File.ReadAllText(file));
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var session = ScreenSession.Open(lowered.Program!);
+		var tree = session.Tree();
+		Assert.Contains("Hello", tree, StringComparison.Ordinal);
+		Assert.Contains("Count 0", tree, StringComparison.Ordinal);
+		session.Tap("preview/add");
+		Assert.Contains("Count 1", session.Tree(), StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void Restart_follows_the_flag_or_a_yes_answer()
 	{
 		Assert.False(RestartPolicy.ShouldRestart(false, true, true, () => "y"));

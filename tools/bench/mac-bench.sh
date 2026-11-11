@@ -3,8 +3,10 @@
 # One discarded warmup per series, then n rounds. Each round runs every
 # series once, in the order given. Every sample must report LaunchState COLD.
 # p50 and p90 are Hyndman-Fan type 7, the same function as cold-start.sh.
-# Each sample records `am start -W -S`, NativePoc/Floor logcat marks, and
-# the first gfxinfo framestats row after a reset.
+# Each sample records `am start -W -S`, NativePoc/Floor logcat marks, the
+# first gfxinfo framestats row after a reset, and the host 1-minute load
+# from `uptime` at the start of the round. A floor sample above 1.5x the
+# floor median is printed as contended. Those rounds stay in p50 and p90.
 #
 #   tools/bench/mac-bench.sh --self-test
 #   tools/bench/mac-bench.sh --n 20 --out /tmp/mac-bench \
@@ -34,7 +36,8 @@ tools/bench/mac-bench.sh [options] --run label:apk:component[:am extras]
                   or label:apk:component:am extras.
   --dry-run       print the interleaved plan and do not call adb.
   --self-test     check Hyndman-Fan type 7 against the interleaved Mac n=20
-                  series, and check that a three-series plan round-robins.
+                  series, the round order, uptime load parsing, and the
+                  floor contended-round flag.
 EOF
 }
 
@@ -105,6 +108,57 @@ percentile() {
 	'
 }
 
+parse_load() {
+	printf '%s\n' "$1" | awk '
+		{
+			line = $0
+			key = "load averages:"
+			n = index(line, key)
+			if (n == 0) {
+				key = "load average:"
+				n = index(line, key)
+			}
+			if (n == 0) {
+				print "-"
+				exit
+			}
+			rest = substr(line, n + length(key))
+			gsub(/,/, " ", rest)
+			gsub(/^[ \t]+/, "", rest)
+			split(rest, parts, /[ \t]+/)
+			if (parts[1] == "")
+				print "-"
+			else
+				print parts[1]
+		}
+	'
+}
+
+host_load() {
+	parse_load "$(uptime 2>/dev/null || true)"
+}
+
+# Lines are "round total load" when a floor total is above 1.5x its median.
+# The median is Hyndman-Fan type 7. Those rounds are not removed.
+contended_rounds() {
+	local totals_file="$1"
+	local loads_file="$2"
+	local median
+	median="$(percentile 0.50 <"$totals_file")"
+	awk -v median="$median" '
+		NR == FNR {
+			load[FNR] = $0
+			next
+		}
+		($1 + 0) > (1.5 * median) {
+			value = load[FNR]
+			if (value == "")
+				value = "-"
+			printf "%d %s %s\n", FNR - 1, $1, value
+		}
+	' "$loads_file" "$totals_file"
+}
+
 if [[ "$self_test" -eq 1 ]]; then
 	counter=(513 378 463 328 468 382 423 943 948 740 384 531 463 401 444 635 393 423 485 716)
 	floor=(423 416 378 501 407 313 410 337 505 502 341 460 367 307 386 296 358 393 530 517)
@@ -132,6 +186,19 @@ if [[ "$self_test" -eq 1 ]]; then
 		printf '%s\n' "$plan" >&2
 		fail=1
 	fi
+	linux_load="$(parse_load ' 12:00:00 up 1 day,  2:03,  1 user,  load average: 14.30, 10.10, 8.00')"
+	mac_load="$(parse_load '15:23  up 2 days,  3:14, 2 users, load averages: 14.30 10.10 8.00')"
+	[[ "$linux_load" == "14.30" ]] || { echo "linux load $linux_load" >&2; fail=1; }
+	[[ "$mac_load" == "14.30" ]] || { echo "mac load $mac_load" >&2; fail=1; }
+	flag_dir="$(mktemp -d)"
+	printf '%s\n' 10 10 10 10 40 10 10 10 10 10 >"$flag_dir/floor"
+	printf '%s\n' 10 10 10 10 10 10 10 10 10 10 >"$flag_dir/quiet"
+	printf '%s\n' 0.20 0.20 0.20 0.20 14.30 0.20 0.20 0.20 0.20 0.20 >"$flag_dir/load"
+	flagged="$(contended_rounds "$flag_dir/floor" "$flag_dir/load")"
+	[[ "$flagged" == "4 40 14.30" ]] || { echo "flag $flagged" >&2; fail=1; }
+	none="$(contended_rounds "$flag_dir/quiet" "$flag_dir/load")"
+	[[ -z "$none" ]] || { echo "quiet flag $none" >&2; fail=1; }
+	rm -rf "$flag_dir"
 	if [[ "$fail" -ne 0 ]]; then
 		exit 1
 	fi
@@ -255,7 +322,11 @@ for ((s = 0; s < ${#labels[@]}; s++)); do
 	: >"$out/${labels[$s]}-frames.txt"
 done
 
+: >"$out/round-load.txt"
 for ((round = 0; round < samples; round++)); do
+	load="$(host_load)"
+	printf '%s\n' "$load" >>"$out/round-load.txt"
+	echo "round $round load=$load" >&2
 	for ((s = 0; s < ${#labels[@]}; s++)); do
 		label="${labels[$s]}"
 		adb_cmd logcat -c >/dev/null || true
@@ -270,12 +341,13 @@ for ((round = 0; round < samples; round++)); do
 		fi
 		{
 			echo "ROUND $round"
+			echo "load=$load"
 			printf '%s\n' "$text"
 		} >>"$out/$label-starts.txt"
 		echo "$total" >>"$out/$label-totals.txt"
 		adb_cmd logcat -d -v epoch -s NativePoc:I Floor:I ActivityTaskManager:I >"$out/$label-log-$round.txt" || true
 		capture_frame "$s" "$out/$label-gfx-$round.txt"
-		echo "$label $round $total" >&2
+		echo "$label $round $total load=$load" >&2
 	done
 done
 
@@ -334,6 +406,19 @@ done
 			echo "ui is DrawStart - PerformTraversalsStart on the first framestats row, milliseconds"
 			echo "draw is SwapBuffers - IssueDrawCommandsStart on that row, milliseconds"
 			echo "method=am start -W -S LaunchState=COLD warmup=1 discarded per series interleaved=1 percentile=Hyndman-Fan-7"
+			echo "load=$(tr '\n' ' ' <"$out/round-load.txt" | sed 's/ $//')"
 		} >"$out/$label-summary.txt"
 	done
+	floor_seen=0
+	for ((s = 0; s < ${#labels[@]}; s++)); do
+		if [[ "${labels[$s]}" == "floor" ]]; then
+			floor_seen=1
+		fi
+	done
+	if [[ "$floor_seen" -eq 1 ]]; then
+		echo "contended floor total >1.5x its median; round total load; still included in p50 and p90"
+		contended_rounds "$out/floor-totals.txt" "$out/round-load.txt"
+	else
+		echo "contended=- no floor series"
+	fi
 } | tee "$out/summary.txt"

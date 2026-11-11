@@ -45,6 +45,29 @@ static class NewLoop
 	public static string TypeName(string name) =>
 		char.ToUpper(name[0], CultureInfo.InvariantCulture) + name[1..];
 
+	public static IReadOnlyList<string> AppScreens(string root)
+	{
+		var samples = Path.Combine(root, "samples");
+		if (!Directory.Exists(samples))
+			return [];
+		var found = new List<string>();
+		foreach (var dir in Directory.EnumerateDirectories(samples))
+		{
+			var name = Path.GetFileName(dir);
+			if (!IsName(name))
+				continue;
+			var relative = "samples/" + name + "/" + TypeName(name) + "Screen.cs";
+			if (!File.Exists(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar))))
+				continue;
+			if (!ChangeEffectRules.IsAppScreen(relative))
+				continue;
+			found.Add(relative);
+		}
+
+		found.Sort(StringComparer.Ordinal);
+		return found;
+	}
+
 	public static string Template(string name)
 	{
 		var type = TypeName(name);

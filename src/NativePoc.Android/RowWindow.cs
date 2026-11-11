@@ -12,6 +12,7 @@ sealed class RowWindow : AndroidScroll
 
 	readonly FrameLayout _canvas;
 	readonly RowSlot[] _slots;
+	int _canvasPx = -1;
 	readonly float _density;
 	readonly float _fontScale;
 	readonly int _line;
@@ -121,9 +122,9 @@ sealed class RowWindow : AndroidScroll
 		_prefix = new RowPrefix(rows.Count, _line);
 		_origin = -1;
 		_stamp = -1;
-		var canvasHeight = CanvasHeight();
-		_canvas.LayoutParameters = new AndroidScroll.LayoutParams(ViewGroup.LayoutParams.MatchParent, canvasHeight);
-		_canvas.SetMinimumHeight(canvasHeight);
+		_canvasPx = -1;
+		for (var slot = 0; slot < _slots.Length; slot++)
+			_slots[slot].Reset();
 		Fill();
 	}
 
@@ -155,31 +156,53 @@ sealed class RowWindow : AndroidScroll
 			+ " canvas=" + canvasHeight.ToString(System.Globalization.CultureInfo.InvariantCulture)
 			+ " scrollY=" + ScrollY.ToString(System.Globalization.CultureInfo.InvariantCulture)
 			+ " first=" + first.ToString(System.Globalization.CultureInfo.InvariantCulture));
-		_canvas.LayoutParameters = new AndroidScroll.LayoutParams(ViewGroup.LayoutParams.MatchParent, canvasHeight);
-		_canvas.SetMinimumHeight(canvasHeight);
+		if (canvasHeight != _canvasPx)
+		{
+			_canvasPx = canvasHeight;
+			_canvas.LayoutParameters = new AndroidScroll.LayoutParams(ViewGroup.LayoutParams.MatchParent, canvasHeight);
+			_canvas.SetMinimumHeight(canvasHeight);
+		}
+
+		var current = new int[_slots.Length];
+		for (var slot = 0; slot < _slots.Length; slot++)
+			current[slot] = _slots[slot].Shown;
+		var plan = RowWindowPlan.Assign(current, first, _rows.Count, _slots.Length);
 		for (var slot = 0; slot < _slots.Length; slot++)
 		{
-			var index = first + slot;
+			var index = plan[slot];
 			var view = _slots[slot];
-			if (index >= _rows.Count)
+			if (index < 0)
 			{
-				view.Visibility = ViewStates.Gone;
-				view.Key = "";
+				view.Reset();
 				continue;
 			}
 
 			view.Visibility = ViewStates.Visible;
 			var face = RowFace.Read(_rows[index]);
 			var height = _prefix?.HeightAt(index) ?? _line;
-			if (view.LayoutParameters is FrameLayout.LayoutParams layout)
+			var top = _prefix?.Y(index) ?? 0;
+			if (view.LayoutParameters is FrameLayout.LayoutParams layout
+				&& (layout.TopMargin != top || layout.Height != height))
 			{
-				layout.TopMargin = _prefix?.Y(index) ?? 0;
+				layout.TopMargin = top;
 				layout.Height = height;
 				view.LayoutParameters = layout;
 			}
 
-			view.Show(face, Context);
+			var content = Content(face);
+			if (view.Shown == index && view.Content == content)
+				continue;
+			view.Show(face, index, content, Context);
 		}
+	}
+
+	static int Content(RowFace face)
+	{
+		var stamp = face.Key.GetHashCode(StringComparison.Ordinal);
+		stamp = unchecked(stamp * 31 + face.Title.GetHashCode(StringComparison.Ordinal));
+		stamp = unchecked(stamp * 31 + face.Subtitle.GetHashCode(StringComparison.Ordinal));
+		stamp = unchecked(stamp * 31 + face.Picture.GetHashCode(StringComparison.Ordinal));
+		return stamp;
 	}
 
 	int FirstIndex()
@@ -205,6 +228,10 @@ sealed class RowWindow : AndroidScroll
 
 		public string Key = "";
 
+		public int Shown = -1;
+
+		public int Content;
+
 		public RowSlot(Context context, int image)
 			: base(context)
 		{
@@ -221,8 +248,20 @@ sealed class RowWindow : AndroidScroll
 			AddView(_picture, new LayoutParams(ViewGroup.LayoutParams.MatchParent, image));
 		}
 
-		public void Show(RowFace face, Context? context)
+		public void Reset()
 		{
+			if (Shown < 0 && Visibility == ViewStates.Gone)
+				return;
+			Shown = -1;
+			Content = 0;
+			Key = "";
+			Visibility = ViewStates.Gone;
+		}
+
+		public void Show(RowFace face, int index, int content, Context? context)
+		{
+			Shown = index;
+			Content = content;
 			Key = face.Key;
 			_title.Text = face.Title;
 			_title.ContentDescription = face.Title;

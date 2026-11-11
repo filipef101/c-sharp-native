@@ -139,6 +139,58 @@ public sealed class RowPrefix
 	}
 }
 
+public static class RowWindowPlan
+{
+	public static int[] Assign(ReadOnlySpan<int> current, int first, int rowCount, int window)
+	{
+		if (window < 0)
+			throw new ArgumentOutOfRangeException(nameof(window));
+		if (first < 0)
+			first = 0;
+		if (rowCount < 0)
+			rowCount = 0;
+		var next = new int[window];
+		Array.Fill(next, -1);
+		var last = rowCount;
+		if (last > first + window)
+			last = first + window;
+		var visible = last - first;
+		if (visible <= 0)
+			return next;
+		var claimed = new bool[visible];
+		var used = new bool[window];
+		var limit = current.Length < window ? current.Length : window;
+		for (var slot = 0; slot < limit; slot++)
+		{
+			var index = current[slot];
+			if (index < first || index >= last)
+				continue;
+			var offset = index - first;
+			if (claimed[offset])
+				continue;
+			claimed[offset] = true;
+			used[slot] = true;
+			next[slot] = index;
+		}
+
+		var free = 0;
+		for (var offset = 0; offset < visible; offset++)
+		{
+			if (claimed[offset])
+				continue;
+			while (free < window && used[free])
+				free++;
+			if (free >= window)
+				break;
+			used[free] = true;
+			next[free] = first + offset;
+			free++;
+		}
+
+		return next;
+	}
+}
+
 public static class RowMetrics
 {
 	public static int Line(float density, float fontScale)

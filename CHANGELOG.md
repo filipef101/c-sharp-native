@@ -10,7 +10,7 @@ Observed on AVD `poc34`, API 34, x86_64, KVM. The clips are Release asset `packi
 
 ## Unreleased
 
-These APKs were built from this tree and not published.
+These two APKs are the previous tree. They were not published. This tree's x64 rebuild is sha256 `011a9785723326e575abcf191ff4992e222a0a9a174c88dd9b91364c0276ea7f`, 2724653 bytes, `.so` 6301632 bytes. It is the slot-reuse scroll below. It was not published. arm64 was not rebuilt.
 
 | ABI | sha256 | APK bytes | `.so` bytes |
 | --- | --- | ---: | ---: |
@@ -35,6 +35,16 @@ A later interleaved run on that machine used nativepoc sha256 `ce39c83e7c1aa8aca
 
 Counter is 63.0 ms over the floor at p50. Counter p90 is the samples 943 and 948. packing1000's largest sample is 656.
 
+A second run on that Mac, same script `tools/bench/mac-bench.sh --n 20`, all COLD, arm64 APK `ac502d27eae357b7514787abe4faa245a859380ca3322406cadc41d19905b3d4`, floor `7a8b6e2daa328c69a943211fdba85daac225017ff760409d964bbb49b5fefb1c`. Host load average 14.3 at the start. This does not replace the table above.
+
+| Series | p50 | p90 | present p50 | UI p50 | draw p50 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| counter | 423.5 | 784.5 | 213.5 | 24.8 | 0.2 |
+| empty Java floor | 362.5 | 744.0 | 196.0 | 21.9 | 0.1 |
+| packing1000 | 413.0 | 562.6 | 246.0 | 23.9 | 0.2 |
+
+Rounds 0–11 were steady. Rounds 12–16 were noisy in every series, floor included (floor 739, 1008, 789; counter 778, 1111, 688, 843). The p90 tail on this run is host contention. Counter is 61 ms over the floor at p50. Draw p50 on this GPU is 0.2 ms.
+
 ### Emulator-run, x86_64 API 34, KVM
 
 AVD `poc34`. `emulator -accel-check` reported KVM. QEMU pid 4419 holds `/dev/kvm` on the boots that say so in the README.
@@ -55,6 +65,10 @@ Counter versus packing1000 on sha256 `0ac29e1248567a90377ba68d5c4c179145cf8a5f4f
 
 Row-height prefix, same x64 APK, one COLD packing1000, pid 31636, `rows=1000 built=20 views=92`. gfxinfo reset after the first frame, then eight swipes to `first=174` and back to `first=0`. Canvas stayed 60489. Item 0000 still had `Ridge line` and `marker`. gfxinfo: 283 frames, 80 janky (28.27%), p50 34ms, p90 53ms, 36 slow UI thread, 78 slow issue-draw-commands. Those two counts are separate. Draw commands are the larger bucket. This is not the 135-frame session.
 
+Same swipe script on this boot, before the slot change, field-stroke publish sha256 `8c45935195126497b1dc3e6df2eeb48d83bf4ca9cdea6edf02075a5d9760a7e6` (not kept; the list code matched the previous tree): 249 frames, 65 slow issue-draw-commands, 24 slow UI thread, GPU p50 22ms. Two swipes kept in framestats: 16 janky and 16 slow issue-draw-commands. Command recording p50 2.65ms. GPU p50 22.11ms. The gfxinfo line is Android 14 `kSlowRT` (IssueDrawCommandsStart to FrameCompleted on a missed deadline). `RowWindowPlan` rebinds one slot per row of scroll. Same script on sha256 `011a9785723326e575abcf191ff4992e222a0a9a174c88dd9b91364c0276ea7f`, host load 1.14: 236 frames, 65 slow issue-draw-commands, 20 slow UI thread, `first=159` then `first=0`. Item 0000 kept `Ridge line` and `marker`. Item 0004 kept `marker` and had no subtitle. The bucket did not move. A per-slot hardware layer (86 slow of 229) and a one-view row draw (60 slow of 253, GPU p50 still 21ms) are not in this tree.
+
+Counter first-frame issue-draw-commands, n=10, host load 0.03, p50 290.2ms. One field stroke, n=10, host load 1.05, p50 273.3ms. Ranges overlap. The stroke is not in this tree.
+
 ### Emulator-run, dev loop
 
 Same AVD. Fixed-socket reload, n=20, one pid: edit-to-screen p50 59.8246 ms, p90 74.8963 ms. CLI edit-to-reply p50 60.0 ms, p90 72.0 ms.
@@ -69,4 +83,6 @@ Listener pid 32111, n=10, `IsDynamicCodeSupported=False`. Style-only frame p50 5
 
 1000-row apply-to-present, n=5 fresh processes. ScrollView, 1037 views: first present p50 1071.3305 ms, TOTAL PSS p50 52,997 KB. Recycled window, 34 views: first present p50 254.0235 ms, TOTAL PSS p50 40,717 KB.
 
-`tools/bench/mac-bench.sh --self-test` checks the interleaved Mac p50/p90 values and the round order. That script was not run on a Mac.
+`tools/bench/mac-bench.sh --self-test` checks the interleaved Mac p50/p90 values, the round order, `uptime` load parsing, and the floor contended-round flag. That self-test was run in this workspace. The measurement script was not run on a Mac from this workspace.
+
+`cnative new preview` then `cnative run android --once` on this emulator, Debug `android-x64`, not NativeAOT. Pid 3027. Log: `cnative: show samples/preview/PreviewScreen.cs`, `reloaded in 58.1 ms (apply 57.2 ms)`, `reply Hello program=1 present=1`. The dump showed Hello and Count 0. A tap on Add, same pid, showed Count 1. The sample was deleted and is not in the tree. The headless check of that template taps `preview/add` and goes from Count 0 to Count 1. Tested: Core 55, Devx 97.
