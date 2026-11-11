@@ -1,0 +1,71 @@
+Helpers, render reloads, and the action VM on the NativeAOT listener.
+Emulator-run 2026-11-11. AVD poc34, API 34, x86_64, serial emulator-5554, KVM.
+One listener pid.
+
+Debug listener publish, this tree:
+  lib/x86_64/libNativePoc.Android.so 9830432 bytes
+  signed APK 3716019 bytes
+  sha256 0fb0e3b848a617d072d8f6619c7b67134f0eadb1822e934737bc200e1afb7d94
+  .so sha256 bcad5ae016a9143207feed758c8ba9a9a02076cf1443f7f0e261a8a4270ac0e1
+  Assembly.Load absent (UTF-8 and UTF-16LE search). npoc-hotreload present as UTF-8.
+  IsDynamicCodeSupported=False on pid 5686.
+
+Every line below is that pid. Apply is the device exchange inside "reloaded in".
+Headless tests for the same sources: dotnet test tools/devx/NativePoc.Devx.Cli.Tests
+Passed 114, Failed 0, Skipped 0, Duration 3 s. That run is tested, not emulator-run.
+
+add-helper   reloaded in 11.3 ms (apply 10.0 ms)
+             static Down and Twice, Twice(Down(4))
+             tree value Count 8
+edit-helper  reloaded in 23.4 ms (apply 22.1 ms)
+             Twice became n * 3, handler Twice(3)
+             tree value Count 9
+row-helper   reloaded in 13.5 ms (apply 9.9 ms)
+             Element Row(Note) used from the list foreach
+             tree values Lantern and Rope
+
+reset-state, still pid 5686, then the render edits:
+
+early-return reloaded in 21.4 ms (apply 16.3 ms)   value no, then tap value yes, button gone
+ternary      reloaded in 27.3 ms (apply 24.9 ms)   value yes (Count stayed 1)
+if-else      reloaded in 12.9 ms (apply 12.0 ms)   value more
+add-child    reloaded in 21.5 ms (apply 20.9 ms)   values only and extra
+remove-child reloaded in 12.9 ms (apply 12.0 ms)   value only, extra absent
+keyed        reloaded in 17.3 ms (apply 16.5 ms)   tap set Title Kept, Note Moved
+reorder      reloaded in 23.4 ms (apply 22.8 ms)   hello/b before hello/a, values Moved and Kept
+
+1000-iteration handler, same pid, same body as pid 4934.
+Apply 18.6 ms (reloaded in 22.2 ms). Tree after the taps: Count 1000.
+Ten taps, action-us, each steps=11010:
+  7172 4591 5890 6180 8273 5153 4761 5032 7175 5198
+  sorted 4591 4761 5032 5153 5198 5890 6180 7172 7175 8273
+  Hyndman-Fan type 7 p50 = (5198+5890)/2 = 5544.0 us
+  Pid 4934 on the previous listener, same method, p50 7995.5 us.
+  7995.5 / 5544.0 = 1.44. The 5x target was not met.
+  The time includes storing Count and RequestRender.
+
+Same pid, after that series. Ten taps each.
+
+RequestRender only, steps=1:
+  4518 4275 4528 4448 4940 4803 4999 4960 4498 4878
+  sorted 4275 4448 4498 4518 4528 4803 4878 4940 4960 4999
+  p50 = (4528+4803)/2 = 4665.5 us
+
+Loop with no RequestRender, steps=11009:
+  1853 1548 1765 2114 1847 1595 1485 1791 1344 1628
+  sorted 1344 1485 1548 1595 1628 1765 1791 1847 1853 2114
+  p50 = (1628+1765)/2 = 1696.5 us
+
+Loop with RequestRender, a second ten, steps=11010:
+  5309 4606 7329 5251 7386 4961 4546 4370 5302 4819
+  sorted 4370 4546 4606 4819 4961 5251 5302 5309 7329 7386
+  p50 = (4961+5251)/2 = 5106.0 us
+
+Infinite loop, same pid: while (true) state.Count += 1
+  reloaded in 23.7 ms (apply 21.1 ms)
+  action stopped after 100000 steps
+  action-us=12592 steps=100001
+  rendered title Count 21000. The writes so far stayed.
+  The process stayed pid 5686.
+  An earlier stop on this pid, before the split series, was followed by an edit
+  that applied in 17.0 ms (reloaded in 17.6 ms) and a tap that showed Count 1.

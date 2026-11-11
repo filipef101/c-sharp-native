@@ -84,6 +84,14 @@ public static partial class SubsetLowerer
 				continue;
 			}
 
+			if (member is MethodDeclarationSyntax helper)
+			{
+				if (helper.TypeParameterList is not null)
+					return SubsetResult.Refuse(At(UnknownMember, "The screen subset does not include a generic method.", helper, source));
+				methods[helper.Identifier.ValueText] = helper;
+				continue;
+			}
+
 			if (member is FieldDeclarationSyntax field && ConstString(field, out var constName, out var constValue))
 			{
 				consts.Add(constName, constValue);
@@ -705,7 +713,7 @@ public static partial class SubsetLowerer
 
 		public bool Body(MethodDeclarationSyntax method)
 		{
-			if (!Seed())
+			if (!Seed() || !LowerRoutines())
 				return false;
 			if (method.ExpressionBody is not null)
 				return Element(method.ExpressionBody.Expression, null) && Return();
@@ -802,13 +810,28 @@ public static partial class SubsetLowerer
 				&& branch.Else is null
 				&& ReturnOf(branch.Statement) is ReturnStatementSyntax whenTrue)
 			{
-				if (!Bool(branch.Condition))
+				if (!Condition(branch.Condition))
 					return false;
 				var jump = _code.EmitJump(RecordProgram.OpJumpIfFalse);
 				if (!Returned(whenTrue))
 					return false;
 				_code.Patch(jump);
 				index++;
+			}
+
+			if (index == statements.Count - 1
+				&& statements[index] is IfStatementSyntax choice
+				&& choice.Else is not null
+				&& ReturnOf(choice.Statement) is ReturnStatementSyntax whenChosen
+				&& ReturnOf(choice.Else.Statement) is ReturnStatementSyntax whenOther)
+			{
+				if (!Condition(choice.Condition))
+					return false;
+				var skip = _code.EmitJump(RecordProgram.OpJumpIfFalse);
+				if (!Returned(whenChosen))
+					return false;
+				_code.Patch(skip);
+				return Returned(whenOther);
 			}
 
 			if (index < statements.Count && statements[index] is LocalDeclarationStatementSyntax)
@@ -1040,6 +1063,24 @@ public static partial class SubsetLowerer
 
 		bool Element(ExpressionSyntax expression, KeySet? keys)
 		{
+			if (expression is ParenthesizedExpressionSyntax paren)
+				return Element(paren.Expression, keys);
+			if (expression is ConditionalExpressionSyntax conditional)
+				return Choice(conditional, arm => Element(arm, new KeySet()));
+			if (expression is InvocationExpressionSyntax helper
+				&& helper.Expression is IdentifierNameSyntax called
+				&& _routines.TryGetValue(called.Identifier.ValueText, out var routine)
+				&& routine.Element)
+			{
+				if (helper.ArgumentList.Arguments.Count != 1
+					|| helper.ArgumentList.Arguments[0].Expression is not IdentifierNameSyntax argument
+					|| argument.Identifier.ValueText != _item)
+					return Fail(UnknownElement, "The screen subset does not include " + called.Identifier.ValueText + ".", helper);
+				_code.Op(RecordProgram.OpCall);
+				_code.U16(routine.Index);
+				return true;
+			}
+
 			if (expression is not ObjectCreationExpressionSyntax creation)
 				return Fail(UnknownElement, "The screen subset does not include " + expression.ToString() + ".", expression);
 			var type = TypeName(creation);
@@ -1399,9 +1440,28 @@ public static partial class SubsetLowerer
 			return true;
 		}
 
+		bool Condition(ExpressionSyntax expression)
+		{
+			var errors = Errors.Count;
+			var at = _code.Here;
+			if (Bool(expression) && Errors.Count == errors)
+				return true;
+			if (Errors.Count > errors)
+				Errors.RemoveRange(errors, Errors.Count - errors);
+			_code.Truncate(at);
+			var buf = new VmBuf();
+			if (!WriteExpr(expression, buf, out var kind) || kind != RecordProgram.VmKindBool || buf.Bytes.Count > ushort.MaxValue)
+				return Fail(UnknownExpression, "The screen subset does not include this expression.", expression);
+			_code.Op(RecordProgram.OpVmBool);
+			_code.U16(buf.Bytes.Count);
+			foreach (var item in buf.Bytes)
+				_code.Op(item);
+			return true;
+		}
+
 		bool Choice(ConditionalExpressionSyntax conditional, Func<ExpressionSyntax, bool> push)
 		{
-			if (!Bool(conditional.Condition))
+			if (!Condition(conditional.Condition))
 				return false;
 			var fail = _code.EmitJump(RecordProgram.OpJumpIfFalse);
 			if (!push(conditional.WhenTrue))
@@ -1969,7 +2029,9 @@ public static partial class SubsetLowerer
 			switch (expression)
 			{
 				case AssignmentExpressionSyntax assignment when assignment.IsKind(SyntaxKind.SimpleAssignmentExpression):
-					return Assign(assignment, parameter, script);
+					if (Assign(assignment, parameter, script))
+						return true;
+					return assignment.Left is IdentifierNameSyntax && VmExprStatement(assignment, parameter, script);
 				case PostfixUnaryExpressionSyntax postfix when postfix.Operand is MemberAccessExpressionSyntax telemetry
 					&& telemetry.Expression is IdentifierNameSyntax telemetryOwner
 					&& telemetryOwner.Identifier.ValueText == "PackingTelemetry":
@@ -1985,7 +2047,7 @@ public static partial class SubsetLowerer
 				case PrefixUnaryExpressionSyntax prefix when prefix.IsKind(SyntaxKind.PreDecrementExpression):
 					return Decrement(prefix.Operand, script) || VmExprStatement(prefix, parameter, script);
 				case InvocationExpressionSyntax invocation:
-					return Call(invocation, parameter, script);
+					return Call(invocation, parameter, script) || (UserCall(invocation, out _) && VmExprStatement(invocation, parameter, script));
 				default:
 					return VmExprStatement(expression, parameter, script);
 			}
@@ -2038,7 +2100,7 @@ public static partial class SubsetLowerer
 			}
 
 			if (assignment.Left is not MemberAccessExpressionSyntax member || !Member(member, out var field))
-				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", assignment);
+				return false;
 			if (assignment.Right is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == parameter && parameter.Length > 0)
 			{
 				if (field.Kind == ValueKind.Str)
@@ -2148,6 +2210,8 @@ public static partial class SubsetLowerer
 		bool Call(InvocationExpressionSyntax invocation, string parameter, List<byte> script)
 		{
 			_ = parameter;
+			if (UserCall(invocation, out _))
+				return false;
 			if (invocation.Expression is MemberAccessExpressionSyntax listCall
 				&& listCall.Expression is MemberAccessExpressionSyntax listTarget
 				&& listTarget.Expression is IdentifierNameSyntax listOwner
@@ -2317,6 +2381,8 @@ public static partial class SubsetLowerer
 		{
 			if (name == "Commit")
 				return Commit(script);
+			if (_routines.ContainsKey(_stateType + "." + name))
+				return false;
 			if (!_methods.TryGetValue(_stateType + "." + name, out var method) || method.Body is null)
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			foreach (var statement in method.Body.Statements)
@@ -2509,6 +2575,14 @@ public static partial class SubsetLowerer
 			_code[at] = (byte)relative;
 			_code[at + 1] = (byte)(relative >> 8);
 		}
+
+		public void Truncate(int at)
+		{
+			if (at < _code.Count)
+				_code.RemoveRange(at, _code.Count - at);
+		}
+
+		public byte ByteAt(int at) => _code[at];
 
 		public void Bytes(byte[] script)
 		{

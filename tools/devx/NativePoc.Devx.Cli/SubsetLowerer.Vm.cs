@@ -188,11 +188,21 @@ public static partial class SubsetLowerer
 					return VmLocalInto(local.Declaration.Variables[0], buf);
 				case ExpressionStatementSyntax expression:
 				{
+					if (expression.Expression is InvocationExpressionSyntax invocation && UserCall(invocation, out _))
+						return WriteStatementExpr(expression.Expression, parameter, buf);
 					var nested = new List<byte>();
 					if (TryOld(expression, parameter, nested))
 						return Nest(buf, nested);
 					return WriteStatementExpr(expression.Expression, parameter, buf);
 				}
+				case ReturnStatementSyntax returned when _returnPatches is not null:
+					if (returned.Expression is not null && !WriteExpr(returned.Expression, buf, out _))
+						return false;
+					buf.Op(RecordProgram.VmJump);
+					_returnPatches.Add(buf.Here);
+					buf.Raw(0);
+					buf.Raw(0);
+					return true;
 				case EmptyStatementSyntax:
 					return true;
 				default:
@@ -316,6 +326,8 @@ public static partial class SubsetLowerer
 			buf.Raw(RecordProgram.VmKindInt);
 			buf.Raw(indexSlot);
 			var head = buf.Here;
+			buf.Op(RecordProgram.VmWatch);
+			buf.U16(_code.Intern(list.Name));
 			buf.Op(RecordProgram.VmLoadLocal);
 			buf.Raw(RecordProgram.VmKindInt);
 			buf.Raw(indexSlot);
@@ -371,9 +383,10 @@ public static partial class SubsetLowerer
 					buf.Op(RecordProgram.VmPop);
 					return true;
 				default:
-					if (!WriteExpr(expression, buf, out _))
+					if (!WriteExpr(expression, buf, out var kind))
 						return false;
-					buf.Op(RecordProgram.VmPop);
+					if (kind != 0)
+						buf.Op(RecordProgram.VmPop);
 					return true;
 			}
 		}
@@ -773,6 +786,8 @@ public static partial class SubsetLowerer
 		bool WriteInvocation(InvocationExpressionSyntax invocation, VmBuf buf, out byte kind)
 		{
 			kind = 0;
+			if (UserCall(invocation, out var routine))
+				return WriteUser(routine, invocation, buf, out kind);
 			if (invocation.Expression is MemberAccessExpressionSyntax member)
 			{
 				if (member.Expression is IdentifierNameSyntax owner && owner.Identifier.ValueText == "Math")
@@ -939,6 +954,13 @@ public static partial class SubsetLowerer
 				buf.Raw(kind);
 				buf.Raw(local.Slot);
 				return true;
+			}
+
+			if (_inInstance)
+			{
+				var field = _fields.FirstOrDefault(item => item.Name == name.Identifier.ValueText);
+				if (field is not null && field.Kind is ValueKind.Int or ValueKind.Bool or ValueKind.Str)
+					return LoadField(field, buf, out kind, name);
 			}
 
 			return Fail(BadLambda, ActionLimit, name);
