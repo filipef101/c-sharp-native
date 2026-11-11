@@ -9,7 +9,7 @@ public sealed class PackingTests
 	{
 		var harness = new PackingHarness();
 
-		Assert.Equal(PackingRoute.List, harness.State.Route);
+		Assert.False(harness.State.Editing);
 		Assert.Equal(4, harness.State.Items.Count);
 		Assert.Equal(1, harness.State.PackedCount);
 		Assert.Equal("Packing", harness.Text("title"));
@@ -39,13 +39,13 @@ public sealed class PackingTests
 		var harness = new PackingHarness();
 
 		harness.Press("add");
-		Assert.Equal(PackingRoute.Editor, harness.State.Route);
+		Assert.True(harness.State.Editing);
 		Assert.Equal("New item", harness.Text("title"));
 		harness.Type("Lantern");
 		harness.SetEditorPacked(true);
 		harness.Press("save");
 
-		Assert.Equal(PackingRoute.List, harness.State.Route);
+		Assert.False(harness.State.Editing);
 		Assert.Equal("Lantern", harness.State.Items[4].Name);
 		Assert.True(harness.State.Items[4].Packed);
 		Assert.Equal("2 of 5 packed", harness.Text("progress"));
@@ -74,7 +74,7 @@ public sealed class PackingTests
 		harness.Type("Discarded");
 		harness.Press("back");
 
-		Assert.Equal(PackingRoute.List, harness.State.Route);
+		Assert.False(harness.State.Editing);
 		Assert.Equal("Ridge map", harness.State.Items[2].Name);
 	}
 
@@ -86,7 +86,7 @@ public sealed class PackingTests
 		harness.Type("   ");
 		harness.Press("save");
 
-		Assert.Equal(PackingRoute.Editor, harness.State.Route);
+		Assert.True(harness.State.Editing);
 		Assert.Equal(4, harness.State.Items.Count);
 	}
 
@@ -101,7 +101,7 @@ public sealed class PackingTests
 
 		Assert.True(first.Disposed);
 		Assert.Equal(0, harness.Host.Listeners(first));
-		Assert.Equal(PackingRoute.Editor, harness.State.Route);
+		Assert.True(harness.State.Editing);
 
 		harness.Press("back");
 		var second = harness.RowSwitch("tent");
@@ -192,96 +192,6 @@ public sealed class PackingTests
 	}
 
 	[Fact]
-	public void The_program_matches_the_packing_screen_and_its_actions()
-	{
-		var screen = new PackingHarness();
-		var program = new PackingHarness();
-		var bound = ScreenProgram.BindPacking(PackingProgram.Bytes);
-		Assert.Equal((byte)'N', PackingProgram.Bytes[0]);
-		Assert.Equal((byte)1, PackingProgram.Bytes[5]);
-		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
-
-		Press(bound, program, "scroll/list/tent/packed");
-		screen.SetPacked("tent", true);
-		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
-		Assert.True(program.State.Items[0].Packed);
-
-		Press(bound, program, "scroll/list/tent/edit");
-		screen.PressRow("tent", "edit");
-		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
-		Enter(bound, program, "editor/name", "Canvas tent X");
-		screen.Type("Canvas tent X");
-		Press(bound, program, "editor/save");
-		screen.Press("save");
-		Assert.Equal("Canvas tent X", program.State.Items[0].Name);
-		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
-
-		Press(bound, program, "scroll/list/add");
-		Enter(bound, program, "editor/name", "Lantern");
-		Press(bound, program, "editor/packed");
-		Press(bound, program, "editor/save");
-		Assert.Equal("Lantern", program.State.Items[4].Name);
-		Assert.True(program.State.Items[4].Packed);
-		Assert.Equal(PackingRoute.List, program.State.Route);
-	}
-
-	static void Press(ScreenProgram.PackingBound bound, PackingHarness harness, string id)
-	{
-		var tree = bound.Render(new PackingProgramAdapter(harness.State, harness));
-		ElementIds.Invoke(tree, id, null);
-	}
-
-	static void Enter(ScreenProgram.PackingBound bound, PackingHarness harness, string id, string text)
-	{
-		var tree = bound.Render(new PackingProgramAdapter(harness.State, harness));
-		ElementIds.Invoke(tree, id, text);
-	}
-
-	static string Describe(Element element)
-	{
-		var builder = new System.Text.StringBuilder();
-		Describe(element, builder);
-		return builder.ToString();
-	}
-
-	static void Describe(Element element, System.Text.StringBuilder builder)
-	{
-		builder.Append(element.Key ?? "").Append(':');
-		switch (element)
-		{
-			case Column column:
-				builder.Append("column");
-				foreach (var child in column.Children)
-				{
-					builder.Append('{');
-					Describe(child, builder);
-					builder.Append('}');
-				}
-				return;
-			case Text text:
-				builder.Append("text=").Append(text.Value);
-				return;
-			case Button button:
-				builder.Append("button=").Append(button.Title).Append('/').Append(button.AccessibilityLabel);
-				return;
-			case TextField field:
-				builder.Append("field=").Append(field.Value).Append('/').Append(field.Placeholder).Append('/').Append(field.AccessibilityLabel);
-				return;
-			case Switch toggle:
-				builder.Append("switch=").Append(toggle.Value ? "1" : "0").Append('/').Append(toggle.AccessibilityLabel);
-				return;
-			case ScrollView scroll:
-				builder.Append("scroll");
-				builder.Append('{');
-				Describe(scroll.Child, builder);
-				builder.Append('}');
-				return;
-			default:
-				throw new InvalidOperationException("Unknown element.");
-		}
-	}
-
-	[Fact]
 	public void Stable_ids_drive_a_row_and_the_editor()
 	{
 		var harness = new PackingHarness();
@@ -289,7 +199,7 @@ public sealed class PackingTests
 		Assert.Equal("pressed scroll/list/tent/packed", ElementIds.Invoke(tree, "scroll/list/tent/packed", null));
 		Assert.True(harness.State.Items[0].Packed);
 		Assert.Equal("pressed scroll/list/tent/edit", ElementIds.Invoke(harness.Reconciler.Current!, "scroll/list/tent/edit", null));
-		Assert.Equal(PackingRoute.Editor, harness.State.Route);
+		Assert.True(harness.State.Editing);
 		Assert.Equal("entered editor/name", ElementIds.Invoke(harness.Reconciler.Current!, "editor/name", "Canvas tent X"));
 		Assert.Equal("pressed editor/save", ElementIds.Invoke(harness.Reconciler.Current!, "editor/save", null));
 		Assert.Equal("Canvas tent X", harness.State.Items[0].Name);

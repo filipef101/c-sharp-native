@@ -8,18 +8,15 @@ public sealed class ScreenLowererTests
 	public void The_committed_screen_lowers_to_the_same_tree_and_the_same_actions()
 	{
 		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), ScreenCompiler.RelativePath));
-		var lowered = ScreenLowerer.TryLower(source);
-		Assert.Null(lowered.Reason);
-		Assert.NotNull(lowered.Program);
-		Assert.True(ScreenProgram.IsProgram(lowered.Program));
-		Assert.Equal(ScreenProgram.SourceHash(source), ScreenProgram.Bind(lowered.Program).SourceHash);
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, Message(lowered));
+		Assert.True(ScreenProgram.IsRecord(lowered.Program));
+		Assert.Equal(ScreenProgram.SourceHash(source), RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag()).SourceHash);
 
 		foreach (var state in States())
 		{
-			var left = new AppState { Count = state.Count, Name = state.Name, GreetingFirst = state.GreetingFirst, PlainRoot = state.PlainRoot };
-			var right = new AppState { Count = state.Count, Name = state.Name, GreetingFirst = state.GreetingFirst, PlainRoot = state.PlainRoot };
-			var compiled = Screen.Render(left, new RecordingPlatform());
-			var programmed = ScreenProgram.Bind(lowered.Program).Render(right, new RecordingPlatform());
+			var compiled = Screen.Render(Copy(state), new RecordingPlatform());
+			var programmed = Render(lowered.Program!, state, new RecordingPlatform());
 			AssertSame(compiled, programmed);
 		}
 	}
@@ -29,16 +26,14 @@ public sealed class ScreenLowererTests
 	{
 		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), ScreenCompiler.RelativePath));
 		var edited = source.Replace("public const string TitlePrefix = \"Counter \";", "public const string TitlePrefix = \"Clicks \";", StringComparison.Ordinal);
-		var lowered = ScreenLowerer.TryLower(edited);
-		Assert.NotNull(lowered.Program);
-		var state = new AppState { Name = "Ada", Count = 1 };
-		var tree = ScreenProgram.Bind(lowered.Program).Render(state, new RecordingPlatform());
+		var lowered = SubsetLowerer.TryLower(edited);
+		Assert.True(lowered.Ok, Message(lowered));
+		var tree = Render(lowered.Program!, new AppState { Name = "Ada", Count = 1 }, new RecordingPlatform());
 		var column = Assert.IsType<Column>(tree);
 		Assert.Equal("Clicks 1", Assert.IsType<Text>(column.Children[0]).Value);
 		Assert.Equal("Ada", Assert.IsType<TextField>(column.Children[1]).Value);
 		Assert.Equal("Hello Ada", Assert.IsType<Text>(column.Children[3]).Value);
-		Assert.Equal("Ada", state.Name);
-		Assert.NotEqual(ScreenProgram.SourceHash(source), ScreenProgram.Bind(lowered.Program).SourceHash);
+		Assert.NotEqual(ScreenProgram.SourceHash(source), RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag()).SourceHash);
 	}
 
 	[Fact]
@@ -49,27 +44,52 @@ public sealed class ScreenLowererTests
 			"public const string TitlePrefix",
 			"public static int Extra => 1;\n\tpublic const string TitlePrefix",
 			StringComparison.Ordinal);
-		var lowered = ScreenLowerer.TryLower(extra);
-		Assert.Null(lowered.Program);
-		Assert.Contains("Extra", lowered.Reason);
+		var lowered = SubsetLowerer.TryLower(extra);
+		Assert.False(lowered.Ok);
+		Assert.Contains("Extra", lowered.Diagnostics[0].Message, StringComparison.Ordinal);
 	}
 
 	[Fact]
 	public void Save_on_the_program_matches_save_on_the_compiled_screen()
 	{
 		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), ScreenCompiler.RelativePath));
-		var program = ScreenLowerer.TryLower(source).Program;
+		var program = SubsetLowerer.TryLower(source).Program;
 		Assert.NotNull(program);
-		var programmed = new AppState { Name = "Ada" };
 		var compiled = new AppState { Name = "Ada" };
+		var bag = Seed(new AppState { Name = "Ada" });
 		var programPlatform = new RecordingPlatform();
 		var compiledPlatform = new RecordingPlatform();
-		PressSave(ScreenProgram.Bind(program).Render(programmed, programPlatform), programPlatform);
+		PressSave(RecordProgram.Bind(program, bag).Render(programPlatform), programPlatform);
 		PressSave(Screen.Render(compiled, compiledPlatform), compiledPlatform);
-		Assert.Equal(compiled.Count, programmed.Count);
+		Assert.Equal(compiled.Count, bag.ReadInt("Count"));
 		Assert.Equal(compiledPlatform.Nonce, programPlatform.Nonce);
-		Assert.Equal(compiled.Name, programmed.Name);
+		Assert.Equal(compiled.Name, bag.ReadString("Name"));
 	}
+
+	static Element Render(byte[] program, AppState state, IPlatform platform) =>
+		RecordProgram.Bind(program, Seed(state)).Render(platform);
+
+	static RecordProgram.Bag Seed(AppState state)
+	{
+		var bag = new RecordProgram.Bag();
+		bag.SeedInt("Count", state.Count);
+		bag.SeedString("Name", state.Name);
+		bag.SeedBool("GreetingFirst", state.GreetingFirst);
+		bag.SeedBool("PlainRoot", state.PlainRoot);
+		return bag;
+	}
+
+	static AppState Copy(AppState state) =>
+		new()
+		{
+			Count = state.Count,
+			Name = state.Name,
+			GreetingFirst = state.GreetingFirst,
+			PlainRoot = state.PlainRoot,
+		};
+
+	static string Message(SubsetResult result) =>
+		result.Diagnostics.Count == 0 ? "" : result.Diagnostics[0].Message;
 
 	static void PressSave(Element tree, RecordingPlatform platform)
 	{

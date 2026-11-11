@@ -40,8 +40,10 @@ public sealed class MainActivity : Activity
 		_host = new AndroidHost(this, () => _reconciler?.Current);
 		_reconciler = new ViewReconciler<View>(_host);
 		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
+		NavCatalog.Install();
 #if DEBUG
 		StateStore.TryLoad(this);
+		ScreenNav.Shared.Prepare((program, bag) => RecordSession.Prepare(program, bag));
 #endif
 		RenderNow();
 		if (string.Equals(Intent?.GetStringExtra("nativepoc_keyed_move"), "1", StringComparison.Ordinal))
@@ -116,7 +118,32 @@ public sealed class MainActivity : Activity
 		if (Looper.MainLooper?.IsCurrentThread == true)
 			Run();
 		else
-			RunOnUiThread(Run);
+			WaitForUi(Run);
+	}
+
+	void WaitForUi(Action run)
+	{
+		Exception? error = null;
+		using var done = new ManualResetEventSlim(false);
+		RunOnUiThread(() =>
+		{
+			try
+			{
+				run();
+			}
+			catch (Exception ex)
+			{
+				error = ex;
+			}
+			finally
+			{
+				done.Set();
+			}
+		});
+		if (!done.Wait(TimeSpan.FromSeconds(5)))
+			throw new InvalidOperationException("The screen did not render.");
+		if (error is not null)
+			throw new InvalidOperationException("The screen did not render.", error);
 	}
 
 	public string UseRender(Func<AppState, IPlatform, Element> render)
@@ -137,7 +164,9 @@ public sealed class MainActivity : Activity
 		}
 	}
 
-	public string UseRecord(RecordProgram.Bound program)
+	public string UseRecord(RecordProgram.Bound program) => UseProgram(program);
+
+	public string UseProgram(RecordProgram.Bound program)
 	{
 		var previousSource = _programSource;
 		var previousRecord = _record;
@@ -157,30 +186,12 @@ public sealed class MainActivity : Activity
 		return LastTitle;
 	}
 
-	public string UseProgram(ScreenProgram.Bound program)
-	{
-		var previousSource = _programSource;
-		var previousRecord = _record;
-		_record = null;
-		_programSource = program.SourceHash;
-		try
-		{
-			return ApplyRender(program.Render);
-		}
-		catch
-		{
-			_record = previousRecord;
-			_programSource = previousSource;
-			throw;
-		}
-	}
-
 	public string Answer(byte op, byte[] payload)
 	{
 		switch (op)
 		{
 			case ScreenQuery.Tree:
-				return "source=" + _programSource + "\n" + ScreenSnapshot.FormatTree(CurrentTree());
+				return "source=" + _programSource + "\n" + ScreenSnapshot.FormatTree(CurrentTree()) + ScreenNav.Shared.Format();
 			case ScreenQuery.State:
 				var stateText = ScreenSnapshot.FormatState(AppSession.Shared.State) + PackingView.Capture().Format();
 				if (_record is not null)
@@ -238,6 +249,14 @@ public sealed class MainActivity : Activity
 			return;
 		var previousRoot = _reconciler.Root;
 		var state = AppSession.Shared.State;
+		if (ScreenNav.Shared.Top() is { } top)
+		{
+			_record = top;
+			_programSource = top.SourceHash;
+		}
+
+		if (_record is { } bound)
+			RecordSession.Publish(bound);
 		var tree = _record is { } record ? record.Render(_platform) : _render(state, _platform);
 		_reconciler.Render(tree);
 		if (_reconciler.Root is null)
@@ -281,6 +300,8 @@ public sealed class MainActivity : Activity
 				return column.Children.Count == 0 ? "" : TitleOf(column.Children[0]);
 			case ScrollView scroll:
 				return TitleOf(scroll.Child);
+			case ListView list:
+				return list.Rows.Count == 0 ? "" : TitleOf(list.Rows[0]);
 			case Text text:
 				return text.Value;
 			case Button:

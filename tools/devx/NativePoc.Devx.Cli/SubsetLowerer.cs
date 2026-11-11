@@ -18,7 +18,7 @@ public sealed record SubsetResult(byte[]? Program, IReadOnlyList<SubsetDiagnosti
 	public static SubsetResult Refuse(SubsetDiagnostic diagnostic) => new(null, [diagnostic]);
 }
 
-static class SubsetLowerer
+public static class SubsetLowerer
 {
 	public const string NotAScreen = "subset.not-a-screen";
 	public const string UnknownMember = "subset.unknown-member";
@@ -46,13 +46,14 @@ static class SubsetLowerer
 			return SubsetResult.Refuse(At(NotAScreen, "A subset screen is a static class with Render(state, IPlatform).", root, source));
 
 		var records = new Dictionary<string, List<Field>>(StringComparer.Ordinal);
+		var methods = new Dictionary<string, MethodDeclarationSyntax>(StringComparer.Ordinal);
 		ClassDeclarationSyntax? screen = null;
 		foreach (var member in members)
 		{
 			switch (member)
 			{
 				case RecordDeclarationSyntax record:
-					if (!RecordFields(record, records, source, out var recordError))
+					if (!RecordFields(record, records, methods, source, out var recordError))
 						return SubsetResult.Refuse(recordError!);
 					break;
 				case ClassDeclarationSyntax type when type.Modifiers.Any(SyntaxKind.StaticKeyword):
@@ -61,7 +62,7 @@ static class SubsetLowerer
 					screen = type;
 					break;
 				case ClassDeclarationSyntax type:
-					if (!RecordFields(type, records, source, out var classError))
+					if (!RecordFields(type, records, methods, source, out var classError))
 						return SubsetResult.Refuse(classError!);
 					break;
 				default:
@@ -72,6 +73,7 @@ static class SubsetLowerer
 		if (screen is null)
 			return SubsetResult.Refuse(At(NotAScreen, "A subset screen is a static class with Render(state, IPlatform).", root, source));
 		MethodDeclarationSyntax? render = null;
+		var consts = new Dictionary<string, string>(StringComparer.Ordinal);
 		foreach (var member in screen.Members)
 		{
 			if (member is MethodDeclarationSyntax method && method.Identifier.ValueText == "Render")
@@ -82,15 +84,25 @@ static class SubsetLowerer
 				continue;
 			}
 
+			if (member is FieldDeclarationSyntax field && ConstString(field, out var constName, out var constValue))
+			{
+				consts.Add(constName, constValue);
+				continue;
+			}
+
 			return SubsetResult.Refuse(At(UnknownMember, "The screen subset does not include " + MemberName(member) + ".", member, source));
 		}
 
 		if (render is null || !IsRender(render, out var stateName, out var stateType, out var platformName))
 			return SubsetResult.Refuse(At(NotAScreen, "A subset screen is a static class with Render(state, IPlatform).", render ?? (SyntaxNode)screen, source));
 		if (!records.TryGetValue(stateType, out var fields))
-			return SubsetResult.Refuse(At(NotAScreen, "A subset screen is a static class with Render(state, IPlatform).", render, source));
+		{
+			if (!Infer(render, stateName, source, out fields, out var inferred))
+				return SubsetResult.Refuse(inferred!);
+			records.Add(stateType, fields);
+		}
 
-		var lower = new Lower(source, stateName, platformName, fields, records);
+		var lower = new Lower(source, stateName, platformName, fields, records, consts, methods, stateType);
 		try
 		{
 			if (!lower.Body(render))
@@ -156,12 +168,128 @@ static class SubsetLowerer
 		return stateType.Length > 0 && stateName.Length > 0;
 	}
 
-	static bool RecordFields(TypeDeclarationSyntax type, Dictionary<string, List<Field>> records, string source, out SubsetDiagnostic? error)
+	static bool ConstString(FieldDeclarationSyntax field, out string name, out string value)
+	{
+		name = "";
+		value = "";
+		if (field.Declaration.Type.ToString() != "string" || field.Declaration.Variables.Count != 1)
+			return false;
+		var variable = field.Declaration.Variables[0];
+		var literal = variable.Initializer?.Value as LiteralExpressionSyntax;
+		if (literal is null || !literal.IsKind(SyntaxKind.StringLiteralExpression))
+			return false;
+		var isConst = field.Modifiers.Any(SyntaxKind.ConstKeyword);
+		var isReadonly = field.Modifiers.Any(SyntaxKind.StaticKeyword) && field.Modifiers.Any(SyntaxKind.ReadOnlyKeyword);
+		if (!isConst && !isReadonly)
+			return false;
+		if (!field.Modifiers.Any(SyntaxKind.PublicKeyword))
+			return false;
+		name = variable.Identifier.ValueText;
+		value = literal.Token.ValueText;
+		return true;
+	}
+
+	static bool Infer(MethodDeclarationSyntax method, string state, string source, out List<Field> fields, out SubsetDiagnostic? error)
+	{
+		fields = new List<Field>();
+		error = null;
+		var kinds = new Dictionary<string, ValueKind>(StringComparer.Ordinal);
+		foreach (var member in method.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
+		{
+			if (member.Name.Identifier.ValueText == "Length"
+				&& member.Expression is MemberAccessExpressionSyntax inner
+				&& inner.Expression is IdentifierNameSyntax lengthOwner
+				&& lengthOwner.Identifier.ValueText == state)
+			{
+				if (!Note(kinds, inner.Name.Identifier.ValueText, ValueKind.Str))
+				{
+					error = At(UnknownType, "A screen property is a string, a bool, an int, or a list of records.", inner, source);
+					return false;
+				}
+
+				continue;
+			}
+
+			if (member.Expression is not IdentifierNameSyntax owner || owner.Identifier.ValueText != state)
+				continue;
+			var name = member.Name.Identifier.ValueText;
+			var kind = Hint(member);
+			if (kind is null)
+				continue;
+			if (!Note(kinds, name, kind.Value))
+			{
+				error = At(UnknownType, "A screen property is a string, a bool, an int, or a list of records.", member, source);
+				return false;
+			}
+		}
+
+		if (kinds.Count == 0)
+		{
+			error = At(NotAScreen, "A subset screen is a static class with Render(state, IPlatform).", method, source);
+			return false;
+		}
+
+		foreach (var pair in kinds)
+			fields.Add(Field.Scalar(pair.Key, pair.Value, "", false, 0));
+		return true;
+	}
+
+	static bool Note(Dictionary<string, ValueKind> kinds, string name, ValueKind kind)
+	{
+		if (!kinds.TryGetValue(name, out var existing))
+		{
+			kinds.Add(name, kind);
+			return true;
+		}
+
+		if (existing == ValueKind.Str && kind == ValueKind.Int)
+			return true;
+		return existing == kind;
+	}
+
+	static ValueKind? Hint(MemberAccessExpressionSyntax member)
+	{
+		var parent = member.Parent;
+		if (parent is PostfixUnaryExpressionSyntax postfix && postfix.IsKind(SyntaxKind.PostIncrementExpression) && postfix.Operand == member)
+			return ValueKind.Int;
+		if (parent is IfStatementSyntax branch && branch.Condition == member)
+			return ValueKind.Bool;
+		if (parent is ConditionalExpressionSyntax choice && choice.Condition == member)
+			return ValueKind.Bool;
+		if (parent is ArgumentSyntax argument && argument.Parent is ArgumentListSyntax list && list.Parent is ObjectCreationExpressionSyntax creation)
+		{
+			var type = creation.Type.ToString();
+			if (list.Arguments.Count > 0 && list.Arguments[0] == argument && type == "TextField")
+				return ValueKind.Str;
+			if (list.Arguments.Count > 0 && list.Arguments[0] == argument && type == "Switch")
+				return ValueKind.Bool;
+		}
+
+		if (parent is AssignmentExpressionSyntax assignment && assignment.Left == member)
+		{
+			if (assignment.Right is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
+				return ValueKind.Str;
+			if (assignment.Right is IdentifierNameSyntax)
+				return null;
+		}
+
+		if (parent is BinaryExpressionSyntax binary && binary.IsKind(SyntaxKind.AddExpression))
+			return ValueKind.Int;
+		return null;
+	}
+
+	static bool RecordFields(TypeDeclarationSyntax type, Dictionary<string, List<Field>> records, Dictionary<string, MethodDeclarationSyntax> methods, string source, out SubsetDiagnostic? error)
 	{
 		error = null;
 		var fields = new List<Field>();
 		foreach (var member in type.Members)
 		{
+			if (member is MethodDeclarationSyntax method)
+			{
+				methods[type.Identifier.ValueText + "." + method.Identifier.ValueText] = method;
+				continue;
+			}
+
 			if (member is not PropertyDeclarationSyntax property)
 			{
 				error = At(UnknownMember, "The screen subset does not include " + MemberName(member) + ".", member, source);
@@ -171,6 +299,26 @@ static class SubsetLowerer
 			if (!Property(property, records, source, out var field, out error) || field is null)
 				return false;
 			fields.Add(field);
+		}
+
+		Field? list = null;
+		foreach (var field in fields)
+		{
+			if (field.Kind == ValueKind.List)
+				list = field;
+		}
+
+		if (list is not null && records.TryGetValue(list.Item, out var itemFields))
+		{
+			var nameIndex = itemFields.FindIndex(item => item.Kind == ValueKind.Str && item.Name == "Name");
+			if (nameIndex < 0)
+				nameIndex = itemFields.FindIndex(item => item.Kind == ValueKind.Str);
+			var flagIndex = itemFields.FindIndex(item => item.Kind == ValueKind.Bool);
+			foreach (var field in fields)
+			{
+				if (field.Kind is ValueKind.FlagCount or ValueKind.ListText)
+					field.BindList(list.Name, nameIndex, flagIndex);
+			}
 		}
 
 		if (!records.TryAdd(type.Identifier.ValueText, fields))
@@ -204,6 +352,24 @@ static class SubsetLowerer
 		var kind = KindOf(property.Type);
 		if (kind is null)
 		{
+			error = At(UnknownType, "A screen property is a string, a bool, an int, or a list of records.", property, source);
+			return false;
+		}
+
+		if (IsComputed(property))
+		{
+			if (kind == ValueKind.Int)
+			{
+				field = Field.Scalar(name, ValueKind.FlagCount, "", false, 0);
+				return true;
+			}
+
+			if (kind == ValueKind.Str)
+			{
+				field = Field.Scalar(name, ValueKind.ListText, "", false, 0);
+				return true;
+			}
+
 			error = At(UnknownType, "A screen property is a string, a bool, an int, or a list of records.", property, source);
 			return false;
 		}
@@ -291,21 +457,39 @@ static class SubsetLowerer
 		{
 			if (assignment is not AssignmentExpressionSyntax assign
 				|| assign.Left is not IdentifierNameSyntax name
-				|| assign.Right is not LiteralExpressionSyntax literal
-				|| !literal.IsKind(SyntaxKind.StringLiteralExpression))
+				|| assign.Right is not LiteralExpressionSyntax literal)
 			{
 				error = At(UnknownExpression, "The screen subset does not include this expression.", assignment, source);
 				return false;
 			}
 
-			var index = fields.FindIndex(field => field.Name == name.Identifier.ValueText && field.Kind == ValueKind.Str);
+			var index = fields.FindIndex(field => field.Name == name.Identifier.ValueText);
 			if (index < 0)
 			{
 				error = At(UnknownMember, "The screen subset does not include " + name.Identifier.ValueText + ".", name, source);
 				return false;
 			}
 
-			cells[index] = literal.Token.ValueText;
+			if (fields[index].Kind == ValueKind.Str && literal.IsKind(SyntaxKind.StringLiteralExpression))
+			{
+				cells[index] = literal.Token.ValueText;
+				continue;
+			}
+
+			if (fields[index].Kind == ValueKind.Bool && literal.IsKind(SyntaxKind.TrueLiteralExpression))
+			{
+				cells[index] = "true";
+				continue;
+			}
+
+			if (fields[index].Kind == ValueKind.Bool && literal.IsKind(SyntaxKind.FalseLiteralExpression))
+			{
+				cells[index] = "false";
+				continue;
+			}
+
+			error = At(UnknownExpression, "The screen subset does not include this expression.", literal, source);
+			return false;
 		}
 
 		return true;
@@ -355,6 +539,16 @@ static class SubsetLowerer
 			return false;
 		itemType = generic.TypeArgumentList.Arguments[0].ToString();
 		return true;
+	}
+
+	static bool IsComputed(PropertyDeclarationSyntax property)
+	{
+		if (property.Initializer is not null)
+			return false;
+		if (property.ExpressionBody is not null)
+			return true;
+		return property.AccessorList is { Accessors.Count: 1 } list
+			&& list.Accessors[0].IsKind(SyntaxKind.GetAccessorDeclaration);
 	}
 
 	static ValueKind? KindOf(TypeSyntax type) =>
@@ -408,6 +602,8 @@ static class SubsetLowerer
 		Bool,
 		Int,
 		List,
+		FlagCount,
+		ListText,
 	}
 
 	sealed class Field
@@ -437,6 +633,19 @@ static class SubsetLowerer
 
 		public List<string[]>? Rows { get; }
 
+		public string SourceList { get; private set; } = "";
+
+		public int NameIndex { get; private set; } = -1;
+
+		public int FlagIndex { get; private set; } = -1;
+
+		public void BindList(string list, int nameIndex, int flagIndex)
+		{
+			SourceList = list;
+			NameIndex = nameIndex;
+			FlagIndex = flagIndex;
+		}
+
 		public static Field Scalar(string name, ValueKind kind, string text, bool flag, int number) =>
 			new(name, kind, text, flag, number, "", null);
 
@@ -451,18 +660,33 @@ static class SubsetLowerer
 		readonly string _platform;
 		readonly List<Field> _fields;
 		readonly Dictionary<string, List<Field>> _records;
+		readonly Dictionary<string, string> _consts;
+		readonly Dictionary<string, MethodDeclarationSyntax> _methods;
+		readonly string _stateType;
 		readonly Builder _code = new();
 		string _item = "";
 		List<Field>? _itemFields;
 		string _rows = "";
+		string _listName = "";
 
-		public Lower(string source, string state, string platform, List<Field> fields, Dictionary<string, List<Field>> records)
+		public Lower(
+			string source,
+			string state,
+			string platform,
+			List<Field> fields,
+			Dictionary<string, List<Field>> records,
+			Dictionary<string, string> consts,
+			Dictionary<string, MethodDeclarationSyntax> methods,
+			string stateType)
 		{
 			_source = source;
 			_state = state;
 			_platform = platform;
 			_fields = fields;
 			_records = records;
+			_consts = consts;
+			_methods = methods;
+			_stateType = stateType;
 		}
 
 		public List<SubsetDiagnostic> Errors { get; } = new();
@@ -478,7 +702,22 @@ static class SubsetLowerer
 			return Block(method.Body);
 		}
 
-		public byte[] Finish() => _code.Finish(_source);
+		public byte[] Finish()
+		{
+			if (_consts.TryGetValue("ScreenId", out var id) && id.Length > 0)
+			{
+				_code.Prop(new RecordProgram.PropDef(
+					RecordProgram.TypeScreen,
+					_code.Intern("ScreenId"),
+					_code.Intern(id),
+					false,
+					0,
+					Array.Empty<int>(),
+					Array.Empty<int[]>()));
+			}
+
+			return _code.Finish(_source);
+		}
 
 		bool Seed()
 		{
@@ -496,13 +735,16 @@ static class SubsetLowerer
 					case ValueKind.Int:
 						_code.Prop(new RecordProgram.PropDef(RecordProgram.TypeInt, name, 0, false, field.Number, Array.Empty<int>(), Array.Empty<int[]>()));
 						break;
+					case ValueKind.FlagCount:
+					case ValueKind.ListText:
+						break;
 					case ValueKind.List:
 						if (field.Rows is null || !_records.TryGetValue(field.Item, out var itemFields))
 							return Fail(UnknownType, "A screen property is a string, a bool, an int, or a list of records.", field.Name);
 						var names = new int[itemFields.Count];
 						for (var index = 0; index < itemFields.Count; index++)
 						{
-							if (itemFields[index].Kind != ValueKind.Str)
+							if (itemFields[index].Kind is not (ValueKind.Str or ValueKind.Bool))
 								return Fail(UnknownType, "A screen property is a string, a bool, an int, or a list of records.", field.Name);
 							names[index] = _code.Intern(itemFields[index].Name);
 						}
@@ -512,7 +754,12 @@ static class SubsetLowerer
 						{
 							rows[row] = new int[names.Length];
 							for (var cell = 0; cell < names.Length; cell++)
-								rows[row][cell] = _code.Intern(cell < field.Rows[row].Length ? field.Rows[row][cell] : "");
+							{
+								var text = cell < field.Rows[row].Length ? field.Rows[row][cell] : "";
+								if (itemFields[cell].Kind == ValueKind.Bool && text.Length == 0)
+									text = "false";
+								rows[row][cell] = _code.Intern(text);
+							}
 						}
 
 						_code.Prop(new RecordProgram.PropDef(RecordProgram.TypeList, name, 0, false, 0, names, rows));
@@ -528,13 +775,11 @@ static class SubsetLowerer
 		bool Block(BlockSyntax block)
 		{
 			var statements = block.Statements;
-			if (statements.Count == 1 && statements[0] is ReturnStatementSyntax only)
-				return Returned(only);
-			if (statements.Count == 2
-				&& statements[0] is IfStatementSyntax branch
+			var index = 0;
+			while (index < statements.Count
+				&& statements[index] is IfStatementSyntax branch
 				&& branch.Else is null
-				&& branch.Statement is ReturnStatementSyntax whenTrue
-				&& statements[1] is ReturnStatementSyntax whenFalse)
+				&& branch.Statement is ReturnStatementSyntax whenTrue)
 			{
 				if (!Bool(branch.Condition))
 					return false;
@@ -542,25 +787,72 @@ static class SubsetLowerer
 				if (!Returned(whenTrue))
 					return false;
 				_code.Patch(jump);
-				return Returned(whenFalse);
+				index++;
 			}
 
-			if (statements.Count == 3
-				&& statements[0] is LocalDeclarationStatementSyntax local
-				&& statements[1] is ForEachStatementSyntax loop
-				&& statements[2] is ReturnStatementSyntax ret)
-				return Foreach(local, loop, ret);
+			if (index < statements.Count && statements[index] is LocalDeclarationStatementSyntax)
+				return ListBlock(statements, index);
+			if (index == statements.Count - 1 && statements[index] is ReturnStatementSyntax only)
+				return Returned(only);
+			if (statements.Count == 1 && statements[0] is ReturnStatementSyntax single)
+				return Returned(single);
 			return Fail(UnknownExpression, "The screen subset does not include this expression.", block);
 		}
 
-		bool Foreach(LocalDeclarationStatementSyntax local, ForEachStatementSyntax loop, ReturnStatementSyntax ret)
+		bool ListBlock(SyntaxList<StatementSyntax> statements, int index)
 		{
+			if (statements[index] is not LocalDeclarationStatementSyntax local)
+				return Fail(BadForeach, "A foreach walks a list property and adds one element.", statements[index]);
 			if (local.Declaration.Variables.Count != 1)
 				return Fail(BadForeach, "A foreach walks a list property and adds one element.", local);
 			var variable = local.Declaration.Variables[0];
 			_rows = variable.Identifier.ValueText;
 			if (variable.Initializer?.Value is not ObjectCreationExpressionSyntax created || !created.Type.ToString().StartsWith("List<Element>", StringComparison.Ordinal))
 				return Fail(BadForeach, "A foreach walks a list property and adds one element.", variable);
+			var prefix = new List<ExpressionSyntax>();
+			var suffix = new List<ExpressionSyntax>();
+			ForEachStatementSyntax? loop = null;
+			for (var cursor = index + 1; cursor < statements.Count - 1; cursor++)
+			{
+				if (statements[cursor] is ForEachStatementSyntax found)
+				{
+					if (loop is not null)
+						return Fail(BadForeach, "A foreach walks a list property and adds one element.", found);
+					loop = found;
+					continue;
+				}
+
+				if (!Added(statements[cursor], out var element))
+					return false;
+				if (loop is null)
+					prefix.Add(element);
+				else
+					suffix.Add(element);
+			}
+
+			if (loop is null || statements[^1] is not ReturnStatementSyntax ret)
+				return Fail(BadForeach, "A foreach walks a list property and adds one element.", local);
+			return Foreach(local, loop, ret, prefix, suffix);
+		}
+
+		bool Added(StatementSyntax statement, out ExpressionSyntax element)
+		{
+			element = null!;
+			if (statement is not ExpressionStatementSyntax expr
+				|| expr.Expression is not InvocationExpressionSyntax add
+				|| add.Expression is not MemberAccessExpressionSyntax target
+				|| target.Name.Identifier.ValueText != "Add"
+				|| target.Expression is not IdentifierNameSyntax rows
+				|| rows.Identifier.ValueText != _rows
+				|| add.ArgumentList.Arguments.Count != 1)
+				return Fail(BadForeach, "A foreach walks a list property and adds one element.", statement);
+			element = add.ArgumentList.Arguments[0].Expression;
+			return true;
+		}
+
+		bool Foreach(LocalDeclarationStatementSyntax local, ForEachStatementSyntax loop, ReturnStatementSyntax ret, List<ExpressionSyntax> prefix, List<ExpressionSyntax> suffix)
+		{
+			_ = local;
 			if (loop.Expression is not MemberAccessExpressionSyntax member
 				|| member.Expression is not IdentifierNameSyntax owner
 				|| owner.Identifier.ValueText != _state)
@@ -569,15 +861,16 @@ static class SubsetLowerer
 			if (list is null || !_records.TryGetValue(list.Item, out var itemFields))
 				return Fail(BadForeach, "A foreach walks a list property and adds one element.", member);
 			var statement = loop.Statement is BlockSyntax body && body.Statements.Count == 1 ? body.Statements[0] : loop.Statement;
-			if (statement is not ExpressionStatementSyntax expr
-				|| expr.Expression is not InvocationExpressionSyntax add
-				|| add.Expression is not MemberAccessExpressionSyntax target
-				|| target.Name.Identifier.ValueText != "Add"
-				|| target.Expression is not IdentifierNameSyntax rows
-				|| rows.Identifier.ValueText != _rows
-				|| add.ArgumentList.Arguments.Count != 1)
-				return Fail(BadForeach, "A foreach walks a list property and adds one element.", loop);
+			if (!Added(statement, out var added))
+				return false;
+			var keys = new KeySet();
 			_code.Op(RecordProgram.OpMark);
+			foreach (var element in prefix)
+			{
+				if (!Element(element, keys))
+					return false;
+			}
+
 			_code.Op(RecordProgram.OpForEach);
 			_code.U16(_code.Intern(list.Name));
 			var lengthAt = _code.Here;
@@ -585,13 +878,20 @@ static class SubsetLowerer
 			var start = _code.Here;
 			_item = loop.Identifier.ValueText;
 			_itemFields = itemFields;
-			var keys = new KeySet();
-			if (!Element(add.ArgumentList.Arguments[0].Expression, keys))
+			_listName = list.Name;
+			if (!Element(added, keys))
 				return false;
 			_item = "";
 			_itemFields = null;
+			_listName = "";
 			var length = _code.Here - start;
 			_code.PatchAt(lengthAt, length);
+			foreach (var element in suffix)
+			{
+				if (!Element(element, keys))
+					return false;
+			}
+
 			if (ret.Expression is null)
 				return Fail(BadForeach, "A foreach walks a list property and adds one element.", ret);
 			return Gathered(ret.Expression, keys) && Return();
@@ -614,6 +914,8 @@ static class SubsetLowerer
 				return true;
 			}
 
+			if (expression is ObjectCreationExpressionSyntax listed && TypeName(listed) == "ListView")
+				return GatherRows(listed, keys, RecordProgram.OpMakeList);
 			if (expression is not ObjectCreationExpressionSyntax column || TypeName(column) != "Column")
 				return Fail(UnknownExpression, "The screen subset does not include this expression.", expression);
 			if (column.ArgumentList?.Arguments.Count != 1
@@ -628,6 +930,23 @@ static class SubsetLowerer
 				return false;
 			_code.Op(RecordProgram.OpGather);
 			_code.U16(columnKey);
+			return true;
+		}
+
+		bool GatherRows(ObjectCreationExpressionSyntax creation, KeySet keys, byte op)
+		{
+			if (creation.ArgumentList?.Arguments.Count != 1
+				|| creation.ArgumentList.Arguments[0].Expression is not IdentifierNameSyntax name
+				|| name.Identifier.ValueText != _rows)
+				return Fail(BadForeach, "A foreach walks a list property and adds one element.", creation);
+			if (!KeyOf(creation, out var key, out var dynamic, out _))
+				return false;
+			if (dynamic)
+				return Fail(UnknownExpression, "The screen subset does not include this expression.", creation);
+			if (!keys.Close(this, creation))
+				return false;
+			_code.Op(op);
+			_code.U16(key);
 			return true;
 		}
 
@@ -766,14 +1085,21 @@ static class SubsetLowerer
 
 			if (!nested.Close(this, creation))
 				return false;
-			if (!KeyOf(creation, out var key, out var dynamic, out _))
+			if (!KeyOf(creation, out var key, out var dynamic, out var field))
 				return false;
-			if (dynamic)
-				return Fail(UnknownExpression, "The screen subset does not include this expression.", creation);
-			if (!keys.Add(this, key, false, creation))
+			if (!keys.Add(this, key, dynamic, creation))
 				return false;
-			if (children.Count > ScreenProgram.MaxChildren)
+			if (children.Count > RecordProgram.MaxRows)
 				return Fail(UnknownElement, "The screen subset does not include Column.", creation);
+			if (dynamic)
+			{
+				_code.Op(RecordProgram.OpItemStr);
+				_code.U16(field);
+				_code.Op(RecordProgram.OpMakeColumnKey);
+				_code.U8((byte)children.Count);
+				return true;
+			}
+
 			_code.Op(RecordProgram.OpMakeColumn);
 			_code.U8((byte)children.Count);
 			_code.U16(key);
@@ -827,6 +1153,8 @@ static class SubsetLowerer
 					return TextValue(paren.Expression);
 				case MemberAccessExpressionSyntax member:
 					return MemberText(member);
+				case IdentifierNameSyntax name when _consts.TryGetValue(name.Identifier.ValueText, out var constant):
+					return PushLiteral(constant);
 				default:
 					return Fail(UnknownExpression, "The screen subset does not include this expression.", expression);
 			}
@@ -848,6 +1176,10 @@ static class SubsetLowerer
 					return Choice(conditional, Bool);
 				case ParenthesizedExpressionSyntax paren:
 					return Bool(paren.Expression);
+				case BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.EqualsExpression):
+					return EmptyOrEqual(binary);
+				case MemberAccessExpressionSyntax member when ItemBool(member):
+					return true;
 				case MemberAccessExpressionSyntax member when Member(member, out var field) && field.Kind == ValueKind.Bool:
 					_code.Op(RecordProgram.OpLoadBool);
 					_code.U16(_code.Intern(field.Name));
@@ -855,6 +1187,45 @@ static class SubsetLowerer
 				default:
 					return Fail(UnknownExpression, "The screen subset does not include this expression.", expression);
 			}
+		}
+
+		bool EmptyOrEqual(BinaryExpressionSyntax binary)
+		{
+			if (binary.Left is MemberAccessExpressionSyntax length
+				&& length.Name.Identifier.ValueText == "Length"
+				&& binary.Right is LiteralExpressionSyntax zero
+				&& zero.IsKind(SyntaxKind.NumericLiteralExpression)
+				&& zero.Token.ValueText == "0")
+			{
+				if (!TextValue(length.Expression))
+					return false;
+				_code.Op(RecordProgram.OpStrEmpty);
+				return true;
+			}
+
+			if (binary.Right is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
+			{
+				if (!TextValue(binary.Left))
+					return false;
+				if (!PushLiteral(literal.Token.ValueText))
+					return false;
+				_code.Op(RecordProgram.OpEqStr);
+				return true;
+			}
+
+			return Fail(UnknownExpression, "The screen subset does not include this expression.", binary);
+		}
+
+		bool ItemBool(MemberAccessExpressionSyntax member)
+		{
+			if (_itemFields is null || member.Expression is not IdentifierNameSyntax item || item.Identifier.ValueText != _item)
+				return false;
+			var index = _itemFields.FindIndex(field => field.Name == member.Name.Identifier.ValueText && field.Kind == ValueKind.Bool);
+			if (index < 0)
+				return false;
+			_code.Op(RecordProgram.OpItemBool);
+			_code.U16(index);
+			return true;
 		}
 
 		bool Choice(ConditionalExpressionSyntax conditional, Func<ExpressionSyntax, bool> push)
@@ -915,6 +1286,16 @@ static class SubsetLowerer
 
 		bool MemberText(MemberAccessExpressionSyntax member)
 		{
+			if (member.Name.Identifier.ValueText == "Count"
+				&& member.Expression is MemberAccessExpressionSyntax list
+				&& Member(list, out var listed)
+				&& listed.Kind == ValueKind.List)
+			{
+				_code.Op(RecordProgram.OpListCount);
+				_code.U16(_code.Intern(listed.Name));
+				return true;
+			}
+
 			if (_itemFields is not null
 				&& member.Expression is IdentifierNameSyntax item
 				&& item.Identifier.ValueText == _item)
@@ -943,6 +1324,14 @@ static class SubsetLowerer
 				return true;
 			}
 
+			if (field.Kind == ValueKind.FlagCount)
+			{
+				_code.Op(RecordProgram.OpListFlagCount);
+				_code.U16(_code.Intern(field.SourceList));
+				_code.U16(field.FlagIndex);
+				return true;
+			}
+
 			return Fail(UnknownExpression, "The screen subset does not include this expression.", member);
 		}
 
@@ -951,7 +1340,7 @@ static class SubsetLowerer
 			field = null!;
 			if (member.Expression is not IdentifierNameSyntax owner || owner.Identifier.ValueText != _state)
 				return false;
-			var found = _fields.FirstOrDefault(item => item.Name == member.Name.Identifier.ValueText && item.Kind != ValueKind.List);
+			var found = _fields.FirstOrDefault(item => item.Name == member.Name.Identifier.ValueText);
 			if (found is null)
 				return false;
 			field = found;
@@ -1031,10 +1420,14 @@ static class SubsetLowerer
 			{
 				case AssignmentExpressionSyntax assignment when assignment.IsKind(SyntaxKind.SimpleAssignmentExpression):
 					return Assign(assignment, parameter, script);
+				case PostfixUnaryExpressionSyntax postfix when postfix.Operand is MemberAccessExpressionSyntax telemetry
+					&& telemetry.Expression is IdentifierNameSyntax telemetryOwner
+					&& telemetryOwner.Identifier.ValueText == "PackingTelemetry":
+					return true;
 				case PostfixUnaryExpressionSyntax postfix when postfix.IsKind(SyntaxKind.PostIncrementExpression):
 					return Increment(postfix.Operand, script);
 				case InvocationExpressionSyntax invocation:
-					return Call(invocation, script);
+					return Call(invocation, parameter, script);
 				default:
 					return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", expression);
 			}
@@ -1042,6 +1435,50 @@ static class SubsetLowerer
 
 		bool Assign(AssignmentExpressionSyntax assignment, string parameter, List<byte> script)
 		{
+			if (assignment.Left is MemberAccessExpressionSyntax itemMember
+				&& _itemFields is not null
+				&& itemMember.Expression is IdentifierNameSyntax item
+				&& item.Identifier.ValueText == _item
+				&& assignment.Right is IdentifierNameSyntax argument
+				&& argument.Identifier.ValueText == parameter)
+			{
+				var index = _itemFields.FindIndex(candidate => candidate.Name == itemMember.Name.Identifier.ValueText && candidate.Kind == ValueKind.Bool);
+				if (index < 0 || _listName.Length == 0)
+					return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", assignment);
+				Act(script, RecordProgram.ActSetRowBool, _code.Intern(_listName));
+				U16(script, index);
+				return true;
+			}
+
+			if (assignment.Left is MemberAccessExpressionSyntax left
+				&& Member(left, out var target)
+				&& assignment.Right is MemberAccessExpressionSyntax right
+				&& _itemFields is not null
+				&& right.Expression is IdentifierNameSyntax row
+				&& row.Identifier.ValueText == _item)
+			{
+				var index = _itemFields.FindIndex(candidate => candidate.Name == right.Name.Identifier.ValueText);
+				if (index < 0 || _listName.Length == 0)
+					return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", assignment);
+				if (target.Kind == ValueKind.Str && _itemFields[index].Kind == ValueKind.Str)
+				{
+					Act(script, RecordProgram.ActTakeStr, _code.Intern(target.Name));
+					U16(script, _code.Intern(_listName));
+					U16(script, index);
+					return true;
+				}
+
+				if (target.Kind == ValueKind.Bool && _itemFields[index].Kind == ValueKind.Bool)
+				{
+					Act(script, RecordProgram.ActTakeBool, _code.Intern(target.Name));
+					U16(script, _code.Intern(_listName));
+					U16(script, index);
+					return true;
+				}
+
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", assignment);
+			}
+
 			if (assignment.Left is not MemberAccessExpressionSyntax member || !Member(member, out var field))
 				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", assignment);
 			if (assignment.Right is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == parameter && parameter.Length > 0)
@@ -1060,10 +1497,10 @@ static class SubsetLowerer
 				return true;
 			}
 
-			if (field.Kind == ValueKind.Bool && assignment.Right is LiteralExpressionSyntax flag && (flag.IsKind(SyntaxKind.TrueLiteralExpression) || flag.IsKind(SyntaxKind.FalseLiteralExpression)))
+			if (field.Kind == ValueKind.Bool && assignment.Right is LiteralExpressionSyntax truth && (truth.IsKind(SyntaxKind.TrueLiteralExpression) || truth.IsKind(SyntaxKind.FalseLiteralExpression)))
 			{
 				Act(script, RecordProgram.ActSetBoolLit, _code.Intern(field.Name));
-				script.Add(flag.IsKind(SyntaxKind.TrueLiteralExpression) ? (byte)1 : (byte)0);
+				script.Add(truth.IsKind(SyntaxKind.TrueLiteralExpression) ? (byte)1 : (byte)0);
 				return true;
 			}
 
@@ -1077,11 +1514,16 @@ static class SubsetLowerer
 			return Act(script, RecordProgram.ActInc, _code.Intern(field.Name));
 		}
 
-		bool Call(InvocationExpressionSyntax invocation, List<byte> script)
+		bool Call(InvocationExpressionSyntax invocation, string parameter, List<byte> script)
 		{
-			if (invocation.Expression is not MemberAccessExpressionSyntax member
-				|| member.Expression is not IdentifierNameSyntax owner
-				|| owner.Identifier.ValueText != _platform)
+			_ = parameter;
+			if (invocation.Expression is not MemberAccessExpressionSyntax member || member.Expression is not IdentifierNameSyntax owner)
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+			if (owner.Identifier.ValueText == _state && _methods.ContainsKey(_stateType + "." + member.Name.Identifier.ValueText))
+				return StateCall(member.Name.Identifier.ValueText, script, invocation);
+			if (owner.Identifier.ValueText == "PackingTelemetry")
+				return true;
+			if (owner.Identifier.ValueText != _platform)
 				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
 			if (member.Name.Identifier.ValueText == "RequestRender" && invocation.ArgumentList.Arguments.Count == 0)
 			{
@@ -1089,9 +1531,88 @@ static class SubsetLowerer
 				return true;
 			}
 
+			if (member.Name.Identifier.ValueText == "Pulse" && invocation.ArgumentList.Arguments.Count == 0)
+			{
+				script.Add(RecordProgram.ActPulse);
+				return true;
+			}
+
 			if (member.Name.Identifier.ValueText == "CopyNonce" && invocation.ArgumentList.Arguments.Count == 1)
 				return Copy(invocation.ArgumentList.Arguments[0].Expression, script);
+			if (member.Name.Identifier.ValueText == "CopyText" && invocation.ArgumentList.Arguments.Count == 2)
+				return CopyRows(invocation, script);
+			if (member.Name.Identifier.ValueText == "Push" && invocation.ArgumentList.Arguments.Count == 1)
+			{
+				if (invocation.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax pushed
+					|| !pushed.IsKind(SyntaxKind.StringLiteralExpression)
+					|| pushed.Token.ValueText.Length == 0)
+					return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+				Act(script, RecordProgram.ActPush, _code.Intern(pushed.Token.ValueText));
+				return true;
+			}
+
+			if (member.Name.Identifier.ValueText == "Pop" && invocation.ArgumentList.Arguments.Count == 0)
+			{
+				script.Add(RecordProgram.ActPop);
+				return true;
+			}
+
 			return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+		}
+
+		bool StateCall(string name, List<byte> script, InvocationExpressionSyntax invocation)
+		{
+			if (name == "Commit")
+				return Commit(script);
+			if (!_methods.TryGetValue(_stateType + "." + name, out var method) || method.Body is null)
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+			foreach (var statement in method.Body.Statements)
+			{
+				if (statement is not ExpressionStatementSyntax expr || !Action(expr.Expression, "", script))
+					return false;
+			}
+
+			return true;
+		}
+
+		bool Commit(List<byte> script)
+		{
+			var list = _fields.FirstOrDefault(field => field.Kind == ValueKind.List);
+			if (list is null || !_records.TryGetValue(list.Item, out var itemFields))
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", script.Count.ToString(CultureInfo.InvariantCulture));
+			var id = itemFields.FindIndex(field => field.Name == "Id");
+			var rowName = itemFields.FindIndex(field => field.Name == "Name");
+			var packed = itemFields.FindIndex(field => field.Name == "Packed");
+			if (id < 0 || rowName < 0 || packed < 0)
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", list.Name);
+			script.Add(RecordProgram.ActCommitDraft);
+			U16(script, _code.Intern(list.Name));
+			U16(script, id);
+			U16(script, rowName);
+			U16(script, packed);
+			U16(script, _code.Intern("DraftName"));
+			U16(script, _code.Intern("DraftPacked"));
+			U16(script, _code.Intern("EditingId"));
+			U16(script, _code.Intern("NextNumber"));
+			U16(script, _code.Intern("Editing"));
+			U16(script, _code.Intern("item-"));
+			return true;
+		}
+
+		bool CopyRows(InvocationExpressionSyntax invocation, List<byte> script)
+		{
+			var label = invocation.ArgumentList.Arguments[0].Expression;
+			var rows = invocation.ArgumentList.Arguments[1].Expression;
+			if (label is not LiteralExpressionSyntax literal || !literal.IsKind(SyntaxKind.StringLiteralExpression))
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", label);
+			if (rows is not MemberAccessExpressionSyntax member || !Member(member, out var field) || field.Kind != ValueKind.ListText)
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", rows);
+			script.Add(RecordProgram.ActCopyRows);
+			U16(script, _code.Intern(field.SourceList));
+			U16(script, field.NameIndex);
+			U16(script, field.FlagIndex);
+			U16(script, _code.Intern(literal.Token.ValueText));
+			return true;
 		}
 
 		bool Copy(ExpressionSyntax expression, List<byte> script)
@@ -1100,6 +1621,19 @@ static class SubsetLowerer
 				return Act(script, RecordProgram.ActCopyLit, _code.Intern(literal.Token.ValueText));
 			if (expression is MemberAccessExpressionSyntax member && Member(member, out var field) && field.Kind == ValueKind.Str)
 				return Act(script, RecordProgram.ActCopyProp, _code.Intern(field.Name));
+			if (expression is BinaryExpressionSyntax binary
+				&& binary.IsKind(SyntaxKind.AddExpression)
+				&& binary.Left is LiteralExpressionSyntax prefix
+				&& prefix.IsKind(SyntaxKind.StringLiteralExpression)
+				&& binary.Right is MemberAccessExpressionSyntax number
+				&& Member(number, out var count)
+				&& count.Kind == ValueKind.Int)
+			{
+				Act(script, RecordProgram.ActCopyPrefixInt, _code.Intern(prefix.Token.ValueText));
+				U16(script, _code.Intern(count.Name));
+				return true;
+			}
+
 			return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", expression);
 		}
 

@@ -47,6 +47,7 @@ public static class ElementIds
 				throw new InvalidOperationException("Element " + id + " does not take that input.");
 			case Column:
 			case ScrollView:
+			case ListView:
 			case Text:
 				throw new InvalidOperationException("Element " + id + " does not take input.");
 			default:
@@ -83,6 +84,7 @@ public static class ElementIds
 				return column.Children;
 			case ScrollView scroll:
 				return [scroll.Child];
+			case ListView:
 			case Text:
 			case Button:
 			case TextField:

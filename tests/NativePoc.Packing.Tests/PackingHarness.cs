@@ -66,6 +66,10 @@ sealed class PackHost : IElementHost<PackNode>
 		view.AccessibilityLabel = accessibilityLabel;
 	}
 
+	public void SetList(PackNode view, IReadOnlyList<Element> rows)
+	{
+	}
+
 	public void SetSwitch(PackNode view, bool value, string accessibilityLabel)
 	{
 		view.Checked = value;
@@ -149,11 +153,11 @@ sealed class FakeServices : INativeServices
 	public void Dispose() => Disposed = true;
 }
 
-sealed class PackingHarness : IPackingHost
+sealed class PackingHarness : IPlatform
 {
 	public PackingHarness()
 	{
-		State = PackingState.Seed();
+		State = new PackingModel();
 		ViewReconciler<PackNode>? reconciler = null;
 		Host = new PackHost(() => reconciler?.Current);
 		reconciler = new ViewReconciler<PackNode>(Host);
@@ -161,7 +165,7 @@ sealed class PackingHarness : IPackingHost
 		Render();
 	}
 
-	public PackingState State { get; }
+	public PackingModel State { get; }
 
 	public PackHost Host { get; }
 
@@ -169,7 +173,13 @@ sealed class PackingHarness : IPackingHost
 
 	public ViewReconciler<PackNode> Reconciler { get; }
 
-	public INativeServices Native => Services;
+	public void CopyNonce(string nonce)
+	{
+	}
+
+	public void CopyText(string label, string text) => Services.CopyText(label, text);
+
+	public void Pulse() => Services.Pulse();
 
 	public void RequestRender() => Render();
 

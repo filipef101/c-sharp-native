@@ -669,8 +669,8 @@ static partial class MeasureLoop
 			if (!swapOk)
 				throw new InvalidOperationException("The row order did not land in place.");
 			var broken = original.Replace(
-				"public static Element View(PackingItem item",
-				"public static int Extra => 1;\n\tpublic static Element View(PackingItem item",
+				"public static Element Render(PackingModel state",
+				"public static int Extra => 1;\n\tpublic static Element Render(PackingModel state",
 				StringComparison.Ordinal);
 			File.WriteAllText(screen, broken);
 			var refused = AndroidLoop.SendPacking(session, repo);
@@ -696,11 +696,11 @@ static partial class MeasureLoop
 
 	static string WithRowTitle(string source, string title)
 	{
-		const string needle = "new Button(\"Edit\", onEdit,";
+		const string needle = "new Button(\"Edit\",";
 		var index = source.IndexOf(needle, StringComparison.Ordinal);
 		if (index < 0)
 			throw new InvalidOperationException("The row edit button was not found.");
-		return source.Replace(needle, "new Button(\"" + title + "\", onEdit,", StringComparison.Ordinal);
+		return source[..index] + "new Button(\"" + title + "\"," + source[(index + needle.Length)..];
 	}
 
 	static string WithNote(string source)

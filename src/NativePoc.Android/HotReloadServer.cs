@@ -156,7 +156,7 @@ static class HotReloadServer
 				}
 
 				Activity presented = activity;
-				if (ScreenProgram.IsPacking(dll) && PackingActivity.Current is Activity packingActivity)
+				if (PackingActivity.Current is Activity packingActivity && packingActivity.HasWindowFocus)
 					presented = packingActivity;
 				if (!presented.HasWindowFocus)
 				{
@@ -197,25 +197,20 @@ static class HotReloadServer
 			return activity.Answer(ScreenQuery.Op(dll), dll);
 		if (ScreenProgram.IsProgram(dll))
 		{
-			if (ScreenProgram.IsRecord(dll))
-			{
-				var record = RecordProgram.Bind(dll);
-				var recorded = activity.UseRecord(record);
-				var recordedMessage = recorded + " program=1";
-				Android.Util.Log.Info(MainActivity.Tag, "hotreload-applied " + recordedMessage);
-				return recordedMessage;
-			}
-
-			if (ScreenProgram.IsPacking(dll))
-			{
-				var packing = ScreenProgram.BindPacking(dll);
-				var packingMessage = PackingActivity.UseProgram(packing) + " program=1";
-				Android.Util.Log.Info(MainActivity.Tag, "hotreload-applied " + packingMessage);
-				return packingMessage;
-			}
-
-			var program = ScreenProgram.Bind(dll);
-			var programmed = activity.UseProgram(program);
+			if (!ScreenProgram.IsRecord(dll))
+				throw new InvalidOperationException("The screen program is not a record.");
+			var screenId = RecordProgram.ScreenId(dll);
+			if (screenId.Length == 0)
+				screenId = "screen";
+			var bag = ScreenNav.Shared.Bag(screenId);
+			RecordSession.Prepare(dll, bag);
+			ScreenNav.Shared.Show(dll);
+			var record = ScreenNav.Shared.Top() ?? RecordProgram.Bind(dll, bag);
+			string programmed;
+			if (PackingActivity.Current is { HasWindowFocus: true })
+				programmed = PackingActivity.UseProgram(record);
+			else
+				programmed = activity.UseProgram(record);
 			var programmedMessage = programmed + " program=1";
 			Android.Util.Log.Info(MainActivity.Tag, "hotreload-applied " + programmedMessage);
 			return programmedMessage;

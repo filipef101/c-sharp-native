@@ -83,10 +83,10 @@ public static partial class ScreenProgram
 	public const byte PackItemPacked = 6;
 	public const byte PackDraftPacked = 7;
 
-	public const int MaxStrings = 64;
+	public const int MaxStrings = 4096;
 	public const int MaxStringBytes = 4096;
 	public const int MaxCode = 8192;
-	public const int MaxStack = 64;
+	public const int MaxStack = 2048;
 	public const int MaxLocals = 8;
 	public const int MaxChildren = 64;
 

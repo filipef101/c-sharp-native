@@ -280,11 +280,11 @@ static class AndroidLoop
 			return new PushOutcome(ReloadStatus.CompileError, false);
 		}
 
-		var lowered = ScreenLowerer.TryLower(session.Compiler.ReadSource());
-		if (lowered.Program is null)
+		var lowered = SubsetLowerer.TryLower(session.Compiler.ReadSource());
+		if (!lowered.Ok || lowered.Program is null)
 		{
 			Console.WriteLine("screen program refused");
-			Console.WriteLine(lowered.Reason ?? "The screen is not a program this runtime can carry.");
+			Console.WriteLine(lowered.Diagnostics.Count == 0 ? "The screen is not a program this runtime can carry." : lowered.Diagnostics[0].Message);
 			return new PushOutcome(ReloadStatus.Failed, false);
 		}
 
@@ -353,9 +353,9 @@ static class AndroidLoop
 			return new ProgramPush(false, false, errors);
 		}
 
-		var lowered = ScreenLowerer.TryLower(session.Compiler.ReadSource());
-		if (lowered.Program is null)
-			return new ProgramPush(false, true, lowered.Reason ?? "The screen is not a program this runtime can carry.");
+		var lowered = SubsetLowerer.TryLower(session.Compiler.ReadSource());
+		if (!lowered.Ok || lowered.Program is null)
+			return new ProgramPush(false, true, lowered.Diagnostics.Count == 0 ? "The screen is not a program this runtime can carry." : lowered.Diagnostics[0].Message);
 		var applied = session.Connection.Apply(lowered.Program);
 		return new ProgramPush(applied.Ok, false, applied.Text);
 	}
@@ -375,9 +375,9 @@ static class AndroidLoop
 			return new PackingSend(false, false, ex.Message, 0);
 		}
 
-		var lowered = PackingLowerer.TryLower(source);
-		if (lowered.Program is null)
-			return new PackingSend(false, true, lowered.Reason ?? "The packing screen is not a program this runtime can carry.", 0);
+		var lowered = SubsetLowerer.TryLower(source);
+		if (!lowered.Ok || lowered.Program is null)
+			return new PackingSend(false, true, lowered.Diagnostics.Count == 0 ? "The packing screen is not a program this runtime can carry." : lowered.Diagnostics[0].Message, 0);
 		try
 		{
 			var applied = session.Connection.Apply(lowered.Program);

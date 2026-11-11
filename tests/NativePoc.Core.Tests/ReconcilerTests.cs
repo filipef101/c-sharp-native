@@ -18,17 +18,19 @@ public sealed class ReconcilerTests
 		var root = harness.Reconciler.Root;
 		Assert.NotNull(root);
 		Assert.Equal(ElementKind.Column, root.Kind);
-		Assert.Equal(4, root.Children.Count);
+		Assert.Equal(5, root.Children.Count);
 		Assert.Equal(ElementKind.Text, harness.At(0).Kind);
 		Assert.Equal(ElementKind.TextField, harness.At(1).Kind);
 		Assert.Equal(ElementKind.Button, harness.At(2).Kind);
 		Assert.Equal(ElementKind.Text, harness.At(3).Kind);
+		Assert.Equal(ElementKind.Button, harness.At(4).Kind);
 		Assert.Equal("Counter 0", harness.At(0).Text);
 		Assert.Equal("", harness.At(1).Value);
 		Assert.Equal("Name", harness.At(1).Placeholder);
 		Assert.Equal("Save", harness.At(2).Title);
 		Assert.Equal("Save name", harness.At(2).AccessibilityLabel);
 		Assert.Equal("Enter a name", harness.At(3).Text);
+		Assert.Equal("Packing", harness.At(4).Title);
 	}
 
 	[Fact]
@@ -317,7 +319,7 @@ public sealed class ReconcilerTests
 	public void Screen_render_assigns_a_key_to_every_child()
 	{
 		var column = Assert.IsType<Column>(Screen.Render(new AppState(), new RecordingPlatform()));
-		Assert.Equal("title,name,save,greeting", string.Join(",", column.Children.Select(child => child.Key)));
+		Assert.Equal("title,name,save,greeting,packing", string.Join(",", column.Children.Select(child => child.Key)));
 	}
 
 	[Fact]
@@ -335,7 +337,7 @@ public sealed class ReconcilerTests
 		state.GreetingFirst = true;
 		reconciler.Render(Screen.Render(state, platform));
 
-		Assert.Equal("greeting,name,save,title", string.Join(",", ((Column)Screen.Render(state, platform)).Children.Select(child => child.Key)));
+		Assert.Equal("greeting,name,save,title,packing", string.Join(",", ((Column)Screen.Render(state, platform)).Children.Select(child => child.Key)));
 		Assert.Same(greeting, reconciler.ViewAt(NodePath.Root.Child(0)));
 		Assert.Same(field, reconciler.ViewAt(NodePath.Root.Child(1)));
 		Assert.Same(button, reconciler.ViewAt(NodePath.Root.Child(2)));

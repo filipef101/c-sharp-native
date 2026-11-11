@@ -17,6 +17,8 @@ public interface IElementHost<TView>
 
 	void SetSwitch(TView view, bool value, string accessibilityLabel);
 
+	void SetList(TView view, IReadOnlyList<Element> rows);
+
 	void OnMounted(NodePath path, TView view);
 
 	void Retarget(NodePath path, TView view);
@@ -94,6 +96,9 @@ public sealed class ViewReconciler<TView>
 				return;
 			case SetSwitch setSwitch:
 				_host.SetSwitch(ViewAt(setSwitch.Path), setSwitch.Value, setSwitch.AccessibilityLabel);
+				return;
+			case SetList setList:
+				_host.SetList(ViewAt(setList.Path), setList.Rows);
 				return;
 			case Reorder reorder:
 				ApplyReorder(reorder.Parent, reorder.Sources);

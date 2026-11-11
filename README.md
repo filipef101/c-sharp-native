@@ -201,6 +201,14 @@ Packing row-label edit to present, n=12, one pid (9382): p50 20.1565 ms, p90 30.
 
 Counter `Screen.cs`, n=12, one pid (11590): `OnDraw` p50 41.3773 ms, p90 50.4457 ms; gfxinfo `FrameCompleted` p50 77.5302 ms, p90 94.5824 ms; screencap byte change p50 332.0824 ms, p90 343.4421 ms. The screencap figure includes pulling one PNG. `DisplayPresentTime` and `SurfaceFlinger --latency` were 0 on this swiftshader emulator, so the frame timestamp is gfxinfo `FrameCompleted`.
 
+NativeAOT dev listener, emulator-run on that same AVD. `IsDynamicCodeSupported=False`. The listener `.so` in this tree is 8,798,208 bytes (signed APK 3,338,723). The same listener before dropping native debug info was 29,562,584 bytes (APK 7,676,387). Those flags are `IlcGenerateDebugInfo` false, `DebuggerSupport` false, and invariant globalization, and they are not on the Release publish. A Release publish of this tree is 6,181,648 bytes (unit 10's Release `.so` was 6,023,952). The extra is the navigation and list host, and the Release package is not debuggable. A manifest overlay keeps the listener package debuggable so `run-as` can still read the token.
+
+Same-pid subset reload, n=10, pid 20966, Hyndman-Fan type 7. Title: `OnDraw` p50 28.5024 ms, p90 42.8412 ms; gfxinfo `FrameCompleted` p50 56.1642 ms, p90 74.8903 ms. Packing: `OnDraw` p50 25.7990 ms, p90 37.5417 ms; `FrameCompleted` p50 53.1393 ms, p90 62.9946 ms.
+
+A keyed list of 1000 rows, apply-to-present (the reply waits for `OnDraw`), n=5 fresh processes. `ScrollView` mounted 1037 views: first present p50 1071.3305 ms, p90 1136.1784 ms, TOTAL PSS p50 52,997 KB. The recycled window (20 slots, not AndroidX `RecyclerView`) mounted 34 views: first present p50 254.0235 ms, p90 358.3155 ms, TOTAL PSS p50 40,717 KB. Reload on one pid, n=5: scroll p50 23.8252 ms, p90 39.3966 ms; recycled list p50 37.8717 ms, p90 42.5501 ms.
+
+<img src="docs/media/long-list-landscape.gif" width="480" alt="Landscape emulator: a recycled 1000-row list scrolls from the n0029 range through n0044 and back">
+
 `tools/NativePoc.HotReload.Host` is the older clock. `a` is a benchmark that restarts the app, then times a file write through the reply. `b` times a payload that was compiled before the clock. `c` times the compile and does not touch the device.
 
 ## A screen

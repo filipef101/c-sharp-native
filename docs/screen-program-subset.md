@@ -1,6 +1,6 @@
 # Screen program subset
 
-`cnative lower <file>` lowers any screen class that stays in the subset below. It does not look at the file name. `Screen.cs` and `PackingScreen.cs` stay on their own lowerers: those screens talk to the checkpointed counter and packing state, which are not a record bag. A new screen uses this subset, and the running activity applies it with `UseRecord`. There is no activity per screen.
+`cnative lower <file>` lowers any screen class that stays in the subset below. It does not look at the file name. `Screen.cs`, `PackingScreen.cs`, and `SettingsScreen.cs` all lower through this subset. The running activity applies the record with `UseProgram`. A counter program publishes `Count`, `Name`, `GreetingFirst`, and `PlainRoot` into `AppState`. A packing program publishes `Items`, `Editing`, and the draft fields into `PackingState`. There is no activity per screen and no per-screen lowerer.
 
 ```sh
 cnative lower samples/NativePoc.Settings/SettingsScreen.cs --json
@@ -11,32 +11,34 @@ cnative lower samples/NativePoc.Settings/SettingsScreen.cs --apply
 
 ## What is accepted
 
-A file is one namespace. It holds records or classes of state, and one static class with `public static Element Render(State state, IPlatform platform)`.
+A file is one namespace. It holds records or classes of state, and one static class with `public static Element Render(State state, IPlatform platform)`. The state type may live in the same file or be inferred from the `Render` parameter. `public const string` and `public static readonly string` on the screen class are values.
 
-State properties are `string`, `bool`, `int`, or `List<T>` / `IReadOnlyList<T>` where `T` is a record declared earlier in the file whose fields are strings. Initializers are literals, or a list of object initializers. A reload keeps a value when the property name and type are still there.
+State properties are `string`, `bool`, `int`, or `List<T>` / `IReadOnlyList<T>` where `T` is a record whose fields are strings or bools. A get-only `int` is a flag count of the first bool field. A get-only `string` is the list text. Initializers are literals, or a list of object initializers. A reload keeps a value when the property name and type are still there. Methods on the state class are kept and are not seeded as properties.
 
 The render body is one of:
 
 - an expression, or a single `return`
-- `if (condition) return element; return element;`
-- `var rows = new List<Element>();` then one `foreach (var item in state.Items) rows.Add(element);` then `return` of that list
+- a chain of `if (condition) return element;` ending in `return element;`
+- `var rows = new List<Element>();` with `Add` calls before and after one `foreach`, then `return` of a `ScrollView`, `ListView`, or column of that list
 
-Elements are `Text`, `Button`, `TextField`, `Switch`, `Column`, and `ScrollView`. A column's children are arguments or a collection expression. `Key` is a string literal, or, on a `Text` inside `foreach`, an item string field. Keys in one parent are all set or all absent.
+Elements are `Text`, `Button`, `TextField`, `Switch`, `Column`, `ScrollView`, and `ListView`. A column's children are arguments or a collection expression. `Key` is a string literal, or an item string field (`Key = item.Id`). Keys in one parent are all set or all absent. `new ListView(rows) { Key = "..." }` is the recycled list.
 
-Expressions are string literals, `+`, `$"..."` with holes of the same expressions, `condition ? a : b`, and parentheses. A condition is a bool property or `true` / `false`. An int property interpolates as a decimal. `foreach` reads item string fields.
+Expressions are string literals, `+`, `$"..."` with holes of the same expressions, `condition ? a : b`, and parentheses. A condition is a bool property, `true` / `false`, `property.Length == 0`, or string equality. An int property interpolates as a decimal. `foreach` reads item string fields and item bools.
 
-An action is a lambda. It may assign a property from the lambda argument or a literal, use `property++` on an int, call `platform.RequestRender()`, or call `platform.CopyNonce` with a string literal or a string property.
+An action is a lambda. It may assign a property from the lambda argument, a literal, or an item field, assign an item bool, use `property++` on an int, call `platform.RequestRender()`, call `platform.Pulse()`, call `platform.CopyNonce` with a string literal, a string property, or `"poc-" + state.Count`, call `platform.CopyText` with a literal label and the list text, call `platform.Push("screen-id")`, call `platform.Pop()`, or call `state.Commit()`. A `public const string ScreenId` names the screen on the stack. Each id keeps its own record across a reload. A `PackingTelemetry` increment inside an action is a no-op in the program. The C# method still increments.
+
+`cnative agent tree` prints one `stack N id` line per frame, from the bottom of the stack. The stack is also the `NAV` trailer after the STC1 packing note. The version byte stays 1 or 2. A checkpoint without that trailer still loads. Bytes that are not the trailer are rejected.
 
 ## Refusal ids
 
 | id | when |
 | --- | --- |
-| `subset.not-a-screen` | the file is not one `Render(state, IPlatform)` over a record in the file, or the source does not parse |
+| `subset.not-a-screen` | the file is not one `Render(state, IPlatform)`, or the source does not parse |
 | `subset.unknown-member` | a member, property, or initializer the subset does not name |
-| `subset.unknown-type` | a property that is not a string, bool, int, or list of string records |
-| `subset.unknown-element` | a constructor that is not one of the six elements |
+| `subset.unknown-type` | a property that is not a string, bool, int, or list of string or bool records |
+| `subset.unknown-element` | a constructor that is not one of the elements above |
 | `subset.unknown-expression` | an expression outside the list above |
-| `subset.bad-lambda` | an action that is not an assign, `RequestRender`, or `CopyNonce` |
+| `subset.bad-lambda` | an action outside the list above |
 | `subset.bad-foreach` | a loop that is not one `Add` of an element from a list property |
 | `subset.duplicate-key` | two children with the same literal key |
 | `subset.mixed-keys` | a parent mixes keyed and unkeyed children |
@@ -44,6 +46,8 @@ An action is a lambda. It may assign a property from the lambda argument or a li
 ## Scroll
 
 `ScrollView` is one keyed child. The Android host maps it to `android.widget.ScrollView` (`FillViewport`) and reconciles that child by key, the same way a column reuses a row. The packing list is a `ScrollView` of key `scroll` around the `list` column, in `PackingScreen.cs` and in the lowered program.
+
+`ListView` is a keyed list of rows. The Android host maps it to a `ScrollView` that keeps 20 text slots and rebinds them as it scrolls. It is not `AndroidX.RecyclerView`. The agent tree is one list node. The rows are not id-tree children.
 
 ## Accessibility
 
@@ -57,6 +61,7 @@ An action is a lambda. It may assign a property from the lambda argument or a li
 | TextField | textfield | `android.widget.EditText` | the label |
 | Switch | switch | `android.widget.Switch` | the label |
 | ScrollView | scroll | `android.widget.ScrollView` | none |
+| ListView | list | `android.widget.ScrollView` (20 slots) | none |
 
 `cnative agent a11y` prints `class`, `desc`, `text`, and `bounds` from `uiautomator dump`. A `tests/device` step `a11y <text>` asserts that dump.
 

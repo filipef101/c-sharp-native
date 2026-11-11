@@ -74,6 +74,10 @@ public sealed class PackingActivity : Activity, IPackingHost
 		switch (PackingNavigation.SystemBackFor(PackingSession.Shared.State.Route))
 		{
 			case SystemBack.ReturnToList:
+				if (_record is { } record && record.Has("Editing"))
+					record.State.WriteBool("Editing", false);
+				if (_model is not null)
+					_model.Editing = false;
 				PackingActions.Back(PackingSession.Shared.State, this);
 				return;
 			case SystemBack.FinishActivity:
@@ -147,14 +151,41 @@ public sealed class PackingActivity : Activity, IPackingHost
 		if (Looper.MainLooper?.IsCurrentThread == true)
 			Run();
 		else
-			RunOnUiThread(Run);
+			WaitForUi(Run);
 	}
 
-	static ScreenProgram.PackingBound _program = ScreenProgram.BindPacking(PackingProgram.Bytes);
-
-	public static string UseProgram(ScreenProgram.PackingBound program)
+	void WaitForUi(Action run)
 	{
-		_program = program;
+		Exception? error = null;
+		using var done = new ManualResetEventSlim(false);
+		RunOnUiThread(() =>
+		{
+			try
+			{
+				run();
+			}
+			catch (Exception ex)
+			{
+				error = ex;
+			}
+			finally
+			{
+				done.Set();
+			}
+		});
+		if (!done.Wait(TimeSpan.FromSeconds(5)))
+			throw new InvalidOperationException("Packing did not render.");
+		if (error is not null)
+			throw new InvalidOperationException("Packing did not render.", error);
+	}
+
+	static RecordProgram.Bound? _record;
+	PackingModel? _model;
+	PackingPlatform? _platform;
+
+	public static string UseProgram(RecordProgram.Bound program)
+	{
+		_record = program;
 		var current = Current;
 		if (current is null)
 			return "packing";
@@ -167,8 +198,21 @@ public sealed class PackingActivity : Activity, IPackingHost
 		if (_reconciler is null)
 			return;
 		var previousRoot = _reconciler.Root;
+		_platform ??= new PackingPlatform(this);
+		_model ??= PackingModel.From(PackingSession.Shared.State);
+		Element tree;
+		if (_record is { } record)
+		{
+			RecordSession.Publish(record);
+			tree = record.Render(_platform);
+		}
+		else
+		{
+			tree = PackingScreen.Render(_model, _platform);
+			_model.CopyTo(PackingSession.Shared.State);
+		}
+
 		var state = PackingSession.Shared.State;
-		var tree = _program.Render(new PackingProgramAdapter(state, this));
 		_reconciler.Render(tree);
 		if (_reconciler.Root is null)
 			throw new InvalidOperationException("Packing did not mount a root view.");
@@ -261,4 +305,26 @@ public sealed class PackingActivity : Activity, IPackingHost
 			_root.ViewTreeObserver?.RemoveOnGlobalLayoutListener(this);
 		}
 	}
+}
+
+sealed class PackingPlatform : IPlatform
+{
+	readonly PackingActivity _activity;
+
+	public PackingPlatform(PackingActivity activity)
+	{
+		_activity = activity;
+	}
+
+	public void CopyNonce(string nonce) => CopyText("nonce", nonce);
+
+	public void RequestRender() => _activity.RequestRender();
+
+	public void Pulse() => _activity.Native.Pulse();
+
+	public void CopyText(string label, string text) => _activity.Native.CopyText(label, text);
+
+	public void Push(string screen) => ScreenNav.Shared.Push(screen);
+
+	public void Pop() => ScreenNav.Shared.Pop();
 }

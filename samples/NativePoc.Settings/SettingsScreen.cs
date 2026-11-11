@@ -11,6 +11,8 @@ public sealed record SettingsState
 
 public static class SettingsScreen
 {
+	public const string ScreenId = "settings";
+
 	public static Element Render(SettingsState state, IPlatform platform) =>
 		new Column(
 		[
@@ -44,6 +46,7 @@ public static class SettingsScreen
 				},
 				"Dark")
 			{ Key = "dark" },
+			new Button("Back", () => { platform.Pop(); platform.RequestRender(); }, "Back") { Key = "back" },
 		])
 		{ Key = "settings" };
 }

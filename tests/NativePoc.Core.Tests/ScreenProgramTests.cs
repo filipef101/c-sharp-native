@@ -126,6 +126,37 @@ public sealed class ScreenProgramTests
 		Assert.Equal(packing.Items[1].Name, restored.Items[1].Name);
 		Assert.Equal(packing.NextNumber, restored.NextNumber);
 		Assert.False(StateCheckpoint.TryReadPacking(StateCheckpoint.Write(state), out _));
+
+		var nav = new NavCheckpoint
+		{
+			Stack = ["counter", "packing"],
+			Screens =
+			[
+				new NavScreen
+				{
+					Id = "counter",
+					State = new RecordProgram.BagImage
+					{
+						Numbers = [("Count", 4)],
+						Strings = [("Name", "Ada")],
+					},
+				},
+			],
+		};
+		var withNav = StateCheckpoint.Write(state, packing, nav);
+		Assert.True(StateCheckpoint.TryReadNav(withNav, out var restoredNav));
+		Assert.Equal(nav.Stack, restoredNav.Stack);
+		Assert.Equal("Ada", restoredNav.Screens[0].State.Strings[0].Value);
+		Assert.Equal(4, restoredNav.Screens[0].State.Numbers[0].Value);
+		Assert.True(StateCheckpoint.TryReadPacking(withNav, out var packedNav));
+		Assert.Equal("Trail map", packedNav.DraftName);
+		Assert.False(StateCheckpoint.TryReadNav(bytes, out _));
+		var junk = new byte[bytes.Length + 3];
+		bytes.CopyTo(junk, 0);
+		junk[^3] = (byte)'N';
+		junk[^2] = (byte)'O';
+		junk[^1] = (byte)'X';
+		Assert.Throws<InvalidOperationException>(() => StateCheckpoint.ReadInto(junk, new AppState()));
 	}
 
 	[Fact]

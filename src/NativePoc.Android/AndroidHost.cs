@@ -45,6 +45,8 @@ sealed class AndroidHost : IElementHost<View>
 				{
 					FillViewport = true,
 				};
+			case ElementKind.List:
+				return new RowWindow(_activity);
 			default:
 				throw UnknownKind(kind);
 		}
@@ -107,6 +109,13 @@ sealed class AndroidHost : IElementHost<View>
 			_applyingText = false;
 			FieldFocus.Frozen = false;
 		}
+	}
+
+	public void SetList(View view, IReadOnlyList<Element> rows)
+	{
+		if (view is not RowWindow window)
+			throw new InvalidOperationException("List patch targeted a non-list view.");
+		window.Bind(rows);
 	}
 
 	public void SetSwitch(View view, bool value, string accessibilityLabel)
@@ -395,4 +404,8 @@ sealed class PlatformBridge : IPlatform
 	}
 
 	public void RequestRender() => _activity.RequestRender();
+
+	public void Push(string screen) => ScreenNav.Shared.Push(screen);
+
+	public void Pop() => ScreenNav.Shared.Pop();
 }

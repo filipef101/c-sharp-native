@@ -8,6 +8,7 @@ public enum ElementKind
 	TextField = 4,
 	Switch = 5,
 	Scroll = 6,
+	List = 7,
 }
 
 public abstract record Element
@@ -31,6 +32,8 @@ public sealed record Switch(bool Value, Action<bool> OnChange, string Accessibil
 
 public sealed record ScrollView(Element Child) : Element;
 
+public sealed record ListView(IReadOnlyList<Element> Rows) : Element;
+
 public interface INativeServices : IDisposable
 {
 	void CopyText(string label, string text);
@@ -43,6 +46,20 @@ public interface IPlatform
 	void CopyNonce(string nonce);
 
 	void RequestRender();
+
+	void Pulse()
+	{
+	}
+
+	void CopyText(string label, string text) => CopyNonce(text);
+
+	void Push(string screen)
+	{
+	}
+
+	void Pop()
+	{
+	}
 }
 
 public sealed class AppState

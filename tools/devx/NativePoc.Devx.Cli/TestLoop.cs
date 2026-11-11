@@ -135,14 +135,20 @@ static class TestLoop
 				var resolved = AndroidLoop.Adb(serial, "shell", "cmd", "package", "resolve-activity", "--brief", LaunchCommand.Package);
 				var component = ActivityName.FromResolve(resolved.Stdout)
 					?? throw new InvalidOperationException("The launcher activity was not resolved: " + resolved.Stdout);
-				var started = AndroidLoop.Adb(serial, "shell", "am", "start", "-n", component);
+				var started = AndroidLoop.Adb(serial, "shell", "am", "start", "-n", component, "--activity-reorder-to-front");
 				if (started.Code != 0)
 					throw new InvalidOperationException("The counter did not start: " + started.Stderr + started.Stdout);
+				var sent = AndroidLoop.SendFile(session);
+				if (!sent.Applied)
+					throw new InvalidOperationException("The counter program was not applied: " + sent.Text);
 				return WaitTree(session, "id=\"name\"");
 			case "packing":
-				var packing = AndroidLoop.Adb(serial, "shell", "am", "start", "-n", LaunchCommand.Package + "/nativepoc.PackingActivity");
+				var packing = AndroidLoop.Adb(serial, "shell", "am", "start", "-n", LaunchCommand.Package + "/nativepoc.PackingActivity", "--activity-reorder-to-front");
 				if (packing.Code != 0)
 					throw new InvalidOperationException("Packing did not start: " + packing.Stderr + packing.Stdout);
+				var packingSent = AndroidLoop.SendPacking(session, RepoRoot.Find(Directory.GetCurrentDirectory()));
+				if (!packingSent.Applied)
+					throw new InvalidOperationException("The packing program was not applied: " + packingSent.Text);
 				return WaitTree(session, "id=\"scroll/list\"");
 			default:
 				throw new InvalidOperationException("Unknown screen " + screen + ".");

@@ -404,8 +404,8 @@ static partial class MeasureLoop
 
 	static string WithDraftNote(string source)
 	{
-		const string needle = "{ Key = \"name\" },\n\t\t\tnew Switch(\n\t\t\t\tstate.DraftPacked,";
-		const string inserted = "{ Key = \"name\" },\n\t\t\tnew TextField(\n\t\t\t\tstate.DraftNote,\n\t\t\t\tvalue =>\n\t\t\t\t{\n\t\t\t\t\tstate.DraftNote = value;\n\t\t\t\t\thost.RequestRender();\n\t\t\t\t},\n\t\t\t\t\"Note\",\n\t\t\t\t\"Note\")\n\t\t\t{ Key = \"note\" },\n\t\t\tnew Switch(\n\t\t\t\tstate.DraftPacked,";
+		const string needle = "{ Key = \"name\" },\n\t\t\t\tnew Switch(\n\t\t\t\t\tstate.DraftPacked,";
+		const string inserted = "{ Key = \"name\" },\n\t\t\t\tnew TextField(\n\t\t\t\t\tstate.DraftNote,\n\t\t\t\t\tvalue =>\n\t\t\t\t\t{\n\t\t\t\t\t\tstate.DraftNote = value;\n\t\t\t\t\t\thost.RequestRender();\n\t\t\t\t\t},\n\t\t\t\t\t\"Note\",\n\t\t\t\t\t\"Note\")\n\t\t\t\t{ Key = \"note\" },\n\t\t\t\tnew Switch(\n\t\t\t\t\tstate.DraftPacked,";
 		if (!source.Contains(needle, StringComparison.Ordinal))
 			throw new InvalidOperationException("The editor name field was not found.");
 		return source.Replace(needle, inserted, StringComparison.Ordinal);

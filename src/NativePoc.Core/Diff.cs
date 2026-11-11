@@ -88,6 +88,8 @@ public sealed record SetSwitch(NodePath Path, bool Value, string AccessibilityLa
 
 public sealed record Reorder(NodePath Parent, IReadOnlyList<int> Sources) : Patch;
 
+public sealed record SetList(NodePath Path, IReadOnlyList<Element> Rows) : Patch;
+
 public static class TreeDiff
 {
 	public static List<Patch> Diff(Element? previous, Element next)
@@ -276,6 +278,9 @@ public static class TreeDiff
 				return;
 			case ScrollView:
 				return;
+			case ListView list:
+				patches.Add(new SetList(path, list.Rows));
+				return;
 			default:
 				throw UnknownElement(next);
 		}
@@ -289,6 +294,7 @@ public static class TreeDiff
 				return column.Children;
 			case ScrollView scroll:
 				return [scroll.Child];
+			case ListView:
 			case Text:
 			case Button:
 			case TextField:
@@ -315,6 +321,8 @@ public static class TreeDiff
 				return ElementKind.Switch;
 			case ScrollView:
 				return ElementKind.Scroll;
+			case ListView:
+				return ElementKind.List;
 			default:
 				throw UnknownElement(element);
 		}

@@ -1,5 +1,4 @@
 using NativePoc;
-using NativePoc.Devx;
 using NativePoc.Packing;
 
 namespace NativePoc.Devx.Tests;
@@ -7,151 +6,118 @@ namespace NativePoc.Devx.Tests;
 public sealed class PackingLowererTests
 {
 	[Fact]
-	public void The_committed_packing_screen_lowers_to_the_same_tree_and_the_same_actions()
+	public void The_committed_packing_screen_lowers_to_the_same_tree_and_actions()
 	{
 		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Packing", "PackingScreen.cs"));
-		var lowered = PackingLowerer.TryLower(source);
-		Assert.Null(lowered.Reason);
-		Assert.NotNull(lowered.Program);
-		Assert.Equal(1, lowered.Program[5]);
-		Assert.True(ScreenProgram.IsPacking(lowered.Program));
-		Assert.Throws<InvalidOperationException>(() => ScreenProgram.Bind(lowered.Program));
-		var bound = ScreenProgram.BindPacking(lowered.Program);
-		Assert.Equal(ScreenProgram.SourceHash(source), bound.SourceHash);
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, Message(lowered));
+		Assert.True(ScreenProgram.IsRecord(lowered.Program));
+		var model = new PackingModel();
+		var platform = new Host();
+		AssertSame(PackingScreen.Render(model, platform), Render(lowered.Program!, model, platform));
 
-		var screenState = PackingState.Seed();
-		var programState = PackingState.Seed();
-		var screenHost = new Host();
-		var programHost = new Host();
-		AssertSame(PackingScreen.Render(screenState, screenHost), bound.Render(new PackingProgramAdapter(programState, programHost)));
+		var screen = new PackingModel();
+		var bag = Seed(new PackingModel());
+		ElementIds.Invoke(PackingScreen.Render(screen, new Host()), "scroll/list/tent/packed", null);
+		ElementIds.Invoke(Render(lowered.Program!, bag), "scroll/list/tent/packed", null);
+		Assert.True(screen.Items[0].Packed);
+		Assert.Equal("true", bag.Cell("Items", "tent", 0, 2));
+		AssertSame(PackingScreen.Render(screen, new Host()), RecordProgram.Bind(lowered.Program!, bag).Render(new Host()));
 
-		ElementIds.Invoke(PackingScreen.Render(screenState, screenHost), "scroll/list/tent/packed", null);
-		ElementIds.Invoke(bound.Render(new PackingProgramAdapter(programState, programHost)), "scroll/list/tent/packed", null);
-		Assert.True(screenState.Items[0].Packed);
-		Assert.True(programState.Items[0].Packed);
-		AssertSame(PackingScreen.Render(screenState, screenHost), bound.Render(new PackingProgramAdapter(programState, programHost)));
-
-		ElementIds.Invoke(PackingScreen.Render(screenState, screenHost), "scroll/list/tent/edit", null);
-		ElementIds.Invoke(bound.Render(new PackingProgramAdapter(programState, programHost)), "scroll/list/tent/edit", null);
-		Assert.Equal(PackingRoute.Editor, programState.Route);
-		AssertSame(PackingScreen.Render(screenState, screenHost), bound.Render(new PackingProgramAdapter(programState, programHost)));
+		ElementIds.Invoke(PackingScreen.Render(screen, new Host()), "scroll/list/tent/edit", null);
+		ElementIds.Invoke(RecordProgram.Bind(lowered.Program!, bag).Render(new Host()), "scroll/list/tent/edit", null);
+		Assert.True(screen.Editing);
+		Assert.Equal("Canvas tent", screen.DraftName);
+		Assert.True(bag.ReadBool("Editing"));
+		Assert.Equal("Canvas tent", bag.ReadString("DraftName"));
+		AssertSame(PackingScreen.Render(screen, new Host()), RecordProgram.Bind(lowered.Program!, bag).Render(new Host()));
 	}
 
 	[Fact]
-	public void A_row_label_a_text_field_and_a_reorder_lower()
+	public void A_row_label_a_note_and_a_swap_lower_and_an_extra_member_is_refused()
 	{
 		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Packing", "PackingScreen.cs"));
-		var labeled = source.Replace("\"Packed \" + item.Name", "\"Held \" + item.Name", StringComparison.Ordinal);
-		var labelProgram = PackingLowerer.TryLower(labeled).Program;
-		Assert.NotNull(labelProgram);
-		var labelTree = ScreenProgram.BindPacking(labelProgram).Render(new PackingProgramAdapter(PackingState.Seed(), new Host()));
-		var row = Assert.IsType<Column>(ListColumn(labelTree).Children[2]);
-		Assert.Equal("Held Canvas tent", Assert.IsType<Switch>(row.Children[1]).AccessibilityLabel);
+		var labeled = source.Replace("new Button(\"Edit\",", "new Button(\"Open\",", StringComparison.Ordinal);
+		var labelProgram = SubsetLowerer.TryLower(labeled);
+		Assert.True(labelProgram.Ok, Message(labelProgram));
+		var labelTree = Render(labelProgram.Program!, new PackingModel(), new Host());
+		Assert.Equal("Open", Assert.IsType<Button>(ElementIds.Require(labelTree, "scroll/list/tent/edit")).Title);
+
+		var noted = source.Replace(
+			"{ Key = \"name\" },",
+			"{ Key = \"name\" },\n\t\t\t\tnew TextField(\n\t\t\t\t\tstate.DraftNote,\n\t\t\t\t\tvalue =>\n\t\t\t\t\t{\n\t\t\t\t\t\tstate.DraftNote = value;\n\t\t\t\t\t\thost.RequestRender();\n\t\t\t\t\t},\n\t\t\t\t\t\"Note\",\n\t\t\t\t\t\"Note\")\n\t\t\t\t{ Key = \"note\" },",
+			StringComparison.Ordinal);
+		var noteProgram = SubsetLowerer.TryLower(noted);
+		Assert.True(noteProgram.Ok, Message(noteProgram));
+		var editing = new PackingModel { Editing = true };
+		Assert.Equal("note", ElementIds.Require(Render(noteProgram.Program!, editing, new Host()), "editor/note").Key);
 
 		var lines = source.Split('\n');
-		var noteIndex = Array.FindIndex(lines, line => line.Contains("new Text(item.Name)", StringComparison.Ordinal));
-		var indent = lines[noteIndex][..(lines[noteIndex].Length - lines[noteIndex].TrimStart().Length)];
-		var withNote = new List<string>(lines);
-		withNote.Insert(noteIndex + 1, indent + "new Text(\"Note\") { Key = \"note\" },");
-		var noted = PackingLowerer.TryLower(string.Join('\n', withNote)).Program;
-		Assert.NotNull(noted);
-		var notedRow = Assert.IsType<Column>(ListColumn(ScreenProgram.BindPacking(noted).Render(new PackingProgramAdapter(PackingState.Seed(), new Host()))).Children[2]);
-		Assert.Equal("Note", Assert.IsType<Text>(notedRow.Children[1]).Value);
-		Assert.Equal("note", notedRow.Children[1].Key);
-		Assert.Equal(4, notedRow.Children.Count);
+		for (var index = 0; index < lines.Length - 2; index++)
+		{
+			if (!lines[index].Contains("new Text(item.Name)", StringComparison.Ordinal))
+				continue;
+			(lines[index], lines[index + 2]) = (lines[index + 2], lines[index]);
+			break;
+		}
 
-		(lines[noteIndex], lines[noteIndex + 2]) = (lines[noteIndex + 2], lines[noteIndex]);
-		var swapped = PackingLowerer.TryLower(string.Join('\n', lines)).Program;
-		Assert.NotNull(swapped);
-		var swappedRow = Assert.IsType<Column>(ListColumn(ScreenProgram.BindPacking(swapped).Render(new PackingProgramAdapter(PackingState.Seed(), new Host()))).Children[2]);
-		Assert.Equal("edit", swappedRow.Children[0].Key);
-		Assert.Equal("name", swappedRow.Children[2].Key);
-	}
+		var swapped = SubsetLowerer.TryLower(string.Join('\n', lines));
+		Assert.True(swapped.Ok, Message(swapped));
+		var row = Assert.IsType<Column>(ElementIds.Require(Render(swapped.Program!, new PackingModel(), new Host()), "scroll/list/tent"));
+		Assert.IsType<Button>(row.Children[0]);
+		Assert.IsType<Text>(row.Children[2]);
 
-	[Fact]
-	public void A_new_member_is_refused_and_a_counter_program_is_not_packing()
-	{
-		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Packing", "PackingScreen.cs"));
 		var extra = source.Replace(
-			"public static Element View(PackingItem item",
-			"public static int Extra => 1;\n\tpublic static Element View(PackingItem item",
+			"public static Element Render(PackingModel state",
+			"public static int Extra => 1;\n\tpublic static Element Render(PackingModel state",
 			StringComparison.Ordinal);
-		var lowered = PackingLowerer.TryLower(extra);
-		Assert.Null(lowered.Program);
-		Assert.Contains("Extra", lowered.Reason);
-
-		var screen = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), ScreenCompiler.RelativePath));
-		var counter = ScreenLowerer.TryLower(screen).Program;
-		Assert.NotNull(counter);
-		Assert.False(ScreenProgram.IsPacking(counter));
-		Assert.Throws<InvalidOperationException>(() => ScreenProgram.BindPacking(counter));
+		var refused = SubsetLowerer.TryLower(extra);
+		Assert.False(refused.Ok);
+		Assert.Contains("Extra", refused.Diagnostics[0].Message, StringComparison.Ordinal);
 	}
 
 	[Fact]
-	public void A_changed_add_and_a_changed_save_prefix_reload_as_behavior()
+	public void Begin_add_keeps_the_draft_packed_literal_and_save_appends_a_row()
 	{
 		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Packing", "PackingScreen.cs"));
-		var edited = source
-			.Replace("state.DraftPacked = false;", "state.DraftPacked = true;", StringComparison.Ordinal)
-			.Replace("\"item-\" + state.NextNumber", "\"kit-\" + state.NextNumber", StringComparison.Ordinal);
-		var lowered = PackingLowerer.TryLower(edited);
-		Assert.Null(lowered.Reason);
-		var bound = ScreenProgram.BindPacking(lowered.Program!);
-		var state = PackingState.Seed();
-		var host = new PackingProgramAdapter(state, new Host());
-		ElementIds.Invoke(bound.Render(host), "scroll/list/add", null);
-		Assert.True(state.DraftPacked);
-		Assert.Equal(PackingRoute.Editor, state.Route);
-		state.DraftName = "Tarp";
-		ElementIds.Invoke(bound.Render(host), "editor/save", null);
-		Assert.Equal("kit-1", state.Items[^1].Id);
-		Assert.Equal("Tarp", state.Items[^1].Name);
-		Assert.True(state.Items[^1].Packed);
-		Assert.Equal(PackingRoute.List, state.Route);
+		var edited = source.Replace("state.DraftPacked = false;", "state.DraftPacked = true;", StringComparison.Ordinal);
+		var lowered = SubsetLowerer.TryLower(edited);
+		Assert.True(lowered.Ok, Message(lowered));
+		var bag = Seed(new PackingModel());
+		ElementIds.Invoke(Render(lowered.Program!, bag), "scroll/list/add", null);
+		Assert.True(bag.ReadBool("DraftPacked"));
+		Assert.True(bag.ReadBool("Editing"));
+		bag.WriteString("DraftName", "Lantern");
+		ElementIds.Invoke(RecordProgram.Bind(lowered.Program!, bag).Render(new Host()), "editor/save", null);
+		Assert.False(bag.ReadBool("Editing"));
+		Assert.Equal("Lantern", bag.Cell("Items", "item-1", 0, 1));
+		Assert.Equal("true", bag.Cell("Items", "item-1", 0, 2));
 	}
 
-	[Fact]
-	public void Anything_past_toggle_rename_add_or_remove_is_refused()
+	static Element Render(byte[] program, PackingModel model, IPlatform platform) =>
+		RecordProgram.Bind(program, Seed(model)).Render(platform);
+
+	static Element Render(byte[] program, RecordProgram.Bag bag) =>
+		RecordProgram.Bind(program, bag).Render(new Host());
+
+	static RecordProgram.Bag Seed(PackingModel model)
 	{
-		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Packing", "PackingScreen.cs"));
-		var cleared = source.Replace(
-			"state.EditingId = null;",
-			"state.Items.Clear();\n\t\tstate.EditingId = null;",
-			StringComparison.Ordinal);
-		var lowered = PackingLowerer.TryLower(cleared);
-		Assert.Null(lowered.Program);
-		Assert.Equal("A packing action can toggle, rename, add, or remove.", lowered.Reason);
+		var bag = new RecordProgram.Bag();
+		bag.SeedBool("Editing", model.Editing);
+		bag.SeedString("EditingId", model.EditingId);
+		bag.SeedString("DraftName", model.DraftName);
+		bag.SeedString("DraftNote", model.DraftNote);
+		bag.SeedBool("DraftPacked", model.DraftPacked);
+		bag.SeedInt("NextNumber", model.NextNumber);
+		var rows = new List<string[]>();
+		foreach (var item in model.Items)
+			rows.Add([item.Id, item.Name, item.Packed ? "true" : "false"]);
+		bag.SeedList("Items", rows);
+		return bag;
 	}
 
-	[Fact]
-	public void A_note_field_lowers_and_a_second_name_field_is_refused()
-	{
-		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Packing", "PackingScreen.cs"));
-		var note = source.Replace(
-			"{ Key = \"name\" },\n\t\t\tnew Switch(\n\t\t\t\tstate.DraftPacked,",
-			"{ Key = \"name\" },\n\t\t\tnew TextField(\n\t\t\t\tstate.DraftNote,\n\t\t\t\tvalue =>\n\t\t\t\t{\n\t\t\t\t\tstate.DraftNote = value;\n\t\t\t\t\thost.RequestRender();\n\t\t\t\t},\n\t\t\t\t\"Note\",\n\t\t\t\t\"Note\")\n\t\t\t{ Key = \"note\" },\n\t\t\tnew Switch(\n\t\t\t\tstate.DraftPacked,",
-			StringComparison.Ordinal);
-		var lowered = PackingLowerer.TryLower(note);
-		Assert.Null(lowered.Reason);
-		var bound = ScreenProgram.BindPacking(lowered.Program!);
-		var state = PackingState.Seed();
-		var host = new PackingProgramAdapter(state, new Host());
-		ElementIds.Invoke(bound.Render(host), "scroll/list/tent/edit", null);
-		ElementIds.Invoke(bound.Render(host), "editor/note", "hem");
-		Assert.Equal("hem", state.DraftNote);
-		Assert.Equal("Canvas tent", state.DraftName);
-
-		var again = source.Replace(
-			"{ Key = \"name\" },\n\t\t\tnew Switch(\n\t\t\t\tstate.DraftPacked,",
-			"{ Key = \"name\" },\n\t\t\tnew TextField(\n\t\t\t\tstate.DraftName,\n\t\t\t\tvalue =>\n\t\t\t\t{\n\t\t\t\t\tstate.DraftName = value;\n\t\t\t\t\thost.RequestRender();\n\t\t\t\t},\n\t\t\t\t\"Again\",\n\t\t\t\t\"Again\")\n\t\t\t{ Key = \"again\" },\n\t\t\tnew Switch(\n\t\t\t\tstate.DraftPacked,",
-			StringComparison.Ordinal);
-		var refused = PackingLowerer.TryLower(again);
-		Assert.Null(refused.Program);
-		Assert.Equal("The editor already has a name field.", refused.Reason);
-	}
-
-	static Column ListColumn(Element tree) =>
-		Assert.IsType<Column>(Assert.IsType<ScrollView>(tree).Child);
+	static string Message(SubsetResult result) =>
+		result.Diagnostics.Count == 0 ? "" : result.Diagnostics[0].Id + " " + result.Diagnostics[0].Message + " line " + result.Diagnostics[0].Line;
 
 	static void AssertSame(Element expected, Element actual)
 	{
@@ -191,27 +157,22 @@ public sealed class PackingLowererTests
 		}
 	}
 
-	sealed class Host : IPackingHost
+	sealed class Host : IPlatform
 	{
-		public INativeServices Native { get; } = new Services();
+		public void CopyNonce(string nonce)
+		{
+		}
 
 		public void RequestRender()
 		{
 		}
 
-		sealed class Services : INativeServices
+		public void CopyText(string label, string text)
 		{
-			public void CopyText(string label, string text)
-			{
-			}
+		}
 
-			public void Pulse()
-			{
-			}
-
-			public void Dispose()
-			{
-			}
+		public void Pulse()
+		{
 		}
 	}
 }

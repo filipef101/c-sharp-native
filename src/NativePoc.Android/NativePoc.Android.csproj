@@ -21,7 +21,15 @@
 		<NativePocProgramOnly>true</NativePocProgramOnly>
 		<AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
 		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+		<DebugSymbols>false</DebugSymbols>
+		<DebugType>none</DebugType>
+		<IlcGenerateDebugInfo>false</IlcGenerateDebugInfo>
+		<DebuggerSupport>false</DebuggerSupport>
+		<InvariantGlobalization>true</InvariantGlobalization>
 	</PropertyGroup>
+	<ItemGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
+		<AndroidManifestOverlay Include="Properties/DevListenerDebuggable.xml" />
+	</ItemGroup>
 	<PropertyGroup Condition="'$(NativePocProgramOnly)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_PROGRAM_ONLY</DefineConstants>
 	</PropertyGroup>

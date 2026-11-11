@@ -71,6 +71,10 @@ sealed class MemoryHost : IElementHost<MemoryNode>
 		view.AccessibilityLabel = accessibilityLabel;
 	}
 
+	public void SetList(MemoryNode view, IReadOnlyList<Element> rows)
+	{
+	}
+
 	public void SetSwitch(MemoryNode view, bool value, string accessibilityLabel)
 	{
 		view.Checked = value;

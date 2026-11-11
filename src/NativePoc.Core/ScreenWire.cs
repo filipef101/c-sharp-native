@@ -103,6 +103,10 @@ public static class ScreenSnapshot
 				Key(builder, scroll.Key);
 				builder.Append('\n');
 				return;
+			case ListView list:
+				Key(builder, list.Key);
+				builder.Append(" count=").Append(list.Rows.Count.ToString(CultureInfo.InvariantCulture)).Append('\n');
+				return;
 			default:
 				throw Unknown(element);
 		}
@@ -124,6 +128,8 @@ public static class ScreenSnapshot
 				return "switch";
 			case ScrollView:
 				return "scroll";
+			case ListView:
+				return "list";
 			default:
 				throw Unknown(element);
 		}
@@ -138,6 +144,7 @@ public static class ScreenSnapshot
 			TextField => "textfield",
 			Switch => "switch",
 			ScrollView => "scroll",
+			ListView => "list",
 			_ => throw Unknown(element),
 		};
 
@@ -204,9 +211,11 @@ public static class ScreenSnapshot
 
 public static class StateCheckpoint
 {
-	public static byte[] Write(AppState state) => Write(state, null);
+	public static byte[] Write(AppState state) => Write(state, null, null);
 
-	public static byte[] Write(AppState state, PackingCheckpoint? packing)
+	public static byte[] Write(AppState state, PackingCheckpoint? packing) => Write(state, packing, null);
+
+	public static byte[] Write(AppState state, PackingCheckpoint? packing, NavCheckpoint? nav)
 	{
 		ArgumentNullException.ThrowIfNull(state);
 		var name = Encoding.UTF8.GetBytes(state.Name);
@@ -240,12 +249,18 @@ public static class StateCheckpoint
 				throw new InvalidOperationException("The packing checkpoint did not fill its buffer.");
 		}
 
-		return payload;
+		if (nav is null)
+			return payload;
+		var trail = NavCheckpoint.Write(nav);
+		var both = new byte[payload.Length + trail.Length];
+		payload.CopyTo(both, 0);
+		trail.CopyTo(both, payload.Length);
+		return both;
 	}
 
 	public static void ReadInto(ReadOnlySpan<byte> payload, AppState state)
 	{
-		var (count, greetingFirst, plainRoot, name) = ReadApp(payload, out _);
+		var (count, greetingFirst, plainRoot, name) = ReadApp(payload, out _, out _);
 		state.Count = count;
 		state.GreetingFirst = greetingFirst;
 		state.PlainRoot = plainRoot;
@@ -254,7 +269,7 @@ public static class StateCheckpoint
 
 	public static bool TryReadPacking(ReadOnlySpan<byte> payload, out PackingCheckpoint packing)
 	{
-		ReadApp(payload, out var read);
+		ReadApp(payload, out var read, out _);
 		if (read is null)
 		{
 			packing = new PackingCheckpoint();
@@ -265,9 +280,23 @@ public static class StateCheckpoint
 		return true;
 	}
 
-	static (int Count, bool GreetingFirst, bool PlainRoot, string Name) ReadApp(ReadOnlySpan<byte> payload, out PackingCheckpoint? packing)
+	public static bool TryReadNav(ReadOnlySpan<byte> payload, out NavCheckpoint nav)
+	{
+		ReadApp(payload, out _, out var read);
+		if (read is null)
+		{
+			nav = new NavCheckpoint();
+			return false;
+		}
+
+		nav = read;
+		return true;
+	}
+
+	static (int Count, bool GreetingFirst, bool PlainRoot, string Name) ReadApp(ReadOnlySpan<byte> payload, out PackingCheckpoint? packing, out NavCheckpoint? nav)
 	{
 		packing = null;
+		nav = null;
 		if (payload.Length < 12
 			|| payload[0] != (byte)'S'
 			|| payload[1] != (byte)'T'
@@ -284,16 +313,13 @@ public static class StateCheckpoint
 			throw new InvalidOperationException("Rejected state checkpoint.");
 		var name = Encoding.UTF8.GetString(payload.Slice(12, length));
 		var cursor = 12 + length;
-		if (payload[4] == 1)
-		{
-			if (cursor != payload.Length)
-				throw new InvalidOperationException("Rejected state checkpoint.");
-		}
-		else
-		{
+		if (payload[4] == 2)
 			packing = PackingCheckpoint.Read(payload, ref cursor);
-			if (cursor != payload.Length)
+		if (cursor != payload.Length)
+		{
+			if (!NavCheckpoint.TryRead(payload, ref cursor, out var read) || cursor != payload.Length)
 				throw new InvalidOperationException("Rejected state checkpoint.");
+			nav = read;
 		}
 
 		return (count, (flags & 1) != 0, (flags & 2) != 0, name);

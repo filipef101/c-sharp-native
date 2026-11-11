@@ -12,7 +12,7 @@ static class StateStore
 	{
 		try
 		{
-			var bytes = StateCheckpoint.Write(AppSession.Shared.State, PackingView.Capture());
+			var bytes = StateCheckpoint.Write(AppSession.Shared.State, PackingView.Capture(), ScreenNav.Shared.Checkpoint());
 			using var output = context.OpenFileOutput(FileName, FileCreationMode.Private)
 				?? throw new IOException("The state file was not opened.");
 			output.Write(bytes, 0, bytes.Length);
@@ -36,6 +36,8 @@ static class StateStore
 			StateCheckpoint.ReadInto(bytes, AppSession.Shared.State);
 			if (StateCheckpoint.TryReadPacking(bytes, out var packing))
 				PackingView.Apply(packing);
+			if (StateCheckpoint.TryReadNav(bytes, out var nav))
+				ScreenNav.Shared.Restore(nav);
 			Log.Info(MainActivity.Tag, "state-loaded bytes=" + bytes.Length);
 			return true;
 		}

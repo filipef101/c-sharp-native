@@ -115,9 +115,134 @@ public sealed class SubsetLowererTests
 
 		var screen = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "src", "NativePoc.Screen", "Screen.cs"));
 		var counter = SubsetLowerer.TryLower(screen);
-		Assert.False(counter.Ok);
-		Assert.Equal(SubsetLowerer.UnknownMember, counter.Diagnostics[0].Id);
-		Assert.Contains("TitlePrefix", counter.Diagnostics[0].Message, StringComparison.Ordinal);
+		Assert.True(counter.Ok, counter.Diagnostics.Count == 0 ? "" : counter.Diagnostics[0].Id + " " + counter.Diagnostics[0].Message);
+		var bag = new RecordProgram.Bag();
+		bag.SeedInt("Count", 3);
+		bag.SeedString("Name", "Ada");
+		bag.SeedBool("GreetingFirst", true);
+		var tree = RecordProgram.Bind(counter.Program!, bag).Render(new Platform());
+		var column = Assert.IsType<Column>(tree);
+		Assert.Equal("greeting", column.Children[0].Key);
+		Assert.Equal("Hello Ada", Assert.IsType<Text>(column.Children[0]).Value);
+		Assert.Equal("Counter 3", Assert.IsType<Text>(column.Children[3]).Value);
+		var platform = new Platform();
+		Assert.IsType<Button>(column.Children[2]).OnPress();
+		Assert.Equal(4, bag.ReadInt("Count"));
+
+		var packingPath = Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Packing", "PackingScreen.cs");
+		var packing = SubsetLowerer.TryLower(File.ReadAllText(packingPath));
+		Assert.True(packing.Ok, packing.Diagnostics.Count == 0 ? "" : packing.Diagnostics[0].Id + " " + packing.Diagnostics[0].Message + " line " + packing.Diagnostics[0].Line);
+		var packed = RecordProgram.Bind(packing.Program!, new RecordProgram.Bag()).Render(platform);
+		Assert.Equal("scroll", packed.Key);
+		Assert.Equal("Canvas tent", TextValue(packed, "scroll/list/tent/name"));
+		_ = platform;
+	}
+
+	[Fact]
+	public void A_screen_id_pushes_and_pops_without_dropping_the_other_bag()
+	{
+		const string counter = """
+			namespace NativePoc.Nav;
+			public sealed record CounterState
+			{
+				public int Count { get; set; }
+				public string Name { get; set; } = "";
+			}
+			public static class CounterScreen
+			{
+				public const string ScreenId = "counter";
+				public static Element Render(CounterState state, IPlatform platform) =>
+					new Column(
+					[
+						new Text(state.Name) { Key = "name" },
+						new Button("Packing", () => { platform.Push("packing"); platform.RequestRender(); }, "Packing") { Key = "packing" },
+						new Button("Back", () => { platform.Pop(); platform.RequestRender(); }, "Back") { Key = "back" },
+					]);
+			}
+			""";
+		const string packing = """
+			namespace NativePoc.Nav;
+			public sealed record PackState
+			{
+				public string Title { get; set; } = "Pack";
+			}
+			public static class PackScreen
+			{
+				public const string ScreenId = "packing";
+				public static Element Render(PackState state, IPlatform platform) =>
+					new Text(state.Title) { Key = "title" };
+			}
+			""";
+		var loweredCounter = SubsetLowerer.TryLower(counter);
+		var loweredPacking = SubsetLowerer.TryLower(packing);
+		Assert.True(loweredCounter.Ok, loweredCounter.Diagnostics.Count == 0 ? "" : loweredCounter.Diagnostics[0].Message);
+		Assert.True(loweredPacking.Ok, loweredPacking.Diagnostics.Count == 0 ? "" : loweredPacking.Diagnostics[0].Message);
+		Assert.Equal("counter", RecordProgram.ScreenId(loweredCounter.Program!));
+		Assert.Equal("packing", RecordProgram.ScreenId(loweredPacking.Program!));
+		var nav = new ScreenNav();
+		nav.Show(loweredCounter.Program!);
+		nav.Show(loweredPacking.Program!);
+		nav.Bag("counter").WriteString("Name", "Ada");
+		var host = new NavPlatform(nav);
+		var top = nav.Top() ?? throw new InvalidOperationException("The stack is empty.");
+		Assert.Equal("packing", RecordProgram.ScreenId(loweredPacking.Program!));
+		Assert.Equal("Pack", Assert.IsType<Text>(top.Render(host)).Value);
+		nav.Pop();
+		var back = nav.Top() ?? throw new InvalidOperationException("The stack is empty.");
+		var column = Assert.IsType<Column>(back.Render(host));
+		Assert.Equal("Ada", Assert.IsType<Text>(column.Children[0]).Value);
+		ElementIds.Invoke(back.Render(host), "packing", null);
+		Assert.Equal("packing\n", host.Pushed);
+		Assert.True(nav.Push("packing"));
+		Assert.Equal("stack 0 counter\nstack 1 packing\n", nav.Format());
+		var image = nav.Checkpoint();
+		var again = new ScreenNav();
+		again.Show(loweredCounter.Program!);
+		again.Show(loweredPacking.Program!);
+		again.Restore(image);
+		Assert.Equal("Ada", again.Bag("counter").ReadString("Name"));
+		Assert.Equal("stack 0 counter\nstack 1 packing\n", again.Format());
+	}
+
+	[Fact]
+	public void A_recycled_list_keeps_a_row_key_without_mounting_every_row()
+	{
+		const string source = """
+			namespace NativePoc.LongList;
+			public sealed record Line
+			{
+				public string Id { get; set; } = "";
+				public string Name { get; set; } = "";
+			}
+			public sealed record LongState
+			{
+				public List<Line> Items { get; set; } = new List<Line>()
+				{
+					new Line { Id = "a", Name = "Alpha" },
+					new Line { Id = "b", Name = "Beta" },
+					new Line { Id = "c", Name = "Gamma" },
+				};
+			}
+			public static class LongListScreen
+			{
+				public const string ScreenId = "long-list";
+				public static Element Render(LongState state, IPlatform platform)
+				{
+					var rows = new List<Element>();
+					foreach (var item in state.Items)
+						rows.Add(new Text(item.Name) { Key = item.Id });
+					return new ListView(rows) { Key = "list" };
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var tree = RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag()).Render(new Platform());
+		var list = Assert.IsType<ListView>(tree);
+		Assert.Equal(3, list.Rows.Count);
+		Assert.Equal("Alpha", Assert.IsType<Text>(list.Rows[0]).Value);
+		Assert.Equal("c", list.Rows[2].Key);
+		Assert.Equal("list", tree.Key);
 	}
 
 	static string TextValue(Element root, string id) =>
@@ -135,5 +260,30 @@ public sealed class SubsetLowererTests
 		}
 
 		public void RequestRender() => Renders++;
+	}
+
+	sealed class NavPlatform : IPlatform
+	{
+		readonly ScreenNav _nav;
+
+		public NavPlatform(ScreenNav nav) => _nav = nav;
+
+		public string Pushed { get; private set; } = "";
+
+		public void CopyNonce(string nonce)
+		{
+		}
+
+		public void RequestRender()
+		{
+		}
+
+		public void Push(string screen)
+		{
+			Pushed += screen + "\n";
+			_nav.Push(screen);
+		}
+
+		public void Pop() => _nav.Pop();
 	}
 }
