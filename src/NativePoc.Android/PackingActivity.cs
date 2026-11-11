@@ -178,6 +178,8 @@ public sealed class PackingActivity : Activity, IPackingHost
 			Log.Info(MainActivity.Tag, "packing-set-content-view");
 			PlaceBelowActionBar(_reconciler.Root);
 		}
+		if (_host is not null && _reconciler.Root is not null)
+			_host.RestoreFocus(_reconciler.Root);
 		Log.Info(
 			MainActivity.Tag,
 			"packing-rendered route=" + state.Route

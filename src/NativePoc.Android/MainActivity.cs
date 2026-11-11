@@ -214,6 +214,8 @@ public sealed class MainActivity : Activity
 			Log.Info(Tag, "set-content-view");
 		}
 		LastTitle = TitleOf(tree);
+		if (_host is not null && _reconciler.Root is not null)
+			_host.RestoreFocus(_reconciler.Root);
 		LogTree();
 		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length + " title=" + LastTitle);
 #if DEBUG

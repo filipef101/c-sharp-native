@@ -36,7 +36,7 @@ sealed class AndroidHost : IElementHost<View>
 			case ElementKind.Button:
 				return new AndroidButton(_activity);
 			case ElementKind.TextField:
-				return new EditText(_activity);
+				return new AndroidField(_activity);
 			case ElementKind.Switch:
 				return new AndroidSwitch(_activity);
 			default:
@@ -76,6 +76,8 @@ sealed class AndroidHost : IElementHost<View>
 		button.ContentDescription = accessibilityLabel;
 	}
 
+	public void RestoreFocus(View root) => FieldFocus.Restore(root);
+
 	public void SetTextField(View view, string value, string placeholder, string accessibilityLabel)
 	{
 		if (view is not EditText edit)
@@ -87,6 +89,7 @@ sealed class AndroidHost : IElementHost<View>
 		var current = edit.Text ?? "";
 		if (string.Equals(current, value, StringComparison.Ordinal))
 			return;
+		FieldFocus.Frozen = true;
 		_applyingText = true;
 		try
 		{
@@ -95,6 +98,7 @@ sealed class AndroidHost : IElementHost<View>
 		finally
 		{
 			_applyingText = false;
+			FieldFocus.Frozen = false;
 		}
 	}
 
@@ -198,6 +202,16 @@ sealed class AndroidHost : IElementHost<View>
 		};
 		edit.TextChanged += handler;
 		_listeners[view] = new Listener { TextChanged = handler };
+		if (edit is AndroidField field)
+		{
+			field.Key = CurrentElement(path)?.Key;
+			field.FocusChange += (_, args) =>
+			{
+				if (!args.HasFocus || field.Key is null)
+					return;
+				FieldFocus.Note(field.Key, field.SelectionStart, field.SelectionEnd);
+			};
+		}
 	}
 
 	void AttachSwitch(NodePath path, View view, bool logMount)
@@ -274,6 +288,82 @@ sealed class AndroidHost : IElementHost<View>
 
 	static InvalidOperationException UnknownKind(ElementKind kind) =>
 		new("Unknown element kind.");
+}
+
+sealed class AndroidField : EditText
+{
+	public string? Key { get; set; }
+
+	public AndroidField(Context context) : base(context)
+	{
+	}
+
+	protected override void OnSelectionChanged(int selStart, int selEnd)
+	{
+		base.OnSelectionChanged(selStart, selEnd);
+		if (FieldFocus.Frozen || Key is null)
+			return;
+		FieldFocus.Note(Key, selStart, selEnd);
+	}
+}
+
+static class FieldFocus
+{
+	public static bool Frozen { get; set; }
+
+	static string? _key;
+	static int _start;
+	static int _end;
+
+	public static void Note(string key, int start, int end)
+	{
+		_key = key;
+		_start = start;
+		_end = end;
+		Log.Info(MainActivity.Tag, "field-note key=" + key + " start=" + start + " end=" + end);
+	}
+
+	public static void Restore(View root)
+	{
+		if (_key is null)
+			return;
+		var field = Find(root, _key);
+		if (field is null)
+			return;
+		var length = field.Text?.Length ?? 0;
+		var start = Math.Clamp(_start, 0, length);
+		var end = Math.Clamp(_end, 0, length);
+		Log.Info(MainActivity.Tag, "field-focus key=" + _key + " start=" + start + " end=" + end);
+		Frozen = true;
+		try
+		{
+			field.RequestFocus();
+			field.SetSelection(Math.Min(start, end), Math.Max(start, end));
+		}
+		finally
+		{
+			Frozen = false;
+		}
+	}
+
+	static AndroidField? Find(View view, string key)
+	{
+		if (view is AndroidField field && field.Key == key)
+			return field;
+		if (view is not ViewGroup group)
+			return null;
+		for (var index = 0; index < group.ChildCount; index++)
+		{
+			var child = group.GetChildAt(index);
+			if (child is null)
+				continue;
+			var found = Find(child, key);
+			if (found is not null)
+				return found;
+		}
+
+		return null;
+	}
 }
 
 sealed class PlatformBridge : IPlatform
