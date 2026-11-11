@@ -87,6 +87,7 @@ sealed class AndroidHost : IElementHost<View>
 			throw new InvalidOperationException("Text patch targeted a non-text view.");
 		text.Text = value;
 		text.ContentDescription = value;
+		text.Visibility = value.Length == 0 ? ViewStates.Gone : ViewStates.Visible;
 	}
 
 	public void SetButton(View view, string title, string accessibilityLabel)
@@ -95,6 +96,7 @@ sealed class AndroidHost : IElementHost<View>
 			throw new InvalidOperationException("Button patch targeted a non-button view.");
 		button.Text = title;
 		button.ContentDescription = accessibilityLabel;
+		TouchTarget(button);
 	}
 
 	public void RestoreFocus(View root) => FieldFocus.Restore(root);
@@ -245,6 +247,8 @@ sealed class AndroidHost : IElementHost<View>
 			};
 			if (style.FontSize > 0)
 				text.SetTextSize(ComplexUnitType.Sp, style.FontSize);
+			if (style.FontSize >= 20 && OperatingSystem.IsAndroidVersionAtLeast(28))
+				text.AccessibilityHeading = true;
 			if (style.Weight == FontWeight.Bold)
 				text.SetTypeface(Typeface.DefaultBold, TypefaceStyle.Bold);
 			ThemeRuntime.NoteColor(view, style.Color);
@@ -272,6 +276,8 @@ sealed class AndroidHost : IElementHost<View>
 
 	public void SetGesture(View view, byte mask)
 	{
+		if (mask != 0)
+			TouchTarget(view);
 		if (!_paths.TryGetValue(view, out var path))
 			return;
 		BindGesture(view, path, mask);
@@ -288,6 +294,15 @@ sealed class AndroidHost : IElementHost<View>
 	{
 		if (view is not ImageView image)
 			throw new InvalidOperationException("Image patch targeted a non-image view.");
+		if (source.Length == 0)
+		{
+			image.SetImageDrawable(null);
+			image.ContentDescription = null;
+			image.Visibility = ViewStates.Gone;
+			return;
+		}
+
+		image.Visibility = ViewStates.Visible;
 		var id = _activity.Resources?.GetIdentifier(source, "drawable", _activity.PackageName) ?? 0;
 		if (id == 0)
 			throw new InvalidOperationException("Drawable " + source + " was not found.");
@@ -299,6 +314,13 @@ sealed class AndroidHost : IElementHost<View>
 			layout.Height = Dp(24);
 			image.LayoutParameters = layout;
 		}
+	}
+
+	void TouchTarget(View view)
+	{
+		var min = Dp(48);
+		view.SetMinimumWidth(min);
+		view.SetMinimumHeight(min);
 	}
 
 	int Dp(int value)
@@ -319,6 +341,7 @@ sealed class AndroidHost : IElementHost<View>
 		if (view is not AndroidSwitch toggle)
 			throw new InvalidOperationException("Switch patch targeted a non-switch view.");
 		toggle.ContentDescription = accessibilityLabel;
+		TouchTarget(toggle);
 		if (toggle.Checked == value)
 			return;
 		_applyingSwitch = true;

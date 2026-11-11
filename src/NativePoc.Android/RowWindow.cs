@@ -1,4 +1,5 @@
 using Android.Content;
+using Android.Util;
 using Android.Views;
 using Android.Widget;
 using AndroidScroll = Android.Widget.ScrollView;
@@ -10,15 +11,20 @@ sealed class RowWindow : AndroidScroll
 	const int Window = 20;
 
 	readonly FrameLayout _canvas;
-	readonly TextView[] _slots;
-	readonly int _rowHeight;
+	readonly RowSlot[] _slots;
+	readonly float _density;
+	readonly float _fontScale;
+	readonly int _line;
+	readonly int _image;
 	IReadOnlyList<Element> _rows = Array.Empty<Element>();
+	int[] _heights = Array.Empty<int>();
+	bool[] _known = Array.Empty<bool>();
 	int _origin = -1;
+	int _stamp = -1;
 	bool _refreshEnabled;
 	Action? _refresh;
 	float _downY;
 	bool _pulled;
-	readonly float _density;
 
 	public bool Tracking { get; private set; }
 
@@ -30,17 +36,19 @@ sealed class RowWindow : AndroidScroll
 		_density = context.Resources?.DisplayMetrics?.Density ?? 1f;
 		if (_density <= 0)
 			_density = 1f;
-		_rowHeight = (int)(48 * _density);
-		if (_rowHeight < 1)
-			_rowHeight = 48;
+		_fontScale = context.Resources?.Configuration?.FontScale ?? 1f;
+		if (_fontScale <= 0)
+			_fontScale = 1f;
+		_line = RowMetrics.Line(_density, _fontScale);
+		_image = RowMetrics.ImageBlock(_density);
 		_canvas = new FrameLayout(context);
-		AddView(_canvas, new LayoutParams(ViewGroup.LayoutParams.MatchParent, _rowHeight));
-		_slots = new TextView[Window];
+		AddView(_canvas, new AndroidScroll.LayoutParams(ViewGroup.LayoutParams.MatchParent, _line));
+		_slots = new RowSlot[Window];
 		for (var index = 0; index < _slots.Length; index++)
 		{
-			var text = new TextView(context);
-			_slots[index] = text;
-			_canvas.AddView(text, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, _rowHeight));
+			var slot = new RowSlot(context, _image);
+			_slots[index] = slot;
+			_canvas.AddView(slot, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, _line));
 		}
 
 		ViewTreeObserver?.AddOnScrollChangedListener(new ScrollListener(this));
@@ -52,8 +60,29 @@ sealed class RowWindow : AndroidScroll
 		_refresh = refresh;
 	}
 
+	protected override void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
+	{
+		if (MeasureSpec.GetMode(heightMeasureSpec) == MeasureSpecMode.Unspecified)
+		{
+			var screen = Context?.Resources?.DisplayMetrics?.HeightPixels ?? 0;
+			if (screen > 0)
+				heightMeasureSpec = MeasureSpec.MakeMeasureSpec(screen, MeasureSpecMode.AtMost);
+		}
+
+		base.OnMeasure(widthMeasureSpec, heightMeasureSpec);
+	}
+
+	public override bool OnInterceptTouchEvent(MotionEvent? ev)
+	{
+		if (ev is not null && ev.ActionMasked == MotionEventActions.Down)
+			Parent?.RequestDisallowInterceptTouchEvent(true);
+		return base.OnInterceptTouchEvent(ev);
+	}
+
 	public override bool OnTouchEvent(MotionEvent? ev)
 	{
+		if (ev is not null && ev.ActionMasked == MotionEventActions.Down)
+			Parent?.RequestDisallowInterceptTouchEvent(true);
 		if (ev is not null && _refreshEnabled)
 			Track(ev);
 		return base.OnTouchEvent(ev);
@@ -90,17 +119,47 @@ sealed class RowWindow : AndroidScroll
 	public void Bind(IReadOnlyList<Element> rows)
 	{
 		_rows = rows;
-		_canvas.LayoutParameters = new LayoutParams(ViewGroup.LayoutParams.MatchParent, Math.Max(_rowHeight, rows.Count * _rowHeight));
+		_heights = new int[rows.Count];
+		_known = new bool[rows.Count];
 		_origin = -1;
+		_stamp = -1;
+		var canvasHeight = CanvasHeight();
+		_canvas.LayoutParameters = new AndroidScroll.LayoutParams(ViewGroup.LayoutParams.MatchParent, canvasHeight);
+		_canvas.SetMinimumHeight(canvasHeight);
 		Fill();
 	}
 
 	public void Fill()
 	{
-		var first = Math.Max(0, ScrollY / _rowHeight);
-		if (first == _origin)
+		var first = FirstIndex();
+		var stamp = first;
+		var last = Math.Min(_rows.Count, first + _slots.Length);
+		for (var index = first; index < last; index++)
+		{
+			var face = RowFace.Read(_rows[index]);
+			var height = RowMetrics.Height(face, _density, _fontScale);
+			_heights[index] = height;
+			_known[index] = true;
+			stamp = unchecked(stamp * 31 + height);
+			stamp = unchecked(stamp * 31 + face.Key.GetHashCode(StringComparison.Ordinal));
+			stamp = unchecked(stamp * 31 + face.Title.GetHashCode(StringComparison.Ordinal));
+			stamp = unchecked(stamp * 31 + face.Subtitle.GetHashCode(StringComparison.Ordinal));
+			stamp = unchecked(stamp * 31 + face.Picture.GetHashCode(StringComparison.Ordinal));
+		}
+
+		if (first == _origin && stamp == _stamp)
 			return;
 		_origin = first;
+		_stamp = stamp;
+		var canvasHeight = CanvasHeight();
+		Log.Info(
+			"NativePoc",
+			"row-window view=" + Height.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ " canvas=" + canvasHeight.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ " scrollY=" + ScrollY.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ " first=" + first.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		_canvas.LayoutParameters = new AndroidScroll.LayoutParams(ViewGroup.LayoutParams.MatchParent, canvasHeight);
+		_canvas.SetMinimumHeight(canvasHeight);
 		for (var slot = 0; slot < _slots.Length; slot++)
 		{
 			var index = first + slot;
@@ -108,42 +167,115 @@ sealed class RowWindow : AndroidScroll
 			if (index >= _rows.Count)
 			{
 				view.Visibility = ViewStates.Gone;
+				view.Key = "";
 				continue;
 			}
 
 			view.Visibility = ViewStates.Visible;
+			var face = RowFace.Read(_rows[index]);
+			var height = _known[index] ? _heights[index] : _line;
 			if (view.LayoutParameters is FrameLayout.LayoutParams layout)
 			{
-				layout.TopMargin = index * _rowHeight;
+				layout.TopMargin = Prefix(index);
+				layout.Height = height;
 				view.LayoutParameters = layout;
 			}
 
-			var label = Label(_rows[index]);
-			view.Text = label;
-			view.ContentDescription = label;
+			view.Show(face, Context);
 		}
 	}
 
-	static string Label(Element element)
+	int FirstIndex()
 	{
-		switch (element)
+		var y = Math.Max(0, ScrollY);
+		var at = 0;
+		for (var index = 0; index < _rows.Count; index++)
 		{
-			case Text text:
-				return text.Value;
-			case Column column when column.Children.Count > 0:
-				return Label(column.Children[0]);
-			case Button button:
-				return button.Title;
-			case TextField field:
-				return field.Value;
-			case Switch:
-			case ScrollView:
-			case ListView:
-			case Image:
-			case HostView:
-				return "";
-			default:
-				throw new InvalidOperationException("Unknown element.");
+			var height = _known[index] ? _heights[index] : _line;
+			if (at + height > y)
+				return index;
+			at += height;
+		}
+
+		return Math.Max(0, _rows.Count - 1);
+	}
+
+	int Prefix(int index)
+	{
+		var y = 0;
+		for (var cursor = 0; cursor < index; cursor++)
+			y += _known[cursor] ? _heights[cursor] : _line;
+		return y;
+	}
+
+	int CanvasHeight()
+	{
+		if (_rows.Count == 0)
+			return _line;
+		return Math.Max(_line, Prefix(_rows.Count));
+	}
+
+	sealed class RowSlot : LinearLayout
+	{
+		readonly TextView _title;
+		readonly TextView _subtitle;
+		readonly ImageView _picture;
+		readonly int _image;
+
+		public string Key = "";
+
+		public RowSlot(Context context, int image)
+			: base(context)
+		{
+			_image = image;
+			Orientation = Orientation.Vertical;
+			ImportantForAccessibility = ImportantForAccessibility.No;
+			_title = new TextView(context);
+			_subtitle = new TextView(context);
+			_picture = new ImageView(context);
+			_title.SetTextSize(ComplexUnitType.Sp, 16);
+			_subtitle.SetTextSize(ComplexUnitType.Sp, 14);
+			AddView(_title, new LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+			AddView(_subtitle, new LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+			AddView(_picture, new LayoutParams(ViewGroup.LayoutParams.MatchParent, image));
+		}
+
+		public void Show(RowFace face, Context? context)
+		{
+			Key = face.Key;
+			_title.Text = face.Title;
+			_title.ContentDescription = face.Title;
+			if (face.Subtitle.Length == 0)
+			{
+				_subtitle.Text = "";
+				_subtitle.Visibility = ViewStates.Gone;
+			}
+			else
+			{
+				_subtitle.Text = face.Subtitle;
+				_subtitle.ContentDescription = face.Subtitle;
+				_subtitle.Visibility = ViewStates.Visible;
+			}
+
+			if (face.Picture.Length == 0)
+			{
+				_picture.SetImageDrawable(null);
+				_picture.ContentDescription = null;
+				_picture.Visibility = ViewStates.Gone;
+				return;
+			}
+
+			var id = context?.Resources?.GetIdentifier(face.Picture, "drawable", context.PackageName) ?? 0;
+			if (id == 0)
+				throw new InvalidOperationException("Drawable " + face.Picture + " was not found.");
+			_picture.SetImageResource(id);
+			_picture.ContentDescription = face.Picture;
+			_picture.Visibility = ViewStates.Visible;
+			if (_picture.LayoutParameters is LayoutParams layout)
+			{
+				layout.Height = _image;
+				_picture.LayoutParameters = layout;
+			}
 		}
 	}
 

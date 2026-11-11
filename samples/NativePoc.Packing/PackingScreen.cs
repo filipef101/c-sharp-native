@@ -9,6 +9,10 @@ public sealed record PackingRow
 	public string Name { get; set; } = "";
 
 	public bool Packed { get; set; }
+
+	public string Note { get; set; } = "";
+
+	public string Picture { get; set; } = "";
 }
 
 public sealed class PackingModel
@@ -31,9 +35,9 @@ public sealed class PackingModel
 
 	public List<PackingRow> Items { get; } =
 	[
-		new() { Id = "tent", Name = "Canvas tent", Packed = false },
-		new() { Id = "stove", Name = "Camp stove", Packed = true },
-		new() { Id = "map", Name = "Ridge map", Packed = false },
+		new() { Id = "tent", Name = "Canvas tent", Packed = false, Note = "Ridge line" },
+		new() { Id = "stove", Name = "Camp stove", Packed = true, Picture = "marker" },
+		new() { Id = "map", Name = "Ridge map", Packed = false, Note = "Folded", Picture = "marker2" },
 		new() { Id = "bladder", Name = "Water bladder", Packed = false },
 	];
 
@@ -182,8 +186,10 @@ public static class PackingScreen
 			rows.Add(new Column(
 			[
 				new Text(item.Name) { Key = "name", OnLongPress = () => { state.Held = item.Name; host.RequestRender(); } },
+				new Text(item.Note) { Key = "note" },
 				new Switch(item.Packed, value => { PackingTelemetry.SwitchDeliveries++; item.Packed = value; host.Pulse(); host.RequestRender(); }, "Packed " + item.Name) { Key = "packed" },
 				new Button("Edit", () => { state.EditingId = item.Id; state.DraftName = item.Name; state.DraftPacked = item.Packed; state.Editing = true; host.RequestRender(); }, "Edit " + item.Name) { Key = "edit" },
+				new Image(item.Picture) { Key = "picture" },
 			])
 			{
 				Key = item.Id,

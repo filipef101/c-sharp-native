@@ -5,7 +5,7 @@ using NativePoc;
 
 namespace NativePoc.Devx;
 
-readonly record struct AgentInvocation(string Verb, string? Serial, string? Path, int X, int Y, string? Text, bool Running = false);
+readonly record struct AgentInvocation(string Verb, string? Serial, string? Path, int X, int Y, string? Text, bool Running = false, bool Check = false);
 
 static class AgentLoop
 {
@@ -36,6 +36,8 @@ static class AgentLoop
 		try
 		{
 			var serial = AndroidLoop.ResolveSerial(invocation.Serial);
+			if (invocation.Verb == "a11y")
+				return Accessibility(serial, invocation.Check);
 			var token = AndroidLoop.WaitToken(serial);
 			using var connection = new HotReloadConnection(serial, token.Hex);
 			var repo = RepoRoot.Find(Directory.GetCurrentDirectory());
@@ -114,8 +116,7 @@ static class AgentLoop
 				case "submit":
 					return Query(connection, ScreenQuery.SubmitId(invocation.Path ?? ""));
 				case "a11y":
-					Console.Write(AccessibilityDump.Summarize(AccessibilityDump.Read(serial)));
-					return 0;
+					return Accessibility(serial, invocation.Check);
 				case "layout":
 					return Query(connection, ScreenQuery.Ask(ScreenQuery.Layout));
 				case "logs":
@@ -146,6 +147,7 @@ static class AgentLoop
 		string? serial = null;
 		string? verb = null;
 		var running = false;
+		var check = false;
 		var positionals = new List<string>();
 		for (var index = 1; index < args.Count; index++)
 		{
@@ -164,6 +166,12 @@ static class AgentLoop
 				continue;
 			}
 
+			if (arg == "--check")
+			{
+				check = true;
+				continue;
+			}
+
 			if (verb is null)
 			{
 				verb = arg;
@@ -173,11 +181,16 @@ static class AgentLoop
 			positionals.Add(arg);
 		}
 
+		if (check && verb != "a11y")
+			throw new UsageException("--check is only for a11y.");
 		switch (verb)
 		{
+			case "a11y":
+				if (positionals.Count != 0)
+					throw new UsageException("Usage: cnative agent a11y [--check]");
+				return new AgentInvocation(verb, serial, null, 0, 0, null, running, check);
 			case "tree":
 			case "state":
-			case "a11y":
 			case "layout":
 			case "logs":
 			case "clock":
@@ -211,6 +224,67 @@ static class AgentLoop
 			default:
 				throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type|press|swipe|enter|submit|a11y|layout|logs|clock");
 		}
+	}
+
+	static int Accessibility(string serial, bool check)
+	{
+		var xml = AccessibilityDump.Read(serial);
+		if (!check)
+		{
+			Console.Write(AccessibilityDump.Summarize(xml));
+			return 0;
+		}
+
+		var density = ReadDpi(serial);
+		var scale = ReadFontScale(serial);
+		var report = AccessibilityDump.Check(xml, density, scale);
+		Console.Write(report.Text);
+		return report.Violations == 0 ? 0 : 1;
+	}
+
+	static int ReadDpi(string serial)
+	{
+		var result = AndroidLoop.Adb(serial, "shell", "wm", "density");
+		if (result.Code != 0)
+			throw new InvalidOperationException("wm density failed: " + result.Stderr + result.Stdout);
+		var physical = 0;
+		var overrideDpi = 0;
+		foreach (var line in result.Stdout.Split('\n'))
+		{
+			var text = line.Trim();
+			if (text.StartsWith("Override density:", StringComparison.Ordinal))
+				overrideDpi = LastInt(text);
+			else if (text.StartsWith("Physical density:", StringComparison.Ordinal))
+				physical = LastInt(text);
+			else if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bare))
+				physical = bare;
+		}
+
+		var dpi = overrideDpi > 0 ? overrideDpi : physical;
+		if (dpi <= 0)
+			throw new InvalidOperationException("wm density had no dpi: " + result.Stdout);
+		return dpi;
+	}
+
+	static int LastInt(string text)
+	{
+		var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+		if (parts.Length == 0 || !int.TryParse(parts[^1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+			return 0;
+		return value;
+	}
+
+	static float ReadFontScale(string serial)
+	{
+		var result = AndroidLoop.Adb(serial, "shell", "settings", "get", "system", "font_scale");
+		if (result.Code != 0)
+			throw new InvalidOperationException("font_scale failed: " + result.Stderr + result.Stdout);
+		var text = result.Stdout.Trim();
+		if (text.Length == 0 || text == "null")
+			return 1;
+		if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var scale) || scale <= 0)
+			throw new InvalidOperationException("font_scale was " + text);
+		return scale;
 	}
 
 	static int Query(HotReloadConnection connection, byte[] payload)

@@ -64,8 +64,8 @@ public sealed class PackingLowererTests
 		var swapped = SubsetLowerer.TryLower(string.Join('\n', lines));
 		Assert.True(swapped.Ok, Message(swapped));
 		var row = Assert.IsType<Column>(ElementIds.Require(Render(swapped.Program!, new PackingModel(), new Host()), "scroll/list/tent"));
-		Assert.IsType<Button>(row.Children[0]);
-		Assert.IsType<Text>(row.Children[2]);
+		Assert.IsType<Switch>(row.Children[0]);
+		Assert.Equal("Canvas tent", Assert.IsType<Text>(row.Children[2]).Value);
 
 		var extra = source.Replace(
 			"public static Element Render(PackingModel state",
@@ -138,7 +138,7 @@ public sealed class PackingLowererTests
 		bag.SeedInt("NextNumber", model.NextNumber);
 		var rows = new List<string[]>();
 		foreach (var item in model.Items)
-			rows.Add([item.Id, item.Name, item.Packed ? "true" : "false"]);
+			rows.Add([item.Id, item.Name, item.Packed ? "true" : "false", item.Note, item.Picture]);
 		bag.SeedList("Items", rows);
 		return bag;
 	}
@@ -180,6 +180,9 @@ public sealed class PackingLowererTests
 				return;
 			case ScrollView scroll:
 				AssertSame(scroll.Child, Assert.IsType<ScrollView>(actual).Child);
+				return;
+			case Image image:
+				Assert.Equal(image.Source, Assert.IsType<Image>(actual).Source);
 				return;
 			default:
 				throw new InvalidOperationException(expected.GetType().Name);

@@ -10,7 +10,14 @@ static class BenchRows
 		for (var index = 0; index < 1000; index++)
 		{
 			var id = index.ToString("0000", CultureInfo.InvariantCulture);
-			rows.Add(["n" + id, "Item " + id, index % 5 == 0 ? "true" : "false"]);
+			rows.Add(
+			[
+				"n" + id,
+				"Item " + id,
+				index % 5 == 0 ? "true" : "false",
+				index % 3 == 0 ? "Ridge line" : "",
+				index % 4 == 0 ? "marker" : "",
+			]);
 		}
 
 		bag.ReplaceRows("Items", rows);

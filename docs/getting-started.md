@@ -39,7 +39,7 @@ Change the title string in `samples/hello/HelloScreen.cs` and save. The watcher 
 
 ## Tests and the Android build
 
-These do not start an emulator. The Android build needs `ANDROID_HOME` and the workload. It does not need a device.
+These do not start an emulator. The Android build needs `ANDROID_HOME` and the workload. It does not need a device. [testing.md](testing.md) is the headless screen API, which also needs no device.
 
 ```sh
 dotnet test tests/NativePoc.Core.Tests/NativePoc.Core.Tests.csproj -c Release

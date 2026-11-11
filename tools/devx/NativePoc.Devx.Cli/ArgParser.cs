@@ -43,8 +43,11 @@ static class ArgParser
 		  cnative agent swipe <id>
 		  cnative agent enter <id> <text>
 		  cnative agent submit <id>
-		  cnative agent a11y|layout|logs|clock
-		    a11y is the accessibility tree. layout is bounds per id.
+		  cnative agent a11y [--check]|layout|logs|clock
+		    a11y is the accessibility tree. --check reports touch targets
+		    under 48dp, unlabeled controls, TalkBack order reversals,
+		    clipped text, and how many headings it found.
+		    layout is bounds per id.
 		    logs is the NativePoc logcat. clock is 0 until a screen calls Every.
 		    --running drives the program on screen, not only Screen.cs.
 		  cnative lower <file> [--json] [--bytes] [--apply]

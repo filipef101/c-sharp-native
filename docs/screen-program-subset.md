@@ -53,9 +53,9 @@ An action is a lambda. It may assign a property from the lambda argument, a lite
 
 `ScrollView` is one keyed child. The Android host maps it to `android.widget.ScrollView` (`FillViewport`) and reconciles that child by key, the same way a column reuses a row. The packing list is a `ScrollView` of key `scroll` around the `list` column, in `PackingScreen.cs` and in the lowered program.
 
-`ListView` is a keyed list of rows. The Android host maps it to a `ScrollView` that keeps 20 text slots and rebinds them as it scrolls. It is not `AndroidX.RecyclerView`. The agent tree is one list node. The rows are not id-tree children.
+`ListView` is a keyed list of rows. The Android host maps it to a `ScrollView` that keeps 20 slots and rebinds them as it scrolls. It is not `AndroidX.RecyclerView`. The agent tree is one list node. The rows are not id-tree children.
 
-A `foreach` of more than 24 rows does not build those rows during the first eval. It pushes one `ListView` whose rows are a window. Indexing a row runs that row's body, so a scroll that asks for the visible slots builds those slots and leaves the rest unbuilt. A list of 24 rows or fewer still expands, which is the packing screen's own four rows (the switch, the edit button, and the swipe stay on those rows). The 1000-row bench is the window. Headers and footers around the `foreach` stay in the column. The window's slots are text labels, not the switch and the button. That richer row is the expanded list.
+A `foreach` of more than 24 rows does not build those rows during the first eval. It pushes one `ListView` whose rows are a window. Indexing a row runs that row's body, so a scroll that asks for the visible slots builds those slots and leaves the rest unbuilt. A list of 24 rows or fewer still expands, which is the packing screen's own four rows (the switch, the edit button, and the swipe stay on those rows). The 1000-row bench is the window. Headers and footers around the `foreach` stay in the column. A window slot shows the row's first text, a second text when that text is not empty, and an image when the source is not empty. Those three make different heights. The height of a row that has not been built yet is one text line, so the first frame does not evaluate every row. When the parent measures the window with an unbounded height, the window takes at most one screen and scrolls itself. The slot's key is the row key. Scrolling a slot onto a different row replaces that slot's title, subtitle, and image from the row it now shows. The switch and the button stay on the expanded list.
 
 `HostView` is a platform view. `new HostView("webview", "url", state.Url)` names the kind, the prop, and the value. `Event` and `OnEvent` are the event name and the script. See [native-view.md](native-view.md). `L.Get`, `L.Format`, and `L.Plural` are the locale helpers in [localization.md](localization.md). `L.Plural` chooses the `one` string when the count is 1 and the `other` string otherwise.
 
@@ -75,7 +75,9 @@ A `foreach` of more than 24 rows does not build those rows during the first eval
 | Image | image | `android.widget.ImageView` | the drawable name |
 | HostView | host | the view named by `NativeViews` | the prop value |
 
-`cnative agent a11y` prints `class`, `desc`, `text`, and `bounds` from `uiautomator dump`. A `tests/device` step `a11y <text>` asserts that dump.
+`FontSize` is sp. The host calls `SetTextSize` with `ComplexUnitType.Sp`, so a system font scale of 1.3 or 2 grows that text. A `Text` whose `FontSize` is 20 or more is an accessibility heading on API 28 and later. Buttons, switches, and any view with a gesture are at least 48dp on each side.
+
+`cnative agent a11y` prints `class`, `desc`, `text`, and `bounds` from `uiautomator dump`. `cnative agent a11y --check` reads that dump plus `wm density` and `settings get system font_scale`. It exits 1 when a clickable or long-clickable control is under 48dp, a button, switch, image, field, or text control has no text and no content description, a leaf sits above the previous leaf in the same column, or a text line is shorter than 16sp at the current font scale. A control whose bounds stop on the scroll view's bottom edge is partly off screen, and an empty `android.view.View` is the decor inset. Neither is a violation. The report includes `headings=N`. When the dump has no `heading` attribute it also says `heading-attribute=absent`. A `tests/device` step `a11y <text>` asserts that dump. The check itself does not need the hot-reload listener.
 
 ## Layout, logs, and the clock
 

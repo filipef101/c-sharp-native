@@ -15,7 +15,7 @@ These files exist and name the current program and record contract. They are not
 | `spikes/ios/NativePoc.iOS/IosCatalog.cs` | `RecordProgram.ScreenId` plus `ScreenNav.Shared.Register` / `ShowRoot`. |
 | `spikes/ios/NativePoc.iOS/AppDelegate.cs` | Window and root controller. |
 
-The gesture mask uses `UITapGestureRecognizer`, `UILongPressGestureRecognizer`, `UISwipeGestureRecognizer`, and `UIPanGestureRecognizer`. A list is a `UIScrollView` of labels, the same shape as the Android row window's text slots, not a recycled table.
+The gesture mask uses `UITapGestureRecognizer`, `UILongPressGestureRecognizer`, `UISwipeGestureRecognizer`, and `UIPanGestureRecognizer`. A list is a `UIScrollView` of labels. It is not a recycled table. The Android row window's variable-height slots are not in this host.
 
 ## Tested on Linux
 
