@@ -1,10 +1,11 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using NativePoc;
 
 namespace NativePoc.Devx;
 
-static class MeasureLoop
+static partial class MeasureLoop
 {
 	public static int Run(string[] args)
 	{
@@ -14,6 +15,8 @@ static class MeasureLoop
 			return ProgramOnly(args);
 		if (args.Length > 1 && args[1] == "checkpoint")
 			return Checkpoint(args);
+		if (args.Length > 1 && args[1] == "aot")
+			return Aot(args);
 		int samples;
 		string? serial;
 		try

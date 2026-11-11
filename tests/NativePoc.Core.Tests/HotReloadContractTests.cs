@@ -71,6 +71,8 @@ public sealed class HotReloadContractTests
 		Assert.Contains("<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>", project);
 		Assert.Contains("<PublishAot>true</PublishAot>", project);
 		Assert.DoesNotContain("IL3053</WarningsNotAsErrors>", project);
+		Assert.Contains("NativePocDevListener refuses to build into a normal Release.", project);
+		Assert.Contains("PublishAot on a Debug build requires NativePocDevListener", project);
 	}
 
 	static string Source(params string[] parts)

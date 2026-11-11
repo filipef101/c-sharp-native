@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk" InitialTargets="RefuseDevListenerInRelease">
 	<PropertyGroup>
 		<TargetFramework>net10.0-android</TargetFramework>
 		<SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
@@ -15,9 +15,24 @@
 		<NoWarn>$(NoWarn);IL3053</NoWarn>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
+		<PublishAot>true</PublishAot>
+		<EnablePreviewFeatures>true</EnablePreviewFeatures>
+		<NativePocProgramOnly>true</NativePocProgramOnly>
+		<AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
+		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocProgramOnly)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_PROGRAM_ONLY</DefineConstants>
 	</PropertyGroup>
+	<Target Name="RefuseDevListenerInRelease" BeforeTargets="Build;Publish">
+		<Error
+			Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' == 'Release'"
+			Text="NativePocDevListener refuses to build into a normal Release." />
+		<Error
+			Condition="'$(NativePocDevListener)' != 'true' And '$(Configuration)' != 'Release' And '$(PublishAot)' == 'true'"
+			Text="PublishAot on a Debug build requires NativePocDevListener, which keeps the program-only listener. A normal Release publishes NativeAOT without the listener." />
+	</Target>
 	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
 		<PublishAot>true</PublishAot>
 		<EnablePreviewFeatures>true</EnablePreviewFeatures>

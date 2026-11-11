@@ -1,4 +1,4 @@
-#if DEBUG
+#if DEBUG && !NATIVEPOC_PROGRAM_ONLY
 using System.Reflection.Metadata;
 
 [assembly: MetadataUpdateHandler(typeof(NativePoc.HotReload))]
