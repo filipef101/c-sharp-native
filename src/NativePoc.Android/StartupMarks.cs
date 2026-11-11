@@ -95,6 +95,22 @@ static class StartupMarks
 			_present = true;
 			var since = SystemClock.ElapsedRealtime() - _process;
 			Android.Util.Log.Info(MainActivity.Tag, "startup mark=first-present since-process-ms=" + since.ToString(CultureInfo.InvariantCulture));
+			if (MainActivity.Current is Activity activity)
+			{
+				try
+				{
+					activity.ReportFullyDrawn();
+					var drawn = SystemClock.ElapsedRealtime() - _process;
+					Android.Util.Log.Info(MainActivity.Tag, "startup mark=report-fully-drawn since-process-ms=" + drawn.ToString(CultureInfo.InvariantCulture));
+				}
+				catch (Exception ex)
+				{
+					Android.Util.Log.Info(MainActivity.Tag, "startup report-fully-drawn failed " + ex.GetType().Name);
+				}
+			}
+			else
+				Android.Util.Log.Info(MainActivity.Tag, "startup report-fully-drawn skipped");
+
 			return true;
 		}
 	}

@@ -39,6 +39,15 @@ public sealed class ArgParserTests
 		Assert.Equal("android-arm64", options.Abi);
 		Assert.Equal(400, options.DebounceMs);
 		Assert.True(options.RestartOnRude);
+		Assert.False(options.Listener);
+	}
+
+	[Fact]
+	public void Listener_flag_keeps_the_device_abi_default()
+	{
+		var options = ArgParser.Parse(["run", "android", "--listener"]);
+		Assert.True(options.Listener);
+		Assert.Null(options.Abi);
 	}
 
 	[Theory]

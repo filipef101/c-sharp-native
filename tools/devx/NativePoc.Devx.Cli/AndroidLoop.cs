@@ -67,7 +67,13 @@ static class AndroidLoop
 	{
 		var repo = RepoRoot.Find(Directory.GetCurrentDirectory());
 		var serial = ResolveSerial(options.Serial);
-		var rid = options.Abi ?? Abi.RidFromProperty(Prop(serial, "ro.product.cpu.abi"));
+		var abi = Prop(serial, "ro.product.cpu.abi");
+		var rid = options.Abi ?? Abi.RidFromProperty(abi);
+		Console.WriteLine(
+			"cnative: " + serial
+			+ " ro.product.cpu.abi=" + abi
+			+ " rid=" + rid
+			+ (options.Listener ? " NativeAOT-listener" : " Debug"));
 		using var cancel = new CancellationTokenSource();
 		Console.CancelKeyPress += (_, eventArgs) =>
 		{
@@ -78,12 +84,12 @@ static class AndroidLoop
 		try
 		{
 			var checkpoint = CaptureRunning(serial);
-			session.Token = DeployAndLaunch(repo, rid, serial);
+			session.Token = DeployAndLaunch(repo, rid, serial, listener: options.Listener);
 			session.Open(repo, serial);
 			Restore(session, checkpoint);
 			var initial = Push(session, options, editStartedMs: null);
 			if (initial.Restarting)
-				Relaunch(session, repo, rid, serial);
+				Relaunch(session, repo, rid, serial, options.Listener);
 			else
 			{
 				var packingStarted = Stopwatch.GetTimestamp();
@@ -164,7 +170,7 @@ static class AndroidLoop
 						Console.WriteLine("cnative: reload src/NativePoc.Screen/Screen.cs");
 						var outcome = Push(session, options, batch.FirstMs);
 						if (outcome.Restarting)
-							Relaunch(session, repo, rid, serial);
+							Relaunch(session, repo, rid, serial, options.Listener);
 					}
 
 					foreach (var path in batch.Paths.Where(ChangeEffectRules.IsAppScreen))
@@ -181,7 +187,7 @@ static class AndroidLoop
 							if (appFollow is not null)
 								Console.WriteLine(appFollow);
 							if (appRestart)
-								Relaunch(session, repo, rid, serial);
+								Relaunch(session, repo, rid, serial, options.Listener);
 						}
 					}
 
@@ -198,7 +204,7 @@ static class AndroidLoop
 							if (packingFollow is not null)
 								Console.WriteLine(packingFollow);
 							if (packingRestart)
-								Relaunch(session, repo, rid, serial);
+								Relaunch(session, repo, rid, serial, options.Listener);
 						}
 					}
 
@@ -211,7 +217,7 @@ static class AndroidLoop
 					if (follow is not null)
 						Console.WriteLine(follow);
 					if (restarting)
-						Relaunch(session, repo, rid, serial);
+								Relaunch(session, repo, rid, serial, options.Listener);
 
 					break;
 				default:
@@ -502,7 +508,7 @@ static class AndroidLoop
 		return Console.ReadLine();
 	}
 
-	static void Relaunch(ReloadSession session, string repo, string rid, string serial)
+	static void Relaunch(ReloadSession session, string repo, string rid, string serial, bool listener)
 	{
 		byte[]? checkpoint = null;
 		try
@@ -514,7 +520,7 @@ static class AndroidLoop
 			Console.WriteLine("state was not captured: " + ex.Message);
 		}
 
-		session.Token = DeployAndLaunch(repo, rid, serial);
+		session.Token = DeployAndLaunch(repo, rid, serial, listener: listener);
 		session.Open(repo, serial);
 		Restore(session, checkpoint);
 
@@ -592,34 +598,52 @@ static class AndroidLoop
 		return new FoundToken("", "");
 	}
 
-	internal static FoundToken DeployAndLaunch(string repo, string rid, string serial, IReadOnlyList<string>? extraBuild = null)
+	static void InstallApk(string serial, string apk)
 	{
-		Console.WriteLine("cnative: building Debug " + rid + " for " + serial);
-		var project = Path.Combine(repo, "src", "NativePoc.Android", "NativePoc.Android.csproj");
-		var arguments = new List<string>
-		{
-			"build",
-			project,
-			"-c", "Debug",
-			"-f", "net10.0-android",
-			"-r", rid,
-			"-t:Run",
-			"-p:AdbTarget=-s " + serial,
-		};
-		if (extraBuild is not null)
-		{
-			foreach (var extra in extraBuild)
-				arguments.Add(extra);
-		}
+		var installed = Adb(serial, "install", "-r", "-d", apk);
+		if (installed.Code == 0 && installed.Stdout.Contains("Success", StringComparison.Ordinal))
+			return;
+		Adb(serial, "uninstall", LaunchCommand.Package);
+		var again = Adb(serial, "install", "-r", apk);
+		if (again.Code != 0 || !again.Stdout.Contains("Success", StringComparison.Ordinal))
+			throw new InvalidOperationException("Install failed: " + again.Stderr + again.Stdout + installed.Stderr + installed.Stdout);
+	}
 
-		var build = ProcessRunner.Run(
-			"dotnet",
-			arguments,
-			repo,
-			Console.WriteLine,
-			Console.Error.WriteLine);
-		if (build.Code != 0)
-			throw new InvalidOperationException("Debug deploy exited " + build.Code + ".");
+	internal static FoundToken DeployAndLaunch(string repo, string rid, string serial, IReadOnlyList<string>? extraBuild = null, bool listener = false)
+	{
+		var project = Path.Combine(repo, "src", "NativePoc.Android", "NativePoc.Android.csproj");
+		if (listener)
+		{
+			Console.WriteLine("cnative: publishing NativeAOT listener " + rid + " for " + serial);
+			var published = ProcessRunner.Run(
+				"dotnet",
+				AndroidBuild.ListenerPublish(project, rid),
+				repo,
+				Console.WriteLine,
+				Console.Error.WriteLine);
+			if (published.Code != 0)
+				throw new InvalidOperationException("Listener publish exited " + published.Code + ".");
+			InstallApk(serial, AndroidBuild.RequireSignedApk(AndroidBuild.PublishDirectory(repo, "Debug", rid)));
+		}
+		else
+		{
+			Console.WriteLine("cnative: building Debug " + rid + " for " + serial);
+			var arguments = new List<string>(AndroidBuild.DebugRun(project, rid, serial));
+			if (extraBuild is not null)
+			{
+				foreach (var extra in extraBuild)
+					arguments.Add(extra);
+			}
+
+			var build = ProcessRunner.Run(
+				"dotnet",
+				arguments,
+				repo,
+				Console.WriteLine,
+				Console.Error.WriteLine);
+			if (build.Code != 0)
+				throw new InvalidOperationException("Debug deploy exited " + build.Code + ".");
+		}
 		var resolved = Adb(serial, "shell", "cmd", "package", "resolve-activity", "--brief", LaunchCommand.Package);
 		var component = ActivityName.FromResolve(resolved.Stdout)
 			?? throw new InvalidOperationException("The launcher activity was not resolved: " + resolved.Stdout + resolved.Stderr);

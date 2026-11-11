@@ -46,18 +46,19 @@ static partial class MeasureLoop
 		{
 			var serial = AndroidLoop.ResolveSerial(requested);
 			Line(log, "label=emulator-run");
-			Line(log, "machine=x86_64 KVM emulator, not Mac arm64");
-			Line(log, "date=2026-11-11");
-			Line(log, "abi=" + Prop(serial, "ro.product.cpu.abi"));
+			var abi = Prop(serial, "ro.product.cpu.abi");
+			var rid = Abi.RidFromProperty(abi);
+			Line(log, "abi=" + abi);
+			Line(log, "rid=" + rid);
 			Line(log, "sdk=" + Prop(serial, "ro.build.version.sdk"));
 			Line(log, "qemu=" + Prop(serial, "ro.kernel.qemu"));
 			Line(log, "host-qemu=" + HostQemu());
 			if (!editsOnly)
 			{
-				var releaseApk = PublishedApk(repo, "Release");
-				var devApk = PublishedApk(repo, "Debug");
-				DescribeBinary(log, "release", releaseApk);
-				DescribeBinary(log, "dev-listener", devApk);
+				var releaseApk = AndroidBuild.RequireSignedApk(AndroidBuild.PublishDirectory(repo, "Release", rid));
+				var devApk = AndroidBuild.RequireSignedApk(AndroidBuild.PublishDirectory(repo, "Debug", rid));
+				DescribeBinary(log, "release", releaseApk, repo, rid);
+				DescribeBinary(log, "dev-listener", devApk, repo, rid);
 				var releaseStarts = ColdStarts(log, serial, releaseApk, "release");
 				var devStarts = ColdStarts(log, serial, devApk, "dev-listener");
 				Line(log, "startup-delta-p50-ms=" + (Percentile(devStarts, 1, 2) - Percentile(releaseStarts, 1, 2)).ToString("F4", CultureInfo.InvariantCulture));
@@ -304,12 +305,13 @@ static partial class MeasureLoop
 			throw new InvalidOperationException("Install failed: " + again.Stderr + again.Stdout + installed.Stderr + installed.Stdout);
 	}
 
-	static void DescribeBinary(StringBuilder log, string name, string apk)
+	static void DescribeBinary(StringBuilder log, string name, string apk, string repo, string rid)
 	{
 		var info = new FileInfo(apk);
 		using var zip = ZipFile.OpenRead(apk);
-		var entry = zip.GetEntry("lib/x86_64/libNativePoc.Android.so")
-			?? throw new InvalidOperationException(apk + " has no lib/x86_64/libNativePoc.Android.so.");
+		var library = AndroidBuild.NativeLibraryEntry(rid);
+		var entry = zip.GetEntry(library)
+			?? throw new InvalidOperationException(apk + " has no " + library + ".");
 		var extracted = Path.Combine(Path.GetTempPath(), name + "-libNativePoc.Android.so");
 		entry.ExtractToFile(extracted, overwrite: true);
 		Line(log, name + "-apk-bytes=" + info.Length.ToString(CultureInfo.InvariantCulture));
@@ -321,8 +323,7 @@ static partial class MeasureLoop
 		Line(log, name + "-so-no-assembly-loader=" + loader.ToString(CultureInfo.InvariantCulture));
 		Line(log, name + "-so-assembly-load-context=" + context.ToString(CultureInfo.InvariantCulture));
 		var configuration = name == "release" ? "Release" : "Debug";
-		var projectDir = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(apk)!, "..", "..", "..", "..", ".."));
-		var managed = Path.Combine(projectDir, "obj", configuration, "net10.0-android", "android-x64", "linked", "NativePoc.Android.dll");
+		var managed = AndroidBuild.LinkedAssembly(repo, configuration, rid);
 		var managedListen = CountText(managed, "hotreload-listen");
 		var managedLoader = CountText(managed, "no assembly loader");
 		var managedContext = CountText(managed, "AssemblyLoadContext");
@@ -352,17 +353,6 @@ static partial class MeasureLoop
 		var noteAt = noted.IndexOf("key=", StringComparison.Ordinal);
 		var focusAt = restored.IndexOf("key=", StringComparison.Ordinal);
 		return noteAt >= 0 && focusAt >= 0 && noted[noteAt..] == restored[focusAt..];
-	}
-
-	static string PublishedApk(string repo, string configuration)
-	{
-		var dir = Path.Combine(repo, "src", "NativePoc.Android", "bin", configuration, "net10.0-android", "android-x64", "publish");
-		if (!Directory.Exists(dir))
-			throw new InvalidOperationException("Missing publish directory " + dir);
-		var apks = Directory.GetFiles(dir, "*-Signed.apk");
-		if (apks.Length != 1)
-			throw new InvalidOperationException("Expected one signed apk in " + dir + ".");
-		return apks[0];
 	}
 
 	static void TapLabel(string serial, string label)

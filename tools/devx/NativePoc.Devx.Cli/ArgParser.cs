@@ -13,7 +13,8 @@ sealed record CliOptions(
 	string? Serial,
 	string? Abi,
 	int DebounceMs,
-	bool RestartOnRude)
+	bool RestartOnRude,
+	bool Listener)
 {
 	public const int DefaultDebounceMs = 40;
 }
@@ -57,6 +58,7 @@ static class ArgParser
 
 		  --device <serial>     adb serial. Default: the only online device.
 		  --abi <rid>           android-x64 or android-arm64. Default: the device ABI.
+		  --listener            publish the Debug NativeAOT listener for that ABI.
 		  --debounce <ms>       quiet period before a reload. Default: 40.
 		  --restart-on-rude     rebuild and relaunch when an edit needs a restart.
 		  --once                push the current screen once and exit.
@@ -68,7 +70,7 @@ static class ArgParser
 		if (args.Count == 0)
 			throw new UsageException("Usage: cnative run android");
 		if (args.Count == 1 && IsHelp(args[0]))
-			return new CliOptions(true, false, null, null, CliOptions.DefaultDebounceMs, false);
+			return new CliOptions(true, false, null, null, CliOptions.DefaultDebounceMs, false, false);
 		if (args[0] != "run" || args.Count < 2 || args[1] != "android")
 			throw new UsageException("Usage: cnative run android");
 
@@ -78,6 +80,7 @@ static class ArgParser
 		string? abi = null;
 		var debounce = CliOptions.DefaultDebounceMs;
 		var restart = false;
+		var listener = false;
 		for (var i = 2; i < args.Count; i++)
 		{
 			var arg = args[i];
@@ -103,6 +106,9 @@ static class ArgParser
 					if (abi is not ("android-x64" or "android-arm64"))
 						throw new UsageException("--abi must be android-x64 or android-arm64.");
 					break;
+				case "--listener":
+					listener = true;
+					break;
 				case "--debounce":
 					var text = Take(args, ref i, "--debounce");
 					if (!int.TryParse(text, out debounce) || debounce < 1 || debounce > 60_000)
@@ -113,7 +119,7 @@ static class ArgParser
 			}
 		}
 
-		return new CliOptions(help, once, serial, abi, debounce, restart);
+		return new CliOptions(help, once, serial, abi, debounce, restart, listener);
 	}
 
 	static bool IsHelp(string arg) => arg is "--help" or "-h" or "help";

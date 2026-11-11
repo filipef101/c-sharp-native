@@ -16,10 +16,15 @@ static class LocaleRuntime
 	public static void ApplyDirection(Activity activity)
 	{
 		if (activity.Window?.DecorView is View decor)
-			decor.LayoutDirection = Direction();
+			ApplyDirection(decor);
 	}
 
-	public static void ApplyDirection(View view) => view.LayoutDirection = Direction();
+	public static void ApplyDirection(View view)
+	{
+		var next = Direction();
+		if (view.LayoutDirection != next)
+			view.LayoutDirection = next;
+	}
 
 	static LayoutDirection Direction() =>
 		StringTable.RightToLeft ? LayoutDirection.Rtl : LayoutDirection.Ltr;

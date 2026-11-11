@@ -1,5 +1,6 @@
 bin/
 obj/
+tools/bench/floor/build/
 agent-tools/
 .vs/
 *.user

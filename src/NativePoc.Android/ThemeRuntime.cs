@@ -1,4 +1,5 @@
 using Android.Graphics;
+using Android.Graphics.Drawables;
 using Android.Views;
 using Android.Widget;
 
@@ -27,6 +28,15 @@ static class ThemeRuntime
 
 		Paint(activity, activity.Window?.DecorView);
 		Android.Util.Log.Info(MainActivity.Tag, "theme mode=" + Mode + " dark=" + (IsDark(activity) ? "1" : "0"));
+	}
+
+	public static void ApplyWindow(Activity activity)
+	{
+		var page = new Color(unchecked((int)ThemeTokens.Page(IsDark(activity))));
+		if (activity.Window is not { } window)
+			return;
+		window.SetBackgroundDrawable(new ColorDrawable(page));
+		window.DecorView?.SetBackgroundColor(page);
 	}
 
 	public static bool IsDark(Activity activity)

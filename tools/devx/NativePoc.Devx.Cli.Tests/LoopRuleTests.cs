@@ -39,7 +39,7 @@ public sealed class LoopRuleTests
 		var source = RepoFile("tools", "devx", "NativePoc.Devx.Cli", "AndroidLoop.cs");
 		var execute = source.IndexOf("static int Execute", StringComparison.Ordinal);
 		var capture = source.IndexOf("CaptureRunning(serial)", execute, StringComparison.Ordinal);
-		var deploy = source.IndexOf("DeployAndLaunch(repo, rid, serial)", capture, StringComparison.Ordinal);
+		var deploy = source.IndexOf("DeployAndLaunch(repo, rid, serial, listener:", capture, StringComparison.Ordinal);
 		var restore = source.IndexOf("Restore(session, checkpoint)", deploy, StringComparison.Ordinal);
 		Assert.True(execute >= 0);
 		Assert.True(capture > execute);
@@ -174,6 +174,33 @@ public sealed class LoopRuleTests
 	public void Device_abi_maps_to_a_rid(string abi, string rid)
 	{
 		Assert.Equal(rid, Abi.RidFromProperty(abi));
+	}
+
+	[Theory]
+	[InlineData("android-x64", "emulator-5554")]
+	[InlineData("android-arm64", "emulator-5556")]
+	public void Debug_and_listener_builds_use_the_device_rid(string rid, string serial)
+	{
+		var project = "NativePoc.Android.csproj";
+		var debug = AndroidBuild.DebugRun(project, rid, serial);
+		var listener = AndroidBuild.ListenerPublish(project, rid);
+
+		Assert.Equal("build", debug[0]);
+		Assert.Equal(rid, debug[Array.IndexOf(debug, "-r") + 1]);
+		Assert.Contains("-t:Run", debug);
+		Assert.Contains("-p:AdbTarget=-s " + serial, debug);
+		Assert.DoesNotContain(debug, arg => arg.Contains("NativePocDevListener", StringComparison.Ordinal));
+
+		Assert.Equal("publish", listener[0]);
+		Assert.Equal("Debug", listener[Array.IndexOf(listener, "-c") + 1]);
+		Assert.Equal(rid, listener[Array.IndexOf(listener, "-r") + 1]);
+		Assert.Contains("-p:NativePocDevListener=true", listener);
+		var other = rid == "android-arm64" ? "android-x64" : "android-arm64";
+		Assert.DoesNotContain(other, debug);
+		Assert.DoesNotContain(other, listener);
+		Assert.Equal(
+			rid == "android-arm64" ? "lib/arm64-v8a/libNativePoc.Android.so" : "lib/x86_64/libNativePoc.Android.so",
+			AndroidBuild.NativeLibraryEntry(rid));
 	}
 
 	[Fact]

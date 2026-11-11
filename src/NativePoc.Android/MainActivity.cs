@@ -10,7 +10,7 @@ using Android.Widget;
 
 namespace NativePoc;
 
-[Activity(Label = "@string/app_name", MainLauncher = true, Exported = true, LaunchMode = LaunchMode.SingleTop)]
+[Activity(Label = "@string/app_name", MainLauncher = true, Exported = true, LaunchMode = LaunchMode.SingleTop, Theme = "@style/NativePocTheme")]
 public sealed class MainActivity : Activity
 {
 	public const string Tag = "NativePoc";
@@ -32,6 +32,8 @@ public sealed class MainActivity : Activity
 	{
 		base.OnCreate(savedInstanceState);
 		StartupMarks.Activity();
+		ThemeRuntime.Load(this);
+		ThemeRuntime.ApplyWindow(this);
 		Current = this;
 		Log.Info(Tag, "activity-start tick=" + System.Environment.TickCount64);
 		Log.Info(
@@ -377,24 +379,24 @@ public sealed class MainActivity : Activity
 			+ " built=" + built.ToString(CultureInfo.InvariantCulture)
 			+ " views=" + views.ToString(CultureInfo.InvariantCulture));
 		StartupMarks.Render();
-		StartupMarks.Arm(this);
-		LocaleRuntime.ApplyDirection(this);
-		if (_reconciler.Root is View mounted)
-			LocaleRuntime.ApplyDirection(mounted);
-		if (_reconciler.Root is null)
+		if (_reconciler.Root is not View mounted)
 			throw new InvalidOperationException("Screen did not mount a root view.");
-		if (!ReferenceEquals(previousRoot, _reconciler.Root))
+		ThemeRuntime.Paint(this, mounted);
+		LocaleRuntime.ApplyDirection(mounted);
+		LocaleRuntime.ApplyDirection(this);
+		if (!ReferenceEquals(previousRoot, mounted))
 		{
-			SetContentView(_reconciler.Root);
+			SetContentView(mounted);
 			Log.Info(Tag, "set-content-view");
 		}
+
+		StartupMarks.Arm(this);
 		LastTitle = TitleOf(tree);
 		if (_host is not null && _reconciler.Root is not null)
 			_host.RestoreFocus(_reconciler.Root);
 #if DEBUG
 		LogTree();
 #endif
-		ThemeRuntime.Paint(this, _reconciler.Root);
 		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length + " title=" + LastTitle);
 #if DEBUG
 		StateStore.Save(this);
