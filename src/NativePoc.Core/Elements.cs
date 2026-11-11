@@ -26,6 +26,24 @@ public enum FontWeight
 	Bold = 1,
 }
 
+public enum Keyboard
+{
+	Text = 0,
+	Email = 1,
+	Number = 2,
+	Phone = 3,
+	Password = 4,
+}
+
+public enum Submit
+{
+	None = 0,
+	Next = 1,
+	Send = 2,
+	Go = 3,
+	Search = 4,
+}
+
 public readonly record struct Style
 {
 	public int Padding { get; init; }
@@ -129,7 +147,16 @@ public sealed record Text(string Value) : Element;
 
 public sealed record Button(string Title, Action OnPress, string AccessibilityLabel) : Element;
 
-public sealed record TextField(string Value, Action<string> OnChange, string Placeholder, string AccessibilityLabel) : Element;
+public sealed record TextField(string Value, Action<string> OnChange, string Placeholder, string AccessibilityLabel) : Element
+{
+	public Keyboard Keyboard { get; init; }
+
+	public int Lines { get; init; }
+
+	public Submit Submit { get; init; }
+
+	public Action? OnSubmit { get; init; }
+}
 
 public sealed record Switch(bool Value, Action<bool> OnChange, string AccessibilityLabel) : Element;
 
@@ -171,6 +198,10 @@ public interface IPlatform
 	}
 
 	void Every(string property)
+	{
+	}
+
+	void Module(string module, string method, string[] args)
 	{
 	}
 }

@@ -41,7 +41,7 @@ Packing checklist, Release NativeAOT, on a KVM x86_64 emulator. The GIF is the c
 <td colspan="3"><img src="docs/media/packing-landscape.webp" width="640" alt="Packing list in landscape, seed items, Ridge map cut off"></td>
 </tr>
 <tr>
-<td colspan="3">Landscape, seed list. The column does not scroll, so Ridge map is cut off. In the video, rotation happens after the edits and keeps them.</td>
+<td colspan="3">Landscape still from before the packing screen was a ScrollView. Ridge map is cut off in that capture. In the video, rotation happens after the edits and keeps them.</td>
 </tr>
 </table>
 
@@ -168,7 +168,7 @@ Phone publish is the same Release command with `-r android-arm64`. Mono AOT is t
 
 ### 3. Hot reload
 
-The emulator or device is already online. Only `src/NativePoc.Screen/Screen.cs` reloads in place.
+The emulator or device is already online. Saving `src/NativePoc.Screen/Screen.cs` reloads that screen. The [Dev loop](#dev-loop) lists the other files that reload the same way.
 
 ```sh
 export DOTNET_ROOT="$HOME/.dotnet"
@@ -201,9 +201,11 @@ Packing row-label edit to present, n=12, one pid (9382): p50 20.1565 ms, p90 30.
 
 Counter `Screen.cs`, n=12, one pid (11590): `OnDraw` p50 41.3773 ms, p90 50.4457 ms; gfxinfo `FrameCompleted` p50 77.5302 ms, p90 94.5824 ms; screencap byte change p50 332.0824 ms, p90 343.4421 ms. The screencap figure includes pulling one PNG. `DisplayPresentTime` and `SurfaceFlinger --latency` were 0 on this swiftshader emulator, so the frame timestamp is gfxinfo `FrameCompleted`.
 
-NativeAOT dev listener, emulator-run on that same AVD. `IsDynamicCodeSupported=False`. The listener `.so` in this tree is 8,798,208 bytes (signed APK 3,338,723). The same listener before dropping native debug info was 29,562,584 bytes (APK 7,676,387). Those flags are `IlcGenerateDebugInfo` false, `DebuggerSupport` false, and invariant globalization, and they are not on the Release publish. A Release publish of this tree is 6,181,648 bytes (unit 10's Release `.so` was 6,023,952). The extra is the navigation and list host, and the Release package is not debuggable. A manifest overlay keeps the listener package debuggable so `run-as` can still read the token.
+NativeAOT dev listener, emulator-run on that same AVD. `IsDynamicCodeSupported=False`. The listener `.so` published from this tree is 8,967,072 bytes (signed APK 3,404,461). The earlier trim, before styles, effects, images, field mode, and platform modules, was 8,798,208 bytes (signed APK 3,338,723). The same listener before dropping native debug info was 29,562,584 bytes (APK 7,676,387). Those flags are `IlcGenerateDebugInfo` false, `DebuggerSupport` false, and invariant globalization, and they are not on the Release publish. A Release publish of the earlier tree is 6,181,648 bytes (unit 10's Release `.so` was 6,023,952). The extra over unit 10 is the navigation and list host, and the Release package is not debuggable. This turn did not republish Release. A manifest overlay keeps the listener package debuggable so `run-as` can still read the token.
 
-Same-pid subset reload, n=10, pid 20966, Hyndman-Fan type 7. Title: `OnDraw` p50 28.5024 ms, p90 42.8412 ms; gfxinfo `FrameCompleted` p50 56.1642 ms, p90 74.8903 ms. Packing: `OnDraw` p50 25.7990 ms, p90 37.5417 ms; `FrameCompleted` p50 53.1393 ms, p90 62.9946 ms.
+Same-pid subset reload on the earlier listener, n=10, pid 20966, Hyndman-Fan type 7. Title: `OnDraw` p50 28.5024 ms, p90 42.8412 ms; gfxinfo `FrameCompleted` p50 56.1642 ms, p90 74.8903 ms. Packing: `OnDraw` p50 25.7990 ms, p90 37.5417 ms; `FrameCompleted` p50 53.1393 ms, p90 62.9946 ms.
+
+Same process on the listener above, pid 32111, n=10, Hyndman-Fan type 7, gfxinfo `FrameCompleted`. QEMU pid 4419, KVM present, `IsDynamicCodeSupported=False`. A style-only title size change mounted no new buttons: `OnDraw` p50 22.9500 ms, p90 28.8035 ms; frame p50 50.2316 ms, p90 68.8963 ms. An image source swap: `OnDraw` p50 17.2856 ms, p90 21.5776 ms; frame p50 46.0833 ms, p90 50.9797 ms. An effect whose resource stayed `places` applied once: `OnDraw` p50 21.8065 ms, p90 28.7446 ms; frame p50 46.5731 ms, p90 61.2351 ms. The form note caret stayed `start=13 end=13` across a label reload. Empty submit logged `share-skipped` and `haptic-ok`. A filled submit logged `share-text chars=13` and `haptic-ok`. `DisplayPresentTime` stays 0 on this swiftshader emulator.
 
 A keyed list of 1000 rows, apply-to-present (the reply waits for `OnDraw`), n=5 fresh processes. `ScrollView` mounted 1037 views: first present p50 1071.3305 ms, p90 1136.1784 ms, TOTAL PSS p50 52,997 KB. The recycled window (20 slots, not AndroidX `RecyclerView`) mounted 34 views: first present p50 254.0235 ms, p90 358.3155 ms, TOTAL PSS p50 40,717 KB. Reload on one pid, n=5: scroll p50 23.8252 ms, p90 39.3966 ms; recycled list p50 37.8717 ms, p90 42.5501 ms.
 
@@ -262,10 +264,13 @@ The seed list is Canvas tent, Camp stove (packed), Ridge map, and Water bladder,
 
 **Measured** on a device or an emulator, in the files named, or in the clips on this page.
 
-- **Android widgets.** The five element kinds mount real `android.widget` views. The packing clip and the stills are that UI on API 34.
+- **Android widgets.** `Column`, `Text`, `Button`, `TextField`, and `Switch` are the views in the packing clip and the stills on API 34. The host also maps `ScrollView`, `ListView`, and `Image`. Those three are in the tree now; the clip predates them.
 - **Release is NativeAOT.** `PublishAot` is set for Release. The clip APK's `lib/x86_64/libNativePoc.Android.so` has no `hotreload` string. The earlier publish scan is [evidence/nativeaot-release-listener-scan.log](evidence/nativeaot-release-listener-scan.log).
 - **Keyed updates.** A rename and an added row in the clip stay consistent with the keyed diff. Host tests cover the reconciler.
 - **In-place hot reload of `Screen.cs`.** The n=20 series stayed on one pid. The GIF is a later single session, edit and restore.
+- **Style, image, and effect reloads on the NativeAOT listener.** Pid 32111, n=10, `IsDynamicCodeSupported=False`. The numbers are in the Dev loop. A style-only edit did not remount buttons, and the places effect applied once.
+- **Text fields and platform modules.** A field can set `Keyboard`, `Lines`, `Submit`, and `OnSubmit`. `Haptics.Confirm`, `Share.Text`, and `Clipboard.Copy` dispatch through a switch in `PlatformModules`, with no reflection. The pid 32111 form run kept the note caret and logged `haptic-ok` plus `share-text chars=13`.
+- **Debug state across a force-stop.** A Debug process writes `files/nativepoc-state.bin` on each render and reads it before the first frame. Release keeps packing state in the process only. A force-stop of a Release process returns to `PackingState.Seed`. The portrait still was captured after a force-stop and shows that seed.
 - **Packing behavior that review recorded** in [review/packing-fix/report.md](review/packing-fix/report.md): the switch changes packed state, system back leaves the editor, rotation keeps the process, the in-process clipboard round-trips, and the first row sits below the action bar. This page's clip repeats the switch, the rename, the add, the copy, and the rotation. Its log line was `clipboard-ok` for the five names.
 - **Mac arm64 cold start,** the table above.
 
@@ -274,8 +279,8 @@ The seed list is Canvas tent, Camp stove (packed), Ridge map, and Water bladder,
 - **iOS.** Not in this checkout. The record on `main` is branch `feat-ios-feasibility-8497`: a UIKit spike was authored (`UIStackView`, `UILabel`, `UIButton`, `UITextField`) and was not compiled or run. The spike sources and `docs/ios/linux-ios-build.txt` are not in this tree, so that build log is **unverified** from here.
 - **Spark.** Not in this checkout. Branch `feat-sparkline-aar-binding-0a93` is an app-level binding of one Apache-2.0 Spark 1.2.0 AAR. It is not a general AAR feature, and it is not in `src/`. arm64 for that probe was not run. **Unverified** from this tree.
 - **Anything but Android as a running UI.** This tree's host is Android.
-- **State beyond the process.** `PackingSession.Shared` is one static object. Rotation keeps it. A force-stop builds a new process and `PackingState.Seed` returns. Nothing is written to a bundle or a file. The portrait list still was captured after a force-stop and shows that seed.
-- **A scrolling list.** Landscape leaves later rows under the fold. The landscape still shows that on the seed list.
+- **Release state after the process exits.** Release does not write `nativepoc-state.bin`. A force-stop returns to `PackingState.Seed`.
+- **The landscape still.** It is an earlier capture, and Ridge map is cut off in that image. The packing screen in this tree is a `ScrollView`. That still was not recaptured after the scroll landed.
 - **The packing sample on arm64.** The running proof in this repo is x86_64. **Unverified** on arm64.
 - **Physical vibration.** `haptic-ok` is the vibrator API. Physical vibration was not measured.
 - **A shell clipboard read.** This emulator image has no `cmd clipboard` implementation. The copy was checked from the app log, inside the process.
@@ -288,7 +293,7 @@ The seed list is Canvas tent, Camp stove (packed), Ridge map, and Water bladder,
 | Path | What's there |
 | --- | --- |
 | [`src/NativePoc.Core`](src/NativePoc.Core) | Elements, `TreeDiff`, `ViewReconciler` |
-| [`src/NativePoc.Screen`](src/NativePoc.Screen) | The counter. The only file `cnative` reloads in place |
+| [`src/NativePoc.Screen`](src/NativePoc.Screen) | The counter. `cnative` lowers this file, `samples/NativePoc.Packing/PackingScreen.cs`, and `samples/<name>/<Name>Screen.cs` |
 | [`src/NativePoc.Android`](src/NativePoc.Android) | Android host, `MainActivity`, `PackingActivity`, the Debug listener |
 | [`samples/NativePoc.Packing`](samples/NativePoc.Packing) | The offline checklist |
 | [`tests`](tests) | Host tests for the core and the packing sample |

@@ -12,7 +12,7 @@ The list and the editor are C# functions in `NativePoc.Packing`. They return `El
 
 Activity recreation, including rotation, keeps that object. The new activity reads the same items, route, and draft.
 
-Process restart does not. A force-stop or a cold start builds a new process, and `PackingState.Seed` supplies Canvas tent, Camp stove, Ridge map, and Water bladder again. Nothing is written to a bundle or a file.
+A Release process restart does not. A force-stop or a cold start builds a new process, and `PackingState.Seed` supplies Canvas tent, Camp stove, Ridge map, and Water bladder again. Release writes nothing to a bundle or a file. A Debug process writes `files/nativepoc-state.bin` on each render and reads it before the first frame, so a Debug force-stop restores the list. That file is not the hot-reload token.
 
 ## Install
 

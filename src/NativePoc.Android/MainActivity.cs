@@ -174,7 +174,7 @@ public sealed class MainActivity : Activity
 		_programSource = program.SourceHash;
 		try
 		{
-			RenderNow();
+			RequestRender();
 		}
 		catch
 		{
@@ -214,6 +214,8 @@ public sealed class MainActivity : Activity
 				return "restored";
 			case ScreenQuery.Press:
 				return ElementIds.Invoke(RequireTree(), Encoding.UTF8.GetString(payload.AsSpan(6)), null);
+			case ScreenQuery.Submit:
+				return ElementIds.Submit(RequireTree(), Encoding.UTF8.GetString(payload.AsSpan(6)));
 			case ScreenQuery.Enter:
 				var body = Encoding.UTF8.GetString(payload.AsSpan(6));
 				var split = body.IndexOf('\n');
@@ -235,7 +237,7 @@ public sealed class MainActivity : Activity
 		_render = render;
 		try
 		{
-			RenderNow();
+			RequestRender();
 		}
 		catch
 		{
@@ -311,6 +313,7 @@ public sealed class MainActivity : Activity
 			case Button:
 			case TextField:
 			case Switch:
+			case Image:
 				return "";
 			default:
 				throw Unknown(element);

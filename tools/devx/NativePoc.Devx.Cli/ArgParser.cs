@@ -40,6 +40,7 @@ static class ArgParser
 		  cnative agent type <text>
 		  cnative agent press <id>
 		  cnative agent enter <id> <text>
+		  cnative agent submit <id>
 		  cnative agent a11y|layout|logs|clock
 		    a11y is the accessibility tree. layout is bounds per id.
 		    logs is the NativePoc logcat. clock is 0 until a screen calls Every.

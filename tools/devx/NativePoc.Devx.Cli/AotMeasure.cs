@@ -411,6 +411,164 @@ static partial class MeasureLoop
 		return source.Replace(needle, inserted, StringComparison.Ordinal);
 	}
 
+	static int Surface(string[] args)
+	{
+		string? requested = null;
+		for (var index = 2; index < args.Length; index++)
+		{
+			if (args[index] != "--device" || index + 1 >= args.Length)
+			{
+				Console.Error.WriteLine("Usage: cnative measure surface [--device serial]");
+				return 2;
+			}
+
+			requested = args[++index];
+		}
+
+		var repo = RepoRoot.Find(Directory.GetCurrentDirectory());
+		var packingPath = Path.Combine(repo, "samples", "NativePoc.Packing", "PackingScreen.cs");
+		var placesPath = Path.Combine(repo, "samples", "NativePoc.Places", "PlacesScreen.cs");
+		var formPath = Path.Combine(repo, "samples", "NativePoc.Form", "FormScreen.cs");
+		var originalPacking = File.ReadAllText(packingPath);
+		var originalPlaces = File.ReadAllText(placesPath);
+		var originalForm = File.ReadAllText(formPath);
+		var log = new StringBuilder();
+		var session = new ReloadSession();
+		try
+		{
+			var serial = AndroidLoop.ResolveSerial(requested);
+			Line(log, "label=emulator-run");
+			Line(log, "machine=x86_64 KVM emulator, not Mac arm64");
+			Line(log, "abi=" + Prop(serial, "ro.product.cpu.abi"));
+			Line(log, "sdk=" + Prop(serial, "ro.build.version.sdk"));
+			Line(log, "qemu=" + Prop(serial, "ro.kernel.qemu"));
+			Line(log, "host-qemu=" + HostQemu());
+			var dynamic = AndroidLoop.Adb(serial, "logcat", "-d", "-s", "NativePoc:I");
+			if (!dynamic.Stdout.Contains("IsDynamicCodeSupported=False", StringComparison.Ordinal))
+				throw new InvalidOperationException("logcat did not show IsDynamicCodeSupported=False.");
+			Line(log, "IsDynamicCodeSupported=False logged=True");
+			session.Token = AndroidLoop.WaitToken(serial);
+			session.Open(repo, serial);
+			var pid = Pid(serial);
+			Line(log, "edit-pid=" + pid);
+			var packing = AndroidLoop.SendPacking(session, repo);
+			if (!packing.Applied || !packing.Text.Contains("present=1", StringComparison.Ordinal))
+				throw new InvalidOperationException("Packing did not present: " + packing.Text);
+			var mountedBefore = CountLog(serial, "button-mounted");
+			PresentSeries(log, serial, session, pid, 10, "style", index =>
+			{
+				var size = index % 2 == 0 ? "22" : "28";
+				var source = originalPacking.Replace("FontSize = 22", "FontSize = " + size, StringComparison.Ordinal);
+				File.WriteAllText(packingPath, source);
+				var pushed = AndroidLoop.SendPacking(session, repo);
+				return (pushed.Applied, pushed.Text, "text=\"Packing\"", true);
+			}, () => true);
+			var mountedAfter = CountLog(serial, "button-mounted");
+			Line(log, "style-new-buttons=" + (mountedAfter - mountedBefore));
+			if (mountedAfter != mountedBefore)
+				throw new InvalidOperationException("A style-only edit remounted a button.");
+			File.WriteAllText(placesPath, originalPlaces);
+			var opened = AndroidLoop.SendSource(session, repo, "samples/NativePoc.Places/PlacesScreen.cs");
+			if (!opened.Applied || !opened.Text.Contains("present=1", StringComparison.Ordinal))
+				throw new InvalidOperationException("Places did not present: " + opened.Text);
+			Thread.Sleep(1200);
+			var effectsBefore = CountLog(serial, "effect-apply ");
+			Line(log, "effect-apply-before=" + effectsBefore);
+			PresentSeries(log, serial, session, pid, 10, "image", index =>
+			{
+				var sourceName = index % 2 == 0 ? "marker" : "marker2";
+				var source = originalPlaces.Replace("new Image(\"marker\")", "new Image(\"" + sourceName + "\")", StringComparison.Ordinal);
+				File.WriteAllText(placesPath, source);
+				var pushed = AndroidLoop.SendSource(session, repo, "samples/NativePoc.Places/PlacesScreen.cs");
+				return (pushed.Applied, pushed.Text, "content-desc=\"" + sourceName + "\"", true);
+			}, () => true);
+			PresentSeries(log, serial, session, pid, 10, "effect", index =>
+			{
+				var label = "P" + index.ToString("00", CultureInfo.InvariantCulture);
+				var source = originalPlaces.Replace("new Text(\"Place\")", "new Text(\"" + label + "\")", StringComparison.Ordinal);
+				File.WriteAllText(placesPath, source);
+				var pushed = AndroidLoop.SendSource(session, repo, "samples/NativePoc.Places/PlacesScreen.cs");
+				return (pushed.Applied, pushed.Text, "text=\"" + label + "\"", true);
+			}, () => true);
+			var effectsAfter = CountLog(serial, "effect-apply ");
+			Line(log, "effect-apply-after=" + effectsAfter);
+			if (effectsAfter != effectsBefore)
+				throw new InvalidOperationException("An effect reload applied the result again.");
+			File.WriteAllText(formPath, originalForm);
+			var form = AndroidLoop.SendSource(session, repo, "samples/NativePoc.Form/FormScreen.cs");
+			if (!form.Applied || !Tree(session).Contains("keyboard=Email", StringComparison.Ordinal) || !Tree(session).Contains("lines=4", StringComparison.Ordinal))
+				throw new InvalidOperationException("The form did not lower: " + form.Text + " " + Tree(session));
+			var entered = session.Connection.Apply(ScreenQuery.EnterId("form/email", "ada@camp.test"));
+			var noted = session.Connection.Apply(ScreenQuery.EnterId("form/note", "Bring the map"));
+			if (!entered.Ok || !noted.Ok)
+				throw new InvalidOperationException("The form fields did not accept text.");
+			Thread.Sleep(400);
+			var noteBefore = LastLog(serial, "field-note key=note ");
+			File.WriteAllText(formPath, originalForm.Replace("new Button(\"Check\"", "new Button(\"Mark\"", StringComparison.Ordinal));
+			var marked = AndroidLoop.SendSource(session, repo, "samples/NativePoc.Form/FormScreen.cs");
+			var noteAfter = LastLog(serial, "field-focus key=note ");
+			var caretOk = marked.Applied && Pid(serial) == pid && SameCaret(noteBefore, noteAfter) && noteBefore.Contains("end=13", StringComparison.Ordinal) && Ui(serial).Contains("Bring the map", StringComparison.Ordinal);
+			Line(log, "caret ok=" + caretOk + " note=" + noteBefore + " focus=" + noteAfter + " pid=" + Pid(serial));
+			if (!caretOk)
+				throw new InvalidOperationException("The note caret was not kept.");
+			File.WriteAllText(formPath, originalForm);
+			var restored = AndroidLoop.SendSource(session, repo, "samples/NativePoc.Form/FormScreen.cs");
+			if (!restored.Applied)
+				throw new InvalidOperationException("The form was not restored.");
+			var cleared = session.Connection.Apply(ScreenQuery.EnterId("form/email", ""));
+			var emptySubmit = session.Connection.Apply(ScreenQuery.SubmitId("form/note"));
+			var emptyState = State(session);
+			var emptyOk = cleared.Ok && emptySubmit.Ok && emptyState.Contains("Error=", StringComparison.Ordinal) && emptyState.Contains("456d61696c206973207265717569726564", StringComparison.Ordinal) && emptyState.Contains("Sent=false", StringComparison.Ordinal);
+			Line(log, "validation-empty ok=" + emptyOk);
+			if (!emptyOk || !LastLog(serial, "share-skipped").Contains("share-skipped", StringComparison.Ordinal))
+				throw new InvalidOperationException("Empty submit did not keep the error: " + emptyState);
+			var filled = session.Connection.Apply(ScreenQuery.EnterId("form/email", "ada@camp.test"));
+			var sent = session.Connection.Apply(ScreenQuery.SubmitId("form/note"));
+			var sentState = State(session);
+			var sentOk = filled.Ok && sent.Ok && sentState.Contains("Sent=true", StringComparison.Ordinal) && Pid(serial) == pid;
+			Line(log, "validation-sent ok=" + sentOk + " pid=" + Pid(serial));
+			if (!sentOk)
+				throw new InvalidOperationException("A valid submit did not send: " + sentState);
+			var share = LastLog(serial, "share-text ");
+			var haptic = AndroidLoop.Adb(serial, "logcat", "-d", "--pid=" + pid, "-s", "NativePoc:I").Stdout;
+			var hapticOk = haptic.Contains("haptic-ok", StringComparison.Ordinal) || haptic.Contains("haptic-unavailable", StringComparison.Ordinal);
+			Line(log, "share=" + share);
+			Line(log, "haptic-logged=" + hapticOk);
+			if (!share.Contains("share-text", StringComparison.Ordinal) || !hapticOk)
+				throw new InvalidOperationException("The platform modules did not log.");
+			AndroidLoop.Adb(serial, "shell", "input", "keyevent", "4");
+			if (Pid(serial) != pid)
+				throw new InvalidOperationException("The process changed.");
+			Directory.CreateDirectory("/opt/cursor/artifacts");
+			File.WriteAllText("/opt/cursor/artifacts/measure-surface.txt", log.ToString());
+			Console.Write(log.ToString());
+			return 0;
+		}
+		finally
+		{
+			if (!string.Equals(File.ReadAllText(packingPath), originalPacking, StringComparison.Ordinal))
+				File.WriteAllText(packingPath, originalPacking);
+			if (!string.Equals(File.ReadAllText(placesPath), originalPlaces, StringComparison.Ordinal))
+				File.WriteAllText(placesPath, originalPlaces);
+			if (!string.Equals(File.ReadAllText(formPath), originalForm, StringComparison.Ordinal))
+				File.WriteAllText(formPath, originalForm);
+			session.Dispose();
+		}
+	}
+
+	static int CountLog(string serial, string needle)
+	{
+		var dumped = AndroidLoop.Adb(serial, "logcat", "-d", "-s", "NativePoc:I");
+		var count = 0;
+		foreach (var line in dumped.Stdout.Split('\n'))
+		{
+			if (line.Contains(needle, StringComparison.Ordinal))
+				count++;
+		}
+
+		return count;
+	}
+
 	static string HostQemu()
 	{
 		var listed = ProcessRunner.Run("ps", ["-eo", "args="]);

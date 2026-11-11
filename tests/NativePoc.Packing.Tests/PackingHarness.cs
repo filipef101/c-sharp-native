@@ -59,6 +59,10 @@ sealed class PackHost : IElementHost<PackNode>
 		view.AccessibilityLabel = accessibilityLabel;
 	}
 
+	public void SetFieldMode(PackNode view, Keyboard keyboard, int lines, Submit submit)
+	{
+	}
+
 	public void SetTextField(PackNode view, string value, string placeholder, string accessibilityLabel)
 	{
 		view.Value = value;

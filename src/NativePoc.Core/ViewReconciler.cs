@@ -15,6 +15,8 @@ public interface IElementHost<TView>
 
 	void SetTextField(TView view, string value, string placeholder, string accessibilityLabel);
 
+	void SetFieldMode(TView view, Keyboard keyboard, int lines, Submit submit);
+
 	void SetSwitch(TView view, bool value, string accessibilityLabel);
 
 	void SetList(TView view, IReadOnlyList<Element> rows);
@@ -97,6 +99,9 @@ public sealed class ViewReconciler<TView>
 				return;
 			case SetTextField setField:
 				_host.SetTextField(ViewAt(setField.Path), setField.Value, setField.Placeholder, setField.AccessibilityLabel);
+				return;
+			case SetFieldMode mode:
+				_host.SetFieldMode(ViewAt(mode.Path), mode.Keyboard, mode.Lines, mode.Submit);
 				return;
 			case SetSwitch setSwitch:
 				_host.SetSwitch(ViewAt(setSwitch.Path), setSwitch.Value, setSwitch.AccessibilityLabel);

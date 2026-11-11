@@ -16,6 +16,7 @@ public static class PlacesScreen
 		platform.Effect("Banner", "places");
 		platform.Every("Tick");
 		return new Column(
+			new Text("Place") { Key = "where" },
 			new Text(state.Banner) { Key = "banner" },
 			new Text("t" + state.Tick) { Key = "tick" },
 			new Image("marker") { Key = "marker" }

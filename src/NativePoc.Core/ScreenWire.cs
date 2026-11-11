@@ -92,7 +92,15 @@ public static class ScreenSnapshot
 				Key(builder, field.Key);
 				builder.Append(" value=").Append(Quote(field.Value));
 				builder.Append(" placeholder=").Append(Quote(field.Placeholder));
-				builder.Append(" label=").Append(Quote(field.AccessibilityLabel)).Append('\n');
+				builder.Append(" label=").Append(Quote(field.AccessibilityLabel));
+				if (field.Keyboard != Keyboard.Text || field.Lines > 1 || field.Submit != Submit.None)
+				{
+					builder.Append(" keyboard=").Append(field.Keyboard.ToString());
+					builder.Append(" lines=").Append(field.Lines.ToString(CultureInfo.InvariantCulture));
+					builder.Append(" submit=").Append(field.Submit.ToString());
+				}
+
+				builder.Append('\n');
 				return;
 			case Switch toggle:
 				Key(builder, toggle.Key);
@@ -342,6 +350,7 @@ public static class ScreenQuery
 	public const byte Enter = 5;
 	public const byte Layout = 6;
 	public const byte Clock = 7;
+	public const byte Submit = 8;
 
 	public static bool IsQuery(ReadOnlySpan<byte> payload) =>
 		payload.Length >= 6
@@ -367,6 +376,7 @@ public static class ScreenQuery
 			case Restore:
 			case Press:
 			case Enter:
+			case Submit:
 				if (payload.Length < 7)
 					throw new InvalidOperationException("Rejected screen query.");
 				return op;
@@ -383,6 +393,12 @@ public static class ScreenQuery
 	{
 		ArgumentException.ThrowIfNullOrEmpty(id);
 		return WithBody(Press, Encoding.UTF8.GetBytes(id));
+	}
+
+	public static byte[] SubmitId(string id)
+	{
+		ArgumentException.ThrowIfNullOrEmpty(id);
+		return WithBody(Submit, Encoding.UTF8.GetBytes(id));
 	}
 
 	public static byte[] EnterId(string id, string text)

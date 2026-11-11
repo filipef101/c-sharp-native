@@ -668,6 +668,10 @@ public static class SubsetLowerer
 		List<Field>? _itemFields;
 		string _rows = "";
 		Style? _pendingStyle;
+		Keyboard _pendingKeyboard;
+		int _pendingLines;
+		Submit _pendingSubmit;
+		byte[]? _pendingSubmitScript;
 		string _listName = "";
 
 		public Lower(
@@ -1146,6 +1150,7 @@ public static class SubsetLowerer
 			_code.U16(script.Length);
 			_code.Bytes(script);
 			EmitStyle();
+			EmitFieldMode();
 			return true;
 		}
 
@@ -1434,6 +1439,10 @@ public static class SubsetLowerer
 			dynamic = false;
 			field = 0;
 			_pendingStyle = null;
+			_pendingKeyboard = Keyboard.Text;
+			_pendingLines = 0;
+			_pendingSubmit = Submit.None;
+			_pendingSubmitScript = null;
 			if (creation.Initializer is null)
 				return true;
 			foreach (var expression in creation.Initializer.Expressions)
@@ -1445,6 +1454,15 @@ public static class SubsetLowerer
 					if (!StyleOf(assignment.Right, out var style))
 						return false;
 					_pendingStyle = style;
+					continue;
+				}
+
+				if (name.Identifier.ValueText is "Keyboard" or "Lines" or "Submit" or "OnSubmit")
+				{
+					if (TypeName(creation) != "TextField")
+						return Fail(UnknownMember, "The screen subset does not include an element initializer.", assignment);
+					if (!FieldMode(name.Identifier.ValueText, assignment.Right))
+						return false;
 					continue;
 				}
 
@@ -1484,6 +1502,44 @@ public static class SubsetLowerer
 			_code.Op(RecordProgram.OpStyle);
 			_code.Bytes(bytes);
 			_pendingStyle = null;
+		}
+
+		bool FieldMode(string name, ExpressionSyntax expression)
+		{
+			switch (name)
+			{
+				case "Keyboard":
+					return EnumValue<Keyboard>(expression, out _pendingKeyboard)
+						|| Fail(UnknownMember, "The screen subset does not include an element initializer.", expression);
+				case "Lines":
+					return Integer(expression, out _pendingLines)
+						|| Fail(UnknownExpression, "The screen subset does not include this expression.", expression);
+				case "Submit":
+					return EnumValue<Submit>(expression, out _pendingSubmit)
+						|| Fail(UnknownMember, "The screen subset does not include an element initializer.", expression);
+				case "OnSubmit":
+					if (expression is not LambdaExpressionSyntax lambda || !Script(lambda, out var script))
+						return expression is LambdaExpressionSyntax ? false : Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", expression);
+					_pendingSubmitScript = script;
+					return true;
+				default:
+					return Fail(UnknownMember, "The screen subset does not include " + name + ".", expression);
+			}
+		}
+
+		void EmitFieldMode()
+		{
+			var script = _pendingSubmitScript;
+			if (_pendingKeyboard == Keyboard.Text && _pendingLines <= 1 && _pendingSubmit == Submit.None && (script is null || script.Length == 0))
+				return;
+			_code.Op(RecordProgram.OpFieldMode);
+			_code.U8((byte)_pendingKeyboard);
+			_code.U8((byte)Math.Max(_pendingLines, 0));
+			_code.U8((byte)_pendingSubmit);
+			_code.U16(script?.Length ?? 0);
+			if (script is { Length: > 0 })
+				_code.Bytes(script);
+			_pendingSubmitScript = null;
 		}
 
 		bool StyleOf(ExpressionSyntax expression, out Style style)
@@ -1741,7 +1797,50 @@ public static class SubsetLowerer
 				return true;
 			}
 
+			if (field.Kind == ValueKind.Str
+				&& assignment.Right is ConditionalExpressionSyntax choice
+				&& choice.Condition is BinaryExpressionSyntax empty
+				&& empty.IsKind(SyntaxKind.EqualsExpression)
+				&& LengthOf(empty, out var emptySource)
+				&& choice.WhenTrue is LiteralExpressionSyntax whenEmpty
+				&& whenEmpty.IsKind(SyntaxKind.StringLiteralExpression)
+				&& choice.WhenFalse is LiteralExpressionSyntax whenFull
+				&& whenFull.IsKind(SyntaxKind.StringLiteralExpression))
+			{
+				Act(script, RecordProgram.ActSetStrEmpty, _code.Intern(field.Name));
+				U16(script, _code.Intern(emptySource));
+				U16(script, _code.Intern(whenEmpty.Token.ValueText));
+				U16(script, _code.Intern(whenFull.Token.ValueText));
+				return true;
+			}
+
+			if (field.Kind == ValueKind.Bool
+				&& assignment.Right is BinaryExpressionSyntax present
+				&& present.IsKind(SyntaxKind.NotEqualsExpression)
+				&& LengthOf(present, out var presentSource))
+			{
+				Act(script, RecordProgram.ActSetBoolLen, _code.Intern(field.Name));
+				U16(script, _code.Intern(presentSource));
+				return true;
+			}
+
 			return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", assignment);
+		}
+
+		bool LengthOf(BinaryExpressionSyntax binary, out string source)
+		{
+			source = "";
+			if (binary.Left is not MemberAccessExpressionSyntax length
+				|| length.Name.Identifier.ValueText != "Length"
+				|| binary.Right is not LiteralExpressionSyntax zero
+				|| !zero.IsKind(SyntaxKind.NumericLiteralExpression)
+				|| zero.Token.ValueText != "0"
+				|| length.Expression is not MemberAccessExpressionSyntax member
+				|| !Member(member, out var field)
+				|| field.Kind != ValueKind.Str)
+				return false;
+			source = field.Name;
+			return true;
 		}
 
 		bool Increment(ExpressionSyntax operand, List<byte> script)
@@ -1760,6 +1859,8 @@ public static class SubsetLowerer
 				return StateCall(member.Name.Identifier.ValueText, script, invocation);
 			if (owner.Identifier.ValueText == "PackingTelemetry")
 				return true;
+			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share")
+				return ModuleCall(owner.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, script);
 			if (owner.Identifier.ValueText != _platform)
 				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
 			if (member.Name.Identifier.ValueText == "RequestRender" && invocation.ArgumentList.Arguments.Count == 0)
@@ -1795,6 +1896,61 @@ public static class SubsetLowerer
 			}
 
 			return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+		}
+
+		bool ModuleCall(string module, string method, InvocationExpressionSyntax invocation, List<byte> script)
+		{
+			var args = invocation.ArgumentList.Arguments;
+			if (args.Count == 0 || args[0].Expression is not IdentifierNameSyntax platform || platform.Identifier.ValueText != _platform)
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+			var encoded = new List<(byte Kind, int Index)>();
+			if (module == "Haptics" && method == "Confirm" && args.Count == 1)
+			{
+			}
+			else if (module == "Share" && method == "Text" && args.Count == 2)
+			{
+				if (!ModuleArg(args[1].Expression, encoded))
+					return false;
+			}
+			else if (module == "Clipboard" && method == "Copy" && args.Count == 3)
+			{
+				if (args[1].Expression is not LiteralExpressionSyntax label || !label.IsKind(SyntaxKind.StringLiteralExpression))
+					return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", args[1].Expression);
+				encoded.Add((0, _code.Intern(label.Token.ValueText)));
+				if (!ModuleArg(args[2].Expression, encoded))
+					return false;
+			}
+			else
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+
+			script.Add(RecordProgram.ActModule);
+			U16(script, _code.Intern(module.ToLowerInvariant()));
+			U16(script, _code.Intern(method));
+			script.Add((byte)encoded.Count);
+			foreach (var (kind, index) in encoded)
+			{
+				script.Add(kind);
+				U16(script, index);
+			}
+
+			return true;
+		}
+
+		bool ModuleArg(ExpressionSyntax expression, List<(byte Kind, int Index)> encoded)
+		{
+			if (expression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
+			{
+				encoded.Add((0, _code.Intern(literal.Token.ValueText)));
+				return true;
+			}
+
+			if (expression is MemberAccessExpressionSyntax member && Member(member, out var field) && field.Kind == ValueKind.Str)
+			{
+				encoded.Add((1, _code.Intern(field.Name)));
+				return true;
+			}
+
+			return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", expression);
 		}
 
 		bool StateCall(string name, List<byte> script, InvocationExpressionSyntax invocation)

@@ -84,6 +84,8 @@ public sealed record SetButton(NodePath Path, string Title, string Accessibility
 
 public sealed record SetTextField(NodePath Path, string Value, string Placeholder, string AccessibilityLabel) : Patch;
 
+public sealed record SetFieldMode(NodePath Path, Keyboard Keyboard, int Lines, Submit Submit) : Patch;
+
 public sealed record SetSwitch(NodePath Path, bool Value, string AccessibilityLabel) : Patch;
 
 public sealed record Reorder(NodePath Parent, IReadOnlyList<int> Sources) : Patch;
@@ -272,6 +274,15 @@ public static class TreeDiff
 					|| previousField.AccessibilityLabel != field.AccessibilityLabel)
 				{
 					patches.Add(new SetTextField(path, field.Value, field.Placeholder, field.AccessibilityLabel));
+				}
+
+				if (previous is not TextField previousMode
+					|| previousMode.Keyboard != field.Keyboard
+					|| previousMode.Lines != field.Lines
+					|| previousMode.Submit != field.Submit)
+				{
+					if (field.Keyboard != Keyboard.Text || field.Lines > 1 || field.Submit != Submit.None)
+						patches.Add(new SetFieldMode(path, field.Keyboard, field.Lines, field.Submit));
 				}
 				return;
 			case Switch toggle:

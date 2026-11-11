@@ -35,7 +35,7 @@ That builds Debug (`dotnet build -c Debug -f net10.0-android -r <rid> -t:Run`) a
 
 Change the title string in `samples/hello/HelloScreen.cs` and save. The watcher lowers that file and applies it in the same process. The log line is `cnative: reload samples/hello/HelloScreen.cs`.
 
-`samples/NativePoc.Packing/PackingScreen.cs` and `src/NativePoc.Screen/Screen.cs` reload the same way. Only `src/NativePoc.Screen/Screen.cs` reloads in place through the resident compiler. A generated screen and the packing screen are lowered as programs. Other files need a rebuild.
+`samples/NativePoc.Packing/PackingScreen.cs` and `src/NativePoc.Screen/Screen.cs` reload the same way. Only `src/NativePoc.Screen/Screen.cs` reloads in place through the resident compiler, and that compiler's output is lowered to a program before it is applied. A generated screen and the packing screen are lowered as programs. Other files need a rebuild.
 
 ## Tests and the Android build
 
@@ -48,4 +48,4 @@ dotnet test tools/devx/NativePoc.Devx.Cli.Tests/NativePoc.Devx.Cli.Tests.csproj 
 dotnet build src/NativePoc.Android/NativePoc.Android.csproj -c Debug -f net10.0-android
 ```
 
-`.github/workflows/ci.yml` runs those commands on push and pull request.
+A GitHub Actions workflow for those commands is pending. It is not in this tree yet.

@@ -109,6 +109,8 @@ static class AgentLoop
 					return Query(connection, ScreenQuery.PressId(invocation.Path ?? ""));
 				case "enter":
 					return Query(connection, ScreenQuery.EnterId(invocation.Path ?? "", invocation.Text ?? ""));
+				case "submit":
+					return Query(connection, ScreenQuery.SubmitId(invocation.Path ?? ""));
 				case "a11y":
 					Console.Write(AccessibilityDump.Summarize(AccessibilityDump.Read(serial)));
 					return 0;
@@ -138,7 +140,7 @@ static class AgentLoop
 	public static AgentInvocation Parse(IReadOnlyList<string> args)
 	{
 		if (args.Count == 0 || args[0] != "agent")
-			throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type|press|enter|a11y|layout|logs|clock");
+			throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type|press|enter|submit|a11y|layout|logs|clock");
 		string? serial = null;
 		string? verb = null;
 		var running = false;
@@ -195,15 +197,16 @@ static class AgentLoop
 					throw new UsageException("Usage: cnative agent type <text>");
 				return new AgentInvocation(verb, serial, null, 0, 0, string.Join(' ', positionals), running);
 			case "press":
+			case "submit":
 				if (positionals.Count != 1)
-					throw new UsageException("Usage: cnative agent press <id>");
+					throw new UsageException("Usage: cnative agent " + verb + " <id>");
 				return new AgentInvocation(verb, serial, positionals[0], 0, 0, null, running);
 			case "enter":
 				if (positionals.Count < 2)
 					throw new UsageException("Usage: cnative agent enter <id> <text>");
 				return new AgentInvocation(verb, serial, positionals[0], 0, 0, string.Join(' ', positionals.Skip(1)), running);
 			default:
-				throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type|press|enter|a11y|layout|logs|clock");
+				throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type|press|enter|submit|a11y|layout|logs|clock");
 		}
 	}
 

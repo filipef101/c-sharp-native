@@ -37,6 +37,7 @@ public static class RecordProgram
 	public const byte OpMakeImage = 29;
 	public const byte OpEffect = 30;
 	public const byte OpEvery = 31;
+	public const byte OpFieldMode = 32;
 
 	public const byte ActRender = 1;
 	public const byte ActSetStr = 2;
@@ -55,6 +56,9 @@ public static class RecordProgram
 	public const byte ActCommitDraft = 15;
 	public const byte ActPush = 16;
 	public const byte ActPop = 17;
+	public const byte ActSetStrEmpty = 18;
+	public const byte ActSetBoolLen = 19;
+	public const byte ActModule = 20;
 
 	public const byte TypeString = 1;
 	public const byte TypeBool = 2;
@@ -693,6 +697,35 @@ public static class RecordProgram
 				platform.Every(property);
 				return ip;
 			}
+			case OpFieldMode:
+			{
+				if (ip + 5 > end)
+					throw new InvalidOperationException("Rejected record program.");
+				var keyboard = (Keyboard)code[ip];
+				var lines = code[ip + 1];
+				var submit = (Submit)code[ip + 2];
+				ip += 3;
+				if (!Enum.IsDefined(keyboard) || !Enum.IsDefined(submit))
+					throw new InvalidOperationException("Rejected record program.");
+				var length = TakeU16(code, ref ip, end);
+				if (ip + length > end)
+					throw new InvalidOperationException("Rejected record program.");
+				var script = code.AsSpan(ip, length).ToArray();
+				ip += length;
+				if (Pop(stack, ref sp, SlotKind.Elem).Node is not TextField field)
+					throw new InvalidOperationException("Rejected record program.");
+				Action? onSubmit = script.Length == 0
+					? null
+					: () => RunScript(script, strings, bag, platform, null, false, null);
+				Push(stack, ref sp, Slot.Elem(field with
+				{
+					Keyboard = keyboard,
+					Lines = lines,
+					Submit = submit,
+					OnSubmit = onSubmit,
+				}));
+				return ip;
+			}
 			default:
 				throw new InvalidOperationException("Rejected record program.");
 		}
@@ -872,6 +905,47 @@ public static class RecordProgram
 				case ActPop:
 					platform.Pop();
 					break;
+				case ActSetStrEmpty:
+				{
+					var dest = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var source = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var whenEmpty = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var whenFull = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					bag.WriteString(dest, bag.ReadString(source).Length == 0 ? whenEmpty : whenFull);
+					break;
+				}
+				case ActSetBoolLen:
+				{
+					var dest = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var source = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					bag.WriteBool(dest, bag.ReadString(source).Length != 0);
+					break;
+				}
+				case ActModule:
+				{
+					var module = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var method = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					if (ip >= script.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var count = script[ip++];
+					var moduleArgs = new string[count];
+					for (var index = 0; index < count; index++)
+					{
+						if (ip >= script.Length)
+							throw new InvalidOperationException("Rejected record program.");
+						var kind = script[ip++];
+						var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+						moduleArgs[index] = kind switch
+						{
+							0 => name,
+							1 => bag.ReadString(name),
+							_ => throw new InvalidOperationException("Rejected record program."),
+						};
+					}
+
+					platform.Module(module, method, moduleArgs);
+					break;
+				}
 				default:
 					throw new InvalidOperationException("Rejected record program.");
 			}

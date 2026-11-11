@@ -293,11 +293,63 @@ public sealed class SubsetLowererTests
 		Assert.DoesNotContain(patches, patch => patch is Replace);
 	}
 
+	[Fact]
+	public void A_form_keeps_its_keyboard_and_validates_on_submit()
+	{
+		var path = Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Form", "FormScreen.cs");
+		var lowered = SubsetLowerer.TryLower(File.ReadAllText(path));
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var platform = new ModulePlatform();
+		var bag = new RecordProgram.Bag();
+		var tree = RecordProgram.Bind(lowered.Program!, bag).Render(platform);
+		var email = Assert.IsType<TextField>(ElementIds.Require(tree, "form/email"));
+		var note = Assert.IsType<TextField>(ElementIds.Require(tree, "form/note"));
+		Assert.Equal(Keyboard.Email, email.Keyboard);
+		Assert.Equal(Submit.Next, email.Submit);
+		Assert.Equal(4, note.Lines);
+		Assert.Equal(Submit.Send, note.Submit);
+		ElementIds.Submit(tree, "form/note");
+		Assert.Equal("Email is required", bag.ReadString("Error"));
+		Assert.False(bag.ReadBool("Sent"));
+		Assert.Equal(["haptic", "share-skipped"], platform.Calls);
+		bag.WriteString("Email", "ada@camp.test");
+		var again = RecordProgram.Bind(lowered.Program!, bag).Render(platform);
+		ElementIds.Submit(again, "form/note");
+		Assert.Equal("", bag.ReadString("Error"));
+		Assert.True(bag.ReadBool("Sent"));
+		Assert.Equal(["haptic", "share-skipped", "haptic", "share:ada@camp.test"], platform.Calls);
+	}
+
 	static string TextValue(Element root, string id) =>
 		Assert.IsType<Text>(ElementIds.Require(root, id)).Value;
 
 	static string FieldValue(Element root, string id) =>
 		Assert.IsType<TextField>(ElementIds.Require(root, id)).Value;
+
+	sealed class ModulePlatform : IPlatform
+	{
+		public List<string> Calls { get; } = new();
+
+		public void CopyNonce(string nonce)
+		{
+		}
+
+		public void RequestRender()
+		{
+		}
+
+		public void Module(string module, string method, string[] args)
+		{
+			if (module == "share" && args.Length == 1 && args[0].Length == 0)
+				Calls.Add("share-skipped");
+			else if (module == "share")
+				Calls.Add("share:" + args[0]);
+			else if (module == "haptics")
+				Calls.Add("haptic");
+			else
+				Calls.Add(module + "." + method);
+		}
+	}
 
 	sealed class EffectPlatform : IPlatform
 	{

@@ -27,6 +27,14 @@ public static class ElementIds
 		throw new InvalidOperationException("No element id " + id + ".");
 	}
 
+	public static string Submit(Element root, string id)
+	{
+		if (Require(root, id) is not TextField field || field.OnSubmit is null)
+			throw new InvalidOperationException("Element " + id + " has no submit.");
+		field.OnSubmit();
+		return "submitted " + id;
+	}
+
 	public static string Invoke(Element root, string id, string? text)
 	{
 		var element = Require(root, id);

@@ -332,4 +332,7 @@ sealed class PackingPlatform : IPlatform
 		EffectRuntime.Start(_activity, property, resource, () => _activity.RequestRender());
 
 	public void Every(string property) => ClockRuntime.Arm(property);
+
+	public void Module(string module, string method, string[] args) =>
+		PlatformModules.Dispatch(_activity, module, method, args);
 }

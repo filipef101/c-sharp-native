@@ -66,6 +66,10 @@ sealed class MemoryHost : IElementHost<MemoryNode>
 		view.AccessibilityLabel = accessibilityLabel;
 	}
 
+	public void SetFieldMode(MemoryNode view, Keyboard keyboard, int lines, Submit submit)
+	{
+	}
+
 	public void SetTextField(MemoryNode view, string value, string placeholder, string accessibilityLabel)
 	{
 		view.Value = value;

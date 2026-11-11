@@ -4,6 +4,7 @@ using Android.Graphics.Drawables;
 using Android.Text;
 using Android.Util;
 using Android.Views;
+using Android.Views.InputMethods;
 using Android.Widget;
 using AndroidButton = Android.Widget.Button;
 using AndroidScroll = Android.Widget.ScrollView;
@@ -94,6 +95,43 @@ sealed class AndroidHost : IElementHost<View>
 
 	public void RestoreFocus(View root) => FieldFocus.Restore(root);
 
+	public void SetFieldMode(View view, Keyboard keyboard, int lines, Submit submit)
+	{
+		if (view is not EditText edit)
+			throw new InvalidOperationException("Text field patch targeted a non-field view.");
+		var input = keyboard switch
+		{
+			Keyboard.Text => InputTypes.ClassText,
+			Keyboard.Email => InputTypes.ClassText | InputTypes.TextVariationEmailAddress,
+			Keyboard.Number => InputTypes.ClassNumber,
+			Keyboard.Phone => InputTypes.ClassPhone,
+			Keyboard.Password => InputTypes.ClassText | InputTypes.TextVariationPassword,
+			_ => throw new InvalidOperationException("Unknown keyboard."),
+		};
+		var multiline = lines > 1 && keyboard != Keyboard.Password;
+		if (multiline)
+		{
+			edit.SetSingleLine(false);
+			edit.SetMinLines(lines);
+			edit.Gravity = GravityFlags.Top;
+			input |= InputTypes.TextFlagMultiLine;
+		}
+		else
+			edit.SetSingleLine(true);
+		edit.InputType = input;
+		edit.ImeOptions = submit switch
+		{
+			Submit.Next => ImeAction.Next,
+			Submit.Send => ImeAction.Send,
+			Submit.Go => ImeAction.Go,
+			Submit.Search => ImeAction.Search,
+			Submit.None => ImeAction.Done,
+			_ => throw new InvalidOperationException("Unknown submit action."),
+		};
+		var key = edit is AndroidField marked ? marked.Key ?? "" : "";
+		Log.Info(MainActivity.Tag, "field-mode key=" + key + " keyboard=" + keyboard + " lines=" + lines + " submit=" + submit);
+	}
+
 	public void SetTextField(View view, string value, string placeholder, string accessibilityLabel)
 	{
 		if (view is not EditText edit)
@@ -110,12 +148,36 @@ sealed class AndroidHost : IElementHost<View>
 		try
 		{
 			edit.Text = value;
+			if (edit is AndroidField marked && marked.Key is not null)
+			{
+				var placed = edit.Text?.Length ?? 0;
+				int start;
+				int end;
+				if (current.Length == 0 && placed > 0)
+				{
+					start = placed;
+					end = placed;
+				}
+				else if (!FieldFocus.TryRead(marked.Key, out start, out end))
+				{
+					start = edit.SelectionStart;
+					end = edit.SelectionEnd;
+				}
+
+				start = Math.Clamp(start, 0, placed);
+				end = Math.Clamp(end, 0, placed);
+				if (edit.SelectionStart != start || edit.SelectionEnd != end)
+					edit.SetSelection(Math.Min(start, end), Math.Max(start, end));
+			}
 		}
 		finally
 		{
 			_applyingText = false;
 			FieldFocus.Frozen = false;
 		}
+
+		if (edit is AndroidField noted && noted.Key is not null)
+			FieldFocus.Note(noted.Key, noted.SelectionStart, noted.SelectionEnd);
 	}
 
 	public void SetStyle(View view, Style style)
@@ -321,19 +383,40 @@ sealed class AndroidHost : IElementHost<View>
 		{
 			if (_applyingText)
 				return;
+			if (edit is AndroidField marked && marked.Key is not null && !FieldFocus.Frozen)
+				FieldFocus.Note(marked.Key, marked.SelectionStart, marked.SelectionEnd);
 			if (CurrentElement(path) is TextField field)
 				field.OnChange(args.Text?.ToString() ?? "");
 		};
 		edit.TextChanged += handler;
-		_listeners[view] = new Listener { TextChanged = handler };
+		EventHandler<TextView.EditorActionEventArgs> editor = (_, args) =>
+		{
+			if (CurrentElement(path) is not TextField current || current.OnSubmit is null)
+				return;
+			var expected = current.Submit switch
+			{
+				Submit.Next => ImeAction.Next,
+				Submit.Send => ImeAction.Send,
+				Submit.Go => ImeAction.Go,
+				Submit.Search => ImeAction.Search,
+				Submit.None => ImeAction.Done,
+				_ => throw new InvalidOperationException("Unknown submit action."),
+			};
+			if (args.ActionId != expected)
+				return;
+			current.OnSubmit();
+			args.Handled = true;
+		};
+		edit.EditorAction += editor;
+		_listeners[view] = new Listener { TextChanged = handler, Editor = editor };
 		if (edit is AndroidField field)
 		{
 			field.Key = CurrentElement(path)?.Key;
 			field.FocusChange += (_, args) =>
 			{
-				if (!args.HasFocus || field.Key is null)
-					return;
-				FieldFocus.Note(field.Key, field.SelectionStart, field.SelectionEnd);
+			if (!args.HasFocus || field.Key is null || FieldFocus.Frozen)
+				return;
+			FieldFocus.Note(field.Key, field.SelectionStart, field.SelectionEnd);
 			};
 		}
 	}
@@ -370,8 +453,13 @@ sealed class AndroidHost : IElementHost<View>
 					button.Click -= listener.Click;
 				return;
 			case HostInput.TextField:
-				if (listener.TextChanged is not null && view is EditText edit)
-					edit.TextChanged -= listener.TextChanged;
+				if (view is EditText edit)
+				{
+					if (listener.TextChanged is not null)
+						edit.TextChanged -= listener.TextChanged;
+					if (listener.Editor is not null)
+						edit.EditorAction -= listener.Editor;
+				}
 				return;
 			case HostInput.Switch:
 				if (listener.Checked is not null && view is AndroidSwitch toggle)
@@ -399,6 +487,8 @@ sealed class AndroidHost : IElementHost<View>
 
 		public EventHandler<TextChangedEventArgs>? TextChanged { get; init; }
 
+		public EventHandler<TextView.EditorActionEventArgs>? Editor { get; init; }
+
 		public EventHandler<CompoundButton.CheckedChangeEventArgs>? Checked { get; init; }
 	}
 
@@ -421,14 +511,6 @@ sealed class AndroidField : EditText
 	public AndroidField(Context context) : base(context)
 	{
 	}
-
-	protected override void OnSelectionChanged(int selStart, int selEnd)
-	{
-		base.OnSelectionChanged(selStart, selEnd);
-		if (FieldFocus.Frozen || Key is null)
-			return;
-		FieldFocus.Note(Key, selStart, selEnd);
-	}
 }
 
 static class FieldFocus
@@ -447,6 +529,20 @@ static class FieldFocus
 		Log.Info(MainActivity.Tag, "field-note key=" + key + " start=" + start + " end=" + end);
 	}
 
+	public static bool TryRead(string key, out int start, out int end)
+	{
+		if (_key != key)
+		{
+			start = 0;
+			end = 0;
+			return false;
+		}
+
+		start = _start;
+		end = _end;
+		return true;
+	}
+
 	public static void Restore(View root)
 	{
 		if (_key is null)
@@ -461,8 +557,12 @@ static class FieldFocus
 		Frozen = true;
 		try
 		{
-			field.RequestFocus();
-			field.SetSelection(Math.Min(start, end), Math.Max(start, end));
+			if (!field.IsFocused)
+				field.RequestFocus();
+			var nextStart = Math.Min(start, end);
+			var nextEnd = Math.Max(start, end);
+			if (field.SelectionStart != nextStart || field.SelectionEnd != nextEnd)
+				field.SetSelection(nextStart, nextEnd);
 		}
 		finally
 		{
@@ -521,4 +621,7 @@ sealed class PlatformBridge : IPlatform
 		EffectRuntime.Start(_activity, property, resource, () => _activity.RequestRender());
 
 	public void Every(string property) => ClockRuntime.Arm(property);
+
+	public void Module(string module, string method, string[] args) =>
+		PlatformModules.Dispatch(_activity, module, method, args);
 }
