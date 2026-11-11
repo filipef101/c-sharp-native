@@ -52,8 +52,40 @@ public static partial class RecordProgram
 	public const byte VmTryParse = 45;
 	public const byte VmUser = 46;
 	public const byte VmWatch = 47;
+	public const byte VmApp = 48;
 
 	public const string CollectionModified = "Collection was modified; enumeration operation may not execute.";
+
+	public readonly struct AppValue
+	{
+		public byte Kind { get; }
+
+		public int Int { get; }
+
+		public bool Flag { get; }
+
+		public string? Text { get; }
+
+		AppValue(byte kind, int whole, bool flag, string? text)
+		{
+			Kind = kind;
+			Int = whole;
+			Flag = flag;
+			Text = text;
+		}
+
+		public static AppValue FromInt(int value) => new(VmKindInt, value, false, null);
+
+		public static AppValue FromBool(bool value) => new(VmKindBool, 0, value, null);
+
+		public static AppValue FromStr(string value) => new(VmKindStr, 0, false, value);
+	}
+
+	public delegate AppValue AppDispatch(string typeName, string methodName, AppValue[] args);
+
+	static AppDispatch? _appCall;
+
+	public static void BindAppCall(AppDispatch? dispatch) => _appCall = dispatch;
 
 	static readonly string NullMessage = new NullReferenceException().Message;
 
@@ -371,6 +403,25 @@ public static partial class RecordProgram
 					Push(stack, ref sp, Val.FromBool(parsed));
 					break;
 				}
+				case VmApp:
+				{
+					var typeName = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+					var methodName = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+					if (ip >= end)
+						throw new InvalidOperationException("Rejected record program.");
+					var argc = code[ip++];
+					if (argc > 8)
+						throw new InvalidOperationException("Rejected record program.");
+					var passed = new AppValue[argc];
+					for (var index = argc - 1; index >= 0; index--)
+						passed[index] = ToApp(Pop(stack, ref sp));
+					if (_appCall is null)
+						throw new InvalidOperationException("No compiled method " + typeName + "." + methodName + ". The call table is not installed.");
+					var result = _appCall(typeName, methodName, passed);
+					if (result.Kind != 0)
+						Push(stack, ref sp, FromApp(result));
+					break;
+				}
 				default:
 					throw new InvalidOperationException("Rejected record program.");
 			}
@@ -651,6 +702,23 @@ public static partial class RecordProgram
 				throw new InvalidOperationException("Rejected record program.");
 		}
 	}
+
+	static AppValue ToApp(Val value) => value.Kind switch
+	{
+		ValInt => AppValue.FromInt(value.Int),
+		ValBool => AppValue.FromBool(value.Flag),
+		ValStr => AppValue.FromStr(value.Text ?? ""),
+		ValNull => AppValue.FromStr(""),
+		_ => throw new ActionStoppedException("action stopped: the call table takes int, bool, and string"),
+	};
+
+	static Val FromApp(AppValue value) => value.Kind switch
+	{
+		VmKindInt => Val.FromInt(value.Int),
+		VmKindBool => Val.FromBool(value.Flag),
+		VmKindStr => Val.FromStr(value.Text ?? ""),
+		_ => throw new InvalidOperationException("No compiled method returned a value this program can carry."),
+	};
 
 	static int AsInt(Val value)
 	{

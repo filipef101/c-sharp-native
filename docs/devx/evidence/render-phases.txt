@@ -1,0 +1,94 @@
+RequestRender phases on the counter screen.
+Emulator-run 2026-11-11. AVD poc34, API 34, x86_64, serial emulator-5554.
+Boot id 56815464-4bc4-4f4c-a503-944cb91ab31f for every pid below.
+Package com.scratch.nativepoc. Activity crc64ee53024f7ed0aa60.MainActivity.
+Bench extra nativepoc_bench=render10. Ten traced RequestRender calls.
+Hyndman-Fan type 7 p50 for n=10 is the mean of the 5th and 6th sorted samples.
+IsDynamicCodeSupported=False and IsDynamicCodeCompiled=False on every pid.
+
+The clock is inside RenderNow. eval is record.Render or Screen.Render.
+diff is TreeDiff.Diff. reconcile is ViewReconciler.Commit.
+book is the first-frame census after the cut, and every frame before it.
+layout is Measure plus Layout when the root already has a size.
+invalidate is Invalidate. paint is ThemeRuntime.Paint.
+after is direction, title, focus, and the rendered-count log.
+save is StateStore.Save on the listener. Release compiles that call out, so save is 0.
+
+The listener and Release are different eval paths on this bench.
+Debug state restore left Top() null, so the listener logged
+bench-count missing screen=none and rendered the C# screen.
+Titles moved Counter 21 through Counter 30 before the cut (pid 6405)
+and Counter 31 through Counter 40 after it (pid 6710).
+Release has no state store, so the counter record stayed on the stack.
+Titles moved Counter 1 through Counter 10 on pid 6582 and again on pid 6825.
+Both paths change the title. They are not the same function.
+
+Unit 73's 4665.5 µs was action-us on pid 5686 for a handler whose body
+was RequestRender. That clock wraps the script. This bench's phases are
+only RenderNow, on the counter. Summing these p50s does not reproduce 4665.5.
+Listener before 1279.0 µs, listener after 304.5 µs, Release before 188.0 µs,
+Release after 182.0 µs.
+
+Before, listener pid 6405. Samples in bench order.
+eval         21 3 4 3 3 3 3 18 4 3          p50 3.0
+diff         17 13 12 11 11 53 37 12 11 11  p50 12.0
+reconcile    530 195 175 164 161 165 157 159 178 151  p50 164.5
+layout       37 28 27 24 23 24 23 23 27 23  p50 24.0
+invalidate   6 6 6 5 5 5 5 5 5 5            p50 5.0
+paint        86 65 203 57 57 63 56 99 61 57 p50 62.0
+book         8121 257 247 110 109 132 111 110 2040 109  p50 121.5
+after        1321 3050 2660 324 326 298 292 401 579 334  p50 367.5
+save         543 496 3765 3315 485 445 711 478 734 480  p50 519.5
+Largest phase: save, 519.5 µs. The write was on the UI thread.
+
+Before, Release pid 6582.
+eval         38 38 33 34 30 33 25 33 31 30  p50 33.0
+diff         7 3 3 3 3 3 3 3 3 3            p50 3.0
+reconcile    376 42 39 32 40 37 46 31 26 23 p50 38.0
+layout       6 5 5 5 5 7 4 5 5 5            p50 5.0
+invalidate   2 1 2 1 2 2 2 1 1 1            p50 1.5
+paint        13 12 11 63 13 16 12 12 12 12  p50 12.0
+book         67 71 80 70 78 456 70 72 61 71 p50 71.0
+after        24 24 27 27 26 25 24 23 26 24  p50 24.5
+save         0 0 0 0 0 0 0 0 0 0            p50 0.0
+Largest phase: book, 71.0 µs.
+
+The cut, same boot, same bench. Diff returns when the two nodes are the
+same reference. The census runs on the first frame. Paint runs when the
+root or the dark bit changes. LogTree runs on a structural patch.
+StateStore.Save copies the checkpoint on the UI thread and a worker writes
+the latest bytes. The save phase is that handoff. The worker logs
+state-save-us. Diff was 12.0 µs and 3.0 µs, so the identity check was not
+the 4.7 ms lead.
+
+After, listener pid 6710. Titles Counter 31 through Counter 40.
+eval         5 4 6 3 2 2 2 2 3 2            p50 2.5
+diff         12 11 19 8 8 13 7 7 15 6       p50 9.5
+reconcile    1105 174 190 133 120 121 112 112 114 86  p50 120.5
+layout       28 22 54 21 20 20 19 19 20 18  p50 20.0
+invalidate   6 5 5 5 5 5 5 5 5 5            p50 5.0
+paint        1 1 1 0 0 0 0 0 0 0            p50 0.0
+book         0 0 0 0 0 0 0 0 0 0            p50 0.0
+after        177 144 137 92 90 93 88 41 48 38  p50 91.0
+save         84 58 81 58 53 77 54 54 49 44  p50 56.0
+Largest remaining phase: reconcile, 120.5 µs.
+state-save-us on the worker, two writes for the ten frames: 1985 and 922.
+That is not an n=10 p50.
+
+After, Release pid 6825. Titles Counter 1 through Counter 10.
+eval         46 44 57 51 41 48 35 54 53 59  p50 49.5
+diff         14 5 7 4 3 3 3 2 3 3           p50 3.0
+reconcile    360 54 83 39 34 33 32 27 32 29 p50 33.5
+layout       6 6 9 6 5 5 5 4 5 5            p50 5.0
+invalidate   2 1 2 1 1 1 1 1 1 1            p50 1.0
+paint        0 0 0 0 0 0 0 0 0 0            p50 0.0
+book         0 0 0 0 0 0 0 0 0 0            p50 0.0
+after        137 79 101 74 72 142 27 192 30 143  p50 90.0
+save         0 0 0 0 0 0 0 0 0 0            p50 0.0
+book 71.0 went to 0. eval 33.0 went to 49.5. after 24.5 went to 90.0.
+The new largest Release phase is after, 90.0 µs. The summed p50s moved
+from 188.0 to 182.0.
+
+These four pids were published before the call-table arguments were stored
+in locals. RenderNow did not change after that. The final binary sizes are
+in call-table.txt.

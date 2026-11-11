@@ -64,6 +64,8 @@
 		<ProjectReference Include="..\NativePoc.Core\NativePoc.Core.csproj" />
 		<ProjectReference Include="..\NativePoc.Screen\NativePoc.Screen.csproj" />
 		<ProjectReference Include="..\..\samples\NativePoc.Packing\NativePoc.Packing.csproj" />
+		<ProjectReference Include="..\..\samples\NativePoc.Library\NativePoc.Library.csproj" />
+		<ProjectReference Include="..\NativePoc.ReloadGen\NativePoc.ReloadGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(NativePocAotProfile)' != ''">
 		<AndroidAotProfile Include="$(NativePocAotProfile)" />

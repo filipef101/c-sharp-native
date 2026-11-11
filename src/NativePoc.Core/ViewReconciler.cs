@@ -76,11 +76,18 @@ public sealed class ViewReconciler<TView>
 	{
 		ArgumentNullException.ThrowIfNull(next);
 		var patches = TreeDiff.Diff(_previous, next);
+		Commit(next, patches);
+		return patches;
+	}
+
+	public void Commit(Element next, IReadOnlyList<Patch> patches)
+	{
+		ArgumentNullException.ThrowIfNull(next);
+		ArgumentNullException.ThrowIfNull(patches);
 		_current = next;
 		foreach (var patch in patches)
 			Apply(patch);
 		_previous = next;
-		return patches;
 	}
 
 	void Apply(Patch patch)

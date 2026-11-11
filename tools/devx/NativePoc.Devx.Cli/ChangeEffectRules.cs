@@ -20,11 +20,13 @@ static class ChangeEffectRules
 			if (normalized.Contains("/bin/", StringComparison.Ordinal) || normalized.Contains("/obj/", StringComparison.Ordinal))
 				continue;
 			if (normalized.StartsWith("src/NativePoc.Core/", StringComparison.Ordinal)
-				|| normalized.StartsWith("src/NativePoc.Android/", StringComparison.Ordinal))
+				|| normalized.StartsWith("src/NativePoc.Android/", StringComparison.Ordinal)
+				|| IsCallableSource(normalized))
 				return ChangeEffect.RestartRequired;
 			if (normalized.StartsWith("src/NativePoc.Screen/", StringComparison.Ordinal)
 				|| normalized.StartsWith("samples/NativePoc.Packing/", StringComparison.Ordinal)
-				|| IsAppScreen(normalized))
+				|| IsAppScreen(normalized)
+				|| IsSampleCompanion(normalized))
 				effect = ChangeEffect.ReloadScreen;
 		}
 
@@ -45,7 +47,27 @@ static class ChangeEffectRules
 		var parts = normalized.Split('/');
 		if (parts.Length != 3 || !NewLoop.IsName(parts[1]))
 			return false;
-		return parts[2] == NewLoop.TypeName(parts[1]) + "Screen.cs";
+		return parts[2].Length > "Screen.cs".Length;
+	}
+
+	public static bool IsSampleCompanion(string relativePath)
+	{
+		var normalized = Normalize(relativePath);
+		if (!normalized.StartsWith("samples/", StringComparison.Ordinal) || !normalized.EndsWith(".cs", StringComparison.Ordinal) || IsAppScreen(normalized))
+			return false;
+		var parts = normalized.Split('/');
+		return parts.Length == 3 && NewLoop.IsName(parts[1]);
+	}
+
+	public static bool IsCallableSource(string relativePath)
+	{
+		var normalized = Normalize(relativePath);
+		if (normalized == "src/NativePoc.Screen/CounterService.cs")
+			return true;
+		return normalized.StartsWith("samples/NativePoc.Library/", StringComparison.Ordinal)
+			&& normalized.EndsWith(".cs", StringComparison.Ordinal)
+			&& !normalized.Contains("/bin/", StringComparison.Ordinal)
+			&& !normalized.Contains("/obj/", StringComparison.Ordinal);
 	}
 
 	public static string Normalize(string relativePath) =>

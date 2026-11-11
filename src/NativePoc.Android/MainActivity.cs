@@ -27,10 +27,16 @@ public sealed class MainActivity : Activity
 	bool _inRender;
 	bool _renderAgain;
 	bool _benchFilled;
+	bool _traceRender;
+	bool _notedWindow;
+	bool _painted;
+	View? _paintedRoot;
+	bool _paintedDark;
 
 	protected override void OnCreate(Bundle? savedInstanceState)
 	{
 		base.OnCreate(savedInstanceState);
+		ReloadDispatch.Install();
 		ActionLog.OnScript = (micros, steps, stop) =>
 		{
 			if (stop is not null)
@@ -97,6 +103,43 @@ public sealed class MainActivity : Activity
 		}
 		StartupMarks.Returned();
 		ScheduleLoopBench();
+		ScheduleRenderBench();
+	}
+
+	void ScheduleRenderBench()
+	{
+		if (!string.Equals(Intent?.GetStringExtra("nativepoc_bench"), "render10", StringComparison.Ordinal))
+			return;
+		_reconciler?.Root?.Post(() =>
+		{
+			for (var guard = 0; guard < 8; guard++)
+			{
+				if (ScreenNav.Shared.Top() is not { } top || top.ScreenId == RecordProgram.CounterScreenId)
+					break;
+				if (!ScreenNav.Shared.Pop())
+					break;
+			}
+
+			RequestRender();
+			for (var round = 0; round < 10; round++)
+			{
+				var top = ScreenNav.Shared.Top();
+				if (top is { } bound && bound.ScreenId == RecordProgram.CounterScreenId)
+				{
+					bound.State.AddInt("Count", 1);
+					Log.Info(Tag, "bench-count n=" + bound.State.ReadInt("Count").ToString(CultureInfo.InvariantCulture));
+				}
+				else
+				{
+					AppSession.Shared.State.Count++;
+					Log.Info(Tag, "bench-count missing screen=" + (top is { } other ? other.ScreenId : "none"));
+				}
+
+				_traceRender = true;
+				RequestRender();
+				_traceRender = false;
+			}
+		});
 	}
 
 	void ScheduleLoopBench()
@@ -130,6 +173,7 @@ public sealed class MainActivity : Activity
 		}
 
 		ScheduleLoopBench();
+		ScheduleRenderBench();
 	}
 
 	protected override void OnResume()
@@ -380,7 +424,7 @@ public sealed class MainActivity : Activity
 		if (_record is { } bound)
 			RecordSession.Publish(bound);
 		Element tree;
-		var evalStart = SystemClock.ElapsedRealtime();
+		var clock = System.Diagnostics.Stopwatch.StartNew();
 		try
 		{
 			tree = _record is { } record ? record.Render(_platform) : _render(state, _platform);
@@ -395,11 +439,26 @@ public sealed class MainActivity : Activity
 			throw;
 		}
 
-		var evalMs = SystemClock.ElapsedRealtime() - evalStart;
-		var mountStart = SystemClock.ElapsedRealtime();
+		var evalUs = TakeUs(clock);
+		List<Patch> patches;
 		try
 		{
-			_reconciler.Render(tree);
+			patches = TreeDiff.Diff(_reconciler.Current, tree);
+		}
+		catch (Exception ex)
+		{
+#if DEBUG
+			DevOverlay.Show(this, "render", ex.Message, "render");
+#else
+			_ = ex;
+#endif
+			throw;
+		}
+
+		var diffUs = TakeUs(clock);
+		try
+		{
+			_reconciler.Commit(tree, patches);
 		}
 		catch (Exception ex)
 		{
@@ -422,22 +481,49 @@ public sealed class MainActivity : Activity
 		}
 
 		_good = tree;
-		var mountMs = SystemClock.ElapsedRealtime() - mountStart;
-		StartupMarks.Note("eval", evalMs);
-		StartupMarks.Note("mount", mountMs);
-		var rows = 0;
-		var built = 0;
-		Describe(tree, ref rows, ref built);
-		var views = _reconciler.Root is View root ? CountViews(root) : 0;
-		Log.Info(
-			Tag,
-			"startup window rows=" + rows.ToString(CultureInfo.InvariantCulture)
-			+ " built=" + built.ToString(CultureInfo.InvariantCulture)
-			+ " views=" + views.ToString(CultureInfo.InvariantCulture));
+		var reconcileUs = TakeUs(clock);
+		if (!_notedWindow)
+		{
+			StartupMarks.Note("eval", evalUs / 1000);
+			StartupMarks.Note("mount", reconcileUs / 1000);
+			var rows = 0;
+			var built = 0;
+			Describe(tree, ref rows, ref built);
+			var views = _reconciler.Root is View root ? CountViews(root) : 0;
+			Log.Info(
+				Tag,
+				"startup window rows=" + rows.ToString(CultureInfo.InvariantCulture)
+				+ " built=" + built.ToString(CultureInfo.InvariantCulture)
+				+ " views=" + views.ToString(CultureInfo.InvariantCulture));
+			_notedWindow = true;
+		}
+
 		StartupMarks.Render();
 		if (_reconciler.Root is not View mounted)
 			throw new InvalidOperationException("Screen did not mount a root view.");
-		ThemeRuntime.Paint(this, mounted);
+		var bookUs = TakeUs(clock);
+		if (mounted.Width > 0 && mounted.Height > 0)
+		{
+			mounted.Measure(
+				View.MeasureSpec.MakeMeasureSpec(mounted.Width, MeasureSpecMode.Exactly),
+				View.MeasureSpec.MakeMeasureSpec(mounted.Height, MeasureSpecMode.Exactly));
+			mounted.Layout(mounted.Left, mounted.Top, mounted.Left + mounted.Width, mounted.Top + mounted.Height);
+		}
+
+		var layoutUs = TakeUs(clock);
+
+		mounted.Invalidate();
+		var invalidateUs = TakeUs(clock);
+		var dark = ThemeRuntime.IsDark(this);
+		if (!_painted || !ReferenceEquals(_paintedRoot, mounted) || _paintedDark != dark)
+		{
+			ThemeRuntime.Paint(this, mounted);
+			_paintedRoot = mounted;
+			_paintedDark = dark;
+			_painted = true;
+		}
+
+		var paintUs = TakeUs(clock);
 		LocaleRuntime.ApplyDirection(mounted);
 		LocaleRuntime.ApplyDirection(this);
 		if (!ReferenceEquals(previousRoot, mounted))
@@ -451,12 +537,47 @@ public sealed class MainActivity : Activity
 		if (_host is not null && _reconciler.Root is not null)
 			_host.RestoreFocus(_reconciler.Root);
 #if DEBUG
-		LogTree();
+		if (Structural(patches) || !ReferenceEquals(previousRoot, mounted))
+			LogTree();
 #endif
 		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length + " title=" + LastTitle);
+		var afterUs = TakeUs(clock);
 #if DEBUG
 		StateStore.Save(this);
 #endif
+		var saveUs = TakeUs(clock);
+		if (_traceRender)
+		{
+			Log.Info(
+				Tag,
+				"render-phase eval=" + evalUs.ToString(CultureInfo.InvariantCulture)
+				+ " diff=" + diffUs.ToString(CultureInfo.InvariantCulture)
+				+ " reconcile=" + reconcileUs.ToString(CultureInfo.InvariantCulture)
+				+ " layout=" + layoutUs.ToString(CultureInfo.InvariantCulture)
+				+ " invalidate=" + invalidateUs.ToString(CultureInfo.InvariantCulture)
+				+ " paint=" + paintUs.ToString(CultureInfo.InvariantCulture)
+				+ " book=" + bookUs.ToString(CultureInfo.InvariantCulture)
+				+ " after=" + afterUs.ToString(CultureInfo.InvariantCulture)
+				+ " save=" + saveUs.ToString(CultureInfo.InvariantCulture));
+		}
+	}
+
+	static bool Structural(IReadOnlyList<Patch> patches)
+	{
+		foreach (var patch in patches)
+		{
+			if (patch is Mount or Unmount or Replace or Reorder)
+				return true;
+		}
+
+		return false;
+	}
+
+	static long TakeUs(System.Diagnostics.Stopwatch clock)
+	{
+		var micros = clock.ElapsedTicks * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
+		clock.Restart();
+		return micros;
 	}
 
 	void LogTree()

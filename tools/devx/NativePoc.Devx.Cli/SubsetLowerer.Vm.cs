@@ -790,6 +790,8 @@ public static partial class SubsetLowerer
 				return WriteUser(routine, invocation, buf, out kind);
 			if (invocation.Expression is MemberAccessExpressionSyntax member)
 			{
+				if (member.Expression is IdentifierNameSyntax typeName && _callTypes.Contains(typeName.Identifier.ValueText))
+					return WriteApp(typeName.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, buf, out kind);
 				if (member.Expression is IdentifierNameSyntax owner && owner.Identifier.ValueText == "Math")
 					return WriteMath(member.Name.Identifier.ValueText, invocation, buf, out kind);
 				if (member.Expression is PredefinedTypeSyntax type && type.Keyword.IsKind(SyntaxKind.IntKeyword))

@@ -1,4 +1,5 @@
 #if DEBUG
+using System.Globalization;
 using Android.Content;
 using Android.Util;
 
@@ -7,6 +8,10 @@ namespace NativePoc;
 static class StateStore
 {
 	const string FileName = "nativepoc-state.bin";
+	static readonly object Gate = new();
+	static Context? _context;
+	static byte[]? _latest;
+	static int _writing;
 
 	public static void Delete(Context context)
 	{
@@ -22,18 +27,62 @@ static class StateStore
 
 	public static void Save(Context context)
 	{
-		try
+		var bytes = StateCheckpoint.Write(AppSession.Shared.State, PackingView.Capture(), ScreenNav.Shared.Checkpoint());
+		lock (Gate)
 		{
-			var bytes = StateCheckpoint.Write(AppSession.Shared.State, PackingView.Capture(), ScreenNav.Shared.Checkpoint());
-			using var output = context.OpenFileOutput(FileName, FileCreationMode.Private)
-				?? throw new IOException("The state file was not opened.");
-			output.Write(bytes, 0, bytes.Length);
-			output.Flush();
+			_context = context.ApplicationContext ?? context;
+			_latest = bytes;
+			if (_writing == 1)
+				return;
+			_writing = 1;
 		}
-		catch (Exception ex) when (ex is IOException or InvalidOperationException or Java.IO.IOException)
+
+		ThreadPool.QueueUserWorkItem(static _ => WriteQueued());
+	}
+
+	static void WriteQueued()
+	{
+		while (true)
 		{
-			Log.Warn(MainActivity.Tag, "state-save " + ex.GetType().Name);
+			byte[]? bytes;
+			Context? context;
+			lock (Gate)
+			{
+				bytes = _latest;
+				context = _context;
+				_latest = null;
+			}
+
+			if (bytes is null || context is null)
+				break;
+			var started = System.Diagnostics.Stopwatch.GetTimestamp();
+			try
+			{
+				using var output = context.OpenFileOutput(FileName, FileCreationMode.Private)
+					?? throw new IOException("The state file was not opened.");
+				output.Write(bytes, 0, bytes.Length);
+				output.Flush();
+			}
+			catch (Exception ex) when (ex is IOException or InvalidOperationException or Java.IO.IOException)
+			{
+				Log.Warn(MainActivity.Tag, "state-save " + ex.GetType().Name);
+			}
+
+			var elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+			var micros = elapsed * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
+			Log.Info(MainActivity.Tag, "state-save-us=" + micros.ToString(CultureInfo.InvariantCulture));
+			lock (Gate)
+			{
+				if (_latest is null)
+				{
+					_writing = 0;
+					return;
+				}
+			}
 		}
+
+		lock (Gate)
+			_writing = 0;
 	}
 
 	public static bool TryLoad(Context context)

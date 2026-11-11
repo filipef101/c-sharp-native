@@ -56,12 +56,13 @@ static class NewLoop
 			var name = Path.GetFileName(dir);
 			if (!IsName(name))
 				continue;
-			var relative = "samples/" + name + "/" + TypeName(name) + "Screen.cs";
-			if (!File.Exists(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar))))
-				continue;
-			if (!ChangeEffectRules.IsAppScreen(relative))
-				continue;
-			found.Add(relative);
+			foreach (var file in Directory.EnumerateFiles(dir, "*Screen.cs"))
+			{
+				var relative = "samples/" + name + "/" + Path.GetFileName(file);
+				if (!ChangeEffectRules.IsAppScreen(relative))
+					continue;
+				found.Add(relative);
+			}
 		}
 
 		found.Sort(StringComparer.Ordinal);

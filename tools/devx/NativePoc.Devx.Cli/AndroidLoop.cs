@@ -20,8 +20,11 @@ sealed class ReloadSession : IDisposable
 
 	public HotReloadConnection Connection => _connection ?? throw new InvalidOperationException("The hot reload connection is not open.");
 
+	public string Root { get; private set; } = "";
+
 	public void Open(string repo, string serial)
 	{
+		Root = repo;
 		_connection?.Dispose();
 		_compiler = ScreenCompiler.Create(repo);
 		_connection = new HotReloadConnection(serial, _token.Hex);
@@ -125,7 +128,7 @@ static class AndroidLoop
 
 	static int Watch(string repo, string rid, string serial, ReloadSession session, CliOptions options, KeptPrograms kept, CancellationToken cancel)
 	{
-		Console.WriteLine("cnative: watching src/NativePoc.Screen, samples/NativePoc.Packing, and samples/<name>");
+		Console.WriteLine("cnative: watching src/NativePoc.Screen, samples/NativePoc.Packing, samples/NativePoc.Library, and samples/<name>");
 		var debouncer = new ChangeDebouncer(options.DebounceMs);
 		var knownScreens = new HashSet<string>(NewLoop.AppScreens(repo), StringComparer.Ordinal);
 		var knownGate = new object();
@@ -199,9 +202,25 @@ static class AndroidLoop
 							Restart(session, repo, rid, serial, options, kept, outcome.SubsetRefusal);
 					}
 
-					foreach (var path in batch.Paths.Where(ChangeEffectRules.IsAppScreen))
+					var screens = new List<string>();
+					foreach (var path in batch.Paths)
 					{
 						var relative = ChangeEffectRules.Normalize(path);
+						if (ChangeEffectRules.IsAppScreen(relative))
+							RememberScreen(screens, relative);
+						else if (ChangeEffectRules.IsSampleCompanion(relative))
+						{
+							var folder = relative[..(relative.LastIndexOf('/') + 1)];
+							foreach (var screen in NewLoop.AppScreens(repo))
+							{
+								if (screen.StartsWith(folder, StringComparison.Ordinal))
+									RememberScreen(screens, screen);
+							}
+						}
+					}
+
+					foreach (var relative in screens)
+					{
 						Console.WriteLine("cnative: reload " + relative);
 						var startedApp = Stopwatch.GetTimestamp();
 						var sent = SendSource(session, repo, relative, kept);
@@ -285,10 +304,55 @@ static class AndroidLoop
 			if (normalized.StartsWith("src/NativePoc.Core/", StringComparison.Ordinal)
 				|| normalized.StartsWith("src/NativePoc.Android/", StringComparison.Ordinal))
 				Console.WriteLine(normalized);
+			if (ChangeEffectRules.IsCallableSource(normalized))
+				Console.WriteLine(normalized + " is compiled into the call table. The method body was not swapped. The running handler keeps the previous body until relaunch.");
 		}
 	}
 
 	const string PackingScreen = "samples/NativePoc.Packing/PackingScreen.cs";
+
+	static void RememberScreen(List<string> screens, string relative)
+	{
+		if (!screens.Contains(relative, StringComparer.Ordinal))
+			screens.Add(relative);
+	}
+
+	static IReadOnlyList<string> CompanionTexts(string repo, string relative)
+	{
+		var texts = new List<string>();
+		var normalized = ChangeEffectRules.Normalize(relative);
+		var slash = normalized.LastIndexOf('/');
+		if (slash <= 0)
+			return texts;
+		var dir = Path.Combine(repo, normalized[..slash].Replace('/', Path.DirectorySeparatorChar));
+		if (!Directory.Exists(dir))
+			return texts;
+		foreach (var file in Directory.EnumerateFiles(dir, "*.cs").OrderBy(Path.GetFileName, StringComparer.Ordinal))
+		{
+			var candidate = normalized[..(slash + 1)] + Path.GetFileName(file);
+			if (!ChangeEffectRules.IsSampleCompanion(candidate))
+				continue;
+			texts.Add(File.ReadAllText(file));
+		}
+
+		return texts;
+	}
+
+	static IReadOnlyList<string> CallableTexts(string repo)
+	{
+		var texts = new List<string>();
+		if (repo.Length == 0)
+			return texts;
+		var service = Path.Combine(repo, "src", "NativePoc.Screen", "CounterService.cs");
+		if (File.Exists(service))
+			texts.Add(File.ReadAllText(service));
+		var lib = Path.Combine(repo, "samples", "NativePoc.Library");
+		if (!Directory.Exists(lib))
+			return texts;
+		foreach (var file in Directory.EnumerateFiles(lib, "*.cs").OrderBy(Path.GetFileName, StringComparer.Ordinal))
+			texts.Add(File.ReadAllText(file));
+		return texts;
+	}
 
 	readonly record struct PushOutcome(ReloadStatus Status, bool Restarting, bool SubsetRefusal = false);
 
@@ -316,7 +380,7 @@ static class AndroidLoop
 			return new PushOutcome(ReloadStatus.CompileError, false);
 		}
 
-		var lowered = SubsetLowerer.TryLower(session.Compiler.ReadSource());
+		var lowered = SubsetLowerer.TryLower(session.Compiler.ReadSource(), [], CallableTexts(session.Root));
 		if (!lowered.Ok || lowered.Program is null)
 		{
 			ShowRefusal(session, lowered);
@@ -399,7 +463,7 @@ static class AndroidLoop
 			return new ProgramPush(false, false, errors);
 		}
 
-		var lowered = SubsetLowerer.TryLower(session.Compiler.ReadSource());
+		var lowered = SubsetLowerer.TryLower(session.Compiler.ReadSource(), [], CallableTexts(session.Root));
 		if (!lowered.Ok || lowered.Program is null)
 		{
 			ShowRefusal(session, lowered);
@@ -439,7 +503,7 @@ static class AndroidLoop
 			return new PackingSend(false, false, ex.Message, 0);
 		}
 
-		return ApplySource(session, source, "The screen is not a program this runtime can carry.", kept, relative, fault);
+		return ApplySource(session, source, "The screen is not a program this runtime can carry.", kept, relative, fault, CompanionTexts(repo, relative), CallableTexts(repo));
 	}
 
 	internal static PackingSend SendPacking(ReloadSession session, string repo, KeptPrograms? kept = null, bool fault = true)
@@ -455,12 +519,20 @@ static class AndroidLoop
 			return new PackingSend(false, false, ex.Message, 0);
 		}
 
-		return ApplySource(session, source, "The packing screen is not a program this runtime can carry.", kept, PackingScreen, fault);
+		return ApplySource(session, source, "The packing screen is not a program this runtime can carry.", kept, PackingScreen, fault, [], CallableTexts(repo));
 	}
 
-	static PackingSend ApplySource(ReloadSession session, string source, string refused, KeptPrograms? kept, string? relative, bool fault)
+	static PackingSend ApplySource(
+		ReloadSession session,
+		string source,
+		string refused,
+		KeptPrograms? kept,
+		string? relative,
+		bool fault,
+		IReadOnlyList<string>? companions = null,
+		IReadOnlyList<string>? callables = null)
 	{
-		var lowered = SubsetLowerer.TryLower(source);
+		var lowered = SubsetLowerer.TryLower(source, companions, callables);
 		if (!lowered.Ok || lowered.Program is null)
 		{
 			if (fault)

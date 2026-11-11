@@ -30,7 +30,7 @@ public static partial class SubsetLowerer
 	public const string MixedKeys = "subset.mixed-keys";
 	public const string UnknownType = "subset.unknown-type";
 
-	public static SubsetResult TryLower(string source)
+	public static SubsetResult TryLower(string source, IReadOnlyList<string>? companions = null, IReadOnlyList<string>? callables = null)
 	{
 		ArgumentNullException.ThrowIfNull(source);
 		var tree = CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Preview));
@@ -110,7 +110,11 @@ public static partial class SubsetLowerer
 			records.Add(stateType, fields);
 		}
 
-		var lower = new Lower(source, stateName, platformName, fields, records, consts, methods, stateType);
+		var components = new Dictionary<string, MethodDeclarationSyntax>(StringComparer.Ordinal);
+		var calls = new Dictionary<string, AppSig>(StringComparer.Ordinal);
+		if (!CollectExtras(companions, callables, components, calls, source, out var extraError))
+			return SubsetResult.Refuse(extraError!);
+		var lower = new Lower(source, stateName, platformName, fields, records, consts, methods, stateType, components, calls);
 		try
 		{
 			if (!lower.Body(render))
@@ -697,7 +701,9 @@ public static partial class SubsetLowerer
 			Dictionary<string, List<Field>> records,
 			Dictionary<string, string> consts,
 			Dictionary<string, MethodDeclarationSyntax> methods,
-			string stateType)
+			string stateType,
+			Dictionary<string, MethodDeclarationSyntax>? components = null,
+			Dictionary<string, AppSig>? calls = null)
 		{
 			_source = source;
 			_state = state;
@@ -707,6 +713,11 @@ public static partial class SubsetLowerer
 			_consts = consts;
 			_methods = methods;
 			_stateType = stateType;
+			_components = components ?? new Dictionary<string, MethodDeclarationSyntax>(StringComparer.Ordinal);
+			_calls = calls ?? new Dictionary<string, AppSig>(StringComparer.Ordinal);
+			_callTypes = new HashSet<string>(StringComparer.Ordinal);
+			foreach (var call in _calls.Values)
+				_callTypes.Add(call.Type);
 		}
 
 		public List<SubsetDiagnostic> Errors { get; } = new();
@@ -1080,6 +1091,12 @@ public static partial class SubsetLowerer
 				_code.U16(routine.Index);
 				return true;
 			}
+
+			if (expression is InvocationExpressionSyntax componentCall
+				&& componentCall.Expression is MemberAccessExpressionSyntax componentMember
+				&& componentMember.Expression is IdentifierNameSyntax componentType
+				&& _components.TryGetValue(componentType.Identifier.ValueText + "." + componentMember.Name.Identifier.ValueText, out var component))
+				return EmitComponent(component, componentCall, keys);
 
 			if (expression is not ObjectCreationExpressionSyntax creation)
 				return Fail(UnknownElement, "The screen subset does not include " + expression.ToString() + ".", expression);

@@ -30,8 +30,11 @@ static class ArgParser
 		  Build Debug, install it on the running emulator or device, launch it,
 		  and push Screen.cs edits. The emulator or device must already be online.
 
-		  Only src/NativePoc.Screen/Screen.cs reloads in place. A save under
-		  src/NativePoc.Core or src/NativePoc.Android asks before a restart.
+		  src/NativePoc.Screen/Screen.cs, a samples/<name>/*Screen.cs file, and a
+		  shared component beside those screens reload in place. A save under
+		  src/NativePoc.Core, src/NativePoc.Android, or a [ReloadCallable] source
+		  asks before a restart. A method body in the call table stays the
+		  previous body until that relaunch.
 		  "reloaded in" is the whole push. "apply" is the device exchange.
 		  A screen edit is lowered to a program the running process interprets.
 		  An edit the program cannot carry is refused. cnative prints
@@ -72,7 +75,7 @@ static class ArgParser
 		  --listener            publish the Debug NativeAOT listener for that ABI.
 		  --debounce <ms>       quiet period before a reload. Default: 40.
 		  --restart-on-rude     relaunch when an edit cannot be applied.
-		                        A Core or Android edit is rebuilt first.
+		                        A Core, Android, or call-table edit is rebuilt first.
 		  --once                push the current screens once and exit.
 		                    A samples/<name> screen from cnative new is shown too.
 		  --help                show this text.

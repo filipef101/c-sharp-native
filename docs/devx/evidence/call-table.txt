@@ -1,0 +1,76 @@
+Generated call table and a multi-file screen.
+Emulator-run 2026-11-11. AVD poc34, API 34, x86_64, serial emulator-5554.
+Boot id 56815464-4bc4-4f4c-a503-944cb91ab31f.
+IsDynamicCodeSupported=False and IsDynamicCodeCompiled=False on pid 6912 and pid 7154.
+
+The table is ReloadDispatch.Call, emitted by NativePoc.ReloadGen.
+VmApp (48) calls it. CounterService.Next is marked [ReloadCallable].
+LibraryFormat.Label is in samples/NativePoc.Library, opted in with
+[assembly: ReloadCallable("NativePoc.Library")].
+The committed Label body is: name.Length == 0 ? "empty" : name.Trim().
+
+Pid 6912, one process. A temporary samples/board app, deleted after the run.
+HomeScreen and OtherScreen each call Banner.Line from Banner.cs.
+Home's Add calls CounterService.Next and LibraryFormat.Label.
+
+Home reload, banner-v1: reloaded in 35.3 ms (apply 29.3 ms), edit-to-reply 84 ms.
+Other reload, banner-v1: reloaded in 40.2 ms (apply 39.6 ms), edit-to-reply 124 ms.
+Banner.cs edited to return Text("banner-v2").
+Home reload: reloaded in 24.6 ms (apply 23.2 ms), reply banner-v2, edit-to-reply 64 ms.
+Other reload: reloaded in 40.8 ms (apply 39.9 ms), reply banner-v2, edit-to-reply 104 ms.
+Same pid 6912. The tree of other showed other/banner value banner-v2.
+After other/back, home/banner was banner-v2, Count 0, title "  Ada  ".
+Press home/add on that pid: Count 5, title Ada.
+logcat action-us=1139 steps=9. Next adds 5. Label trimmed "  Ada  " to Ada.
+That is the app method and the library method, one pid, no reflection.
+
+Editing LibraryFormat.Label to return "rebuilt" on pid 6912 printed:
+rude edit -> restart required
+samples/NativePoc.Library/LibraryFormat.cs is compiled into the call table. The method body was not swapped. The running handler keeps the previous body until relaunch.
+The automatic relaunch then failed. ILC reported:
+Code generation failed for method '[NativePoc.Android]NativePoc.ReloadDispatch.Call(string,string,AppValue[])'
+The linked IL had inlined Label. The ?? argument was left as dup / brtrue / pop
+with the replacement ldstr removed, so the stack was unbalanced on the
+non-null path. The generator now stores each argument in a local before the
+call. A fresh link of return "rebuilt" published. The local stays a dead
+store, and the IL balances.
+
+Relaunch after that fix, same boot, pid 7154.
+IsDynamicCodeSupported=False. State restore kept Count=5 and Title=Ada.
+Press home/add: Count 10, title rebuilt. logcat action-us=1068 steps=9.
+The new body ran. Pid 6912 was gone. The board sample was then deleted and
+Label was restored to the trim body. The final binaries below do not contain
+the UTF-8 bytes of rebuilt.
+
+Binary size. Built, not a separate emulator run of these two files.
+The delta is the render-path cut plus CounterService, LibraryFormat, and the
+generated switch. It is not an isolated table.
+
+Before the cut and the table, measured the same day:
+listener NativePoc.Android.so 9837904
+  sha256 bfd901a47e7a8570a2befdcbcb0a97209ba15f348a9cc0d9ffa8a62d3ff0be22
+  signed apk 3720115
+release NativePoc.Android.so 6381280
+  sha256 ded5efe6e922e7556d1e88cf05c586e97fbbe23f5ac555fce7a0ea5d5d4cb617
+  signed apk 2761517
+  sha256 44ab3ade9b334cd0b467a442d9f5f8a59d0de136457875070c4fdb828b990a73
+
+Final publish, Label restored, arguments in locals.
+The .so inside each signed apk matches the published .so.
+listener NativePoc.Android.so 9860416  (+22512)
+  sha256 0f1341d1274bea47b82306339900011778fc0607341a59692b02cee763f44407
+  signed apk 3728307
+  sha256 1d4990cead45ec5f5b879fc55e860aa09544a2be0f2307390e50b5f232a14e5e
+release NativePoc.Android.so 6390736  (+9456)
+  sha256 5f0ccc718ea34a973a454536f5c3017b92efc62458cfb7e3750089d561a71a28
+  signed apk 2765613
+  sha256 6e9284c9d1a418269079e7ed06da164f4163183c9ba35fb287e225e24b7198ca
+
+Headless, tested, not emulator-run.
+NativePoc.Core.Tests Passed 55, Failed 0.
+NativePoc.Devx.Cli.Tests Passed 118, Failed 0.
+NativePoc.Packing.Tests Passed 14, Failed 0.
+One earlier devx run failed three ScreenCompilerTests because DOTNET_ROOT
+was /home/ubuntu and the net10.0 ref pack lives under /home/ubuntu/.dotnet.
+The rerun with DOTNET_ROOT=/home/ubuntu/.dotnet passed. The product code
+was the same.

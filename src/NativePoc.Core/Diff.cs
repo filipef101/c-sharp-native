@@ -136,6 +136,9 @@ public static class TreeDiff
 			return;
 		}
 
+		if (ReferenceEquals(previous, next))
+			return;
+
 		var previousKind = KindOf(previous);
 		var nextKind = KindOf(next);
 		if (previousKind != nextKind)
