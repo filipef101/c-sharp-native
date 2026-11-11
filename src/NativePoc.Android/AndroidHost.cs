@@ -243,8 +243,10 @@ sealed class AndroidHost : IElementHost<View>
 				text.SetTextSize(ComplexUnitType.Sp, style.FontSize);
 			if (style.Weight == FontWeight.Bold)
 				text.SetTypeface(Typeface.DefaultBold, TypefaceStyle.Bold);
-			if (style.Color != 0)
-				text.SetTextColor(new Android.Graphics.Color(unchecked((int)style.Color)));
+			ThemeRuntime.NoteColor(view, style.Color);
+			text.SetTextColor(style.Color == 0
+				? new Android.Graphics.Color(unchecked((int)ThemeTokens.Text(ThemeRuntime.IsDark(_activity))))
+				: new Android.Graphics.Color(unchecked((int)style.Color)));
 		}
 
 		if (style.Background != 0 || style.Radius > 0)
@@ -256,6 +258,12 @@ sealed class AndroidHost : IElementHost<View>
 				: new Android.Graphics.Color(unchecked((int)style.Background)));
 			view.Background = drawable;
 		}
+	}
+
+	public void SetMotion(View view, Motion motion)
+	{
+		var density = _activity.Resources?.DisplayMetrics?.Density ?? 1f;
+		MotionPlayer.Play(view, motion, density);
 	}
 
 	public void SetImage(View view, string source)
@@ -329,6 +337,7 @@ sealed class AndroidHost : IElementHost<View>
 
 	public void OnUnmounted(NodePath path, View view)
 	{
+		MotionPlayer.Stop(view);
 		Detach(view);
 		if (view.Parent is ViewGroup group)
 			group.RemoveView(view);

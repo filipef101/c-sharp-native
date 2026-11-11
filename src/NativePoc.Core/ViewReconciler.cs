@@ -23,6 +23,8 @@ public interface IElementHost<TView>
 
 	void SetStyle(TView view, Style style);
 
+	void SetMotion(TView view, Motion motion);
+
 	void SetImage(TView view, string source);
 
 	void OnMounted(NodePath path, TView view);
@@ -111,6 +113,9 @@ public sealed class ViewReconciler<TView>
 				return;
 			case SetStyle setStyle:
 				_host.SetStyle(ViewAt(setStyle.Path), setStyle.Style);
+				return;
+			case SetMotion setMotion:
+				_host.SetMotion(ViewAt(setMotion.Path), setMotion.Motion);
 				return;
 			case SetImage setImage:
 				_host.SetImage(ViewAt(setImage.Path), setImage.Source);

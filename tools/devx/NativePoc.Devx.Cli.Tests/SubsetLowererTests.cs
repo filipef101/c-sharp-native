@@ -39,6 +39,31 @@ public sealed class SubsetLowererTests
 	}
 
 	[Fact]
+	public void Motion_storage_and_theme_lower_into_the_record()
+	{
+		var root = RepoRoot.Find(AppContext.BaseDirectory);
+		var motion = SubsetLowerer.TryLower(File.ReadAllText(Path.Combine(root, "samples", "NativePoc.Motion", "MotionScreen.cs")));
+		Assert.True(motion.Ok);
+		var tree = RecordProgram.Bind(motion.Program!, new RecordProgram.Bag()).Render(new Platform());
+		var text = Assert.IsType<Text>(Assert.IsType<Column>(tree).Children[0]);
+		Assert.Equal(900, text.Motion!.Value.Duration);
+		Assert.Equal(0, text.Motion.Value.FromOpacity);
+		Assert.Equal(100, text.Motion.Value.Opacity);
+
+		var settings = File.ReadAllText(Path.Combine(root, "samples", "NativePoc.Settings", "SettingsScreen.cs"));
+		var lowered = SubsetLowerer.TryLower(settings);
+		Assert.True(lowered.Ok);
+		var platform = new ModulePlatform();
+		var bag = new RecordProgram.Bag();
+		var first = RecordProgram.Bind(lowered.Program!, bag).Render(platform);
+		ElementIds.Invoke(first, "settings/name", "Ada");
+		ElementIds.Invoke(first, "settings/dark", null);
+		ElementIds.Invoke(RecordProgram.Bind(lowered.Program!, bag).Render(platform), "settings/system", null);
+		Assert.Contains(platform.Calls, call => call == "storage.Set");
+		Assert.Contains(platform.Calls, call => call == "theme.Mode");
+	}
+
+	[Fact]
 	public void A_foreach_and_a_scroll_lower_and_a_call_is_refused_with_a_span()
 	{
 		var source = """

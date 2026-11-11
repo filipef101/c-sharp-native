@@ -19,6 +19,12 @@ static class PlatformModules
 			case ("share", "Text", 1):
 				Share(activity, args[0]);
 				return;
+			case ("storage", "Set", 2):
+				AppStorage.Set(activity, args[0], args[1]);
+				return;
+			case ("theme", "Mode", 1):
+				ThemeRuntime.Set(activity, args[0]);
+				return;
 			default:
 				throw new InvalidOperationException("Unknown platform module " + module + "." + method + ".");
 		}

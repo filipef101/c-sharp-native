@@ -351,6 +351,8 @@ public static class ScreenQuery
 	public const byte Layout = 6;
 	public const byte Clock = 7;
 	public const byte Submit = 8;
+	public const byte Fault = 9;
+	public const byte Dismiss = 10;
 
 	public static bool IsQuery(ReadOnlySpan<byte> payload) =>
 		payload.Length >= 6
@@ -377,7 +379,12 @@ public static class ScreenQuery
 			case Press:
 			case Enter:
 			case Submit:
+			case Fault:
 				if (payload.Length < 7)
+					throw new InvalidOperationException("Rejected screen query.");
+				return op;
+			case Dismiss:
+				if (payload.Length != 6)
 					throw new InvalidOperationException("Rejected screen query.");
 				return op;
 			default:
@@ -400,6 +407,15 @@ public static class ScreenQuery
 		ArgumentException.ThrowIfNullOrEmpty(id);
 		return WithBody(Submit, Encoding.UTF8.GetBytes(id));
 	}
+
+	public static byte[] FaultNote(string id, string message, int start, int end, int line, int column)
+	{
+		ArgumentException.ThrowIfNullOrEmpty(id);
+		ArgumentNullException.ThrowIfNull(message);
+		return WithBody(Fault, Encoding.UTF8.GetBytes(id + "\n" + message + "\n" + start.ToString(CultureInfo.InvariantCulture) + ":" + end.ToString(CultureInfo.InvariantCulture) + ":" + line.ToString(CultureInfo.InvariantCulture) + ":" + column.ToString(CultureInfo.InvariantCulture)));
+	}
+
+	public static byte[] DismissOverlay() => Ask(Dismiss);
 
 	public static byte[] EnterId(string id, string text)
 	{

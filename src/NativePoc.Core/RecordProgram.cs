@@ -38,6 +38,7 @@ public static class RecordProgram
 	public const byte OpEffect = 30;
 	public const byte OpEvery = 31;
 	public const byte OpFieldMode = 32;
+	public const byte OpMotion = 33;
 
 	public const byte ActRender = 1;
 	public const byte ActSetStr = 2;
@@ -726,10 +727,34 @@ public static class RecordProgram
 				}));
 				return ip;
 			}
+			case OpMotion:
+			{
+				if (ip + MotionCodec.Bytes > end)
+					throw new InvalidOperationException("Rejected record program.");
+				var motion = MotionCodec.Read(code.AsSpan(ip, MotionCodec.Bytes));
+				ip += MotionCodec.Bytes;
+				var node = Pop(stack, ref sp, SlotKind.Elem).Node ?? throw new InvalidOperationException("Rejected record program.");
+				Push(stack, ref sp, Slot.Elem(WithMotion(node, motion)));
+				return ip;
+			}
 			default:
 				throw new InvalidOperationException("Rejected record program.");
 		}
 	}
+
+	static Element WithMotion(Element element, Motion motion) =>
+		element switch
+		{
+			Column column => column with { Motion = motion },
+			Text text => text with { Motion = motion },
+			Button button => button with { Motion = motion },
+			TextField field => field with { Motion = motion },
+			Switch toggle => toggle with { Motion = motion },
+			ScrollView scroll => scroll with { Motion = motion },
+			ListView list => list with { Motion = motion },
+			Image image => image with { Motion = motion },
+			_ => throw new InvalidOperationException("Rejected record program."),
+		};
 
 	static Element WithStyle(Element element, Style style) =>
 		element switch
@@ -939,6 +964,7 @@ public static class RecordProgram
 						{
 							0 => name,
 							1 => bag.ReadString(name),
+							2 => bag.ReadBool(name) ? "true" : "false",
 							_ => throw new InvalidOperationException("Rejected record program."),
 						};
 					}

@@ -94,6 +94,8 @@ public sealed record SetList(NodePath Path, IReadOnlyList<Element> Rows) : Patch
 
 public sealed record SetStyle(NodePath Path, Style Style) : Patch;
 
+public sealed record SetMotion(NodePath Path, Motion Motion) : Patch;
+
 public sealed record SetImage(NodePath Path, string Source) : Patch;
 
 public static class TreeDiff
@@ -251,6 +253,13 @@ public static class TreeDiff
 	{
 		if (next.Style is Style style && previous?.Style != style)
 			patches.Add(new SetStyle(path, style));
+		if (next.Motion != previous?.Motion)
+		{
+			if (next.Motion is Motion motion)
+				patches.Add(new SetMotion(path, motion));
+			else if (previous?.Motion is not null)
+				patches.Add(new SetMotion(path, Motion.Rest));
+		}
 		switch (next)
 		{
 			case Column:

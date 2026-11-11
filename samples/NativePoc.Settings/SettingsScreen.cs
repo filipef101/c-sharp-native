@@ -22,6 +22,7 @@ public static class SettingsScreen
 				value =>
 				{
 					state.Name = value;
+					Storage.Set(platform, "name", state.Name);
 					platform.RequestRender();
 				},
 				"Name",
@@ -32,6 +33,7 @@ public static class SettingsScreen
 				value =>
 				{
 					state.Note = value;
+					Storage.Set(platform, "note", state.Note);
 					platform.RequestRender();
 				},
 				"Note",
@@ -42,10 +44,20 @@ public static class SettingsScreen
 				value =>
 				{
 					state.Dark = value;
+					Theme.Mode(platform, state.Dark);
 					platform.RequestRender();
 				},
 				"Dark")
 			{ Key = "dark" },
+			new Button(
+				"System",
+				() =>
+				{
+					Theme.Mode(platform, "system");
+					platform.RequestRender();
+				},
+				"System")
+			{ Key = "system" },
 			new Button("Back", () => { platform.Pop(); platform.RequestRender(); }, "Back") { Key = "back" },
 		])
 		{ Key = "settings" };

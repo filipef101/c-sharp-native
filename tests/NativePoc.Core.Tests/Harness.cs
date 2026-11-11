@@ -37,6 +37,8 @@ sealed class MemoryNode
 
 	public Style? Style { get; set; }
 
+	public Motion? Motion { get; set; }
+
 	public List<MemoryNode> Children { get; } = new();
 }
 
@@ -82,6 +84,8 @@ sealed class MemoryHost : IElementHost<MemoryNode>
 	}
 
 	public void SetStyle(MemoryNode view, Style style) => view.Style = style;
+
+	public void SetMotion(MemoryNode view, Motion motion) => view.Motion = motion;
 
 	public void SetImage(MemoryNode view, string source) => view.Text = source;
 

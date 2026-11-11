@@ -78,6 +78,10 @@ sealed class PackHost : IElementHost<PackNode>
 	{
 	}
 
+	public void SetMotion(PackNode view, Motion motion)
+	{
+	}
+
 	public void SetImage(PackNode view, string source)
 	{
 	}

@@ -19,6 +19,8 @@ static partial class MeasureLoop
 			return Aot(args);
 		if (args.Length > 1 && args[1] == "surface")
 			return Surface(args);
+		if (args.Length > 1 && args[1] == "dev")
+			return DevChecks.Run(args);
 		int samples;
 		string? serial;
 		try

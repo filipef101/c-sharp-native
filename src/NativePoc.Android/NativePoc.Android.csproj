@@ -44,6 +44,13 @@
 	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
 		<PublishAot>true</PublishAot>
 		<EnablePreviewFeatures>true</EnablePreviewFeatures>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<EventSourceSupport>false</EventSourceSupport>
+		<HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+		<MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+		<DebuggerSupport>false</DebuggerSupport>
+		<UseSystemResourceKeys>true</UseSystemResourceKeys>
+		<IlcGenerateDebugInfo>false</IlcGenerateDebugInfo>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(PublishAot)' != 'true'">
 		<PublishTrimmed>true</PublishTrimmed>

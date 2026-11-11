@@ -22,12 +22,14 @@ public sealed class MainActivity : Activity
 	ViewReconciler<View>? _reconciler;
 	PlatformBridge? _platform;
 	string _programSource = "";
+	Element? _good;
 	bool _inRender;
 	bool _renderAgain;
 
 	protected override void OnCreate(Bundle? savedInstanceState)
 	{
 		base.OnCreate(savedInstanceState);
+		StartupMarks.Activity();
 		Current = this;
 		Log.Info(Tag, "activity-start tick=" + System.Environment.TickCount64);
 		Log.Info(
@@ -41,6 +43,7 @@ public sealed class MainActivity : Activity
 		_reconciler = new ViewReconciler<View>(_host);
 		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
 		NavCatalog.Install();
+		StorageSeed.Apply(this);
 #if DEBUG
 		StateStore.TryLoad(this);
 		ScreenNav.Shared.Prepare((program, bag) => RecordSession.Prepare(program, bag));
@@ -54,6 +57,7 @@ public sealed class MainActivity : Activity
 #if DEBUG
 		HotReloadServer.Start(this);
 #endif
+		StartupMarks.Returned();
 	}
 
 	protected override void OnNewIntent(Intent? intent)
@@ -183,6 +187,9 @@ public sealed class MainActivity : Activity
 			throw;
 		}
 
+#if DEBUG
+		DevOverlay.Clear(this);
+#endif
 		return LastTitle;
 	}
 
@@ -222,6 +229,24 @@ public sealed class MainActivity : Activity
 				if (split <= 0)
 					throw new InvalidOperationException("Enter needs an element id.");
 				return ElementIds.Invoke(RequireTree(), body[..split], body[(split + 1)..]);
+			case ScreenQuery.Fault:
+#if DEBUG
+				var fault = Encoding.UTF8.GetString(payload.AsSpan(6));
+				var lines = fault.Split('\n');
+				if (lines.Length < 3)
+					throw new InvalidOperationException("Rejected screen query.");
+				DevOverlay.Show(this, lines[0], lines[1], lines[2]);
+				return "overlay id=" + lines[0];
+#else
+				throw new InvalidOperationException("Unknown screen query.");
+#endif
+			case ScreenQuery.Dismiss:
+#if DEBUG
+				DevOverlay.Dismiss(this, log: true);
+				return "overlay dismissed";
+#else
+				throw new InvalidOperationException("Unknown screen query.");
+#endif
 			default:
 				throw new InvalidOperationException("Unknown screen query.");
 		}
@@ -263,8 +288,48 @@ public sealed class MainActivity : Activity
 
 		if (_record is { } bound)
 			RecordSession.Publish(bound);
-		var tree = _record is { } record ? record.Render(_platform) : _render(state, _platform);
-		_reconciler.Render(tree);
+		Element tree;
+		try
+		{
+			tree = _record is { } record ? record.Render(_platform) : _render(state, _platform);
+		}
+		catch (Exception ex)
+		{
+#if DEBUG
+			DevOverlay.Show(this, "render", ex.Message, "render");
+#else
+			_ = ex;
+#endif
+			throw;
+		}
+
+		try
+		{
+			_reconciler.Render(tree);
+		}
+		catch (Exception ex)
+		{
+#if DEBUG
+			DevOverlay.Show(this, "render", ex.Message, "render");
+#else
+			_ = ex;
+#endif
+			if (_good is not null)
+			{
+				try
+				{
+					_reconciler.Render(_good);
+				}
+				catch (Exception)
+				{
+				}
+			}
+			throw;
+		}
+
+		_good = tree;
+		StartupMarks.Render();
+		StartupMarks.Arm(this);
 		if (_reconciler.Root is null)
 			throw new InvalidOperationException("Screen did not mount a root view.");
 		if (!ReferenceEquals(previousRoot, _reconciler.Root))
@@ -276,6 +341,7 @@ public sealed class MainActivity : Activity
 		if (_host is not null && _reconciler.Root is not null)
 			_host.RestoreFocus(_reconciler.Root);
 		LogTree();
+		ThemeRuntime.Paint(this, _reconciler.Root);
 		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length + " title=" + LastTitle);
 #if DEBUG
 		StateStore.Save(this);

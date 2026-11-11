@@ -301,6 +301,7 @@ static class AndroidLoop
 		var lowered = SubsetLowerer.TryLower(session.Compiler.ReadSource());
 		if (!lowered.Ok || lowered.Program is null)
 		{
+			ShowRefusal(session, lowered);
 			Console.WriteLine("screen program refused");
 			Console.WriteLine(lowered.Diagnostics.Count == 0 ? "The screen is not a program this runtime can carry." : lowered.Diagnostics[0].Message);
 			return new PushOutcome(ReloadStatus.Failed, false);
@@ -373,7 +374,10 @@ static class AndroidLoop
 
 		var lowered = SubsetLowerer.TryLower(session.Compiler.ReadSource());
 		if (!lowered.Ok || lowered.Program is null)
+		{
+			ShowRefusal(session, lowered);
 			return new ProgramPush(false, true, lowered.Diagnostics.Count == 0 ? "The screen is not a program this runtime can carry." : lowered.Diagnostics[0].Message);
+		}
 		var applied = session.Connection.Apply(lowered.Program);
 		return new ProgramPush(applied.Ok, false, applied.Text);
 	}
@@ -416,7 +420,10 @@ static class AndroidLoop
 	{
 		var lowered = SubsetLowerer.TryLower(source);
 		if (!lowered.Ok || lowered.Program is null)
+		{
+			ShowRefusal(session, lowered);
 			return new PackingSend(false, true, lowered.Diagnostics.Count == 0 ? refused : lowered.Diagnostics[0].Message, 0);
+		}
 		try
 		{
 			var applied = session.Connection.Apply(lowered.Program);
@@ -425,6 +432,21 @@ static class AndroidLoop
 		catch (InvalidOperationException ex)
 		{
 			return new PackingSend(false, false, ex.Message, 0);
+		}
+	}
+
+	internal static void ShowRefusal(ReloadSession session, SubsetResult lowered)
+	{
+		if (lowered.Diagnostics.Count == 0)
+			return;
+		var diagnostic = lowered.Diagnostics[0];
+		try
+		{
+			session.Connection.Apply(ScreenQuery.FaultNote(diagnostic.Id, diagnostic.Message, diagnostic.Start, diagnostic.End, diagnostic.Line, diagnostic.Column));
+		}
+		catch (Exception ex) when (ex is InvalidOperationException or IOException or TimeoutException)
+		{
+			_ = ex;
 		}
 	}
 

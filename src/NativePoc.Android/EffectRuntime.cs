@@ -11,16 +11,29 @@ static class EffectRuntime
 			return;
 		Task.Run(() =>
 		{
-			Thread.Sleep(800);
-			var text = Read(activity, resource);
-			activity.RunOnUiThread(() =>
+			try
 			{
-				if (!EffectGate.Shared.TryApply(property, resource))
-					return;
-				bag.WriteString(property, text);
-				Android.Util.Log.Info(MainActivity.Tag, "effect-apply " + property + " count=" + EffectGate.Shared.ApplyCount(property, resource).ToString(CultureInfo.InvariantCulture));
-				refresh();
-			});
+				if (resource == "throw")
+					throw new InvalidOperationException("effect failed");
+				Thread.Sleep(800);
+				var text = Read(activity, resource);
+				activity.RunOnUiThread(() =>
+				{
+					if (!EffectGate.Shared.TryApply(property, resource))
+						return;
+					bag.WriteString(property, text);
+					Android.Util.Log.Info(MainActivity.Tag, "effect-apply " + property + " count=" + EffectGate.Shared.ApplyCount(property, resource).ToString(CultureInfo.InvariantCulture));
+					refresh();
+				});
+			}
+			catch (Exception ex)
+			{
+#if DEBUG
+				activity.RunOnUiThread(() => DevOverlay.Show(activity, "effect", ex.Message, resource));
+#else
+				_ = ex;
+#endif
+			}
 		});
 	}
 
@@ -59,12 +72,13 @@ static class ClockRuntime
 
 	public static string Step(Action refresh)
 	{
+		var stepped = MotionPlayer.Advance(100);
 		if (_armed.Count == 0)
-			return "animations=0\nclock=0\n";
+			return "animations=" + stepped.ToString(CultureInfo.InvariantCulture) + "\nclock=0\n";
 		_tick++;
 		foreach (var (property, bag) in _armed)
 			bag.AddInt(property, 1);
 		refresh();
-		return "animations=0\nclock=" + _tick.ToString(CultureInfo.InvariantCulture) + "\n";
+		return "animations=" + stepped.ToString(CultureInfo.InvariantCulture) + "\nclock=" + _tick.ToString(CultureInfo.InvariantCulture) + "\n";
 	}
 }

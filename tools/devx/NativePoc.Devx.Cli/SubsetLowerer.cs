@@ -668,6 +668,7 @@ public static class SubsetLowerer
 		List<Field>? _itemFields;
 		string _rows = "";
 		Style? _pendingStyle;
+		Motion? _pendingMotion;
 		Keyboard _pendingKeyboard;
 		int _pendingLines;
 		Submit _pendingSubmit;
@@ -1439,6 +1440,7 @@ public static class SubsetLowerer
 			dynamic = false;
 			field = 0;
 			_pendingStyle = null;
+			_pendingMotion = null;
 			_pendingKeyboard = Keyboard.Text;
 			_pendingLines = 0;
 			_pendingSubmit = Submit.None;
@@ -1454,6 +1456,14 @@ public static class SubsetLowerer
 					if (!StyleOf(assignment.Right, out var style))
 						return false;
 					_pendingStyle = style;
+					continue;
+				}
+
+				if (name.Identifier.ValueText == "Motion")
+				{
+					if (!MotionOf(assignment.Right, out var motion))
+						return false;
+					_pendingMotion = motion;
 					continue;
 				}
 
@@ -1495,13 +1505,100 @@ public static class SubsetLowerer
 
 		void EmitStyle()
 		{
-			if (_pendingStyle is not Style style)
+			if (_pendingStyle is Style style)
+			{
+				var bytes = new byte[StyleCodec.Bytes];
+				StyleCodec.Write(style, bytes);
+				_code.Op(RecordProgram.OpStyle);
+				_code.Bytes(bytes);
+				_pendingStyle = null;
+			}
+
+			EmitMotion();
+		}
+
+		void EmitMotion()
+		{
+			if (_pendingMotion is not Motion motion || MotionCodec.IsRest(motion))
+			{
+				_pendingMotion = null;
 				return;
-			var bytes = new byte[StyleCodec.Bytes];
-			StyleCodec.Write(style, bytes);
-			_code.Op(RecordProgram.OpStyle);
+			}
+
+			var bytes = new byte[MotionCodec.Bytes];
+			MotionCodec.Write(motion, bytes);
+			_code.Op(RecordProgram.OpMotion);
 			_code.Bytes(bytes);
-			_pendingStyle = null;
+			_pendingMotion = null;
+		}
+
+		bool MotionOf(ExpressionSyntax expression, out Motion motion)
+		{
+			motion = Motion.Rest;
+			if (expression is not ObjectCreationExpressionSyntax creation || TypeName(creation) != "Motion" || creation.Initializer is null)
+				return Fail(UnknownMember, "The screen subset does not include an element initializer.", expression);
+			var fromOpacity = 100;
+			var fromX = 0;
+			var fromY = 0;
+			var fromScale = 100;
+			var opacity = 100;
+			var x = 0;
+			var y = 0;
+			var scale = 100;
+			var duration = 0;
+			foreach (var item in creation.Initializer.Expressions)
+			{
+				if (item is not AssignmentExpressionSyntax assignment || assignment.Left is not IdentifierNameSyntax name)
+					return Fail(UnknownMember, "The screen subset does not include an element initializer.", item);
+				if (!Integer(assignment.Right, out var number))
+					return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+				switch (name.Identifier.ValueText)
+				{
+					case "FromOpacity":
+						fromOpacity = number;
+						break;
+					case "FromX":
+						fromX = number;
+						break;
+					case "FromY":
+						fromY = number;
+						break;
+					case "FromScale":
+						fromScale = number;
+						break;
+					case "Opacity":
+						opacity = number;
+						break;
+					case "X":
+						x = number;
+						break;
+					case "Y":
+						y = number;
+						break;
+					case "Scale":
+						scale = number;
+						break;
+					case "Duration":
+						duration = number;
+						break;
+					default:
+						return Fail(UnknownMember, "The screen subset does not include " + name.Identifier.ValueText + ".", assignment);
+				}
+			}
+
+			motion = new Motion
+			{
+				FromOpacity = fromOpacity,
+				FromX = fromX,
+				FromY = fromY,
+				FromScale = fromScale,
+				Opacity = opacity,
+				X = x,
+				Y = y,
+				Scale = scale,
+				Duration = duration,
+			};
+			return true;
 		}
 
 		bool FieldMode(string name, ExpressionSyntax expression)
@@ -1859,7 +1956,7 @@ public static class SubsetLowerer
 				return StateCall(member.Name.Identifier.ValueText, script, invocation);
 			if (owner.Identifier.ValueText == "PackingTelemetry")
 				return true;
-			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share")
+			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme")
 				return ModuleCall(owner.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, script);
 			if (owner.Identifier.ValueText != _platform)
 				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
@@ -1920,6 +2017,19 @@ public static class SubsetLowerer
 				if (!ModuleArg(args[2].Expression, encoded))
 					return false;
 			}
+			else if (module == "Storage" && method == "Set" && args.Count == 3)
+			{
+				if (args[1].Expression is not LiteralExpressionSyntax key || !key.IsKind(SyntaxKind.StringLiteralExpression))
+					return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", args[1].Expression);
+				encoded.Add((0, _code.Intern(key.Token.ValueText)));
+				if (!ModuleArg(args[2].Expression, encoded))
+					return false;
+			}
+			else if (module == "Theme" && method == "Mode" && args.Count == 2)
+			{
+				if (!ModuleArg(args[1].Expression, encoded))
+					return false;
+			}
 			else
 				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
 
@@ -1947,6 +2057,12 @@ public static class SubsetLowerer
 			if (expression is MemberAccessExpressionSyntax member && Member(member, out var field) && field.Kind == ValueKind.Str)
 			{
 				encoded.Add((1, _code.Intern(field.Name)));
+				return true;
+			}
+
+			if (expression is MemberAccessExpressionSyntax flag && Member(flag, out var boolean) && boolean.Kind == ValueKind.Bool)
+			{
+				encoded.Add((2, _code.Intern(boolean.Name)));
 				return true;
 			}
 

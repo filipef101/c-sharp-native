@@ -190,6 +190,10 @@ public sealed class PackingActivity : Activity, IPackingHost
 		if (current is null)
 			return "packing";
 		current.RequestRender();
+#if DEBUG
+		if (MainActivity.Current is { } main)
+			DevOverlay.Clear(main);
+#endif
 		return "packing";
 	}
 
