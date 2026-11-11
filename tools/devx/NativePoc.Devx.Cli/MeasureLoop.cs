@@ -12,6 +12,8 @@ static class MeasureLoop
 			return Packing(args);
 		if (args.Length > 1 && args[1] == "program-only")
 			return ProgramOnly(args);
+		if (args.Length > 1 && args[1] == "checkpoint")
+			return Checkpoint(args);
 		int samples;
 		string? serial;
 		try
@@ -735,6 +737,212 @@ static class MeasureLoop
 		}
 
 		throw new InvalidOperationException("The row layout was not found.");
+	}
+
+	static int Checkpoint(string[] args)
+	{
+		string? serial;
+		try
+		{
+			serial = ParseCheckpoint(args);
+		}
+		catch (UsageException ex)
+		{
+			Console.Error.WriteLine(ex.Message);
+			return 2;
+		}
+
+		try
+		{
+			return ExecuteCheckpoint(serial);
+		}
+		catch (Exception ex)
+		{
+			try
+			{
+				Console.Error.WriteLine("cnative: " + ex.GetType().Name + " " + ex.Message);
+			}
+			catch (Exception write) when (write is IOException or ArgumentException)
+			{
+				File.AppendAllText("/opt/cursor/artifacts/measure-error.txt", ex + "\n" + write);
+			}
+
+			return 1;
+		}
+	}
+
+	static string? ParseCheckpoint(IReadOnlyList<string> args)
+	{
+		if (args.Count < 2 || args[0] != "measure" || args[1] != "checkpoint")
+			throw new UsageException("Usage: cnative measure checkpoint [--device serial]");
+		string? serial = null;
+		for (var index = 2; index < args.Count; index++)
+		{
+			switch (args[index])
+			{
+				case "--device":
+					if (index + 1 >= args.Count)
+						throw new UsageException("--device needs a serial.");
+					serial = args[++index];
+					break;
+				default:
+					throw new UsageException("Usage: cnative measure checkpoint [--device serial]");
+			}
+		}
+
+		return serial;
+	}
+
+	static int ExecuteCheckpoint(string? requestedSerial)
+	{
+		var repo = RepoRoot.Find(Directory.GetCurrentDirectory());
+		var serial = AndroidLoop.ResolveSerial(requestedSerial);
+		var rid = Abi.RidFromProperty(Prop(serial, "ro.product.cpu.abi"));
+		var log = new StringBuilder();
+		Line(log, "label=emulator-run");
+		Line(log, "file=files/nativepoc-state.bin");
+		Line(log, "token-file=files/nativepoc-hotreload.token");
+		Line(log, "abi=" + Prop(serial, "ro.product.cpu.abi"));
+		Line(log, "sdk=" + Prop(serial, "ro.build.version.sdk"));
+		Line(log, "boot=" + Prop(serial, "sys.boot_completed"));
+		Line(log, "qemu=" + Prop(serial, "ro.kernel.qemu"));
+		var session = new ReloadSession();
+		try
+		{
+			session.Token = AndroidLoop.DeployAndLaunch(repo, rid, serial);
+			session.Open(repo, serial);
+			var warmup = AndroidLoop.SendFile(session);
+			if (!warmup.Applied || !warmup.Text.Contains("present=1", StringComparison.Ordinal))
+				throw new InvalidOperationException("Warmup was not a presented program: " + warmup.Text);
+			var packing = AndroidLoop.SendPacking(session, repo);
+			if (!packing.Applied || !packing.Text.Contains("present=1", StringComparison.Ordinal))
+				throw new InvalidOperationException("The packing program was not applied: " + packing.Text);
+			var entered = session.Connection.Apply(ScreenQuery.EnterId("name", "Ada"));
+			if (!entered.Ok)
+				throw new InvalidOperationException("The name was not entered: " + entered.Text);
+			Press(session, "save");
+			StartPacking(serial);
+			WaitUi(serial, "Canvas tent");
+			PressPacked(session);
+			var beforePid = Pid(serial);
+			var before = Kept(State(session));
+			if (!before.Contains("count=1\n", StringComparison.Ordinal)
+				|| !before.Contains("name=416461\n", StringComparison.Ordinal)
+				|| !TentPacked(before))
+				throw new InvalidOperationException("The checkpoint seed was not prepared: " + before.Replace('\n', '|'));
+			var listed = AndroidLoop.Adb(serial, "shell", "run-as", LaunchCommand.Package, "ls", "files");
+			var fileThere = listed.Stdout.Contains("nativepoc-state.bin", StringComparison.Ordinal);
+			Line(log, "state-file-before=" + fileThere);
+			if (!fileThere)
+				throw new InvalidOperationException("The state file was not written: " + listed.Stdout + listed.Stderr);
+			RestartPlain(serial);
+			var afterPid = AndroidLoop.WaitPid(serial);
+			session.Token = AndroidLoop.WaitToken(serial);
+			session.Open(repo, serial);
+			var after = Kept(State(session));
+			var forceOk = afterPid != beforePid && after == before;
+			Line(log, "force-stop before-pid=" + beforePid + " after-pid=" + afterPid + " ok=" + forceOk);
+			Line(log, "force-stop state=" + after.Replace('\n', '|'));
+			if (!forceOk)
+				throw new InvalidOperationException("A plain force-stop did not restore the checkpoint.");
+			var renamed = session.Connection.Apply(ScreenQuery.EnterId("name", "Bea"));
+			if (!renamed.Ok)
+				throw new InvalidOperationException("The second name was not entered: " + renamed.Text);
+			var hostBefore = Kept(State(session));
+			if (!hostBefore.Contains("name=426561\n", StringComparison.Ordinal) || !hostBefore.Contains("count=1\n", StringComparison.Ordinal))
+				throw new InvalidOperationException("The host checkpoint was not prepared: " + hostBefore.Replace('\n', '|'));
+			var captured = AndroidLoop.CaptureRunning(serial);
+			if (captured is null)
+				throw new InvalidOperationException("The running process was not captured.");
+			var removed = AndroidLoop.Adb(serial, "shell", "run-as", LaunchCommand.Package, "rm", "-f", "files/nativepoc-state.bin");
+			if (removed.Code != 0)
+				throw new InvalidOperationException("The state file was not removed: " + removed.Stderr + removed.Stdout);
+			var stopped = AndroidLoop.Adb(serial, "shell", "am", "force-stop", LaunchCommand.Package);
+			if (stopped.Code != 0)
+				throw new InvalidOperationException("force-stop failed: " + stopped.Stderr + stopped.Stdout);
+			var gone = AndroidLoop.Adb(serial, "shell", "run-as", LaunchCommand.Package, "ls", "files");
+			var absent = !gone.Stdout.Contains("nativepoc-state.bin", StringComparison.Ordinal);
+			Line(log, "state-file-removed=" + absent);
+			if (!absent)
+				throw new InvalidOperationException("The state file was still present: " + gone.Stdout);
+			var hostPidBefore = afterPid;
+			session.Token = AndroidLoop.DeployAndLaunch(repo, rid, serial);
+			session.Open(repo, serial);
+			AndroidLoop.Restore(session, captured);
+			var hostPid = Pid(serial);
+			var hostAfter = Kept(State(session));
+			var hostOk = hostPid != hostPidBefore && hostAfter == hostBefore;
+			Line(log, "first-run before-pid=" + hostPidBefore + " after-pid=" + hostPid + " ok=" + hostOk);
+			Line(log, "first-run state=" + hostAfter.Replace('\n', '|'));
+			if (!hostOk)
+				throw new InvalidOperationException("The first-run restore did not write the captured checkpoint.");
+			return 0;
+		}
+		finally
+		{
+			Directory.CreateDirectory("/opt/cursor/artifacts");
+			File.WriteAllText("/opt/cursor/artifacts/measure-checkpoint.txt", log.ToString());
+			session.Dispose();
+		}
+	}
+
+	static void RestartPlain(string serial)
+	{
+		var resolved = AndroidLoop.Adb(serial, "shell", "cmd", "package", "resolve-activity", "--brief", LaunchCommand.Package);
+		var component = ActivityName.FromResolve(resolved.Stdout)
+			?? throw new InvalidOperationException("The launcher activity was not resolved: " + resolved.Stdout + resolved.Stderr);
+		var commands = LaunchCommand.BeforeStart(LaunchCommand.Package, component);
+		for (var index = 0; index < commands.Count; index++)
+		{
+			var joined = string.Join(' ', commands[index]);
+			if (joined.Contains("nativepoc-state.bin", StringComparison.Ordinal))
+				throw new InvalidOperationException("Launch deletes the state file.");
+			if (index == 1)
+				Thread.Sleep(300);
+			var result = AndroidLoop.Adb(serial, commands[index]);
+			if (index == commands.Count - 1 && result.Code != 0)
+				throw new InvalidOperationException("am start failed: " + result.Stderr + result.Stdout);
+		}
+	}
+
+	static void Press(ReloadSession session, string id)
+	{
+		var last = "";
+		for (var attempt = 0; attempt < 10; attempt++)
+		{
+			var pressed = session.Connection.Apply(ScreenQuery.PressId(id));
+			if (pressed.Ok && pressed.Text.Contains("pressed " + id, StringComparison.Ordinal))
+				return;
+			last = pressed.Text;
+			Thread.Sleep(250);
+		}
+
+		throw new InvalidOperationException("The control was not pressed: " + id + " " + last);
+	}
+
+	static string Kept(string state)
+	{
+		var builder = new StringBuilder();
+		foreach (var line in state.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+		{
+			if (line.StartsWith("count=", StringComparison.Ordinal)
+				|| line.StartsWith("name=", StringComparison.Ordinal)
+				|| line.StartsWith("item=", StringComparison.Ordinal))
+				builder.Append(line).Append('\n');
+		}
+
+		return builder.ToString();
+	}
+
+	static bool TentPacked(string state)
+	{
+		foreach (var line in state.Split('\n'))
+		{
+			if (line.StartsWith("item=74656e74 ", StringComparison.Ordinal) && line.EndsWith(" true", StringComparison.Ordinal))
+				return true;
+		}
+
+		return false;
 	}
 
 	static void StartPacking(string serial)

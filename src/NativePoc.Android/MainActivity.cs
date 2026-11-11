@@ -39,6 +39,9 @@ public sealed class MainActivity : Activity
 		_host = new AndroidHost(this, () => _reconciler?.Current);
 		_reconciler = new ViewReconciler<View>(_host);
 		UiSurface.Bind(this, () => _reconciler?.Current);
+#if DEBUG
+		StateStore.TryLoad(this);
+#endif
 		RenderNow();
 		if (string.Equals(Intent?.GetStringExtra("nativepoc_keyed_move"), "1", StringComparison.Ordinal))
 		{
@@ -213,6 +216,9 @@ public sealed class MainActivity : Activity
 		LastTitle = TitleOf(tree);
 		LogTree();
 		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length + " title=" + LastTitle);
+#if DEBUG
+		StateStore.Save(this);
+#endif
 	}
 
 	void LogTree()

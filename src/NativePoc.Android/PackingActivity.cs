@@ -44,6 +44,9 @@ public sealed class PackingActivity : Activity, IPackingHost
 		_reconciler = new ViewReconciler<View>(_host);
 		Current = this;
 		UiSurface.Bind(this, () => _reconciler?.Current);
+#if DEBUG
+		StateStore.TryLoad(this);
+#endif
 		RenderNow();
 	}
 
@@ -182,6 +185,9 @@ public sealed class PackingActivity : Activity, IPackingHost
 			+ " total=" + state.Items.Count
 			+ " switch-deliveries=" + PackingTelemetry.SwitchDeliveries
 			+ " field-deliveries=" + PackingTelemetry.FieldDeliveries);
+#if DEBUG
+		StateStore.Save(this);
+#endif
 	}
 
 	void PlaceBelowActionBar(View root)

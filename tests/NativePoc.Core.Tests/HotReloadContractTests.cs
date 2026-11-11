@@ -30,6 +30,25 @@ public sealed class HotReloadContractTests
 	}
 
 	[Fact]
+	public void Debug_restores_the_checkpoint_before_the_first_frame()
+	{
+		var activity = Source("src", "NativePoc.Android", "MainActivity.cs");
+		var packing = Source("src", "NativePoc.Android", "PackingActivity.cs");
+		var store = Source("src", "NativePoc.Android", "StateStore.cs");
+		var load = activity.IndexOf("StateStore.TryLoad(this)", StringComparison.Ordinal);
+		var render = activity.IndexOf("RenderNow();", StringComparison.Ordinal);
+		var packingLoad = packing.IndexOf("StateStore.TryLoad(this)", StringComparison.Ordinal);
+		var packingRender = packing.IndexOf("RenderNow();", StringComparison.Ordinal);
+		Assert.True(load >= 0 && render > load);
+		Assert.True(packingLoad >= 0 && packingRender > packingLoad);
+		Assert.Contains("StateStore.Save(this)", activity);
+		Assert.Contains("StateStore.Save(this)", packing);
+		Assert.Contains("#if DEBUG", store);
+		Assert.Contains("nativepoc-state.bin", store);
+		Assert.DoesNotContain("nativepoc-hotreload.token", store);
+	}
+
+	[Fact]
 	public void A_screen_program_is_applied_before_any_assembly_load()
 	{
 		var server = Source("src", "NativePoc.Android", "HotReloadServer.cs");

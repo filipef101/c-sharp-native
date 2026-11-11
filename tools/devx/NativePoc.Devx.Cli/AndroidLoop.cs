@@ -77,8 +77,10 @@ static class AndroidLoop
 		var session = new ReloadSession();
 		try
 		{
+			var checkpoint = CaptureRunning(serial);
 			session.Token = DeployAndLaunch(repo, rid, serial);
 			session.Open(repo, serial);
+			Restore(session, checkpoint);
 			var initial = Push(session, options, editStartedMs: null);
 			if (initial.Restarting)
 				Relaunch(session, repo, rid, serial);
@@ -444,16 +446,7 @@ static class AndroidLoop
 		byte[]? checkpoint = null;
 		try
 		{
-			var reply = session.Connection.Apply(ScreenQuery.Ask(ScreenQuery.State));
-			if (!reply.Ok)
-				throw new InvalidOperationException(reply.Text);
-			var state = new AppState();
-			if (!ScreenSnapshot.TryReadState(reply.Text, state))
-				throw new InvalidOperationException("The state reply was not a checkpoint.");
-			PackingCheckpoint? packing = null;
-			if (PackingCheckpoint.TryParse(reply.Text, out var parsed))
-				packing = parsed;
-			checkpoint = StateCheckpoint.Write(state, packing);
+			checkpoint = ReadCheckpoint(session.Connection);
 		}
 		catch (Exception ex) when (ex is InvalidOperationException or IOException)
 		{
@@ -462,26 +455,80 @@ static class AndroidLoop
 
 		session.Token = DeployAndLaunch(repo, rid, serial);
 		session.Open(repo, serial);
-		if (checkpoint is not null)
-		{
-			try
-			{
-				var restored = session.Connection.Apply(ScreenQuery.RestoreState(checkpoint));
-				if (!restored.Ok || restored.Text != "restored")
-					Console.WriteLine("state was not restored: " + restored.Text);
-				else
-					Console.WriteLine("state restored");
-			}
-			catch (InvalidOperationException ex)
-			{
-				Console.WriteLine("state was not restored: " + ex.Message);
-			}
-		}
+		Restore(session, checkpoint);
 
 		var pushed = SendFile(session);
 		if (!pushed.Applied)
 			Console.WriteLine("screen program was not restored: " + pushed.Text);
 		ReportPacking(SendPacking(session, repo), editStartedMs: null, Stopwatch.GetTimestamp());
+	}
+
+	internal static byte[]? CaptureRunning(string serial)
+	{
+		var pid = Adb(serial, "shell", "pidof", LaunchCommand.Package);
+		if (pid.Stdout.Trim().Length == 0)
+			return null;
+		var token = ReadTokenOnce(serial);
+		if (token.Hex.Length == 0)
+		{
+			Console.WriteLine("state was not captured: the running process has no token.");
+			return null;
+		}
+
+		try
+		{
+			using var connection = new HotReloadConnection(serial, token.Hex);
+			return ReadCheckpoint(connection);
+		}
+		catch (Exception ex) when (ex is InvalidOperationException or IOException)
+		{
+			Console.WriteLine("state was not captured: " + ex.Message);
+			return null;
+		}
+	}
+
+	internal static void Restore(ReloadSession session, byte[]? checkpoint)
+	{
+		if (checkpoint is null)
+			return;
+		try
+		{
+			var restored = session.Connection.Apply(ScreenQuery.RestoreState(checkpoint));
+			if (!restored.Ok || restored.Text != "restored")
+				Console.WriteLine("state was not restored: " + restored.Text);
+			else
+				Console.WriteLine("state restored");
+		}
+		catch (InvalidOperationException ex)
+		{
+			Console.WriteLine("state was not restored: " + ex.Message);
+		}
+	}
+
+	static byte[] ReadCheckpoint(HotReloadConnection connection)
+	{
+		var reply = connection.Apply(ScreenQuery.Ask(ScreenQuery.State));
+		if (!reply.Ok)
+			throw new InvalidOperationException(reply.Text);
+		var state = new AppState();
+		if (!ScreenSnapshot.TryReadState(reply.Text, state))
+			throw new InvalidOperationException("The state reply was not a checkpoint.");
+		PackingCheckpoint? packing = null;
+		if (PackingCheckpoint.TryParse(reply.Text, out var parsed))
+			packing = parsed;
+		return StateCheckpoint.Write(state, packing);
+	}
+
+	static FoundToken ReadTokenOnce(string serial)
+	{
+		foreach (var relative in TokenFiles.RelativePaths)
+		{
+			var result = Adb(serial, "shell", "run-as", LaunchCommand.Package, "cat", relative);
+			if (TokenText.TryParse(result.Stdout, out var hex))
+				return new FoundToken(hex, relative);
+		}
+
+		return new FoundToken("", "");
 	}
 
 	internal static FoundToken DeployAndLaunch(string repo, string rid, string serial, IReadOnlyList<string>? extraBuild = null)
@@ -551,7 +598,7 @@ static class AndroidLoop
 		return result.Stdout;
 	}
 
-	static string WaitPid(string serial)
+	internal static string WaitPid(string serial)
 	{
 		var started = Environment.TickCount64;
 		while (Environment.TickCount64 - started < WaitMs)

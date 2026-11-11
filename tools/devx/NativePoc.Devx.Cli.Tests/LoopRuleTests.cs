@@ -23,6 +23,31 @@ public sealed class LoopRuleTests
 	}
 
 	[Fact]
+	public void Launch_leaves_the_debug_state_file()
+	{
+		var commands = LaunchCommand.BeforeStart(
+			LaunchCommand.Package,
+			"com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity");
+		var text = string.Join('\n', commands.Select(command => string.Join(' ', command)));
+		Assert.Contains("nativepoc-hotreload.token", text);
+		Assert.DoesNotContain("nativepoc-state.bin", text);
+	}
+
+	[Fact]
+	public void The_first_run_captures_state_before_deploy()
+	{
+		var source = RepoFile("tools", "devx", "NativePoc.Devx.Cli", "AndroidLoop.cs");
+		var execute = source.IndexOf("static int Execute", StringComparison.Ordinal);
+		var capture = source.IndexOf("CaptureRunning(serial)", execute, StringComparison.Ordinal);
+		var deploy = source.IndexOf("DeployAndLaunch(repo, rid, serial)", capture, StringComparison.Ordinal);
+		var restore = source.IndexOf("Restore(session, checkpoint)", deploy, StringComparison.Ordinal);
+		Assert.True(execute >= 0);
+		Assert.True(capture > execute);
+		Assert.True(deploy > capture);
+		Assert.True(restore > deploy);
+	}
+
+	[Fact]
 	public void Launch_does_not_carry_the_token()
 	{
 		var args = LaunchCommand.Start("com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity");
@@ -158,4 +183,23 @@ public sealed class LoopRuleTests
 	}
 
 	static string Boom() => throw new InvalidOperationException("readLine should not be called.");
+
+	static string RepoFile(params string[] parts)
+	{
+		var dir = new DirectoryInfo(AppContext.BaseDirectory);
+		while (dir is not null)
+		{
+			if (File.Exists(Path.Combine(dir.FullName, "NativePoc.slnx")))
+			{
+				var path = dir.FullName;
+				foreach (var part in parts)
+					path = Path.Combine(path, part);
+				return File.ReadAllText(path);
+			}
+
+			dir = dir.Parent;
+		}
+
+		throw new InvalidOperationException("Repository root was not found.");
+	}
 }
