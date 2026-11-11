@@ -11,17 +11,24 @@ static partial class MeasureLoop
 	static int Aot(string[] args)
 	{
 		string? requested = null;
+		var editsOnly = false;
 		if (args.Length < 2 || args[0] != "measure" || args[1] != "aot")
 		{
-			Console.Error.WriteLine("Usage: cnative measure aot [--device serial]");
+			Console.Error.WriteLine("Usage: cnative measure aot [--device serial] [--edits]");
 			return 2;
 		}
 
 		for (var index = 2; index < args.Length; index++)
 		{
+			if (args[index] == "--edits")
+			{
+				editsOnly = true;
+				continue;
+			}
+
 			if (args[index] != "--device" || index + 1 >= args.Length)
 			{
-				Console.Error.WriteLine("Usage: cnative measure aot [--device serial]");
+				Console.Error.WriteLine("Usage: cnative measure aot [--device serial] [--edits]");
 				return 2;
 			}
 
@@ -45,13 +52,16 @@ static partial class MeasureLoop
 			Line(log, "sdk=" + Prop(serial, "ro.build.version.sdk"));
 			Line(log, "qemu=" + Prop(serial, "ro.kernel.qemu"));
 			Line(log, "host-qemu=" + HostQemu());
-			var releaseApk = PublishedApk(repo, "Release");
-			var devApk = PublishedApk(repo, "Debug");
-			DescribeBinary(log, "release", releaseApk);
-			DescribeBinary(log, "dev-listener", devApk);
-			var releaseStarts = ColdStarts(log, serial, releaseApk, "release");
-			var devStarts = ColdStarts(log, serial, devApk, "dev-listener");
-			Line(log, "startup-delta-p50-ms=" + (Percentile(devStarts, 1, 2) - Percentile(releaseStarts, 1, 2)).ToString("F4", CultureInfo.InvariantCulture));
+			if (!editsOnly)
+			{
+				var releaseApk = PublishedApk(repo, "Release");
+				var devApk = PublishedApk(repo, "Debug");
+				DescribeBinary(log, "release", releaseApk);
+				DescribeBinary(log, "dev-listener", devApk);
+				var releaseStarts = ColdStarts(log, serial, releaseApk, "release");
+				var devStarts = ColdStarts(log, serial, devApk, "dev-listener");
+				Line(log, "startup-delta-p50-ms=" + (Percentile(devStarts, 1, 2) - Percentile(releaseStarts, 1, 2)).ToString("F4", CultureInfo.InvariantCulture));
+			}
 			var dynamic = AndroidLoop.Adb(serial, "logcat", "-d", "-s", "NativePoc:I");
 			var dynamicOk = dynamic.Stdout.Contains("IsDynamicCodeSupported=False", StringComparison.Ordinal);
 			Line(log, "IsDynamicCodeSupported=False logged=" + dynamicOk);
@@ -59,6 +69,12 @@ static partial class MeasureLoop
 				throw new InvalidOperationException("logcat did not show IsDynamicCodeSupported=False.");
 			session.Token = AndroidLoop.WaitToken(serial);
 			session.Open(repo, serial);
+			var resolved = AndroidLoop.Adb(serial, "shell", "cmd", "package", "resolve-activity", "--brief", LaunchCommand.Package);
+			var component = ActivityName.FromResolve(resolved.Stdout)
+				?? throw new InvalidOperationException("The launcher activity was not resolved: " + resolved.Stdout);
+			var front = AndroidLoop.Adb(serial, "shell", "am", "start", "-n", component, "--activity-reorder-to-front");
+			if (front.Code != 0)
+				throw new InvalidOperationException("The counter did not return: " + front.Stderr + front.Stdout);
 			var warmup = AndroidLoop.SendFile(session);
 			if (!warmup.Applied || !warmup.Text.Contains("program=1", StringComparison.Ordinal) || !warmup.Text.Contains("present=1", StringComparison.Ordinal))
 				throw new InvalidOperationException("Warmup was not a presented program: " + warmup.Text);
@@ -72,19 +88,20 @@ static partial class MeasureLoop
 				var prefix = "P" + index.ToString("00", CultureInfo.InvariantCulture) + " ";
 				File.WriteAllText(screenPath, WithPrefix(originalScreen, prefix));
 				var pushed = AndroidLoop.SendFile(session);
-				return (pushed.Applied, pushed.Text, prefix.TrimEnd() + " 0", true);
+				return (pushed.Applied, pushed.Text, "text=\"" + prefix, true);
 			}, () => Ui(serial).Contains("text=\"Ada\"", StringComparison.Ordinal));
 			File.WriteAllText(screenPath, originalScreen);
-			var packing = AndroidLoop.SendPacking(session, repo);
-			if (!packing.Applied || !packing.Text.Contains("program=1", StringComparison.Ordinal))
-				throw new InvalidOperationException("The packing program was not applied: " + packing.Text);
-			var started = AndroidLoop.Adb(serial, "shell", "am", "start", "-n", LaunchCommand.Package + "/nativepoc.PackingActivity");
+			var started = AndroidLoop.Adb(serial, "shell", "am", "start", "-n", LaunchCommand.Package + "/nativepoc.PackingActivity", "--activity-reorder-to-front");
 			if (started.Code != 0)
 				throw new InvalidOperationException("Packing did not start: " + started.Stderr + started.Stdout);
 			WaitUi(serial, "Canvas tent");
+			var packing = AndroidLoop.SendPacking(session, repo);
+			if (!packing.Applied || !packing.Text.Contains("program=1", StringComparison.Ordinal) || !packing.Text.Contains("present=1", StringComparison.Ordinal))
+				throw new InvalidOperationException("The packing program was not applied: " + packing.Text);
 			PressPacked(session);
 			var kept = Items(State(session));
-			if (!kept.Contains("item=74656e74 ", StringComparison.Ordinal) || !kept.Contains(" true", StringComparison.Ordinal))
+			Line(log, "items-after-press=" + kept.Replace('\n', '|'));
+			if (!TentPacked(kept))
 				throw new InvalidOperationException("The packed row was not kept: " + kept);
 			if (Pid(serial) != pid)
 				throw new InvalidOperationException("Packing left the process.");
@@ -213,6 +230,7 @@ static partial class MeasureLoop
 				+ " ondraw-ms=" + elapsed.ToString("F4", CultureInfo.InvariantCulture)
 				+ " frame-ms=" + frameMs.ToString("F4", CultureInfo.InvariantCulture)
 				+ " pid=" + Pid(serial)
+				+ " reply=" + pushed.Text.Replace('\n', ' ')
 				+ " ok=" + ok);
 			if (!ok)
 				throw new InvalidOperationException(name + " sample " + index.ToString(CultureInfo.InvariantCulture) + " did not present in place.");
@@ -299,13 +317,22 @@ static partial class MeasureLoop
 		var listen = CountText(extracted, "hotreload-listen");
 		var loader = CountText(extracted, "no assembly loader");
 		var context = CountText(extracted, "AssemblyLoadContext");
-		Line(log, name + "-hotreload-listen=" + listen.ToString(CultureInfo.InvariantCulture));
-		Line(log, name + "-no-assembly-loader=" + loader.ToString(CultureInfo.InvariantCulture));
-		Line(log, name + "-assembly-load-context=" + context.ToString(CultureInfo.InvariantCulture));
-		if (name == "release" && listen != 0)
-			throw new InvalidOperationException("The Release binary contains the listener.");
-		if (name == "dev-listener" && (listen == 0 || loader == 0 || context != 0))
-			throw new InvalidOperationException("The dev listener binary does not match the program-only listener.");
+		Line(log, name + "-so-hotreload-listen=" + listen.ToString(CultureInfo.InvariantCulture));
+		Line(log, name + "-so-no-assembly-loader=" + loader.ToString(CultureInfo.InvariantCulture));
+		Line(log, name + "-so-assembly-load-context=" + context.ToString(CultureInfo.InvariantCulture));
+		var configuration = name == "release" ? "Release" : "Debug";
+		var projectDir = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(apk)!, "..", "..", "..", "..", ".."));
+		var managed = Path.Combine(projectDir, "obj", configuration, "net10.0-android", "android-x64", "linked", "NativePoc.Android.dll");
+		var managedListen = CountText(managed, "hotreload-listen");
+		var managedLoader = CountText(managed, "no assembly loader");
+		var managedContext = CountText(managed, "AssemblyLoadContext");
+		Line(log, name + "-managed-hotreload-listen=" + managedListen.ToString(CultureInfo.InvariantCulture));
+		Line(log, name + "-managed-no-assembly-loader=" + managedLoader.ToString(CultureInfo.InvariantCulture));
+		Line(log, name + "-managed-assembly-load-context=" + managedContext.ToString(CultureInfo.InvariantCulture));
+		if (name == "release" && managedListen != 0)
+			throw new InvalidOperationException("The Release assembly contains the listener.");
+		if (name == "dev-listener" && (managedListen == 0 || managedLoader == 0 || managedContext != 0))
+			throw new InvalidOperationException("The dev listener assembly does not match the program-only listener.");
 	}
 
 	static bool FieldFocused(string xml, string label)

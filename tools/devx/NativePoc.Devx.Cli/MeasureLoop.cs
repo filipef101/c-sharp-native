@@ -296,9 +296,7 @@ static partial class MeasureLoop
 			var line = raw.TrimEnd('\r');
 			if (line == "---PROFILEDATA---")
 			{
-				if (inTable)
-					break;
-				inTable = true;
+				inTable = !inTable;
 				continue;
 			}
 
