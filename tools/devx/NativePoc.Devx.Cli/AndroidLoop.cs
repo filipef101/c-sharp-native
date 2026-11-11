@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using NativePoc;
 
 namespace NativePoc.Devx;
 
@@ -80,10 +81,7 @@ static class AndroidLoop
 			session.Open(repo, serial);
 			var initial = Push(session, options, editStartedMs: null);
 			if (initial.Restarting)
-			{
-				session.Token = DeployAndLaunch(repo, rid, serial);
-				session.Open(repo, serial);
-			}
+				Relaunch(session, repo, rid, serial);
 
 			var decision = InitialPush.Decide(initial.Status, initial.Restarting, options.Once);
 			switch (decision)
@@ -165,10 +163,7 @@ static class AndroidLoop
 					Console.WriteLine("cnative: reload src/NativePoc.Screen/Screen.cs");
 					var outcome = Push(session, options, batch.FirstMs);
 					if (outcome.Restarting)
-					{
-						session.Token = DeployAndLaunch(repo, rid, serial);
-						session.Open(repo, serial);
-					}
+						Relaunch(session, repo, rid, serial);
 
 					break;
 				case ChangeEffect.RestartRequired:
@@ -179,10 +174,7 @@ static class AndroidLoop
 					if (follow is not null)
 						Console.WriteLine(follow);
 					if (restarting)
-					{
-						session.Token = DeployAndLaunch(repo, rid, serial);
-						session.Open(repo, serial);
-					}
+						Relaunch(session, repo, rid, serial);
 
 					break;
 				default:
@@ -220,7 +212,7 @@ static class AndroidLoop
 				continue;
 			if (ChangeEffectRules.IsHostScreen(normalized))
 				continue;
-			Console.WriteLine(normalized + " is not in the swapped assembly. cnative compiles src/NativePoc.Screen/Screen.cs only.");
+			Console.WriteLine(normalized + " is not in the screen program. cnative lowers src/NativePoc.Screen/Screen.cs only.");
 		}
 	}
 
@@ -262,10 +254,18 @@ static class AndroidLoop
 			return new PushOutcome(ReloadStatus.CompileError, false);
 		}
 
+		var lowered = ScreenLowerer.TryLower(session.Compiler.ReadSource());
+		if (lowered.Program is null)
+		{
+			Console.WriteLine("screen program refused");
+			Console.WriteLine(lowered.Reason ?? "The screen is not a program this runtime can carry.");
+			return new PushOutcome(ReloadStatus.Failed, false);
+		}
+
 		ApplyResult applied;
 		try
 		{
-			applied = session.Connection.Apply(compiled.Assembly);
+			applied = session.Connection.Apply(lowered.Program);
 		}
 		catch (InvalidOperationException ex)
 		{
@@ -313,6 +313,45 @@ static class AndroidLoop
 		return Console.ReadLine();
 	}
 
+	static void Relaunch(ReloadSession session, string repo, string rid, string serial)
+	{
+		byte[]? checkpoint = null;
+		try
+		{
+			var reply = session.Connection.Apply(ScreenQuery.Ask(ScreenQuery.State));
+			if (!reply.Ok)
+				throw new InvalidOperationException(reply.Text);
+			var state = new AppState();
+			if (!ScreenSnapshot.TryReadState(reply.Text, state))
+				throw new InvalidOperationException("The state reply was not a checkpoint.");
+			checkpoint = StateCheckpoint.Write(state);
+		}
+		catch (Exception ex) when (ex is InvalidOperationException or IOException)
+		{
+			Console.WriteLine("state was not captured: " + ex.Message);
+		}
+
+		session.Token = DeployAndLaunch(repo, rid, serial);
+		session.Open(repo, serial);
+		if (checkpoint is null)
+			return;
+		try
+		{
+			var restored = session.Connection.Apply(ScreenQuery.RestoreState(checkpoint));
+			if (!restored.Ok || restored.Text != "restored")
+			{
+				Console.WriteLine("state was not restored: " + restored.Text);
+				return;
+			}
+
+			Console.WriteLine("state restored");
+		}
+		catch (InvalidOperationException ex)
+		{
+			Console.WriteLine("state was not restored: " + ex.Message);
+		}
+	}
+
 	static FoundToken DeployAndLaunch(string repo, string rid, string serial)
 	{
 		Console.WriteLine("cnative: building Debug " + rid + " for " + serial);
@@ -356,7 +395,7 @@ static class AndroidLoop
 		return token;
 	}
 
-	static string ResolveSerial(string? requested)
+	internal static string ResolveSerial(string? requested)
 	{
 		var listed = ProcessRunner.Run("adb", ["devices"]);
 		if (listed.Code != 0)
@@ -387,7 +426,7 @@ static class AndroidLoop
 		throw new InvalidOperationException("The app process did not start.");
 	}
 
-	static FoundToken WaitToken(string serial)
+	internal static FoundToken WaitToken(string serial)
 	{
 		Console.WriteLine("cnative: waiting for a hot reload token via adb run-as");
 		var notes = new System.Text.StringBuilder();
@@ -444,7 +483,7 @@ static class AndroidLoop
 		return trimmed.Length <= 180 ? trimmed : trimmed[..180];
 	}
 
-	static (int Code, string Stdout, string Stderr) Adb(string serial, params string[] args)
+	internal static (int Code, string Stdout, string Stderr) Adb(string serial, params string[] args)
 	{
 		var all = new List<string> { "-s", serial };
 		all.AddRange(args);

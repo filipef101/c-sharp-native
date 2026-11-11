@@ -30,6 +30,19 @@ public sealed class HotReloadContractTests
 	}
 
 	[Fact]
+	public void A_screen_program_is_applied_before_any_assembly_load()
+	{
+		var server = Source("src", "NativePoc.Android", "HotReloadServer.cs");
+		var query = server.IndexOf("ScreenQuery.IsQuery", StringComparison.Ordinal);
+		var program = server.IndexOf("ScreenProgram.IsProgram", StringComparison.Ordinal);
+		var load = server.IndexOf("new AssemblyLoadContext", StringComparison.Ordinal);
+		Assert.True(query >= 0);
+		Assert.True(program > query);
+		Assert.True(load > program);
+		Assert.Contains("UseProgram", server);
+	}
+
+	[Fact]
 	public void Release_publish_hides_only_the_workload_il3053()
 	{
 		var project = Source("src", "NativePoc.Android", "NativePoc.Android.csproj");
