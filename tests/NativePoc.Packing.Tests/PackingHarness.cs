@@ -90,6 +90,10 @@ sealed class PackHost : IElementHost<PackNode>
 	{
 	}
 
+	public void SetHost(PackNode view, string kind, string prop, string value, string eventName, Action<string, string>? onEvent)
+	{
+	}
+
 	public void SetSwitch(PackNode view, bool value, string accessibilityLabel)
 	{
 		view.Checked = value;

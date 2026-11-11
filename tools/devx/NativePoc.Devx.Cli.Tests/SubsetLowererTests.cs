@@ -381,6 +381,142 @@ public sealed class SubsetLowererTests
 		Assert.Equal(Gestures.Refresh, kitTree.Gesture);
 	}
 
+	[Fact]
+	public void A_long_foreach_keeps_headers_and_materializes_only_indexed_rows()
+	{
+		const string source = """
+			namespace Demo;
+			public sealed record Line
+			{
+				public string Id { get; set; } = "";
+				public string Name { get; set; } = "";
+			}
+			public sealed class BigState
+			{
+				public string OpenId { get; set; } = "";
+				public List<Line> Items { get; set; } = new List<Line>()
+				{
+					new Line { Id = "a", Name = "Alpha" },
+					new Line { Id = "b", Name = "Beta" },
+				};
+			}
+			public static class BigScreen
+			{
+				public const string ScreenId = "big";
+				public static Element Render(BigState state, IPlatform platform)
+				{
+					var rows = new List<Element>();
+					rows.Add(new Text("Packing") { Key = "title" });
+					foreach (var item in state.Items)
+						rows.Add(new Text(item.Name) { Key = item.Id, OnTap = () => { state.OpenId = item.Id; platform.RequestRender(); } });
+					rows.Add(new Text("end") { Key = "end" });
+					return new ScrollView(new Column(rows) { Key = "list" }) { Key = "scroll" };
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var platform = new Platform();
+		var small = RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag()).Render(platform);
+		var smallColumn = Assert.IsType<Column>(Assert.IsType<ScrollView>(small).Child);
+		Assert.Equal(4, smallColumn.Children.Count);
+		Assert.IsType<Text>(smallColumn.Children[1]);
+
+		var bound = RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag());
+		var shape = Assert.Single(RecordProgram.Lists(lowered.Program!));
+		var rows = new List<string[]>();
+		for (var index = 0; index < 40; index++)
+		{
+			var cells = new string[shape.Fields.Length];
+			cells[Array.IndexOf(shape.Fields, "Id")] = index.ToString("00");
+			cells[Array.IndexOf(shape.Fields, "Name")] = "Row " + index.ToString("00");
+			rows.Add(cells);
+		}
+
+		bound.State.ReplaceRows(shape.Name, rows);
+		var tree = bound.Render(platform);
+		var column = Assert.IsType<Column>(Assert.IsType<ScrollView>(tree).Child);
+		Assert.Equal("Packing", Assert.IsType<Text>(column.Children[0]).Value);
+		Assert.Equal("end", Assert.IsType<Text>(column.Children[^1]).Value);
+		var list = Assert.IsType<ListView>(column.Children[1]);
+		var window = Assert.IsType<RecordProgram.WindowList>(list.Rows);
+		Assert.Equal(40, window.Count);
+		Assert.Equal(0, window.Built);
+		var later = Assert.IsType<Text>(window[7]);
+		Assert.Equal("Row 07", later.Value);
+		Assert.Equal(1, window.Built);
+		later.OnTap!.Invoke();
+		Assert.Equal("07", bound.State.ReadString("OpenId"));
+		Assert.Equal(1, window.Built);
+		Assert.Equal(1, platform.Renders);
+
+		var packingPath = Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Packing", "PackingScreen.cs");
+		var packing = SubsetLowerer.TryLower(File.ReadAllText(packingPath));
+		Assert.True(packing.Ok, packing.Diagnostics.Count == 0 ? "" : packing.Diagnostics[0].Message);
+		var packingBound = RecordProgram.Bind(packing.Program!, new RecordProgram.Bag());
+		var packingShape = Assert.Single(RecordProgram.Lists(packing.Program!), item => item.Name == "Items");
+		var packingRows = new List<string[]>();
+		for (var index = 0; index < 30; index++)
+		{
+			var cells = new string[packingShape.Fields.Length];
+			var idAt = Array.IndexOf(packingShape.Fields, "Id");
+			var nameAt = Array.IndexOf(packingShape.Fields, "Name");
+			var packedAt = Array.IndexOf(packingShape.Fields, "Packed");
+			Assert.True(idAt >= 0 && nameAt >= 0 && packedAt >= 0);
+			cells[idAt] = "n" + index.ToString("00");
+			cells[nameAt] = "Item " + index.ToString("00");
+			cells[packedAt] = index % 5 == 0 ? "true" : "false";
+			packingRows.Add(cells);
+		}
+
+		packingBound.State.ReplaceRows("Items", packingRows);
+		var packingTree = packingBound.Render(new Platform());
+		var packingColumn = Assert.IsType<Column>(Assert.IsType<ScrollView>(packingTree).Child);
+		var packingList = Assert.Single(packingColumn.Children.OfType<ListView>());
+		var packingWindow = Assert.IsType<RecordProgram.WindowList>(packingList.Rows);
+		Assert.Equal(30, packingWindow.Count);
+		Assert.Equal(0, packingWindow.Built);
+		var packingRow = Assert.IsType<Column>(packingWindow[3]);
+		Assert.Equal("Item 03", Assert.IsType<Text>(packingRow.Children[0]).Value);
+		Assert.Equal(1, packingWindow.Built);
+	}
+
+	[Fact]
+	public void A_host_view_lowers_with_a_typed_prop_and_event_and_reloads_in_place()
+	{
+		var root = RepoRoot.Find(AppContext.BaseDirectory);
+		var source = File.ReadAllText(Path.Combine(root, "samples", "NativePoc.Web", "WebScreen.cs"));
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var native = File.ReadAllText(Path.Combine(root, "src", "NativePoc.Android", "NativeViews.cs"));
+		Assert.Contains("new WebView(context)", native, StringComparison.Ordinal);
+		Assert.DoesNotContain("Activator", native, StringComparison.Ordinal);
+		Assert.DoesNotContain("GetMethod", native, StringComparison.Ordinal);
+		Assert.DoesNotContain("Assembly", native, StringComparison.Ordinal);
+		var csproj = File.ReadAllText(Path.Combine(root, "src", "NativePoc.Android", "NativePoc.Android.csproj"));
+		Assert.Contains("<InvariantGlobalization>true</InvariantGlobalization>", csproj, StringComparison.Ordinal);
+		StringTable.Use("en");
+		var platform = new Platform();
+		var bag = new RecordProgram.Bag();
+		var bound = RecordProgram.Bind(lowered.Program!, bag);
+		var tree = bound.Render(platform);
+		var host = Assert.IsType<HostView>(ElementIds.Require(tree, "web/page"));
+		Assert.Equal("webview", host.Kind);
+		Assert.Equal("url", host.Prop);
+		Assert.Equal("about:blank", host.Value);
+		Assert.Equal("navigate", host.Event);
+		Assert.NotNull(host.OnEvent);
+		host.OnEvent!("other", "ignored");
+		Assert.Equal("about:blank", bag.ReadString("Url"));
+		host.OnEvent!("navigate", "about:blank#next");
+		Assert.Equal("about:blank#next", bag.ReadString("Url"));
+		Assert.Equal(1, platform.Renders);
+		var again = bound.Render(platform);
+		var reloaded = Assert.IsType<HostView>(ElementIds.Require(again, "web/page"));
+		Assert.Equal("about:blank#next", reloaded.Value);
+		Assert.Equal("page", reloaded.Key);
+	}
+
 	static string TextValue(Element root, string id) =>
 		Assert.IsType<Text>(ElementIds.Require(root, id)).Value;
 

@@ -21,6 +21,8 @@ public static class IosSurface
 				return "UIScrollView";
 			case ElementKind.Image:
 				return "UIImageView";
+			case ElementKind.Host:
+				return "UIView";
 			default:
 				throw new InvalidOperationException("Unknown element kind.");
 		}

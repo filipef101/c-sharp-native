@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Android.Content;
@@ -43,13 +44,26 @@ public sealed class MainActivity : Activity
 		_host = new AndroidHost(this, () => _reconciler?.Current);
 		_reconciler = new ViewReconciler<View>(_host);
 		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
+		LocaleRuntime.Apply(this);
+		var requestedRoot = Intent?.GetStringExtra("nativepoc_root");
+		var wantsRoot = !string.IsNullOrEmpty(requestedRoot) && !string.Equals(requestedRoot, "counter", StringComparison.Ordinal);
+		var navStart = SystemClock.ElapsedRealtime();
 		NavCatalog.InstallRoot();
-		if (Bench || WantsTrips)
+		if (Bench || wantsRoot)
 			NavCatalog.InstallRest();
+		var stagedMs = SystemClock.ElapsedRealtime() - navStart;
+		var decodeStart = SystemClock.ElapsedRealtime();
 		if (Bench)
 			ScreenNav.Shared.Push("packing");
-		if (WantsTrips)
-			ScreenNav.Shared.Push("trips");
+		else if (!string.IsNullOrEmpty(requestedRoot) && !string.Equals(requestedRoot, "counter", StringComparison.Ordinal))
+			ScreenNav.Shared.Push(requestedRoot);
+		var decodeMs = SystemClock.ElapsedRealtime() - decodeStart;
+		Log.Info(
+			Tag,
+			"startup phase=nav ms=" + stagedMs.ToString(CultureInfo.InvariantCulture)
+			+ " decode-ms=" + decodeMs.ToString(CultureInfo.InvariantCulture)
+			+ " loaded=" + ScreenNav.Shared.Loaded.ToString(CultureInfo.InvariantCulture)
+			+ " staged=" + ScreenNav.Shared.Staged.ToString(CultureInfo.InvariantCulture));
 		StorageSeed.Apply(this);
 #if DEBUG
 		StateStore.TryLoad(this);
@@ -64,14 +78,12 @@ public sealed class MainActivity : Activity
 #if DEBUG
 		HotReloadServer.Start(this);
 #endif
-		if (!Bench && !WantsTrips)
+		if (!Bench && !wantsRoot)
 			_reconciler?.Root?.Post(() => NavCatalog.InstallRest());
 		StartupMarks.Returned();
 	}
 
 	bool Bench => string.Equals(Intent?.GetStringExtra("nativepoc_bench"), "packing1000", StringComparison.Ordinal);
-
-	bool WantsTrips => string.Equals(Intent?.GetStringExtra("nativepoc_root"), "trips", StringComparison.Ordinal);
 
 	protected override void OnNewIntent(Intent? intent)
 	{
@@ -310,6 +322,7 @@ public sealed class MainActivity : Activity
 		if (_record is { } bound)
 			RecordSession.Publish(bound);
 		Element tree;
+		var evalStart = SystemClock.ElapsedRealtime();
 		try
 		{
 			tree = _record is { } record ? record.Render(_platform) : _render(state, _platform);
@@ -324,6 +337,8 @@ public sealed class MainActivity : Activity
 			throw;
 		}
 
+		var evalMs = SystemClock.ElapsedRealtime() - evalStart;
+		var mountStart = SystemClock.ElapsedRealtime();
 		try
 		{
 			_reconciler.Render(tree);
@@ -349,8 +364,23 @@ public sealed class MainActivity : Activity
 		}
 
 		_good = tree;
+		var mountMs = SystemClock.ElapsedRealtime() - mountStart;
+		StartupMarks.Note("eval", evalMs);
+		StartupMarks.Note("mount", mountMs);
+		var rows = 0;
+		var built = 0;
+		Describe(tree, ref rows, ref built);
+		var views = _reconciler.Root is View root ? CountViews(root) : 0;
+		Log.Info(
+			Tag,
+			"startup window rows=" + rows.ToString(CultureInfo.InvariantCulture)
+			+ " built=" + built.ToString(CultureInfo.InvariantCulture)
+			+ " views=" + views.ToString(CultureInfo.InvariantCulture));
 		StartupMarks.Render();
 		StartupMarks.Arm(this);
+		LocaleRuntime.ApplyDirection(this);
+		if (_reconciler.Root is View mounted)
+			LocaleRuntime.ApplyDirection(mounted);
 		if (_reconciler.Root is null)
 			throw new InvalidOperationException("Screen did not mount a root view.");
 		if (!ReferenceEquals(previousRoot, _reconciler.Root))
@@ -387,6 +417,41 @@ public sealed class MainActivity : Activity
 		}
 	}
 
+	static void Describe(Element element, ref int rows, ref int built)
+	{
+		switch (element)
+		{
+			case ListView list when list.Rows is RecordProgram.WindowList window:
+				rows += window.Count;
+				built += window.Built;
+				return;
+			case Column column:
+				foreach (var child in column.Children)
+					Describe(child, ref rows, ref built);
+				return;
+			case ScrollView scroll:
+				Describe(scroll.Child, ref rows, ref built);
+				return;
+			default:
+				return;
+		}
+	}
+
+	static int CountViews(View view)
+	{
+		if (view is not ViewGroup group)
+			return 1;
+		var count = 1;
+		for (var index = 0; index < group.ChildCount; index++)
+		{
+			var child = group.GetChildAt(index);
+			if (child is not null)
+				count += CountViews(child);
+		}
+
+		return count;
+	}
+
 	static string TitleOf(Element element)
 	{
 		switch (element)
@@ -403,6 +468,7 @@ public sealed class MainActivity : Activity
 			case TextField:
 			case Switch:
 			case Image:
+			case HostView:
 				return "";
 			default:
 				throw Unknown(element);

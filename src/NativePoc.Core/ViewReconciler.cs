@@ -29,6 +29,8 @@ public interface IElementHost<TView>
 
 	void SetImage(TView view, string source);
 
+	void SetHost(TView view, string kind, string prop, string value, string eventName, Action<string, string>? onEvent);
+
 	void OnMounted(NodePath path, TView view);
 
 	void Retarget(NodePath path, TView view);
@@ -124,6 +126,9 @@ public sealed class ViewReconciler<TView>
 				return;
 			case SetImage setImage:
 				_host.SetImage(ViewAt(setImage.Path), setImage.Source);
+				return;
+			case SetHost setHost:
+				_host.SetHost(ViewAt(setHost.Path), setHost.Kind, setHost.Prop, setHost.Value, setHost.Event, setHost.OnEvent);
 				return;
 			case Reorder reorder:
 				ApplyReorder(reorder.Parent, reorder.Sources);

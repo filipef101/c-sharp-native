@@ -10,6 +10,7 @@ public enum ElementKind
 	Scroll = 6,
 	List = 7,
 	Image = 8,
+	Host = 9,
 }
 
 public enum Align
@@ -310,6 +311,13 @@ public sealed record ScrollView(Element Child) : Element;
 public sealed record ListView(IReadOnlyList<Element> Rows) : Element;
 
 public sealed record Image(string Source) : Element;
+
+public sealed record HostView(string Kind, string Prop, string Value) : Element
+{
+	public string Event { get; init; } = "";
+
+	public Action<string, string>? OnEvent { get; init; }
+}
 
 public interface INativeServices : IDisposable
 {

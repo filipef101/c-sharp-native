@@ -669,6 +669,8 @@ public static class SubsetLowerer
 		string _rows = "";
 		Style? _pendingStyle;
 		Motion? _pendingMotion;
+		string? _pendingEventName;
+		byte[]? _pendingEventScript;
 		readonly List<(byte Kind, byte[] Script)> _pendingGestures = new();
 		Keyboard _pendingKeyboard;
 		int _pendingLines;
@@ -1055,6 +1057,8 @@ public static class SubsetLowerer
 					return Scroll(creation, set);
 				case "Image":
 					return Image(creation, set);
+				case "HostView":
+					return Host(creation, set);
 				default:
 					return Fail(UnknownElement, "The screen subset does not include " + type + ".", creation);
 			}
@@ -1098,6 +1102,31 @@ public static class SubsetLowerer
 			if (!keys.Add(this, key, false, creation))
 				return false;
 			_code.Op(RecordProgram.OpMakeImage);
+			_code.U16(key);
+			EmitStyle();
+			return true;
+		}
+
+		bool Host(ObjectCreationExpressionSyntax creation, KeySet keys)
+		{
+			if (creation.ArgumentList is not { } arguments || arguments.Arguments.Count != 3)
+				return Fail(UnknownElement, "A host view takes a kind, a prop name, and a value.", creation);
+			var args = arguments.Arguments;
+			if (args[0].Expression is not LiteralExpressionSyntax kind || !kind.IsKind(SyntaxKind.StringLiteralExpression))
+				return Fail(UnknownExpression, "The screen subset does not include this expression.", args[0].Expression);
+			if (args[1].Expression is not LiteralExpressionSyntax prop || !prop.IsKind(SyntaxKind.StringLiteralExpression))
+				return Fail(UnknownExpression, "The screen subset does not include this expression.", args[1].Expression);
+			if (!PushLiteral(kind.Token.ValueText) || !PushLiteral(prop.Token.ValueText))
+				return false;
+			if (!TextValue(args[2].Expression))
+				return false;
+			if (!KeyOf(creation, out var key, out var dynamic, out _))
+				return false;
+			if (dynamic)
+				return Fail(UnknownExpression, "The screen subset does not include this expression.", creation);
+			if (!keys.Add(this, key, false, creation))
+				return false;
+			_code.Op(RecordProgram.OpMakeHost);
 			_code.U16(key);
 			EmitStyle();
 			return true;
@@ -1252,9 +1281,51 @@ public static class SubsetLowerer
 					return MemberText(member);
 				case IdentifierNameSyntax name when _consts.TryGetValue(name.Identifier.ValueText, out var constant):
 					return PushLiteral(constant);
+				case InvocationExpressionSyntax invocation:
+					return InvocationText(invocation);
 				default:
 					return Fail(UnknownExpression, "The screen subset does not include this expression.", expression);
 			}
+		}
+
+		bool InvocationText(InvocationExpressionSyntax invocation)
+		{
+			if (invocation.Expression is not MemberAccessExpressionSyntax member
+				|| member.Expression is not IdentifierNameSyntax owner
+				|| owner.Identifier.ValueText != "L")
+				return Fail(UnknownExpression, "The screen subset does not include this expression.", invocation);
+			var name = member.Name.Identifier.ValueText;
+			var args = invocation.ArgumentList.Arguments;
+			if (name == "Get" && args.Count == 1)
+			{
+				if (!TextValue(args[0].Expression))
+					return false;
+				_code.Op(RecordProgram.OpRes);
+				return true;
+			}
+
+			if (name == "Plural" && args.Count == 3)
+			{
+				if (!TextValue(args[0].Expression) || !TextValue(args[1].Expression) || !TextValue(args[2].Expression))
+					return false;
+				_code.Op(RecordProgram.OpPlural);
+				return true;
+			}
+
+			if (name == "Format" && args.Count >= 2 && args.Count <= 9)
+			{
+				for (var index = 0; index < args.Count; index++)
+				{
+					if (!TextValue(args[index].Expression))
+						return false;
+				}
+
+				_code.Op(RecordProgram.OpFormat);
+				_code.U8((byte)(args.Count - 1));
+				return true;
+			}
+
+			return Fail(UnknownExpression, "The screen subset does not include this expression.", invocation);
 		}
 
 		bool Bool(ExpressionSyntax expression)
@@ -1452,6 +1523,8 @@ public static class SubsetLowerer
 			_pendingStyle = null;
 			_pendingMotion = null;
 			_pendingGestures.Clear();
+			_pendingEventName = null;
+			_pendingEventScript = null;
 			_pendingKeyboard = Keyboard.Text;
 			_pendingLines = 0;
 			_pendingSubmit = Submit.None;
@@ -1475,6 +1548,24 @@ public static class SubsetLowerer
 					if (!MotionOf(assignment.Right, out var motion))
 						return false;
 					_pendingMotion = motion;
+					continue;
+				}
+
+				if (name.Identifier.ValueText is "Event" or "OnEvent")
+				{
+					if (TypeName(creation) != "HostView")
+						return Fail(UnknownMember, "The screen subset does not include an element initializer.", assignment);
+					if (name.Identifier.ValueText == "Event")
+					{
+						if (assignment.Right is not LiteralExpressionSyntax eventName || !eventName.IsKind(SyntaxKind.StringLiteralExpression))
+							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+						_pendingEventName = eventName.Token.ValueText;
+						continue;
+					}
+
+					if (assignment.Right is not LambdaExpressionSyntax eventLambda || !Script(eventLambda, out var eventScript) || eventScript.Length == 0)
+						return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", assignment.Right);
+					_pendingEventScript = eventScript;
 					continue;
 				}
 
@@ -1571,6 +1662,16 @@ public static class SubsetLowerer
 			}
 
 			_pendingGestures.Clear();
+			if (_pendingEventScript is not null)
+			{
+				_code.Op(RecordProgram.OpHostEvent);
+				_code.U16(_code.Intern(_pendingEventName ?? ""));
+				_code.U16(_pendingEventScript.Length);
+				_code.Bytes(_pendingEventScript);
+			}
+
+			_pendingEventName = null;
+			_pendingEventScript = null;
 		}
 
 		bool MotionOf(ExpressionSyntax expression, out Motion motion)

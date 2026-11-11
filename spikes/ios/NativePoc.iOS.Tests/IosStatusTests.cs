@@ -15,6 +15,7 @@ public sealed class IosStatusTests
 		Assert.Equal("UIScrollView", IosSurface.ViewClass(ElementKind.Scroll));
 		Assert.Equal("UIScrollView", IosSurface.ViewClass(ElementKind.List));
 		Assert.Equal("UIImageView", IosSurface.ViewClass(ElementKind.Image));
+		Assert.Equal("UIView", IosSurface.ViewClass(ElementKind.Host));
 		Assert.True(IosSurface.Applies(new Style { FontSize = 22, Gap = 8, Color = 0xFF1C1917 }));
 		Assert.False(IosSurface.Applies(default));
 		Assert.Equal(
@@ -54,7 +55,7 @@ public sealed class IosStatusTests
 		foreach (var kind in new[]
 		{
 			ElementKind.Column, ElementKind.Text, ElementKind.Button, ElementKind.TextField,
-			ElementKind.Switch, ElementKind.Scroll, ElementKind.List, ElementKind.Image,
+			ElementKind.Switch, ElementKind.Scroll, ElementKind.List, ElementKind.Image, ElementKind.Host,
 		})
 			Assert.Contains(IosSurface.ViewClass(kind), host, StringComparison.Ordinal);
 		foreach (var module in IosSurface.Modules)

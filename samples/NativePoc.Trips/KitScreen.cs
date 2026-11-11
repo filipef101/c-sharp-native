@@ -55,7 +55,7 @@ public static class KitScreen
 		{
 			return new Column(
 			[
-				new Text("Add to kit") { Key = "title" },
+				new Text(L.Get("Add to kit")) { Key = "title" },
 				new TextField(
 					state.DraftName,
 					value =>
@@ -63,25 +63,25 @@ public static class KitScreen
 						state.DraftName = value;
 						platform.RequestRender();
 					},
-					"Item name",
-					"Item name")
+					L.Get("Item name"),
+					L.Get("Item name"))
 				{ Key = "name" },
-				new Button("Save", () => { state.Commit(); platform.RequestRender(); }, "Save item") { Key = "save" },
-				new Button("Back", () => { state.Editing = false; platform.RequestRender(); }, "Back") { Key = "back" },
+				new Button(L.Get("Save"), () => { state.Commit(); platform.RequestRender(); }, L.Get("Save item")) { Key = "save" },
+				new Button(L.Get("Back"), () => { state.Editing = false; platform.RequestRender(); }, L.Get("Back")) { Key = "back" },
 			])
 			{ Key = "editor" };
 		}
 
 		var rows = new List<Element>();
-		rows.Add(new Text("Packing") { Key = "title", Style = new Style { FontSize = 22, Weight = FontWeight.Bold } });
-		rows.Add(new Text(state.Fresh.Length == 0 ? "Pull to refresh" : state.Fresh) { Key = "fresh" });
-		rows.Add(new Text(state.Held.Length == 0 ? "Hold a row" : state.Held) { Key = "held" });
+		rows.Add(new Text(L.Get("Packing")) { Key = "title", Style = new Style { FontSize = 22, Weight = FontWeight.Bold } });
+		rows.Add(new Text(state.Fresh.Length == 0 ? L.Get("Pull to refresh") : L.Get(state.Fresh)) { Key = "fresh" });
+		rows.Add(new Text(state.Held.Length == 0 ? L.Get("Hold a row") : L.Get(state.Held)) { Key = "held" });
 		foreach (var item in state.Items)
 		{
 			rows.Add(new Column(
 			[
-				new Text(item.Name) { Key = "name", OnLongPress = () => { state.Held = item.Name; platform.RequestRender(); } },
-				new Text(item.Packed ? "Packed" : "Open") { Key = "packed" },
+				new Text(L.Get(item.Name)) { Key = "name", OnLongPress = () => { state.Held = item.Name; platform.RequestRender(); } },
+				new Text(item.Packed ? L.Get("Packed") : L.Get("Open")) { Key = "packed" },
 			])
 			{
 				Key = item.Id,
@@ -90,7 +90,7 @@ public static class KitScreen
 		}
 
 		rows.Add(new Button(
-			"Add item",
+			L.Get("Add item"),
 			() =>
 			{
 				state.EditingId = "";
@@ -99,9 +99,9 @@ public static class KitScreen
 				state.Editing = true;
 				platform.RequestRender();
 			},
-			"Add item")
+			L.Get("Add item"))
 		{ Key = "add" });
-		rows.Add(new Button("Back", () => { platform.Pop(); platform.RequestRender(); }, "Back") { Key = "back" });
+		rows.Add(new Button(L.Get("Back"), () => { platform.Pop(); platform.RequestRender(); }, L.Get("Back")) { Key = "back" });
 		return new ScrollView(new Column(rows) { Key = "list", Style = new Style { Gap = 8 } })
 		{
 			Key = "scroll",

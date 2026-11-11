@@ -40,6 +40,13 @@ public static class RecordProgram
 	public const byte OpFieldMode = 32;
 	public const byte OpMotion = 33;
 	public const byte OpGesture = 34;
+	public const byte OpHostEvent = 35;
+	public const byte OpRes = 36;
+	public const byte OpPlural = 37;
+	public const byte OpFormat = 38;
+	public const byte OpMakeHost = 39;
+
+	public const int EagerRowLimit = 24;
 
 	public const byte ActRender = 1;
 	public const byte ActSetStr = 2;
@@ -621,7 +628,15 @@ public static class RecordProgram
 				var bodyEnd = ip + length;
 				if (bodyEnd > end)
 					throw new InvalidOperationException("Rejected record program.");
-				foreach (var item in bag.Rows(name))
+				var rows = bag.Rows(name);
+				if (rows.Count > EagerRowLimit)
+				{
+					Push(stack, ref sp, Slot.Elem(new ListView(new WindowList(code, strings, bag, platform, rows, ip, bodyEnd)) { Key = "window" }));
+					row = null;
+					return bodyEnd;
+				}
+
+				foreach (var item in rows)
 				{
 					row = item;
 					var cursor = ip;
@@ -668,6 +683,12 @@ public static class RecordProgram
 				if (gathered.Count > MaxRows)
 					throw new InvalidOperationException("Rejected record program.");
 				gathered.Reverse();
+				if (gathered.Count == 1 && gathered[0] is ListView window && window.Rows is WindowList)
+				{
+					Push(stack, ref sp, Slot.Elem(window with { Key = key }));
+					return ip;
+				}
+
 				Push(stack, ref sp, Slot.Elem(new ListView(gathered) { Key = key }));
 				return ip;
 			}
@@ -758,6 +779,66 @@ public static class RecordProgram
 				Push(stack, ref sp, Slot.Elem(WithGesture(node, kind, run)));
 				return ip;
 			}
+			case OpMakeHost:
+			{
+				var key = Key(strings, TakeU16(code, ref ip, end));
+				var value = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				var prop = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				var kind = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				if (kind.Length == 0 || prop.Length == 0)
+					throw new InvalidOperationException("Rejected record program.");
+				Push(stack, ref sp, Slot.Elem(new HostView(kind, prop, value) { Key = key }));
+				return ip;
+			}
+			case OpHostEvent:
+			{
+				var eventName = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+				var length = TakeU16(code, ref ip, end);
+				if (ip + length > end)
+					throw new InvalidOperationException("Rejected record program.");
+				var script = code.AsSpan(ip, length).ToArray();
+				ip += length;
+				if (Pop(stack, ref sp, SlotKind.Elem).Node is not HostView host)
+					throw new InvalidOperationException("Rejected record program.");
+				Action<string, string>? onEvent = script.Length == 0
+					? null
+					: (name, payload) =>
+					{
+						if (eventName.Length > 0 && !string.Equals(name, eventName, StringComparison.Ordinal))
+							return;
+						RunScript(script, strings, bag, platform, payload, false, null);
+					};
+				Push(stack, ref sp, Slot.Elem(host with { Event = eventName, OnEvent = onEvent }));
+				return ip;
+			}
+			case OpRes:
+			{
+				var key = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				Push(stack, ref sp, Slot.Str(StringTable.Get(key)));
+				return ip;
+			}
+			case OpPlural:
+			{
+				var other = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				var one = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				var count = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				Push(stack, ref sp, Slot.Str(StringTable.Plural(count, one, other)));
+				return ip;
+			}
+			case OpFormat:
+			{
+				if (ip >= end)
+					throw new InvalidOperationException("Rejected record program.");
+				var argc = code[ip++];
+				if (argc > 8)
+					throw new InvalidOperationException("Rejected record program.");
+				var args = new string[argc];
+				for (var index = argc - 1; index >= 0; index--)
+					args[index] = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				var template = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				Push(stack, ref sp, Slot.Str(StringTable.Format(template, args)));
+				return ip;
+			}
 			default:
 				throw new InvalidOperationException("Rejected record program.");
 		}
@@ -780,6 +861,7 @@ public static class RecordProgram
 			ScrollView scroll => scroll with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
 			ListView list => list with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
 			Image image => image with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
+			HostView host => host with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
 			_ => throw new InvalidOperationException("Rejected record program."),
 		};
 	}
@@ -795,6 +877,7 @@ public static class RecordProgram
 			ScrollView scroll => scroll with { Motion = motion },
 			ListView list => list with { Motion = motion },
 			Image image => image with { Motion = motion },
+			HostView host => host with { Motion = motion },
 			_ => throw new InvalidOperationException("Rejected record program."),
 		};
 
@@ -809,6 +892,7 @@ public static class RecordProgram
 			ScrollView scroll => scroll with { Style = style },
 			ListView list => list with { Style = style },
 			Image image => image with { Style = style },
+			HostView host => host with { Style = style },
 			_ => throw new InvalidOperationException("Rejected record program."),
 		};
 
@@ -1155,6 +1239,66 @@ public static class RecordProgram
 		public static Slot Elem(Element node) => new(SlotKind.Elem, null, false, node);
 
 		public static Slot Mark() => new(SlotKind.Mark, null, false, null);
+	}
+
+	public sealed class WindowList : IReadOnlyList<Element>
+	{
+		readonly byte[] _code;
+		readonly string[] _strings;
+		readonly Bag _bag;
+		readonly IPlatform _platform;
+		readonly IReadOnlyList<string[]> _rows;
+		readonly int _start;
+		readonly int _end;
+		readonly Element?[] _cache;
+
+		internal WindowList(byte[] code, string[] strings, Bag bag, IPlatform platform, IReadOnlyList<string[]> rows, int start, int end)
+		{
+			_code = code;
+			_strings = strings;
+			_bag = bag;
+			_platform = platform;
+			_rows = rows;
+			_start = start;
+			_end = end;
+			_cache = new Element[rows.Count];
+		}
+
+		public int Count => _rows.Count;
+
+		public int Built { get; private set; }
+
+		public Element this[int index]
+		{
+			get
+			{
+				if ((uint)index >= (uint)_cache.Length)
+					throw new ArgumentOutOfRangeException(nameof(index));
+				var cached = _cache[index];
+				if (cached is not null)
+					return cached;
+				var row = _rows[index];
+				var stack = new Slot[256];
+				var sp = 0;
+				Element? returned = null;
+				var cursor = _start;
+				while (cursor < _end)
+					cursor = Step(_code, _strings, _bag, _platform, stack, ref sp, ref row, cursor, _end, ref returned);
+				if (returned is not null || sp != 1 || stack[0].Kind != SlotKind.Elem || stack[0].Node is not Element built)
+					throw new InvalidOperationException("Rejected record program.");
+				Built++;
+				_cache[index] = built;
+				return built;
+			}
+		}
+
+		public IEnumerator<Element> GetEnumerator()
+		{
+			for (var index = 0; index < Count; index++)
+				yield return this[index];
+		}
+
+		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 	}
 
 	public sealed class BagImage

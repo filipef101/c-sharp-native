@@ -119,6 +119,13 @@ public static class ScreenSnapshot
 				Key(builder, image.Key);
 				builder.Append(" source=").Append(Quote(image.Source)).Append('\n');
 				return;
+			case HostView host:
+				Key(builder, host.Key);
+				builder.Append(" kind=").Append(Quote(host.Kind));
+				builder.Append(" prop=").Append(Quote(host.Prop));
+				builder.Append(" value=").Append(Quote(host.Value));
+				builder.Append(" event=").Append(Quote(host.Event)).Append('\n');
+				return;
 			default:
 				throw Unknown(element);
 		}
@@ -144,6 +151,8 @@ public static class ScreenSnapshot
 				return "list";
 			case Image:
 				return "image";
+			case HostView:
+				return "host";
 			default:
 				throw Unknown(element);
 		}
@@ -160,6 +169,7 @@ public static class ScreenSnapshot
 			ScrollView => "scroll",
 			ListView => "list",
 			Image => "image",
+			HostView => "host",
 			_ => throw Unknown(element),
 		};
 

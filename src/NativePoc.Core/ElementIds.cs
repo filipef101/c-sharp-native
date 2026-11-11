@@ -66,6 +66,7 @@ public static class ElementIds
 			case ListView:
 			case Text:
 			case Image:
+			case HostView:
 				throw new InvalidOperationException("Element " + id + " does not take input.");
 			default:
 				throw new InvalidOperationException("Unknown element.");
@@ -117,6 +118,7 @@ public static class ElementIds
 			case TextField:
 			case Switch:
 			case Image:
+			case HostView:
 				return Array.Empty<Element>();
 			default:
 				throw new InvalidOperationException("Unknown element.");

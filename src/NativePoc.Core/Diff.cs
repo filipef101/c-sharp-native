@@ -100,6 +100,8 @@ public sealed record SetGesture(NodePath Path, byte Mask) : Patch;
 
 public sealed record SetImage(NodePath Path, string Source) : Patch;
 
+public sealed record SetHost(NodePath Path, string Kind, string Prop, string Value, string Event, Action<string, string>? OnEvent) : Patch;
+
 public static class TreeDiff
 {
 	public static List<Patch> Diff(Element? previous, Element next)
@@ -318,6 +320,9 @@ public static class TreeDiff
 				if (previous is not Image previousImage || previousImage.Source != image.Source)
 					patches.Add(new SetImage(path, image.Source));
 				return;
+			case HostView host:
+				patches.Add(new SetHost(path, host.Kind, host.Prop, host.Value, host.Event, host.OnEvent));
+				return;
 			default:
 				throw UnknownElement(next);
 		}
@@ -353,6 +358,7 @@ public static class TreeDiff
 			case TextField:
 			case Switch:
 			case Image:
+			case HostView:
 				return Array.Empty<Element>();
 			default:
 				throw UnknownElement(element);
@@ -379,6 +385,8 @@ public static class TreeDiff
 				return ElementKind.List;
 			case Image:
 				return ElementKind.Image;
+			case HostView:
+				return ElementKind.Host;
 			default:
 				throw UnknownElement(element);
 		}

@@ -55,6 +55,10 @@ An action is a lambda. It may assign a property from the lambda argument, a lite
 
 `ListView` is a keyed list of rows. The Android host maps it to a `ScrollView` that keeps 20 text slots and rebinds them as it scrolls. It is not `AndroidX.RecyclerView`. The agent tree is one list node. The rows are not id-tree children.
 
+A `foreach` of more than 24 rows does not build those rows during the first eval. It pushes one `ListView` whose rows are a window. Indexing a row runs that row's body, so a scroll that asks for the visible slots builds those slots and leaves the rest unbuilt. A list of 24 rows or fewer still expands, which is the packing screen's own four rows (the switch, the edit button, and the swipe stay on those rows). The 1000-row bench is the window. Headers and footers around the `foreach` stay in the column. The window's slots are text labels, not the switch and the button. That richer row is the expanded list.
+
+`HostView` is a platform view. `new HostView("webview", "url", state.Url)` names the kind, the prop, and the value. `Event` and `OnEvent` are the event name and the script. See [native-view.md](native-view.md). `L.Get`, `L.Format`, and `L.Plural` are the locale helpers in [localization.md](localization.md). `L.Plural` chooses the `one` string when the count is 1 and the `other` string otherwise.
+
 ## Accessibility
 
 `ScreenSnapshot.Role` is the role. The host widget is the platform role, and the accessibility label is `contentDescription`.
@@ -69,6 +73,7 @@ An action is a lambda. It may assign a property from the lambda argument, a lite
 | ScrollView | scroll | `android.widget.ScrollView` | none |
 | ListView | list | `android.widget.ScrollView` (20 slots) | none |
 | Image | image | `android.widget.ImageView` | the drawable name |
+| HostView | host | the view named by `NativeViews` | the prop value |
 
 `cnative agent a11y` prints `class`, `desc`, `text`, and `bounds` from `uiautomator dump`. A `tests/device` step `a11y <text>` asserts that dump.
 

@@ -9,7 +9,7 @@ These files exist and name the current program and record contract. They are not
 | File | What it is |
 | --- | --- |
 | `spikes/ios/NativePoc.iOS/NativePoc.iOS.csproj` | `net10.0-ios` project. Debug uses the interpreter. Release leaves `PublishAot` off. |
-| `spikes/ios/NativePoc.iOS/UIKitHost.cs` | `IElementHost<UIView>` for Column, Text, Button, TextField, Switch, Scroll, List, and Image. Applies `Style`, `Motion`, and the gesture mask. |
+| `spikes/ios/NativePoc.iOS/UIKitHost.cs` | `IElementHost<UIView>` for Column, Text, Button, TextField, Switch, Scroll, List, Image, and Host. Applies `Style`, `Motion`, and the gesture mask. Host is a `UIView`. This file is still not compiled. |
 | `spikes/ios/NativePoc.iOS/ScreenController.cs` | Renders `ScreenNav.Shared.Top()` through the same reconciler, and falls back to `Screen.Render`. |
 | `spikes/ios/NativePoc.iOS/PlatformBridge.cs` | `IPlatform` for nav, effects, and the five modules (`clipboard`, `haptics`, `share`, `storage`, `theme`). |
 | `spikes/ios/NativePoc.iOS/IosCatalog.cs` | `RecordProgram.ScreenId` plus `ScreenNav.Shared.Register` / `ShowRoot`. |

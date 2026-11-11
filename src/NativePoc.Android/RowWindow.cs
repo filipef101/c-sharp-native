@@ -140,6 +140,7 @@ sealed class RowWindow : AndroidScroll
 			case ScrollView:
 			case ListView:
 			case Image:
+			case HostView:
 				return "";
 			default:
 				throw new InvalidOperationException("Unknown element.");

@@ -2,6 +2,7 @@
   <Folder Name="/samples/">
     <Project Path="samples/NativePoc.Packing/NativePoc.Packing.csproj" />
     <Project Path="samples/NativePoc.Trips/NativePoc.Trips.csproj" />
+    <Project Path="samples/NativePoc.Web/NativePoc.Web.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/NativePoc.Android/NativePoc.Android.csproj" />

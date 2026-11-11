@@ -16,7 +16,7 @@ public static class TripScreen
 	public static Element Render(TripState state, IPlatform platform) =>
 		new Column(
 		[
-			new Text(state.Name.Length == 0 ? "Trip" : state.Name) { Key = "title", Style = new Style { FontSize = 22, Weight = FontWeight.Bold } },
+			new Text(state.Name.Length == 0 ? L.Get("Trip") : L.Get(state.Name)) { Key = "title", Style = new Style { FontSize = 22, Weight = FontWeight.Bold } },
 			new Text(state.OpenId) { Key = "id" },
 			new TextField(
 				state.Note,
@@ -26,12 +26,12 @@ public static class TripScreen
 					Storage.Set(platform, "trip-note", state.Note);
 					platform.RequestRender();
 				},
-				"Note",
-				"Note")
+				L.Get("Note"),
+				L.Get("Note"))
 			{ Key = "note", Lines = 3, Submit = Submit.Send },
-			new Button("Packing", () => { platform.Push("kit"); platform.RequestRender(); }, "Packing") { Key = "pack" },
-			new Button("Share", () => Share.Text(platform, state.Note), "Share note") { Key = "share" },
-			new Button("Back", () => { platform.Pop(); platform.RequestRender(); }, "Back") { Key = "back" },
+			new Button(L.Get("Packing"), () => { platform.Push("kit"); platform.RequestRender(); }, L.Get("Packing")) { Key = "pack" },
+			new Button(L.Get("Share"), () => Share.Text(platform, state.Note), L.Get("Share note")) { Key = "share" },
+			new Button(L.Get("Back"), () => { platform.Pop(); platform.RequestRender(); }, L.Get("Back")) { Key = "back" },
 		])
 		{ Key = "trip", Style = new Style { Gap = 8, Padding = 4 } };
 }

@@ -210,6 +210,7 @@ public sealed class ScreenNav
 	readonly object _gate = new();
 	readonly List<string> _stack = new();
 	readonly Dictionary<string, byte[]> _programs = new(StringComparer.Ordinal);
+	readonly Dictionary<string, byte[]> _pending = new(StringComparer.Ordinal);
 	readonly Dictionary<string, RecordProgram.Bag> _bags = new(StringComparer.Ordinal);
 
 	public static ScreenNav Shared { get; } = new();
@@ -218,6 +219,50 @@ public sealed class ScreenNav
 	{
 		lock (_gate)
 			return BagLocked(id);
+	}
+
+	public int Loaded
+	{
+		get
+		{
+			lock (_gate)
+				return _programs.Count;
+		}
+	}
+
+	public int Staged
+	{
+		get
+		{
+			lock (_gate)
+				return _pending.Count;
+		}
+	}
+
+	public void Stage(string id, byte[] program)
+	{
+		ArgumentNullException.ThrowIfNull(program);
+		if (id.Length == 0)
+			throw new InvalidOperationException("A screen id is required.");
+		lock (_gate)
+		{
+			if (_programs.ContainsKey(id))
+				return;
+			_pending[id] = program.ToArray();
+		}
+	}
+
+	public void ShowRoot(string id)
+	{
+		if (id.Length == 0)
+			throw new InvalidOperationException("A screen id is required.");
+		lock (_gate)
+		{
+			if (!_pending.ContainsKey(id) && !_programs.ContainsKey(id))
+				throw new InvalidOperationException("Screen " + id + " is not staged.");
+			if (_stack.Count == 0)
+				_stack.Add(id);
+		}
 	}
 
 	public void Register(byte[] program)
@@ -263,6 +308,7 @@ public sealed class ScreenNav
 			return false;
 		lock (_gate)
 		{
+			Ensure(id);
 			if (!_programs.ContainsKey(id))
 				return false;
 			if (_stack.Count == 0 || _stack[^1] != id)
@@ -289,6 +335,7 @@ public sealed class ScreenNav
 			if (_stack.Count == 0)
 				return null;
 			var id = _stack[^1];
+			Ensure(id);
 			if (!_programs.TryGetValue(id, out var program))
 				return null;
 			return RecordProgram.Bind(program, BagLocked(id));
@@ -353,6 +400,19 @@ public sealed class ScreenNav
 			foreach (var screen in nav.Screens)
 				BagLocked(screen.Id).Replace(screen.State);
 		}
+	}
+
+	void Ensure(string id)
+	{
+		if (_programs.ContainsKey(id))
+			return;
+		if (!_pending.Remove(id, out var program))
+			return;
+		var actual = IdOf(program);
+		if (actual.Length > 0 && !string.Equals(actual, id, StringComparison.Ordinal))
+			throw new InvalidOperationException("Staged screen " + id + " is " + actual + ".");
+		_programs[id] = program;
+		_ = BagLocked(id);
 	}
 
 	RecordProgram.Bag BagLocked(string id)

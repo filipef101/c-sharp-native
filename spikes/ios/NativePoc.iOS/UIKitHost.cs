@@ -37,6 +37,8 @@ sealed class UIKitHost : IElementHost<UIView>
 				return new UIScrollView();
 			case ElementKind.Image:
 				return new UIImageView { ContentMode = UIViewContentMode.ScaleAspectFit };
+			case ElementKind.Host:
+				return new UIView();
 			default:
 				throw new InvalidOperationException("Unknown element kind " + IosSurface.ViewClass(kind) + ".");
 		}
@@ -229,6 +231,13 @@ sealed class UIKitHost : IElementHost<UIView>
 			throw new InvalidOperationException("Image patch targeted a non-image view.");
 		image.Image = UIImage.FromBundle(source);
 		image.AccessibilityLabel = source;
+	}
+
+	public void SetHost(UIView view, string kind, string prop, string value, string eventName, Action<string, string>? onEvent)
+	{
+		view.AccessibilityLabel = kind + " " + prop + "=" + value;
+		_ = eventName;
+		_ = onEvent;
 	}
 
 	public void OnMounted(NodePath path, UIView view)

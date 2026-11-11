@@ -37,6 +37,18 @@ static class StartupMarks
 		Android.Util.Log.Info(MainActivity.Tag, "startup mark=activity since-process-ms=" + since.ToString(CultureInfo.InvariantCulture));
 	}
 
+	public static void Note(string name, long ms)
+	{
+		if (_process == 0)
+			return;
+		var since = SystemClock.ElapsedRealtime() - _process;
+		Android.Util.Log.Info(
+			MainActivity.Tag,
+			"startup phase=" + name
+			+ " ms=" + ms.ToString(CultureInfo.InvariantCulture)
+			+ " since-process-ms=" + since.ToString(CultureInfo.InvariantCulture));
+	}
+
 	public static void Render()
 	{
 		if (_render || _process == 0)

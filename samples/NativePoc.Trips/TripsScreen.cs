@@ -33,14 +33,15 @@ public static class TripsScreen
 	{
 		platform.Effect("Weather", "weather");
 		var rows = new List<Element>();
-		rows.Add(new Text("Trips") { Key = "title", Style = new Style { FontSize = 22, Weight = FontWeight.Bold } });
-		rows.Add(new Text(state.Weather) { Key = "weather" });
-		rows.Add(new Text(state.Dark ? "Night" : "Day") { Key = "mode" });
+		rows.Add(new Text(L.Get("Trips")) { Key = "title", Style = new Style { FontSize = 22, Weight = FontWeight.Bold } });
+		rows.Add(new Text(L.Plural($"{state.Trips.Count}", L.Get("1 trip"), L.Get("{0} trips"))) { Key = "count" });
+		rows.Add(new Text(L.Get(state.Weather)) { Key = "weather" });
+		rows.Add(new Text(state.Dark ? L.Get("Night") : L.Get("Day")) { Key = "mode" });
 		foreach (var item in state.Trips)
 		{
 			rows.Add(new Column(
 			[
-				new Text(item.Name) { Key = "name" },
+				new Text(L.Get(item.Name)) { Key = "name" },
 			])
 			{
 				Key = item.Id,
@@ -64,9 +65,9 @@ public static class TripsScreen
 				Theme.Mode(platform, state.Dark);
 				platform.RequestRender();
 			},
-			"Dark")
+			L.Get("Dark"))
 		{ Key = "dark" });
-		rows.Add(new Button("Back", () => { platform.Pop(); platform.RequestRender(); }, "Back") { Key = "back" });
+		rows.Add(new Button(L.Get("Back"), () => { platform.Pop(); platform.RequestRender(); }, L.Get("Back")) { Key = "back" });
 		return new ScrollView(new Column(rows) { Key = "list", Style = new Style { Gap = 8 } }) { Key = "scroll" };
 	}
 }

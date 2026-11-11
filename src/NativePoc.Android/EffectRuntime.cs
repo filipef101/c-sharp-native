@@ -39,16 +39,25 @@ static class EffectRuntime
 
 	static string Read(Activity activity, string resource)
 	{
+		var localized = TryRead(activity, resource + StringTable.AssetSuffix + ".txt");
+		if (localized is not null)
+			return localized;
+		return TryRead(activity, resource + ".txt") ?? "";
+	}
+
+	static string? TryRead(Activity activity, string name)
+	{
 		try
 		{
-			using var input = activity.Assets?.Open(resource + ".txt")
-				?? throw new IOException("The asset was not opened.");
+			using var input = activity.Assets?.Open(name);
+			if (input is null)
+				return null;
 			using var reader = new StreamReader(input);
 			return reader.ReadToEnd().Trim();
 		}
 		catch (Exception ex) when (ex is IOException or Java.IO.IOException)
 		{
-			return "";
+			return null;
 		}
 	}
 }

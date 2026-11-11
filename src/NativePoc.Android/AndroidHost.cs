@@ -57,6 +57,8 @@ sealed class AndroidHost : IElementHost<View>
 				{
 					LayoutParameters = new ViewGroup.LayoutParams(Dp(24), Dp(24)),
 				};
+			case ElementKind.Host:
+				return new HostSlot(_activity);
 			default:
 				throw UnknownKind(kind);
 		}
@@ -273,6 +275,13 @@ sealed class AndroidHost : IElementHost<View>
 		if (!_paths.TryGetValue(view, out var path))
 			return;
 		BindGesture(view, path, mask);
+	}
+
+	public void SetHost(View view, string kind, string prop, string value, string eventName, Action<string, string>? onEvent)
+	{
+		if (view is not HostSlot slot)
+			throw new InvalidOperationException("Host patch targeted a non-host view.");
+		slot.Apply(kind, prop, value, eventName, onEvent);
 	}
 
 	public void SetImage(View view, string source)

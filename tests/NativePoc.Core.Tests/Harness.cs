@@ -25,6 +25,18 @@ sealed class MemoryNode
 
 	public string? Text { get; set; }
 
+	public string? HostKind { get; set; }
+
+	public string? HostProp { get; set; }
+
+	public string? HostValue { get; set; }
+
+	public string? HostEvent { get; set; }
+
+	public int HostMounts { get; set; }
+
+	public Action<string, string>? HostEventHandler { get; set; }
+
 	public string? Title { get; set; }
 
 	public string? AccessibilityLabel { get; set; }
@@ -94,6 +106,17 @@ sealed class MemoryHost : IElementHost<MemoryNode>
 	public void SetGesture(MemoryNode view, byte mask) => view.Gesture = mask;
 
 	public void SetImage(MemoryNode view, string source) => view.Text = source;
+
+	public void SetHost(MemoryNode view, string kind, string prop, string value, string eventName, Action<string, string>? onEvent)
+	{
+		if (!string.Equals(view.HostKind, kind, StringComparison.Ordinal))
+			view.HostMounts++;
+		view.HostKind = kind;
+		view.HostProp = prop;
+		view.HostValue = value;
+		view.HostEvent = eventName;
+		view.HostEventHandler = onEvent;
+	}
 
 	public void SetSwitch(MemoryNode view, bool value, string accessibilityLabel)
 	{
