@@ -1,0 +1,40 @@
+# Tap phases
+
+Emulator-run on the same boot as nav-restore.txt. Hyndman-Fan type 7. For n=10, p50 is the mean of the 5th and 6th sorted samples.
+
+## RequestRender only, listener
+
+`--es nativepoc_bench tap10`. pid 7727. `IsDynamicCodeSupported=False`. Ten `RecordProgram.RunRenderRequest` calls (`steps=1`), posted 40 ms apart so the UI thread can return. The counter record was already bound by the first frame (`prep=84` on that cold frame, including decode).
+
+`action-us` samples, in order: 3513 72352 340 209 197 192 205 196 182 188. p50 201.0 µs.
+
+One yielded frame, the first tap: `frame-wait-us=7425`, logged after `action-us`. The other frame callbacks were delivered together after a stall, so those waits include the stall. They are not inside `action-us`.
+
+The 72352 µs sample is `dir=69718` inside `ApplyDirection`. It is one stall, not the median. `dir` p50 is 9.0 µs.
+
+Steady tap, `action-us=192`: `input=5 vm=9 prep=19 render=118 tail=78`. `prep` is inside `render`. `vm + render + tail` is the action. There is no separate 3 ms bucket inside the action on this pid.
+
+Phase p50 for those ten taps: eval 21.0, diff 6.0, reconcile 0.0, layout 17.5, invalidate 5.0, paint 0.0, book 0.0, prep 17.5, dir 9.0, content 0.0, title 0.0, focus 0.0, log 14.0, after 23.0, save 0.0. `after` is dir + content + title + focus + log. `save` is 0 because the file write is no longer inside `RenderNow`.
+
+A cold `Bind` on the first frame was 84 µs of `prep`. That does not account for an older 4665.5 µs `action-us`. This steps=1 path does not reproduce that number. The older phase sum was a text-changing render. This path's tree does not change (`reconcile` p50 0.0). Unverified that the two clocks were the same work.
+
+## One changing tap, one file write
+
+After the ten no-op renders, one `save` press. `tap-single-begin`, then one `state-save-us=575`. The no-op renders did not write, because the queued bytes matched the file already written at startup (`state-save-us=695`). The worker writes the newest snapshot once. A second write of the same bytes is skipped.
+
+The save press is `steps=3` and includes `clipboard-ok`. `action-us=10389`, `vm=9596`. That vm time is the handler before `RequestRender`, not the steps=1 path.
+
+## Release counter, text changes
+
+pid 8067. Release NativeAOT `.so` sha256 `faea64b458078a87cfd2d57b721e5ab20b2112622f075af229bab9456cab5280` (6,501,520 bytes). APK sha256 `88d478a919a219a85cd650d42abbf4c9086ba2966511e671a22c901ac6eacc43`. `IsDynamicCodeSupported=False`. `--es nativepoc_bench render10`. Titles ran Count 1 through 10 (`bench-count n=1` … `n=10`).
+
+eval: 59 42 38 29 20 32 40 28 31 23. p50 31.5 µs.
+The previous cut's Release eval p50 was 49.5, and 33.0 before that cut. This binary's eval is 31.5. The counter render does not execute `VmApp`. The 49.5 rise is not present here. No eval logic was changed to hide it.
+
+after: 113 4327 84 29 603 2087 18 15 12 12. p50 56.5 µs.
+log: 105 4316 77 25 600 2079 12 11 9 9. p50 51.0 µs.
+dir: 8 10 7 4 3 7 6 4 3 3. p50 5.0 µs.
+content, title, and focus p50 are 0.0.
+The previous cut's Release `after` p50 was 90.0, up from 24.5. The split shows the `rendered count` log. Steady frames are 12–18 µs. The p50 is the log, not a new traversal. The log line was not moved.
+
+prep p50 8.5. diff 5.0. reconcile 54.5. layout 6.5. invalidate 1.5. paint 0.0. book 0.0. save 0.0 (Release does not write the state file).

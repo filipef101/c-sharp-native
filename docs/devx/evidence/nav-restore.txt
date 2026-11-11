@@ -1,0 +1,13 @@
+# Nav restore
+
+Emulator-run. x86_64 API 34 emulator, boot `56815464-4bc4-4f4c-a503-944cb91ab31f`. Debug NativeAOT listener. `.so` sha256 `ac9162fd16dd20982a98a507642aa4a7995527d8079f38516a08a1aaf39f2132` (9,895,264 bytes). The signed APK's `lib/x86_64/libNativePoc.Android.so` matched that hash.
+
+Cold start, state file removed, pid 7319. `IsDynamicCodeSupported=False`. Tree `source=8dc9df6398b116dda43f4d761ea3b5ad`, `stack 0 counter`, title `Counter 0`. That is the counter record, not the C# screen.
+
+`cnative agent press packing --running` on that pid. Tree `source=8e9e4475be5bce8ca4a5a68791c6cf64`, `stack 0 counter`, `stack 1 packing`, title `Packing`. One `state-save-us=733` after the press.
+
+`am force-stop`, then `am start` of the same activity, without deleting `files/nativepoc-state.bin`. pid 7428. `IsDynamicCodeSupported=False`. `state-loaded bytes=2175`. No `state-nav unresolved` line. Title `Packing`. Same source hash. Same two stack lines.
+
+Repeated on the final listener binary, pids 8195 then 8297. Same source `8e9e4475be5bce8ca4a5a68791c6cf64`, same stack, `state-loaded bytes=2175`, title `Packing`, `IsDynamicCodeSupported=False`.
+
+The checkpoint is nav version 2 and stores the program bytes. A version 1 checkpoint still reads. `NavRestoreTests` covers both, plus an empty stack landing on the staged counter record. Tested.

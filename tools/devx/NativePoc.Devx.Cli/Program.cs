@@ -14,6 +14,12 @@ try
 		return TestLoop.Run(args);
 	if (args.Length > 0 && args[0] == "reset-state")
 		return AndroidLoop.ResetState(args);
+	if (args.Length > 0 && args[0] == "doctor")
+	{
+		if (args.Length != 1)
+			throw new UsageException("Usage: cnative doctor");
+		return Doctor.Run();
+	}
 	var options = ArgParser.Parse(args);
 	if (options.Help)
 	{

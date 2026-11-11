@@ -28,6 +28,7 @@ public sealed class MainActivity : Activity
 	bool _renderAgain;
 	bool _benchFilled;
 	bool _traceRender;
+	bool _traceTap;
 	bool _notedWindow;
 	bool _painted;
 	View? _paintedRoot;
@@ -42,6 +43,9 @@ public sealed class MainActivity : Activity
 			if (stop is not null)
 				Log.Info(Tag, stop);
 			Log.Info(Tag, "action-us=" + micros.ToString(CultureInfo.InvariantCulture) + " steps=" + steps.ToString(CultureInfo.InvariantCulture));
+			var tap = TapTrace.Line(micros);
+			if (tap.Length > 0)
+				Log.Info(Tag, tap);
 		};
 		StartupMarks.Activity();
 		ThemeRuntime.Load(this);
@@ -83,6 +87,13 @@ public sealed class MainActivity : Activity
 		StateStore.TryLoad(this);
 		ScreenNav.Shared.Prepare((program, bag) => RecordSession.Prepare(program, bag));
 #endif
+		if (string.Equals(Intent?.GetStringExtra("nativepoc_bench"), "tap10", StringComparison.Ordinal))
+		{
+			_traceTap = true;
+			_traceRender = true;
+			TapTrace.Enabled = true;
+		}
+
 		RenderNow();
 		if (string.Equals(Intent?.GetStringExtra("nativepoc_keyed_move"), "1", StringComparison.Ordinal))
 		{
@@ -90,6 +101,7 @@ public sealed class MainActivity : Activity
 			RenderNow();
 		}
 #if DEBUG
+		StateStore.Save(this);
 		HotReloadServer.Start(this);
 #endif
 		if (!Bench && !wantsRoot)
@@ -108,7 +120,14 @@ public sealed class MainActivity : Activity
 
 	void ScheduleRenderBench()
 	{
-		if (!string.Equals(Intent?.GetStringExtra("nativepoc_bench"), "render10", StringComparison.Ordinal))
+		var bench = Intent?.GetStringExtra("nativepoc_bench");
+		if (string.Equals(bench, "tap10", StringComparison.Ordinal))
+		{
+			ScheduleTapBench();
+			return;
+		}
+
+		if (!string.Equals(bench, "render10", StringComparison.Ordinal))
 			return;
 		_reconciler?.Root?.Post(() =>
 		{
@@ -140,6 +159,39 @@ public sealed class MainActivity : Activity
 				_traceRender = false;
 			}
 		});
+	}
+
+	void ScheduleTapBench()
+	{
+		_traceTap = true;
+		_traceRender = true;
+		TapTrace.Enabled = true;
+		if (_reconciler?.Root is not View root || _platform is null)
+			return;
+		for (var round = 0; round < 10; round++)
+		{
+			root.PostDelayed(() =>
+			{
+				if (_platform is not null)
+					RecordProgram.RunRenderRequest(_platform);
+			}, round * 40);
+		}
+
+		root.PostDelayed(() => Log.Info(Tag, "tap-single-begin"), 520);
+		root.PostDelayed(() =>
+		{
+			var tree = CurrentTree();
+			if (tree is null)
+				return;
+			try
+			{
+				ElementIds.Invoke(tree, "save", null);
+			}
+			catch (InvalidOperationException ex)
+			{
+				Log.Info(Tag, "tap-save-press " + ex.Message);
+			}
+		}, 600);
 	}
 
 	void ScheduleLoopBench()
@@ -207,6 +259,7 @@ public sealed class MainActivity : Activity
 				_inRender = true;
 				try
 				{
+					TapTrace.RenderIn();
 					RenderNow();
 				}
 				finally
@@ -215,12 +268,27 @@ public sealed class MainActivity : Activity
 				}
 			}
 			while (_renderAgain);
+			TapTrace.RenderOut();
 		}
 
 		if (Looper.MainLooper?.IsCurrentThread == true)
 			Run();
 		else
 			WaitForUi(Run);
+#if DEBUG
+		var handoffStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+		StateStore.Save(this);
+		if (_traceRender || _traceTap)
+		{
+			var handoff = (System.Diagnostics.Stopwatch.GetTimestamp() - handoffStarted) * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
+			Log.Info(Tag, "state-handoff-us=" + handoff.ToString(CultureInfo.InvariantCulture));
+		}
+#endif
+		if (_traceTap && Looper.MainLooper?.IsCurrentThread == true)
+		{
+			var started = System.Diagnostics.Stopwatch.GetTimestamp();
+			Choreographer.Instance?.PostFrameCallback(new FrameWait(started));
+		}
 	}
 
 	void WaitForUi(Action run)
@@ -324,6 +392,7 @@ public sealed class MainActivity : Activity
 				var stateText = ScreenSnapshot.FormatState(AppSession.Shared.State) + PackingView.Capture().Format();
 				if (_record is not null)
 					stateText += _record.Value.FormatState();
+				stateText += "nav=" + Convert.ToBase64String(NavCheckpoint.Write(ScreenNav.Shared.Checkpoint())) + "\n";
 				return stateText;
 			case ScreenQuery.Layout:
 				return UiSurface.Layout();
@@ -337,6 +406,8 @@ public sealed class MainActivity : Activity
 				StateCheckpoint.ReadInto(payload.AsSpan(6), AppSession.Shared.State);
 				if (StateCheckpoint.TryReadPacking(payload.AsSpan(6), out var packing))
 					PackingView.Apply(packing);
+				if (StateCheckpoint.TryReadNav(payload.AsSpan(6), out var nav))
+					NavCatalog.ApplyCheckpoint(nav);
 				RequestRender();
 				PackingActivity.RequestCurrent();
 				return "restored";
@@ -406,7 +477,12 @@ public sealed class MainActivity : Activity
 	void RenderNow()
 	{
 		if (_reconciler is null || _platform is null)
+		{
+			TapTrace.PrepDone();
 			return;
+		}
+
+		var prep = System.Diagnostics.Stopwatch.StartNew();
 		var previousRoot = _reconciler.Root;
 		var state = AppSession.Shared.State;
 		if (ScreenNav.Shared.Top() is { } top)
@@ -423,6 +499,8 @@ public sealed class MainActivity : Activity
 
 		if (_record is { } bound)
 			RecordSession.Publish(bound);
+		var prepUs = TakeUs(prep);
+		TapTrace.PrepDone();
 		Element tree;
 		var clock = System.Diagnostics.Stopwatch.StartNew();
 		try
@@ -526,6 +604,7 @@ public sealed class MainActivity : Activity
 		var paintUs = TakeUs(clock);
 		LocaleRuntime.ApplyDirection(mounted);
 		LocaleRuntime.ApplyDirection(this);
+		var dirUs = TakeUs(clock);
 		if (!ReferenceEquals(previousRoot, mounted))
 		{
 			SetContentView(mounted);
@@ -533,18 +612,19 @@ public sealed class MainActivity : Activity
 		}
 
 		StartupMarks.Arm(this);
+		var contentUs = TakeUs(clock);
 		LastTitle = TitleOf(tree);
+		var titleUs = TakeUs(clock);
 		if (_host is not null && _reconciler.Root is not null)
 			_host.RestoreFocus(_reconciler.Root);
+		var focusUs = TakeUs(clock);
 #if DEBUG
 		if (Structural(patches) || !ReferenceEquals(previousRoot, mounted))
 			LogTree();
 #endif
 		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length + " title=" + LastTitle);
-		var afterUs = TakeUs(clock);
-#if DEBUG
-		StateStore.Save(this);
-#endif
+		var logUs = TakeUs(clock);
+		var afterUs = dirUs + contentUs + titleUs + focusUs + logUs;
 		var saveUs = TakeUs(clock);
 		if (_traceRender)
 		{
@@ -557,6 +637,12 @@ public sealed class MainActivity : Activity
 				+ " invalidate=" + invalidateUs.ToString(CultureInfo.InvariantCulture)
 				+ " paint=" + paintUs.ToString(CultureInfo.InvariantCulture)
 				+ " book=" + bookUs.ToString(CultureInfo.InvariantCulture)
+				+ " prep=" + prepUs.ToString(CultureInfo.InvariantCulture)
+				+ " dir=" + dirUs.ToString(CultureInfo.InvariantCulture)
+				+ " content=" + contentUs.ToString(CultureInfo.InvariantCulture)
+				+ " title=" + titleUs.ToString(CultureInfo.InvariantCulture)
+				+ " focus=" + focusUs.ToString(CultureInfo.InvariantCulture)
+				+ " log=" + logUs.ToString(CultureInfo.InvariantCulture)
 				+ " after=" + afterUs.ToString(CultureInfo.InvariantCulture)
 				+ " save=" + saveUs.ToString(CultureInfo.InvariantCulture));
 		}
@@ -656,4 +742,18 @@ public sealed class MainActivity : Activity
 
 	static InvalidOperationException Unknown(Element element) =>
 		new("Unknown element.");
+}
+
+sealed class FrameWait : Java.Lang.Object, Choreographer.IFrameCallback
+{
+	readonly long _started;
+
+	public FrameWait(long started) => _started = started;
+
+	public void DoFrame(long frameTimeNanos)
+	{
+		var elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - _started;
+		var micros = elapsed * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
+		Log.Info(MainActivity.Tag, "frame-wait-us=" + micros.ToString(CultureInfo.InvariantCulture));
+	}
 }

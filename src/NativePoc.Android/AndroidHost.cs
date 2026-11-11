@@ -488,7 +488,10 @@ sealed class AndroidHost : IElementHost<View>
 		EventHandler handler = (_, _) =>
 		{
 			if (CurrentElement(path) is Button current)
+			{
+				TapTrace.Input();
 				current.OnPress();
+			}
 		};
 		button.Click += handler;
 		_listeners[view] = new Listener { Click = handler };

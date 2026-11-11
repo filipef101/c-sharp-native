@@ -45,6 +45,7 @@ public static class ElementIds
 
 	public static string Invoke(Element root, string id, string? text)
 	{
+		TapTrace.Input();
 		var element = Require(root, id);
 		switch (element)
 		{

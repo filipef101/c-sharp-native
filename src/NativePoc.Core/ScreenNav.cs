@@ -15,7 +15,7 @@ public sealed class NavCheckpoint
 		buffer.WriteByte((byte)'N');
 		buffer.WriteByte((byte)'A');
 		buffer.WriteByte((byte)'V');
-		buffer.WriteByte(1);
+		buffer.WriteByte(2);
 		if (nav.Stack.Count > byte.MaxValue || nav.Screens.Count > byte.MaxValue)
 			throw new InvalidOperationException("Rejected state checkpoint.");
 		buffer.WriteByte((byte)nav.Stack.Count);
@@ -46,6 +46,11 @@ public sealed class NavCheckpoint
 						WriteText(buffer, cell);
 				}
 			}
+
+			var program = screen.Program ?? [];
+			WriteInt(buffer, program.Length);
+			if (program.Length > 0)
+				buffer.Write(program, 0, program.Length);
 		}
 
 		return buffer.ToArray();
@@ -56,7 +61,10 @@ public sealed class NavCheckpoint
 		nav = new NavCheckpoint();
 		if (cursor + 4 > payload.Length)
 			return false;
-		if (payload[cursor] != (byte)'N' || payload[cursor + 1] != (byte)'A' || payload[cursor + 2] != (byte)'V' || payload[cursor + 3] != 1)
+		if (payload[cursor] != (byte)'N' || payload[cursor + 1] != (byte)'A' || payload[cursor + 2] != (byte)'V')
+			return false;
+		var version = payload[cursor + 3];
+		if (version is not (1 or 2))
 			return false;
 		cursor += 4;
 		if (cursor >= payload.Length)
@@ -102,6 +110,21 @@ public sealed class NavCheckpoint
 				lists.Add((name, rows));
 			}
 
+			var program = Array.Empty<byte>();
+			if (version == 2)
+			{
+				var length = ReadInt(payload, ref cursor);
+				if (length < 0 || cursor + length > payload.Length)
+					throw new InvalidOperationException("Rejected state checkpoint.");
+				if (length > 0)
+				{
+					program = new byte[length];
+					payload.Slice(cursor, length).CopyTo(program);
+				}
+
+				cursor += length;
+			}
+
 			screens[index] = new NavScreen
 			{
 				Id = id,
@@ -112,6 +135,7 @@ public sealed class NavCheckpoint
 					Numbers = numbers,
 					Lists = lists,
 				},
+				Program = program,
 			};
 		}
 
@@ -203,6 +227,8 @@ public sealed class NavScreen
 	public string Id { get; init; } = "";
 
 	public RecordProgram.BagImage State { get; init; } = new();
+
+	public byte[] Program { get; init; } = [];
 }
 
 public sealed class ScreenNav
@@ -212,6 +238,9 @@ public sealed class ScreenNav
 	readonly Dictionary<string, byte[]> _programs = new(StringComparer.Ordinal);
 	readonly Dictionary<string, byte[]> _pending = new(StringComparer.Ordinal);
 	readonly Dictionary<string, RecordProgram.Bag> _bags = new(StringComparer.Ordinal);
+	byte[]? _topProgram;
+	RecordProgram.Bag? _topBag;
+	RecordProgram.Bound? _topBound;
 
 	public static ScreenNav Shared { get; } = new();
 
@@ -273,6 +302,7 @@ public sealed class ScreenNav
 		{
 			_programs[id] = program.ToArray();
 			_ = BagLocked(id);
+			DropCache();
 		}
 	}
 
@@ -284,6 +314,7 @@ public sealed class ScreenNav
 		{
 			_programs[id] = program.ToArray();
 			_ = BagLocked(id);
+			DropCache();
 			if (_stack.Count == 0)
 				_stack.Add(id);
 		}
@@ -297,6 +328,7 @@ public sealed class ScreenNav
 		{
 			_programs[id] = program.ToArray();
 			_ = BagLocked(id);
+			DropCache();
 			if (_stack.Count == 0 || _stack[^1] != id)
 				_stack.Add(id);
 		}
@@ -312,7 +344,11 @@ public sealed class ScreenNav
 			if (!_programs.ContainsKey(id))
 				return false;
 			if (_stack.Count == 0 || _stack[^1] != id)
+			{
 				_stack.Add(id);
+				DropCache();
+			}
+
 			return true;
 		}
 	}
@@ -324,6 +360,7 @@ public sealed class ScreenNav
 			if (_stack.Count <= 1)
 				return false;
 			_stack.RemoveAt(_stack.Count - 1);
+			DropCache();
 			return true;
 		}
 	}
@@ -338,7 +375,37 @@ public sealed class ScreenNav
 			Ensure(id);
 			if (!_programs.TryGetValue(id, out var program))
 				return null;
-			return RecordProgram.Bind(program, BagLocked(id));
+			var bag = BagLocked(id);
+			if (_topBound is { } cached && ReferenceEquals(_topProgram, program) && ReferenceEquals(_topBag, bag))
+			{
+				TapTrace.Bind(hit: true);
+				return cached;
+			}
+
+			var bound = RecordProgram.Bind(program, bag);
+			_topProgram = program;
+			_topBag = bag;
+			_topBound = bound;
+			TapTrace.Bind(hit: false);
+			return bound;
+		}
+	}
+
+	public bool DropUnresolved()
+	{
+		lock (_gate)
+		{
+			DropCache();
+			while (_stack.Count > 0)
+			{
+				var id = _stack[^1];
+				Ensure(id);
+				if (_programs.ContainsKey(id))
+					return true;
+				_stack.RemoveAt(_stack.Count - 1);
+			}
+
+			return false;
 		}
 	}
 
@@ -379,6 +446,7 @@ public sealed class ScreenNav
 				{
 					Id = pair.Key,
 					State = pair.Value.Capture(),
+					Program = _programs.TryGetValue(pair.Key, out var program) ? program : [],
 				});
 			}
 
@@ -396,6 +464,7 @@ public sealed class ScreenNav
 		{
 			foreach (var id in _bags.Keys.ToArray())
 				_bags[id] = new RecordProgram.Bag();
+			DropCache();
 		}
 	}
 
@@ -404,11 +473,23 @@ public sealed class ScreenNav
 		ArgumentNullException.ThrowIfNull(nav);
 		lock (_gate)
 		{
+			DropCache();
 			_stack.Clear();
 			_stack.AddRange(nav.Stack);
 			foreach (var screen in nav.Screens)
+			{
+				if (screen.Program is { Length: > 0 })
+					_programs[screen.Id] = screen.Program.ToArray();
 				BagLocked(screen.Id).Replace(screen.State);
+			}
 		}
+	}
+
+	void DropCache()
+	{
+		_topProgram = null;
+		_topBag = null;
+		_topBound = null;
 	}
 
 	void Ensure(string id)

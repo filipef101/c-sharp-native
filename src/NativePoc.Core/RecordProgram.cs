@@ -1184,12 +1184,20 @@ public static partial class RecordProgram
 		}
 	}
 
+	public static void RunRenderRequest(IPlatform platform)
+	{
+		ArgumentNullException.ThrowIfNull(platform);
+		TapTrace.Input();
+		RunScript([ActRender], [], Shared, platform, null, false, null);
+	}
+
 	static void RunScript(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId)
 	{
 		var previous = EffectContext.Bag;
 		EffectContext.Bag = bag;
 		var frame = new HandlerFrame();
 		string? stop = null;
+		TapTrace.Script();
 		var clock = System.Diagnostics.Stopwatch.StartNew();
 		try
 		{

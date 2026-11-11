@@ -11,6 +11,7 @@ static class StateStore
 	static readonly object Gate = new();
 	static Context? _context;
 	static byte[]? _latest;
+	static byte[]? _written;
 	static int _writing;
 
 	public static void Delete(Context context)
@@ -51,38 +52,51 @@ static class StateStore
 				bytes = _latest;
 				context = _context;
 				_latest = null;
+				if (bytes is not null && _written is not null && bytes.AsSpan().SequenceEqual(_written))
+					bytes = null;
+				if (bytes is null || context is null)
+				{
+					if (_latest is null)
+					{
+						_writing = 0;
+						return;
+					}
+
+					continue;
+				}
 			}
 
-			if (bytes is null || context is null)
-				break;
 			var started = System.Diagnostics.Stopwatch.GetTimestamp();
+			var wrote = false;
 			try
 			{
 				using var output = context.OpenFileOutput(FileName, FileCreationMode.Private)
 					?? throw new IOException("The state file was not opened.");
 				output.Write(bytes, 0, bytes.Length);
 				output.Flush();
+				wrote = true;
 			}
 			catch (Exception ex) when (ex is IOException or InvalidOperationException or Java.IO.IOException)
 			{
 				Log.Warn(MainActivity.Tag, "state-save " + ex.GetType().Name);
 			}
 
+			if (!wrote)
+				continue;
 			var elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
 			var micros = elapsed * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
 			Log.Info(MainActivity.Tag, "state-save-us=" + micros.ToString(CultureInfo.InvariantCulture));
 			lock (Gate)
 			{
-				if (_latest is null)
+				_written = bytes;
+				if (_latest is null || _latest.AsSpan().SequenceEqual(bytes))
 				{
+					_latest = null;
 					_writing = 0;
 					return;
 				}
 			}
 		}
-
-		lock (Gate)
-			_writing = 0;
 	}
 
 	public static bool TryLoad(Context context)
@@ -98,7 +112,7 @@ static class StateStore
 			if (StateCheckpoint.TryReadPacking(bytes, out var packing))
 				PackingView.Apply(packing);
 			if (StateCheckpoint.TryReadNav(bytes, out var nav))
-				ScreenNav.Shared.Restore(nav);
+				NavCatalog.ApplyCheckpoint(nav);
 			Log.Info(MainActivity.Tag, "state-loaded bytes=" + bytes.Length);
 			return true;
 		}

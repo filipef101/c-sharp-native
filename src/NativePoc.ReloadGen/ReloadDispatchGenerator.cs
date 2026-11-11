@@ -192,6 +192,9 @@ public sealed class ReloadDispatchGenerator : IIncrementalGenerator
 
 	static string Bind(Callable method)
 	{
+		// A `??` argument left in the call is unbalanced after ILLink inlines a
+		// constant method: the replacement ldstr is removed and dup/brtrue/pop stay.
+		// The local is its own statement, so that inlining stays balanced.
 		if (method.ArgKinds.Length == 0)
 			return "";
 		var kinds = method.ArgKinds.Split(',');

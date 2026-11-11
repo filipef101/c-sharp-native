@@ -24,8 +24,14 @@ static class ArgParser
 	public const string Usage =
 		"""
 		cnative new <name>
+		cnative doctor
 		cnative reset-state [--device <serial>]
 		cnative run android [options]
+
+		  cnative doctor checks this machine. It prints OK or FAIL for the
+		  .NET 10 SDK, the android workload, adb, an online emulator or
+		  device, and the NativeAOT toolchain. A FAIL line names the next
+		  command. It does not build or install the app.
 
 		  Build Debug, install it on the running emulator or device, launch it,
 		  and push Screen.cs edits. The emulator or device must already be online.

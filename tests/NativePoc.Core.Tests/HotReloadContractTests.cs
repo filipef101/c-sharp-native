@@ -28,7 +28,7 @@ public sealed class HotReloadContractTests
 		Assert.Contains("GetStringExtra(\"nativepoc_bench\")", activity);
 		Assert.Contains("GetStringExtra(\"nativepoc_root\")", activity);
 		Assert.DoesNotContain("GetStringExtra(\"nativepoc_hotreload\")", activity);
-		Assert.Equal(7, CountOf(activity, "GetStringExtra"));
+		Assert.Equal(8, CountOf(activity, "GetStringExtra"));
 	}
 
 	[Fact]
@@ -45,6 +45,9 @@ public sealed class HotReloadContractTests
 		Assert.True(packingLoad >= 0 && packingRender > packingLoad);
 		Assert.Contains("StateStore.Save(this)", activity);
 		Assert.Contains("StateStore.Save(this)", packing);
+		Assert.Contains("NavCatalog.ApplyCheckpoint", activity);
+		Assert.Contains("NavCatalog.ApplyCheckpoint", store);
+		Assert.Contains("nav=", activity);
 		Assert.Contains("#if DEBUG", store);
 		Assert.Contains("nativepoc-state.bin", store);
 		Assert.DoesNotContain("nativepoc-hotreload.token", store);

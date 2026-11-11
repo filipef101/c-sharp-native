@@ -48,6 +48,9 @@ public sealed class PackingActivity : Activity, IPackingHost
 		StateStore.TryLoad(this);
 #endif
 		RenderNow();
+#if DEBUG
+		StateStore.Save(this);
+#endif
 	}
 
 	protected override void OnResume()
@@ -152,6 +155,9 @@ public sealed class PackingActivity : Activity, IPackingHost
 			Run();
 		else
 			WaitForUi(Run);
+#if DEBUG
+		StateStore.Save(this);
+#endif
 	}
 
 	void WaitForUi(Action run)
@@ -233,11 +239,8 @@ public sealed class PackingActivity : Activity, IPackingHost
 			"packing-rendered route=" + state.Route
 			+ " packed=" + state.PackedCount
 			+ " total=" + state.Items.Count
-			+ " switch-deliveries=" + PackingTelemetry.SwitchDeliveries
+			+ 			" switch-deliveries=" + PackingTelemetry.SwitchDeliveries
 			+ " field-deliveries=" + PackingTelemetry.FieldDeliveries);
-#if DEBUG
-		StateStore.Save(this);
-#endif
 	}
 
 	void PlaceBelowActionBar(View root)

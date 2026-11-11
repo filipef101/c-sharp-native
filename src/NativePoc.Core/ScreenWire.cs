@@ -52,6 +52,31 @@ public static class ScreenSnapshot
 		return true;
 	}
 
+	public static bool TryReadNavLine(string text, out NavCheckpoint nav)
+	{
+		ArgumentNullException.ThrowIfNull(text);
+		nav = new NavCheckpoint();
+		foreach (var line in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+		{
+			if (!line.StartsWith("nav=", StringComparison.Ordinal))
+				continue;
+			byte[] bytes;
+			try
+			{
+				bytes = Convert.FromBase64String(line[4..]);
+			}
+			catch (FormatException)
+			{
+				return false;
+			}
+
+			var cursor = 0;
+			return NavCheckpoint.TryRead(bytes, ref cursor, out nav) && cursor == bytes.Length;
+		}
+
+		return false;
+	}
+
 	public static ScreenFreshness Freshness(string treeReply, string currentHash)
 	{
 		var lineEnd = treeReply.IndexOf('\n');

@@ -1,3 +1,5 @@
+using Android.Util;
+
 namespace NativePoc;
 
 static class NavCatalog
@@ -281,5 +283,49 @@ static class NavCatalog
 		ScreenNav.Shared.Stage("trip", Trip);
 		ScreenNav.Shared.Stage("kit", Kit);
 		ScreenNav.Shared.Stage("web", Web);
+	}
+
+	public static void StageKnown(string id)
+	{
+		switch (id)
+		{
+			case "counter":
+				ScreenNav.Shared.Stage("counter", Counter);
+				return;
+			case "packing":
+				ScreenNav.Shared.Stage("packing", Packing);
+				return;
+			case "settings":
+				ScreenNav.Shared.Stage("settings", Settings);
+				return;
+			case "trips":
+				ScreenNav.Shared.Stage("trips", Trips);
+				return;
+			case "trip":
+				ScreenNav.Shared.Stage("trip", Trip);
+				return;
+			case "kit":
+				ScreenNav.Shared.Stage("kit", Kit);
+				return;
+			case "web":
+				ScreenNav.Shared.Stage("web", Web);
+				return;
+			default:
+				return;
+		}
+	}
+
+	public static void ApplyCheckpoint(NavCheckpoint nav)
+	{
+		ArgumentNullException.ThrowIfNull(nav);
+		foreach (var id in nav.Stack)
+			StageKnown(id);
+		foreach (var screen in nav.Screens)
+			StageKnown(screen.Id);
+		ScreenNav.Shared.Restore(nav);
+		if (ScreenNav.Shared.DropUnresolved())
+			return;
+		Log.Info(MainActivity.Tag, "state-nav unresolved, showing counter");
+		InstallRoot();
 	}
 }

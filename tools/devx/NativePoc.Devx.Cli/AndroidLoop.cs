@@ -783,7 +783,10 @@ static class AndroidLoop
 		PackingCheckpoint? packing = null;
 		if (PackingCheckpoint.TryParse(reply.Text, out var parsed))
 			packing = parsed;
-		return StateCheckpoint.Write(state, packing);
+		NavCheckpoint? nav = null;
+		if (ScreenSnapshot.TryReadNavLine(reply.Text, out var readNav))
+			nav = readNav;
+		return StateCheckpoint.Write(state, packing, nav);
 	}
 
 	static FoundToken ReadTokenOnce(string serial)

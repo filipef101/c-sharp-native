@@ -6,6 +6,7 @@
 		<IsRoslynComponent>true</IsRoslynComponent>
 		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<IsPublishable>false</IsPublishable>
 		<RootNamespace>NativePoc.ReloadGen</RootNamespace>
 	</PropertyGroup>
 	<ItemGroup>
