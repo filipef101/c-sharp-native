@@ -60,8 +60,25 @@ static class TestLoop
 		var session = new ReloadSession();
 		try
 		{
-			session.Token = AndroidLoop.DeployAndLaunch(repo, rid, serial);
-			session.Open(repo, serial);
+		session.Token = AndroidLoop.DeployAndLaunch(repo, rid, serial);
+		var removed = AndroidLoop.Adb(serial, "shell", "run-as", LaunchCommand.Package, "rm", "-f", "files/nativepoc-state.bin");
+		if (removed.Code != 0)
+			throw new InvalidOperationException("The state file was not removed: " + removed.Stderr + removed.Stdout);
+		var resolved = AndroidLoop.Adb(serial, "shell", "cmd", "package", "resolve-activity", "--brief", LaunchCommand.Package);
+		var component = ActivityName.FromResolve(resolved.Stdout)
+			?? throw new InvalidOperationException("The launcher activity was not resolved: " + resolved.Stdout);
+		var commands = LaunchCommand.BeforeStart(LaunchCommand.Package, component);
+		for (var index = 0; index < commands.Count; index++)
+		{
+			if (index == 1)
+				Thread.Sleep(300);
+			var result = AndroidLoop.Adb(serial, commands[index]);
+			if (index == commands.Count - 1 && result.Code != 0)
+				throw new InvalidOperationException("am start failed: " + result.Stderr + result.Stdout);
+		}
+
+		session.Token = AndroidLoop.WaitToken(serial);
+		session.Open(repo, serial);
 			var warmup = AndroidLoop.SendFile(session);
 			if (!warmup.Applied || !warmup.Text.Contains("program=1", StringComparison.Ordinal))
 				throw new InvalidOperationException("Warmup was not a program: " + warmup.Text);
