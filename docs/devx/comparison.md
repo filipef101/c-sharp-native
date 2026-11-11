@@ -397,7 +397,7 @@ The in-place mechanism this CLI drives is the Debug screen-assembly swap already
 
 - The command does not boot an emulator. Expo and `ns run android` can. An online `adb` device is required.
 - Only `src/NativePoc.Screen/Screen.cs` is compiled into the swapped DLL. A second screen file, a new `Element` type, or an `AppState` shape change is not an in-place edit.
-- A rude restart is a full Debug `-t:Run`. That is a new process, so `AppState` starts over. The field is empty after the relaunch.
+- A rude restart is a full Debug `-t:Run`, so it is a new process. `cnative run android --restart-on-rude` reads the counter and the packing list before that launch and writes them back, then pushes the screen program again. Measured on the emulator: the typed name, the count, and the packing rows were still there. A force-stop outside that command still starts from the seed.
 - There is no on-device error surface, no debugger, no IDE gutter, and no iOS path.
 - `run-as cat /proc/net/unix` is `Permission denied` on this API 34 image. The socket name is the fixed `localabstract:npoc-hotreload`. The token file is the per-process bearer, not the socket name.
 - Release and NativeAOT are outside this command. The listener is compiled only in Debug.

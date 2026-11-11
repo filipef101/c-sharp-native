@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using NativePoc;
 
 namespace NativePoc.Devx;
@@ -196,6 +197,7 @@ static class AgentLoop
 			RedirectStandardOutput = true,
 			RedirectStandardError = true,
 			UseShellExecute = false,
+			StandardOutputEncoding = Encoding.Latin1,
 		};
 		start.ArgumentList.Add("-s");
 		start.ArgumentList.Add(serial);
@@ -203,11 +205,11 @@ static class AgentLoop
 		start.ArgumentList.Add("screencap");
 		start.ArgumentList.Add("-p");
 		using var process = Process.Start(start) ?? throw new InvalidOperationException("adb did not start.");
-		using var file = File.Create(path);
-		process.StandardOutput.BaseStream.CopyTo(file);
+		var bytes = Encoding.Latin1.GetBytes(process.StandardOutput.ReadToEnd());
 		var error = process.StandardError.ReadToEnd();
 		process.WaitForExit();
-		if (process.ExitCode != 0 || file.Length < 8)
+		File.WriteAllBytes(path, bytes);
+		if (process.ExitCode != 0 || bytes.Length < 8)
 		{
 			Console.Error.WriteLine(error);
 			return 1;

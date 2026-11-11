@@ -118,8 +118,6 @@ sealed class HotReloadConnection : IDisposable
 		if (_disposed)
 			return;
 		_disposed = true;
-		if (_forwarded)
-			ProcessRunner.Run("adb", ["-s", _serial, "forward", "--remove", "tcp:" + Port]);
 	}
 
 	(bool Ok, string Text) Send(byte[] dll) =>

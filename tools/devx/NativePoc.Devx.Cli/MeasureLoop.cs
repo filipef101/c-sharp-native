@@ -24,9 +24,17 @@ static class MeasureLoop
 		{
 			return Execute(samples, serial);
 		}
-		catch (Exception ex) when (ex is InvalidOperationException or IOException)
+		catch (Exception ex)
 		{
-			Console.Error.WriteLine("cnative: " + ex.Message);
+			try
+			{
+				Console.Error.WriteLine("cnative: " + ex.GetType().Name + " " + ex.Message);
+			}
+			catch (Exception write) when (write is IOException or ArgumentException)
+			{
+				File.AppendAllText("/opt/cursor/artifacts/measure-error.txt", ex + "\n" + write);
+			}
+
 			return 1;
 		}
 	}
@@ -117,6 +125,13 @@ static class MeasureLoop
 					throw new InvalidOperationException("Sample " + index.ToString(CultureInfo.InvariantCulture) + " did not present in place.");
 			}
 
+			Line(log, "samples-ms=" + string.Join(",", timings.Select(value => value.ToString("F4", CultureInfo.InvariantCulture))));
+			Line(log, "n=" + samples.ToString(CultureInfo.InvariantCulture));
+			Line(log, "p50-ms=" + Percentile(timings, 1, 2).ToString("F4", CultureInfo.InvariantCulture));
+			Line(log, "p90-ms=" + Percentile(timings, 9, 10).ToString("F4", CultureInfo.InvariantCulture));
+			Line(log, "percentile=Hyndman-Fan type 7");
+			Directory.CreateDirectory("/opt/cursor/artifacts");
+			File.WriteAllText("/opt/cursor/artifacts/measure-screen-program.txt", log.ToString());
 			var last = "P" + (samples - 1).ToString("00", CultureInfo.InvariantCulture) + " 0";
 			var after = Ui(serial);
 			if (!after.Contains("text=\"" + last + "\"", StringComparison.Ordinal) || !after.Contains("text=\"Ada\"", StringComparison.Ordinal))
@@ -140,12 +155,6 @@ static class MeasureLoop
 			var restored = AndroidLoop.SendFile(session);
 			if (!restored.Applied)
 				throw new InvalidOperationException("The original screen was not restored: " + restored.Text);
-			Line(log, "samples-ms=" + string.Join(",", timings.Select(value => value.ToString("F4", CultureInfo.InvariantCulture))));
-			Line(log, "n=" + samples.ToString(CultureInfo.InvariantCulture));
-			Line(log, "p50-ms=" + Percentile(timings, 1, 2).ToString("F4", CultureInfo.InvariantCulture));
-			Line(log, "p90-ms=" + Percentile(timings, 9, 10).ToString("F4", CultureInfo.InvariantCulture));
-			Line(log, "percentile=Hyndman-Fan type 7");
-			Directory.CreateDirectory("/opt/cursor/artifacts");
 			File.WriteAllText("/opt/cursor/artifacts/measure-screen-program.txt", log.ToString());
 			return 0;
 		}
@@ -205,6 +214,7 @@ static class MeasureLoop
 			RedirectStandardOutput = true,
 			RedirectStandardError = true,
 			UseShellExecute = false,
+			StandardOutputEncoding = Encoding.Latin1,
 		};
 		start.ArgumentList.Add("-s");
 		start.ArgumentList.Add(serial);
@@ -212,11 +222,11 @@ static class MeasureLoop
 		start.ArgumentList.Add("screencap");
 		start.ArgumentList.Add("-p");
 		using var process = Process.Start(start) ?? throw new InvalidOperationException("adb did not start.");
-		using var file = File.Create(path);
-		process.StandardOutput.BaseStream.CopyTo(file);
+		var bytes = Encoding.Latin1.GetBytes(process.StandardOutput.ReadToEnd());
 		process.StandardError.ReadToEnd();
 		process.WaitForExit();
-		if (process.ExitCode != 0 || file.Length < 8)
+		File.WriteAllBytes(path, bytes);
+		if (process.ExitCode != 0 || bytes.Length < 8)
 			throw new InvalidOperationException("screencap failed.");
 	}
 
@@ -238,6 +248,13 @@ static class MeasureLoop
 	static void Line(StringBuilder log, string text)
 	{
 		log.AppendLine(text);
-		Console.WriteLine(text);
+		try
+		{
+			Console.WriteLine(text);
+		}
+		catch (Exception ex) when (ex is IOException or ArgumentException)
+		{
+			log.AppendLine("console-write " + ex.GetType().Name);
+		}
 	}
 }

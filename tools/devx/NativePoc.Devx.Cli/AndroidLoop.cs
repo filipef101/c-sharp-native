@@ -365,23 +365,25 @@ static class AndroidLoop
 
 		session.Token = DeployAndLaunch(repo, rid, serial);
 		session.Open(repo, serial);
-		if (checkpoint is null)
-			return;
-		try
+		if (checkpoint is not null)
 		{
-			var restored = session.Connection.Apply(ScreenQuery.RestoreState(checkpoint));
-			if (!restored.Ok || restored.Text != "restored")
+			try
 			{
-				Console.WriteLine("state was not restored: " + restored.Text);
-				return;
+				var restored = session.Connection.Apply(ScreenQuery.RestoreState(checkpoint));
+				if (!restored.Ok || restored.Text != "restored")
+					Console.WriteLine("state was not restored: " + restored.Text);
+				else
+					Console.WriteLine("state restored");
 			}
+			catch (InvalidOperationException ex)
+			{
+				Console.WriteLine("state was not restored: " + ex.Message);
+			}
+		}
 
-			Console.WriteLine("state restored");
-		}
-		catch (InvalidOperationException ex)
-		{
-			Console.WriteLine("state was not restored: " + ex.Message);
-		}
+		var pushed = SendFile(session);
+		if (!pushed.Applied)
+			Console.WriteLine("screen program was not restored: " + pushed.Text);
 	}
 
 	internal static FoundToken DeployAndLaunch(string repo, string rid, string serial)
