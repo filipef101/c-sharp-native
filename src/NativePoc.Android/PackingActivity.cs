@@ -43,7 +43,7 @@ public sealed class PackingActivity : Activity, IPackingHost
 		_host = new AndroidHost(this, () => _reconciler?.Current);
 		_reconciler = new ViewReconciler<View>(_host);
 		Current = this;
-		UiSurface.Bind(this, () => _reconciler?.Current);
+		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
 #if DEBUG
 		StateStore.TryLoad(this);
 #endif
@@ -54,7 +54,7 @@ public sealed class PackingActivity : Activity, IPackingHost
 	{
 		base.OnResume();
 		Current = this;
-		UiSurface.Bind(this, () => _reconciler?.Current);
+		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
 	}
 
 #pragma warning disable CA1422

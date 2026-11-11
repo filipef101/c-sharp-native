@@ -71,6 +71,7 @@ public static class ScreenSnapshot
 		builder.Append(' ', node.Depth * 2);
 		var element = node.Element;
 		builder.Append(Kind(element));
+		builder.Append(" role=").Append(Quote(Role(element)));
 		builder.Append(" id=").Append(Quote(node.Id));
 		switch (element)
 		{
@@ -98,6 +99,31 @@ public static class ScreenSnapshot
 				builder.Append(" value=").Append(toggle.Value ? "true" : "false");
 				builder.Append(" label=").Append(Quote(toggle.AccessibilityLabel)).Append('\n');
 				return;
+			case ScrollView scroll:
+				Key(builder, scroll.Key);
+				builder.Append('\n');
+				return;
+			default:
+				throw Unknown(element);
+		}
+	}
+
+	public static string Role(Element element)
+	{
+		switch (element)
+		{
+			case Column:
+				return "column";
+			case Text:
+				return "text";
+			case Button:
+				return "button";
+			case TextField:
+				return "textfield";
+			case Switch:
+				return "switch";
+			case ScrollView:
+				return "scroll";
 			default:
 				throw Unknown(element);
 		}
@@ -111,6 +137,7 @@ public static class ScreenSnapshot
 			Button => "button",
 			TextField => "textfield",
 			Switch => "switch",
+			ScrollView => "scroll",
 			_ => throw Unknown(element),
 		};
 
@@ -280,6 +307,8 @@ public static class ScreenQuery
 	public const byte Restore = 3;
 	public const byte Press = 4;
 	public const byte Enter = 5;
+	public const byte Layout = 6;
+	public const byte Clock = 7;
 
 	public static bool IsQuery(ReadOnlySpan<byte> payload) =>
 		payload.Length >= 6
@@ -297,6 +326,8 @@ public static class ScreenQuery
 		{
 			case Tree:
 			case State:
+			case Layout:
+			case Clock:
 				if (payload.Length != 6)
 					throw new InvalidOperationException("Rejected screen query.");
 				return op;

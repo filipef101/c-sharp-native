@@ -4,6 +4,7 @@ using Android.Util;
 using Android.Views;
 using Android.Widget;
 using AndroidButton = Android.Widget.Button;
+using AndroidScroll = Android.Widget.ScrollView;
 using AndroidSwitch = Android.Widget.Switch;
 
 namespace NativePoc;
@@ -39,6 +40,11 @@ sealed class AndroidHost : IElementHost<View>
 				return new AndroidField(_activity);
 			case ElementKind.Switch:
 				return new AndroidSwitch(_activity);
+			case ElementKind.Scroll:
+				return new AndroidScroll(_activity)
+				{
+					FillViewport = true,
+				};
 			default:
 				throw UnknownKind(kind);
 		}
@@ -48,9 +54,9 @@ sealed class AndroidHost : IElementHost<View>
 	{
 		if (parent is not ViewGroup group)
 			throw new InvalidOperationException("Parent is not a view group.");
-		child.LayoutParameters = new LinearLayout.LayoutParams(
-			ViewGroup.LayoutParams.MatchParent,
-			ViewGroup.LayoutParams.WrapContent);
+		child.LayoutParameters = parent is AndroidScroll
+			? new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)
+			: new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
 		group.AddView(child, index);
 	}
 
@@ -66,6 +72,7 @@ sealed class AndroidHost : IElementHost<View>
 		if (view is not TextView text)
 			throw new InvalidOperationException("Text patch targeted a non-text view.");
 		text.Text = value;
+		text.ContentDescription = value;
 	}
 
 	public void SetButton(View view, string title, string accessibilityLabel)

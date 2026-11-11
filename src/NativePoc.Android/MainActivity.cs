@@ -17,6 +17,7 @@ public sealed class MainActivity : Activity
 	public static MainActivity? Current { get; private set; }
 
 	Func<AppState, IPlatform, Element> _render = Screen.Render;
+	RecordProgram.Bound? _record;
 	AndroidHost? _host;
 	ViewReconciler<View>? _reconciler;
 	PlatformBridge? _platform;
@@ -38,7 +39,7 @@ public sealed class MainActivity : Activity
 		_platform = new PlatformBridge(this);
 		_host = new AndroidHost(this, () => _reconciler?.Current);
 		_reconciler = new ViewReconciler<View>(_host);
-		UiSurface.Bind(this, () => _reconciler?.Current);
+		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
 #if DEBUG
 		StateStore.TryLoad(this);
 #endif
@@ -75,7 +76,7 @@ public sealed class MainActivity : Activity
 	{
 		base.OnResume();
 		Current = this;
-		UiSurface.Bind(this, () => _reconciler?.Current);
+		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
 	}
 
 	protected override void OnDestroy()
@@ -121,6 +122,8 @@ public sealed class MainActivity : Activity
 	public string UseRender(Func<AppState, IPlatform, Element> render)
 	{
 		var previousSource = _programSource;
+		var previousRecord = _record;
+		_record = null;
 		_programSource = "";
 		try
 		{
@@ -128,14 +131,37 @@ public sealed class MainActivity : Activity
 		}
 		catch
 		{
+			_record = previousRecord;
 			_programSource = previousSource;
 			throw;
 		}
 	}
 
+	public string UseRecord(RecordProgram.Bound program)
+	{
+		var previousSource = _programSource;
+		var previousRecord = _record;
+		_record = program;
+		_programSource = program.SourceHash;
+		try
+		{
+			RenderNow();
+		}
+		catch
+		{
+			_record = previousRecord;
+			_programSource = previousSource;
+			throw;
+		}
+
+		return LastTitle;
+	}
+
 	public string UseProgram(ScreenProgram.Bound program)
 	{
 		var previousSource = _programSource;
+		var previousRecord = _record;
+		_record = null;
 		_programSource = program.SourceHash;
 		try
 		{
@@ -143,6 +169,7 @@ public sealed class MainActivity : Activity
 		}
 		catch
 		{
+			_record = previousRecord;
 			_programSource = previousSource;
 			throw;
 		}
@@ -155,7 +182,14 @@ public sealed class MainActivity : Activity
 			case ScreenQuery.Tree:
 				return "source=" + _programSource + "\n" + ScreenSnapshot.FormatTree(CurrentTree());
 			case ScreenQuery.State:
-				return ScreenSnapshot.FormatState(AppSession.Shared.State) + PackingView.Capture().Format();
+				var stateText = ScreenSnapshot.FormatState(AppSession.Shared.State) + PackingView.Capture().Format();
+				if (_record is not null)
+					stateText += _record.Value.FormatState();
+				return stateText;
+			case ScreenQuery.Layout:
+				return UiSurface.Layout();
+			case ScreenQuery.Clock:
+				return "animations=0\nclock=0\n";
 			case ScreenQuery.Restore:
 				StateCheckpoint.ReadInto(payload.AsSpan(6), AppSession.Shared.State);
 				if (StateCheckpoint.TryReadPacking(payload.AsSpan(6), out var packing))
@@ -204,7 +238,7 @@ public sealed class MainActivity : Activity
 			return;
 		var previousRoot = _reconciler.Root;
 		var state = AppSession.Shared.State;
-		var tree = _render(state, _platform);
+		var tree = _record is { } record ? record.Render(_platform) : _render(state, _platform);
 		_reconciler.Render(tree);
 		if (_reconciler.Root is null)
 			throw new InvalidOperationException("Screen did not mount a root view.");
@@ -245,6 +279,8 @@ public sealed class MainActivity : Activity
 		{
 			case Column column:
 				return column.Children.Count == 0 ? "" : TitleOf(column.Children[0]);
+			case ScrollView scroll:
+				return TitleOf(scroll.Child);
 			case Text text:
 				return text.Value;
 			case Button:

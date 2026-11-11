@@ -16,6 +16,7 @@ public static class PackingProgram
 		var add = writer.Intern("add");
 		var copy = writer.Intern("copy");
 		var list = writer.Intern("list");
+		var scroll = writer.Intern("scroll");
 		var editor = writer.Intern("editor");
 		var progress = writer.Intern("progress");
 		var of = writer.Intern(" of ");
@@ -87,6 +88,7 @@ public static class PackingProgram
 		writer.PushString(copyList);
 		writer.MakeActionButton(copy, ScreenProgram.PackCopy);
 		writer.MakeDynamicColumn(list);
+		writer.MakeScroll(scroll);
 		writer.Return();
 		return writer.Finish(null, 1);
 	}

@@ -38,7 +38,7 @@ static class PackingLowerer
 
 	const byte RemoveCode = 8;
 
-	readonly record struct Built(string Key, List<Piece> Pieces);
+	readonly record struct Built(string Key, List<Piece> Pieces, string? ScrollKey = null);
 
 	public static LowerResult TryLower(string source)
 	{
@@ -162,6 +162,8 @@ static class PackingLowerer
 		}
 
 		writer.MakeDynamicColumn(writer.Intern(list.Key));
+		if (list.ScrollKey is { } scroll)
+			writer.MakeScroll(writer.Intern(scroll));
 		writer.Return();
 		return writer.Finish(source, 1);
 	}
@@ -422,13 +424,13 @@ static class PackingLowerer
 			pieces.Add(added);
 		}
 
-		if (!IsListReturn(statements[^1], name, out var key) || key is null)
+		if (!IsListReturn(statements[^1], name, out var key, out var scrollKey) || key is null)
 		{
 			reason = "The packing list has to return its column.";
 			return false;
 		}
 
-		built = new Built(key, pieces);
+		built = new Built(key, pieces, scrollKey);
 		return true;
 	}
 
@@ -883,13 +885,26 @@ static class PackingLowerer
 		return TryPiece(add.ArgumentList.Arguments[0].Expression, Place.List, "", "", "", "", "", "", out piece, out reason);
 	}
 
-	static bool IsListReturn(StatementSyntax statement, string variable, out string? key)
+	static bool IsListReturn(StatementSyntax statement, string variable, out string? key, out string? scrollKey)
 	{
 		key = null;
+		scrollKey = null;
 		if (statement is not ReturnStatementSyntax ret || ret.Expression is not ObjectCreationExpressionSyntax creation)
 			return false;
-		if (TypeName(creation.Type) != "Column")
+		var column = creation;
+		if (TypeName(creation.Type) == "ScrollView")
+		{
+			scrollKey = StringKey(creation);
+			if (scrollKey is null || creation.ArgumentList?.Arguments.Count != 1)
+				return false;
+			if (creation.ArgumentList.Arguments[0].Expression is not ObjectCreationExpressionSyntax inner)
+				return false;
+			column = inner;
+		}
+
+		if (TypeName(column.Type) != "Column")
 			return false;
+		creation = column;
 		if (creation.ArgumentList?.Arguments.Count != 1)
 			return false;
 		if (creation.ArgumentList.Arguments[0].Expression is not IdentifierNameSyntax name || name.Identifier.ValueText != variable)

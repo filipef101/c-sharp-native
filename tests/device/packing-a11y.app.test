@@ -1,0 +1,5 @@
+# Packing labels and the scroll role, from the accessibility tree.
+screen packing
+a11y content-desc="Packed Canvas tent"
+a11y content-desc="Add item"
+a11y class="android.widget.ScrollView"

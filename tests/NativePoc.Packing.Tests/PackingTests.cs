@@ -201,12 +201,12 @@ public sealed class PackingTests
 		Assert.Equal((byte)1, PackingProgram.Bytes[5]);
 		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
 
-		Press(bound, program, "list/tent/packed");
+		Press(bound, program, "scroll/list/tent/packed");
 		screen.SetPacked("tent", true);
 		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
 		Assert.True(program.State.Items[0].Packed);
 
-		Press(bound, program, "list/tent/edit");
+		Press(bound, program, "scroll/list/tent/edit");
 		screen.PressRow("tent", "edit");
 		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
 		Enter(bound, program, "editor/name", "Canvas tent X");
@@ -216,7 +216,7 @@ public sealed class PackingTests
 		Assert.Equal("Canvas tent X", program.State.Items[0].Name);
 		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
 
-		Press(bound, program, "list/add");
+		Press(bound, program, "scroll/list/add");
 		Enter(bound, program, "editor/name", "Lantern");
 		Press(bound, program, "editor/packed");
 		Press(bound, program, "editor/save");
@@ -270,6 +270,12 @@ public sealed class PackingTests
 			case Switch toggle:
 				builder.Append("switch=").Append(toggle.Value ? "1" : "0").Append('/').Append(toggle.AccessibilityLabel);
 				return;
+			case ScrollView scroll:
+				builder.Append("scroll");
+				builder.Append('{');
+				Describe(scroll.Child, builder);
+				builder.Append('}');
+				return;
 			default:
 				throw new InvalidOperationException("Unknown element.");
 		}
@@ -280,9 +286,9 @@ public sealed class PackingTests
 	{
 		var harness = new PackingHarness();
 		var tree = harness.Reconciler.Current ?? throw new InvalidOperationException("The list is not mounted.");
-		Assert.Equal("pressed list/tent/packed", ElementIds.Invoke(tree, "list/tent/packed", null));
+		Assert.Equal("pressed scroll/list/tent/packed", ElementIds.Invoke(tree, "scroll/list/tent/packed", null));
 		Assert.True(harness.State.Items[0].Packed);
-		Assert.Equal("pressed list/tent/edit", ElementIds.Invoke(harness.Reconciler.Current!, "list/tent/edit", null));
+		Assert.Equal("pressed scroll/list/tent/edit", ElementIds.Invoke(harness.Reconciler.Current!, "scroll/list/tent/edit", null));
 		Assert.Equal(PackingRoute.Editor, harness.State.Route);
 		Assert.Equal("entered editor/name", ElementIds.Invoke(harness.Reconciler.Current!, "editor/name", "Canvas tent X"));
 		Assert.Equal("pressed editor/save", ElementIds.Invoke(harness.Reconciler.Current!, "editor/save", null));

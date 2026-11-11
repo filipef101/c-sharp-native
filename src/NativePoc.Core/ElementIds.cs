@@ -4,7 +4,7 @@ namespace NativePoc;
 
 public static class ElementIds
 {
-	public readonly record struct Node(string Id, int Depth, Element Element);
+	public readonly record struct Node(string Id, int Depth, Element Element, NodePath Path);
 
 	public static IReadOnlyList<Node> Flatten(Element root)
 	{
@@ -12,7 +12,7 @@ public static class ElementIds
 		var nodes = new List<Node>();
 		var seen = new HashSet<string>(StringComparer.Ordinal);
 		var id = root.Key is { Length: > 0 } key ? key : "root";
-		Walk(root, id, 0, nodes, seen);
+		Walk(root, id, 0, NodePath.Root, nodes, seen);
 		return nodes;
 	}
 
@@ -46,6 +46,7 @@ public static class ElementIds
 			case TextField:
 				throw new InvalidOperationException("Element " + id + " does not take that input.");
 			case Column:
+			case ScrollView:
 			case Text:
 				throw new InvalidOperationException("Element " + id + " does not take input.");
 			default:
@@ -53,23 +54,42 @@ public static class ElementIds
 		}
 	}
 
-	static void Walk(Element element, string id, int depth, List<Node> nodes, HashSet<string> seen)
+	static void Walk(Element element, string id, int depth, NodePath path, List<Node> nodes, HashSet<string> seen)
 	{
 		if (!seen.Add(id))
 			throw new InvalidOperationException("Duplicate element id " + id + ".");
-		nodes.Add(new Node(id, depth, element));
-		if (element is not Column column)
+		nodes.Add(new Node(id, depth, element, path));
+		var children = Nested(element);
+		if (children.Count == 0)
 			return;
 		var prefix = id == "root" ? "" : id;
-		for (var index = 0; index < column.Children.Count; index++)
+		for (var index = 0; index < children.Count; index++)
 		{
-			var child = column.Children[index];
+			var child = children[index];
 			var childId = child.Key is { Length: > 0 } key
 				? (prefix.Length == 0 ? key : prefix + "/" + key)
 				: prefix.Length == 0
 					? index.ToString(CultureInfo.InvariantCulture)
 					: prefix + "/" + index.ToString(CultureInfo.InvariantCulture);
-			Walk(child, childId, depth + 1, nodes, seen);
+			Walk(child, childId, depth + 1, path.Child(index), nodes, seen);
+		}
+	}
+
+	static IReadOnlyList<Element> Nested(Element element)
+	{
+		switch (element)
+		{
+			case Column column:
+				return column.Children;
+			case ScrollView scroll:
+				return [scroll.Child];
+			case Text:
+			case Button:
+			case TextField:
+			case Switch:
+				return Array.Empty<Element>();
+			default:
+				throw new InvalidOperationException("Unknown element.");
 		}
 	}
 }

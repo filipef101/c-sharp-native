@@ -7,6 +7,7 @@ public enum ElementKind
 	Button = 3,
 	TextField = 4,
 	Switch = 5,
+	Scroll = 6,
 }
 
 public abstract record Element
@@ -27,6 +28,8 @@ public sealed record Button(string Title, Action OnPress, string AccessibilityLa
 public sealed record TextField(string Value, Action<string> OnChange, string Placeholder, string AccessibilityLabel) : Element;
 
 public sealed record Switch(bool Value, Action<bool> OnChange, string AccessibilityLabel) : Element;
+
+public sealed record ScrollView(Element Child) : Element;
 
 public interface INativeServices : IDisposable
 {

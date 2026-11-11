@@ -4,6 +4,8 @@ try
 {
 	if (args.Length > 0 && args[0] == "agent")
 		return AgentLoop.Run(args);
+	if (args.Length > 0 && args[0] == "lower")
+		return LowerLoop.Run(args);
 	if (args.Length > 0 && args[0] == "measure")
 		return MeasureLoop.Run(args);
 	if (args.Length > 0 && args[0] == "test")

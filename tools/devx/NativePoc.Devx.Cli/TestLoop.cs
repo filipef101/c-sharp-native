@@ -112,6 +112,7 @@ static class TestLoop
 				DeviceVerb.Press => Query(session, ScreenQuery.PressId(step.Target), "pressed " + step.Target),
 				DeviceVerb.State => Contains(session, ScreenQuery.State, step.Target),
 				DeviceVerb.Tree => Contains(session, ScreenQuery.Tree, step.Target),
+				DeviceVerb.A11y => A11y(serial, step.Target),
 				_ => Unknown(step.Verb),
 			};
 			if (ok)
@@ -142,7 +143,7 @@ static class TestLoop
 				var packing = AndroidLoop.Adb(serial, "shell", "am", "start", "-n", LaunchCommand.Package + "/nativepoc.PackingActivity");
 				if (packing.Code != 0)
 					throw new InvalidOperationException("Packing did not start: " + packing.Stderr + packing.Stdout);
-				return WaitTree(session, "id=\"list\"");
+				return WaitTree(session, "id=\"scroll/list\"");
 			default:
 				throw new InvalidOperationException("Unknown screen " + screen + ".");
 		}
@@ -170,6 +171,15 @@ static class TestLoop
 		if (reply.Ok && reply.Text.Contains(needle, StringComparison.Ordinal))
 			return true;
 		Console.Error.WriteLine(reply.Text);
+		return false;
+	}
+
+	static bool A11y(string serial, string needle)
+	{
+		var dump = AccessibilityDump.Read(serial);
+		if (dump.Contains(needle, StringComparison.Ordinal))
+			return true;
+		Console.Error.WriteLine(dump);
 		return false;
 	}
 

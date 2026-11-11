@@ -25,14 +25,14 @@ public sealed class PackingLowererTests
 		var programHost = new Host();
 		AssertSame(PackingScreen.Render(screenState, screenHost), bound.Render(new PackingProgramAdapter(programState, programHost)));
 
-		ElementIds.Invoke(PackingScreen.Render(screenState, screenHost), "list/tent/packed", null);
-		ElementIds.Invoke(bound.Render(new PackingProgramAdapter(programState, programHost)), "list/tent/packed", null);
+		ElementIds.Invoke(PackingScreen.Render(screenState, screenHost), "scroll/list/tent/packed", null);
+		ElementIds.Invoke(bound.Render(new PackingProgramAdapter(programState, programHost)), "scroll/list/tent/packed", null);
 		Assert.True(screenState.Items[0].Packed);
 		Assert.True(programState.Items[0].Packed);
 		AssertSame(PackingScreen.Render(screenState, screenHost), bound.Render(new PackingProgramAdapter(programState, programHost)));
 
-		ElementIds.Invoke(PackingScreen.Render(screenState, screenHost), "list/tent/edit", null);
-		ElementIds.Invoke(bound.Render(new PackingProgramAdapter(programState, programHost)), "list/tent/edit", null);
+		ElementIds.Invoke(PackingScreen.Render(screenState, screenHost), "scroll/list/tent/edit", null);
+		ElementIds.Invoke(bound.Render(new PackingProgramAdapter(programState, programHost)), "scroll/list/tent/edit", null);
 		Assert.Equal(PackingRoute.Editor, programState.Route);
 		AssertSame(PackingScreen.Render(screenState, screenHost), bound.Render(new PackingProgramAdapter(programState, programHost)));
 	}
@@ -45,7 +45,7 @@ public sealed class PackingLowererTests
 		var labelProgram = PackingLowerer.TryLower(labeled).Program;
 		Assert.NotNull(labelProgram);
 		var labelTree = ScreenProgram.BindPacking(labelProgram).Render(new PackingProgramAdapter(PackingState.Seed(), new Host()));
-		var row = Assert.IsType<Column>(Assert.IsType<Column>(labelTree).Children[2]);
+		var row = Assert.IsType<Column>(ListColumn(labelTree).Children[2]);
 		Assert.Equal("Held Canvas tent", Assert.IsType<Switch>(row.Children[1]).AccessibilityLabel);
 
 		var lines = source.Split('\n');
@@ -55,7 +55,7 @@ public sealed class PackingLowererTests
 		withNote.Insert(noteIndex + 1, indent + "new Text(\"Note\") { Key = \"note\" },");
 		var noted = PackingLowerer.TryLower(string.Join('\n', withNote)).Program;
 		Assert.NotNull(noted);
-		var notedRow = Assert.IsType<Column>(Assert.IsType<Column>(ScreenProgram.BindPacking(noted).Render(new PackingProgramAdapter(PackingState.Seed(), new Host()))).Children[2]);
+		var notedRow = Assert.IsType<Column>(ListColumn(ScreenProgram.BindPacking(noted).Render(new PackingProgramAdapter(PackingState.Seed(), new Host()))).Children[2]);
 		Assert.Equal("Note", Assert.IsType<Text>(notedRow.Children[1]).Value);
 		Assert.Equal("note", notedRow.Children[1].Key);
 		Assert.Equal(4, notedRow.Children.Count);
@@ -63,7 +63,7 @@ public sealed class PackingLowererTests
 		(lines[noteIndex], lines[noteIndex + 2]) = (lines[noteIndex + 2], lines[noteIndex]);
 		var swapped = PackingLowerer.TryLower(string.Join('\n', lines)).Program;
 		Assert.NotNull(swapped);
-		var swappedRow = Assert.IsType<Column>(Assert.IsType<Column>(ScreenProgram.BindPacking(swapped).Render(new PackingProgramAdapter(PackingState.Seed(), new Host()))).Children[2]);
+		var swappedRow = Assert.IsType<Column>(ListColumn(ScreenProgram.BindPacking(swapped).Render(new PackingProgramAdapter(PackingState.Seed(), new Host()))).Children[2]);
 		Assert.Equal("edit", swappedRow.Children[0].Key);
 		Assert.Equal("name", swappedRow.Children[2].Key);
 	}
@@ -99,7 +99,7 @@ public sealed class PackingLowererTests
 		var bound = ScreenProgram.BindPacking(lowered.Program!);
 		var state = PackingState.Seed();
 		var host = new PackingProgramAdapter(state, new Host());
-		ElementIds.Invoke(bound.Render(host), "list/add", null);
+		ElementIds.Invoke(bound.Render(host), "scroll/list/add", null);
 		Assert.True(state.DraftPacked);
 		Assert.Equal(PackingRoute.Editor, state.Route);
 		state.DraftName = "Tarp";
@@ -136,7 +136,7 @@ public sealed class PackingLowererTests
 		var bound = ScreenProgram.BindPacking(lowered.Program!);
 		var state = PackingState.Seed();
 		var host = new PackingProgramAdapter(state, new Host());
-		ElementIds.Invoke(bound.Render(host), "list/tent/edit", null);
+		ElementIds.Invoke(bound.Render(host), "scroll/list/tent/edit", null);
 		ElementIds.Invoke(bound.Render(host), "editor/note", "hem");
 		Assert.Equal("hem", state.DraftNote);
 		Assert.Equal("Canvas tent", state.DraftName);
@@ -149,6 +149,9 @@ public sealed class PackingLowererTests
 		Assert.Null(refused.Program);
 		Assert.Equal("The editor already has a name field.", refused.Reason);
 	}
+
+	static Column ListColumn(Element tree) =>
+		Assert.IsType<Column>(Assert.IsType<ScrollView>(tree).Child);
 
 	static void AssertSame(Element expected, Element actual)
 	{
@@ -179,6 +182,9 @@ public sealed class PackingLowererTests
 				Assert.Equal(column.Children.Count, otherColumn.Children.Count);
 				for (var index = 0; index < column.Children.Count; index++)
 					AssertSame(column.Children[index], otherColumn.Children[index]);
+				return;
+			case ScrollView scroll:
+				AssertSame(scroll.Child, Assert.IsType<ScrollView>(actual).Child);
 				return;
 			default:
 				throw new InvalidOperationException(expected.GetType().Name);

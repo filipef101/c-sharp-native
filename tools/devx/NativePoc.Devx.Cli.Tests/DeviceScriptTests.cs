@@ -22,10 +22,25 @@ public sealed class DeviceScriptTests
 
 		var packing = DeviceScript.Parse(File.ReadAllText(Path.Combine(root, "tests", "device", "packing.app.test")));
 		Assert.Equal("packing", packing[0].Target);
-		Assert.Equal("list/tent/packed", packing[1].Target);
+		Assert.Equal("scroll/list/tent/packed", packing[1].Target);
 		Assert.Equal(DeviceVerb.Press, packing[1].Verb);
 		Assert.Contains("74656e74", packing[2].Target, StringComparison.Ordinal);
 		Assert.Contains("true", packing[2].Target, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void A_parent_node_stays_in_the_accessibility_summary()
+	{
+		var xml = """
+			<hierarchy>
+			<node class="android.widget.ScrollView" content-desc="" text="" bounds="[0,0][1,2]">
+			<node class="android.widget.Button" content-desc="Add item" text="Add item" bounds="[0,0][1,1]" />
+			</node>
+			</hierarchy>
+			""";
+		var text = AccessibilityDump.Summarize(xml);
+		Assert.Contains("android.widget.ScrollView", text, StringComparison.Ordinal);
+		Assert.Contains("Add item", text, StringComparison.Ordinal);
 	}
 
 	[Fact]

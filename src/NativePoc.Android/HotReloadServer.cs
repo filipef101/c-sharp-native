@@ -158,6 +158,13 @@ static class HotReloadServer
 				Activity presented = activity;
 				if (ScreenProgram.IsPacking(dll) && PackingActivity.Current is Activity packingActivity)
 					presented = packingActivity;
+				if (!presented.HasWindowFocus)
+				{
+					title += " present=0";
+					done.Set();
+					return;
+				}
+
 				if (!ArmPresent(presented, done))
 				{
 					title += " present=0";
@@ -190,6 +197,15 @@ static class HotReloadServer
 			return activity.Answer(ScreenQuery.Op(dll), dll);
 		if (ScreenProgram.IsProgram(dll))
 		{
+			if (ScreenProgram.IsRecord(dll))
+			{
+				var record = RecordProgram.Bind(dll);
+				var recorded = activity.UseRecord(record);
+				var recordedMessage = recorded + " program=1";
+				Android.Util.Log.Info(MainActivity.Tag, "hotreload-applied " + recordedMessage);
+				return recordedMessage;
+			}
+
 			if (ScreenProgram.IsPacking(dll))
 			{
 				var packing = ScreenProgram.BindPacking(dll);

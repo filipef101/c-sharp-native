@@ -81,7 +81,7 @@ public static class PackingList
 		}
 		children.Add(new Button("Add item", () => PackingActions.BeginAdd(state, host), "Add item") { Key = "add" });
 		children.Add(new Button("Copy list", () => PackingActions.Copy(state, host), "Copy list") { Key = "copy" });
-		return new Column(children) { Key = "list" };
+		return new ScrollView(new Column(children) { Key = "list" }) { Key = "scroll" };
 	}
 }
 

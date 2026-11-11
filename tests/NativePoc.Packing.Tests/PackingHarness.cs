@@ -253,6 +253,9 @@ sealed class PackingHarness : IPackingHost
 				}
 			}
 		}
+
+		if (root is ScrollView scroll)
+			return FindElement(scroll.Child, key);
 		throw new InvalidOperationException("Missing " + key);
 	}
 
@@ -275,6 +278,9 @@ sealed class PackingHarness : IPackingHost
 				}
 			}
 		}
+
+		if (element is ScrollView scroll)
+			return PathOf(scroll.Child, key, path.Child(0));
 		throw new InvalidOperationException("Missing " + key);
 	}
 }

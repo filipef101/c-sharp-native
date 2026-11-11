@@ -1,0 +1,812 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace NativePoc;
+
+public static class RecordProgram
+{
+	public const byte OpPushStr = 1;
+	public const byte OpPushBool = 2;
+	public const byte OpLoadStr = 3;
+	public const byte OpLoadBool = 4;
+	public const byte OpLoadInt = 5;
+	public const byte OpConcat = 6;
+	public const byte OpJumpIfFalse = 7;
+	public const byte OpJump = 8;
+	public const byte OpMakeText = 9;
+	public const byte OpMakeTextKey = 10;
+	public const byte OpMakeField = 11;
+	public const byte OpMakeSwitch = 12;
+	public const byte OpMakeButton = 13;
+	public const byte OpMakeColumn = 14;
+	public const byte OpMakeScroll = 15;
+	public const byte OpReturn = 16;
+	public const byte OpMark = 17;
+	public const byte OpForEach = 18;
+	public const byte OpItemStr = 19;
+	public const byte OpGather = 20;
+
+	public const byte ActRender = 1;
+	public const byte ActSetStr = 2;
+	public const byte ActSetBool = 3;
+	public const byte ActSetStrLit = 4;
+	public const byte ActSetBoolLit = 5;
+	public const byte ActInc = 6;
+	public const byte ActCopyLit = 7;
+	public const byte ActCopyProp = 8;
+
+	public const byte TypeString = 1;
+	public const byte TypeBool = 2;
+	public const byte TypeInt = 3;
+	public const byte TypeList = 4;
+
+	public const int NoKey = 0xFFFF;
+
+	public static Bag Shared { get; } = new();
+
+	public readonly record struct PropDef(
+		byte Type,
+		int Name,
+		int Text,
+		bool Flag,
+		int Number,
+		int[] Fields,
+		int[][] Rows);
+
+	public readonly struct Bound
+	{
+		readonly Bag _bag;
+
+		public Bound(Func<IPlatform, Element> render, string sourceHash, Bag bag)
+		{
+			Render = render;
+			SourceHash = sourceHash;
+			_bag = bag;
+		}
+
+		public Func<IPlatform, Element> Render { get; }
+
+		public string SourceHash { get; }
+
+		public string FormatState() => _bag.Format();
+	}
+
+	public static Bound Bind(ReadOnlySpan<byte> payload) => Bind(payload, Shared);
+
+	public static Bound Bind(ReadOnlySpan<byte> payload, Bag bag)
+	{
+		ArgumentNullException.ThrowIfNull(bag);
+		var decoded = Decode(payload);
+		Seed(decoded, bag);
+		var code = decoded.Code;
+		var strings = decoded.Strings;
+		return new Bound(
+			platform => Eval(code, strings, bag, platform),
+			decoded.SourceHash,
+			bag);
+	}
+
+	public static byte[] Encode(IReadOnlyList<string> strings, IReadOnlyList<PropDef> props, ReadOnlySpan<byte> code, string? source)
+	{
+		ArgumentNullException.ThrowIfNull(strings);
+		ArgumentNullException.ThrowIfNull(props);
+		if (code.Length == 0 || code.Length > ScreenProgram.MaxCode)
+			throw new InvalidOperationException("A record program has no body.");
+		var hash = new byte[16];
+		if (source is not null)
+			SHA256.HashData(Encoding.UTF8.GetBytes(source)).AsSpan(0, 16).CopyTo(hash);
+		var size = 8 + 16;
+		foreach (var text in strings)
+			size += 2 + Encoding.UTF8.GetByteCount(text);
+		size += 2;
+		foreach (var prop in props)
+			size += PropSize(prop);
+		size += 2 + code.Length;
+		var payload = new byte[size];
+		payload[0] = (byte)'N';
+		payload[1] = (byte)'P';
+		payload[2] = (byte)'C';
+		payload[3] = (byte)'1';
+		payload[4] = ScreenProgram.Version;
+		payload[5] = 2;
+		var cursor = 6;
+		cursor = WriteU16(payload, cursor, strings.Count);
+		foreach (var text in strings)
+		{
+			var encoded = Encoding.UTF8.GetBytes(text);
+			cursor = WriteU16(payload, cursor, encoded.Length);
+			encoded.CopyTo(payload, cursor);
+			cursor += encoded.Length;
+		}
+
+		cursor = WriteU16(payload, cursor, props.Count);
+		foreach (var prop in props)
+			cursor = WriteProp(payload, cursor, prop);
+		cursor = WriteU16(payload, cursor, code.Length);
+		code.CopyTo(payload.AsSpan(cursor));
+		cursor += code.Length;
+		hash.CopyTo(payload, cursor);
+		return payload;
+	}
+
+	static int PropSize(PropDef prop)
+	{
+		var size = 1 + 2;
+		switch (prop.Type)
+		{
+			case TypeString:
+				return size + 2;
+			case TypeBool:
+				return size + 1;
+			case TypeInt:
+				return size + 4;
+			case TypeList:
+				size += 2 + (prop.Fields.Length * 2) + 2;
+				size += prop.Rows.Length * prop.Fields.Length * 2;
+				return size;
+			default:
+				throw new InvalidOperationException("A record property is out of range.");
+		}
+	}
+
+	static int WriteProp(byte[] payload, int cursor, PropDef prop)
+	{
+		payload[cursor++] = prop.Type;
+		cursor = WriteU16(payload, cursor, prop.Name);
+		switch (prop.Type)
+		{
+			case TypeString:
+				return WriteU16(payload, cursor, prop.Text);
+			case TypeBool:
+				payload[cursor++] = prop.Flag ? (byte)1 : (byte)0;
+				return cursor;
+			case TypeInt:
+				payload[cursor++] = (byte)prop.Number;
+				payload[cursor++] = (byte)(prop.Number >> 8);
+				payload[cursor++] = (byte)(prop.Number >> 16);
+				payload[cursor++] = (byte)(prop.Number >> 24);
+				return cursor;
+			case TypeList:
+				cursor = WriteU16(payload, cursor, prop.Fields.Length);
+				foreach (var field in prop.Fields)
+					cursor = WriteU16(payload, cursor, field);
+				cursor = WriteU16(payload, cursor, prop.Rows.Length);
+				foreach (var row in prop.Rows)
+				{
+					if (row.Length != prop.Fields.Length)
+						throw new InvalidOperationException("A record row is the wrong width.");
+					foreach (var cell in row)
+						cursor = WriteU16(payload, cursor, cell);
+				}
+
+				return cursor;
+			default:
+				throw new InvalidOperationException("A record property is out of range.");
+		}
+	}
+
+	static int WriteU16(byte[] payload, int cursor, int value)
+	{
+		payload[cursor] = (byte)value;
+		payload[cursor + 1] = (byte)(value >> 8);
+		return cursor + 2;
+	}
+
+	readonly record struct Decoded(string[] Strings, PropDef[] Props, byte[] Code, string SourceHash);
+
+	static Decoded Decode(ReadOnlySpan<byte> payload)
+	{
+		if (!ScreenProgram.IsRecord(payload) || payload.Length < 8 + 16 || payload[4] != ScreenProgram.Version)
+			throw new InvalidOperationException("Rejected record program.");
+		var cursor = 6;
+		var stringCount = ReadU16(payload, ref cursor);
+		if (stringCount > ScreenProgram.MaxStrings)
+			throw new InvalidOperationException("Rejected record program.");
+		var strings = new string[stringCount];
+		for (var index = 0; index < stringCount; index++)
+		{
+			var length = ReadU16(payload, ref cursor);
+			if (length > ScreenProgram.MaxStringBytes || cursor + length > payload.Length - 16)
+				throw new InvalidOperationException("Rejected record program.");
+			strings[index] = Encoding.UTF8.GetString(payload.Slice(cursor, length));
+			cursor += length;
+		}
+
+		var propCount = ReadU16(payload, ref cursor);
+		var props = new PropDef[propCount];
+		for (var index = 0; index < propCount; index++)
+			props[index] = ReadProp(payload, ref cursor, stringCount);
+		var codeLength = ReadU16(payload, ref cursor);
+		if (codeLength == 0 || codeLength > ScreenProgram.MaxCode || cursor + codeLength + 16 != payload.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var code = payload.Slice(cursor, codeLength).ToArray();
+		var hash = payload.Slice(cursor + codeLength, 16);
+		var sourceHash = Convert.ToHexString(hash).ToLowerInvariant();
+		if (hash.IndexOf((byte)0) >= 0 && hash.Trim((byte)0).Length == 0)
+			sourceHash = "";
+		return new Decoded(strings, props, code, sourceHash);
+	}
+
+	static PropDef ReadProp(ReadOnlySpan<byte> payload, ref int cursor, int stringCount)
+	{
+		if (cursor >= payload.Length - 16)
+			throw new InvalidOperationException("Rejected record program.");
+		var type = payload[cursor++];
+		var name = ReadU16(payload, ref cursor);
+		if (name >= stringCount)
+			throw new InvalidOperationException("Rejected record program.");
+		switch (type)
+		{
+			case TypeString:
+				var text = ReadU16(payload, ref cursor);
+				if (text >= stringCount)
+					throw new InvalidOperationException("Rejected record program.");
+				return new PropDef(type, name, text, false, 0, Array.Empty<int>(), Array.Empty<int[]>());
+			case TypeBool:
+				if (cursor >= payload.Length - 16)
+					throw new InvalidOperationException("Rejected record program.");
+				var flag = payload[cursor++];
+				if (flag > 1)
+					throw new InvalidOperationException("Rejected record program.");
+				return new PropDef(type, name, 0, flag == 1, 0, Array.Empty<int>(), Array.Empty<int[]>());
+			case TypeInt:
+				if (cursor + 4 > payload.Length - 16)
+					throw new InvalidOperationException("Rejected record program.");
+				var number = payload[cursor] | (payload[cursor + 1] << 8) | (payload[cursor + 2] << 16) | (payload[cursor + 3] << 24);
+				cursor += 4;
+				return new PropDef(type, name, 0, false, number, Array.Empty<int>(), Array.Empty<int[]>());
+			case TypeList:
+				var fieldCount = ReadU16(payload, ref cursor);
+				if (fieldCount == 0 || fieldCount > 16)
+					throw new InvalidOperationException("Rejected record program.");
+				var fields = new int[fieldCount];
+				for (var field = 0; field < fieldCount; field++)
+				{
+					fields[field] = ReadU16(payload, ref cursor);
+					if (fields[field] >= stringCount)
+						throw new InvalidOperationException("Rejected record program.");
+				}
+
+				var rowCount = ReadU16(payload, ref cursor);
+				if (rowCount > 64)
+					throw new InvalidOperationException("Rejected record program.");
+				var rows = new int[rowCount][];
+				for (var row = 0; row < rowCount; row++)
+				{
+					rows[row] = new int[fieldCount];
+					for (var cell = 0; cell < fieldCount; cell++)
+					{
+						rows[row][cell] = ReadU16(payload, ref cursor);
+						if (rows[row][cell] >= stringCount)
+							throw new InvalidOperationException("Rejected record program.");
+					}
+				}
+
+				return new PropDef(type, name, 0, false, 0, fields, rows);
+			default:
+				throw new InvalidOperationException("Rejected record program.");
+		}
+	}
+
+	static int ReadU16(ReadOnlySpan<byte> payload, ref int cursor)
+	{
+		if (cursor + 2 > payload.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var value = payload[cursor] | (payload[cursor + 1] << 8);
+		cursor += 2;
+		return value;
+	}
+
+	static void Seed(Decoded decoded, Bag bag)
+	{
+		foreach (var prop in decoded.Props)
+		{
+			var name = decoded.Strings[prop.Name];
+			switch (prop.Type)
+			{
+				case TypeString:
+					bag.SeedString(name, decoded.Strings[prop.Text]);
+					break;
+				case TypeBool:
+					bag.SeedBool(name, prop.Flag);
+					break;
+				case TypeInt:
+					bag.SeedInt(name, prop.Number);
+					break;
+				case TypeList:
+					var rows = new List<string[]>(prop.Rows.Length);
+					foreach (var row in prop.Rows)
+					{
+						var cells = new string[row.Length];
+						for (var index = 0; index < row.Length; index++)
+							cells[index] = decoded.Strings[row[index]];
+						rows.Add(cells);
+					}
+
+					bag.SeedList(name, rows);
+					break;
+				default:
+					throw new InvalidOperationException("Rejected record program.");
+			}
+		}
+	}
+
+	static Element Eval(byte[] code, string[] strings, Bag bag, IPlatform platform)
+	{
+		ArgumentNullException.ThrowIfNull(platform);
+		var stack = new Slot[ScreenProgram.MaxStack];
+		var sp = 0;
+		string[]? row = null;
+		Element? returned = null;
+		var ip = 0;
+		while (ip < code.Length)
+		{
+			ip = Step(code, strings, bag, platform, stack, ref sp, ref row, ip, code.Length, ref returned);
+			if (returned is not null)
+				return returned;
+		}
+
+		throw new InvalidOperationException("Rejected record program.");
+	}
+
+	static int Step(
+		byte[] code,
+		string[] strings,
+		Bag bag,
+		IPlatform platform,
+		Slot[] stack,
+		ref int sp,
+		ref string[]? row,
+		int ip,
+		int end,
+		ref Element? returned)
+	{
+		if (ip >= end)
+			throw new InvalidOperationException("Rejected record program.");
+		var op = code[ip++];
+		switch (op)
+		{
+			case OpPushStr:
+			{
+				var index = TakeU16(code, ref ip, end);
+				Push(stack, ref sp, Slot.Str(strings[RequireString(index, strings)]));
+				return ip;
+			}
+			case OpPushBool:
+			{
+				if (ip >= end)
+					throw new InvalidOperationException("Rejected record program.");
+				var flag = code[ip++];
+				if (flag > 1)
+					throw new InvalidOperationException("Rejected record program.");
+				Push(stack, ref sp, Slot.Bool(flag == 1));
+				return ip;
+			}
+			case OpLoadStr:
+				Push(stack, ref sp, Slot.Str(bag.ReadString(strings[RequireString(TakeU16(code, ref ip, end), strings)])));
+				return ip;
+			case OpLoadBool:
+				Push(stack, ref sp, Slot.Bool(bag.ReadBool(strings[RequireString(TakeU16(code, ref ip, end), strings)])));
+				return ip;
+			case OpLoadInt:
+				Push(stack, ref sp, Slot.Str(bag.ReadInt(strings[RequireString(TakeU16(code, ref ip, end), strings)]).ToString(CultureInfo.InvariantCulture)));
+				return ip;
+			case OpConcat:
+			{
+				var right = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				var left = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				Push(stack, ref sp, Slot.Str(left + right));
+				return ip;
+			}
+			case OpJumpIfFalse:
+			{
+				var relative = TakeU16(code, ref ip, end);
+				var flag = Pop(stack, ref sp, SlotKind.Bool).Flag;
+				if (!flag)
+					ip += relative;
+				if (ip > end)
+					throw new InvalidOperationException("Rejected record program.");
+				return ip;
+			}
+			case OpJump:
+			{
+				var relative = TakeU16(code, ref ip, end);
+				ip += relative;
+				if (ip > end)
+					throw new InvalidOperationException("Rejected record program.");
+				return ip;
+			}
+			case OpMakeText:
+			{
+				var key = Key(strings, TakeU16(code, ref ip, end));
+				var value = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				Push(stack, ref sp, Slot.Elem(new Text(value) { Key = key }));
+				return ip;
+			}
+			case OpMakeTextKey:
+			{
+				var key = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				var value = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				Push(stack, ref sp, Slot.Elem(new Text(value) { Key = key }));
+				return ip;
+			}
+			case OpMakeField:
+			case OpMakeSwitch:
+			case OpMakeButton:
+				return MakeControl(op, code, strings, bag, platform, stack, ref sp, ip, end);
+			case OpMakeColumn:
+			{
+				if (ip >= end)
+					throw new InvalidOperationException("Rejected record program.");
+				var count = code[ip++];
+				var key = Key(strings, TakeU16(code, ref ip, end));
+				Push(stack, ref sp, Slot.Elem(TakeColumn(stack, ref sp, count, key)));
+				return ip;
+			}
+			case OpMakeScroll:
+			{
+				var key = Key(strings, TakeU16(code, ref ip, end));
+				var child = Pop(stack, ref sp, SlotKind.Elem).Node ?? throw new InvalidOperationException("Rejected record program.");
+				Push(stack, ref sp, Slot.Elem(new ScrollView(child) { Key = key }));
+				return ip;
+			}
+			case OpReturn:
+				returned = Pop(stack, ref sp, SlotKind.Elem).Node ?? throw new InvalidOperationException("Rejected record program.");
+				return ip;
+			case OpMark:
+				Push(stack, ref sp, Slot.Mark());
+				return ip;
+			case OpForEach:
+			{
+				var name = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+				var length = TakeU16(code, ref ip, end);
+				var bodyEnd = ip + length;
+				if (bodyEnd > end)
+					throw new InvalidOperationException("Rejected record program.");
+				foreach (var item in bag.Rows(name))
+				{
+					row = item;
+					var cursor = ip;
+					while (cursor < bodyEnd)
+						cursor = Step(code, strings, bag, platform, stack, ref sp, ref row, cursor, bodyEnd, ref returned);
+					if (returned is not null)
+						throw new InvalidOperationException("Rejected record program.");
+				}
+
+				row = null;
+				return bodyEnd;
+			}
+			case OpItemStr:
+			{
+				var field = TakeU16(code, ref ip, end);
+				var current = row ?? throw new InvalidOperationException("Rejected record program.");
+				if ((uint)field >= (uint)current.Length)
+					throw new InvalidOperationException("Rejected record program.");
+				Push(stack, ref sp, Slot.Str(current[field]));
+				return ip;
+			}
+			case OpGather:
+			{
+				var key = Key(strings, TakeU16(code, ref ip, end));
+				var gathered = new List<Element>();
+				while (sp > 0 && stack[sp - 1].Kind != SlotKind.Mark)
+					gathered.Add(Pop(stack, ref sp, SlotKind.Elem).Node ?? throw new InvalidOperationException("Rejected record program."));
+				if (sp == 0 || Pop(stack, ref sp, SlotKind.Mark).Kind != SlotKind.Mark)
+					throw new InvalidOperationException("Rejected record program.");
+				if (gathered.Count > ScreenProgram.MaxChildren)
+					throw new InvalidOperationException("Rejected record program.");
+				gathered.Reverse();
+				Push(stack, ref sp, Slot.Elem(new Column(gathered) { Key = key }));
+				return ip;
+			}
+			default:
+				throw new InvalidOperationException("Rejected record program.");
+		}
+	}
+
+	static int MakeControl(
+		byte op,
+		byte[] code,
+		string[] strings,
+		Bag bag,
+		IPlatform platform,
+		Slot[] stack,
+		ref int sp,
+		int ip,
+		int end)
+	{
+		var key = Key(strings, TakeU16(code, ref ip, end));
+		var length = TakeU16(code, ref ip, end);
+		if (length == 0 || ip + length > end)
+			throw new InvalidOperationException("Rejected record program.");
+		var script = code.AsSpan(ip, length).ToArray();
+		ip += length;
+		switch (op)
+		{
+			case OpMakeField:
+			{
+				var label = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				var placeholder = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				var value = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				Push(stack, ref sp, Slot.Elem(new TextField(
+					value,
+					text => RunScript(script, strings, bag, platform, text, false),
+					placeholder,
+					label)
+				{ Key = key }));
+				return ip;
+			}
+			case OpMakeSwitch:
+			{
+				var label = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				var value = Pop(stack, ref sp, SlotKind.Bool).Flag;
+				Push(stack, ref sp, Slot.Elem(new Switch(
+					value,
+					next => RunScript(script, strings, bag, platform, null, next),
+					label)
+				{ Key = key }));
+				return ip;
+			}
+			case OpMakeButton:
+			{
+				var label = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				var title = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				Push(stack, ref sp, Slot.Elem(new Button(
+					title,
+					() => RunScript(script, strings, bag, platform, null, false),
+					label)
+				{ Key = key }));
+				return ip;
+			}
+			default:
+				throw new InvalidOperationException("Rejected record program.");
+		}
+	}
+
+	static void RunScript(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag)
+	{
+		var ip = 0;
+		var steps = 0;
+		while (ip < script.Length)
+		{
+			if (++steps > 64)
+				throw new InvalidOperationException("Rejected record program.");
+			var op = script[ip++];
+			switch (op)
+			{
+				case ActRender:
+					platform.RequestRender();
+					break;
+				case ActSetStr:
+					bag.WriteString(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)], text ?? "");
+					break;
+				case ActSetBool:
+					bag.WriteBool(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)], flag);
+					break;
+				case ActSetStrLit:
+				{
+					var name = RequireString(TakeU16(script, ref ip, script.Length), strings);
+					var literal = RequireString(TakeU16(script, ref ip, script.Length), strings);
+					bag.WriteString(strings[name], strings[literal]);
+					break;
+				}
+				case ActSetBoolLit:
+				{
+					var name = RequireString(TakeU16(script, ref ip, script.Length), strings);
+					if (ip >= script.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var value = script[ip++];
+					if (value > 1)
+						throw new InvalidOperationException("Rejected record program.");
+					bag.WriteBool(strings[name], value == 1);
+					break;
+				}
+				case ActInc:
+					bag.AddInt(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)], 1);
+					break;
+				case ActCopyLit:
+					platform.CopyNonce(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]);
+					break;
+				case ActCopyProp:
+					platform.CopyNonce(bag.ReadString(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]));
+					break;
+				default:
+					throw new InvalidOperationException("Rejected record program.");
+			}
+		}
+	}
+
+	static Column TakeColumn(Slot[] stack, ref int sp, int count, string? key)
+	{
+		if (count > ScreenProgram.MaxChildren)
+			throw new InvalidOperationException("Rejected record program.");
+		var children = new Element[count];
+		for (var index = count - 1; index >= 0; index--)
+			children[index] = Pop(stack, ref sp, SlotKind.Elem).Node ?? throw new InvalidOperationException("Rejected record program.");
+		return new Column(children) { Key = key };
+	}
+
+	static int TakeU16(byte[] code, ref int ip, int end)
+	{
+		if (ip + 2 > end)
+			throw new InvalidOperationException("Rejected record program.");
+		var value = code[ip] | (code[ip + 1] << 8);
+		ip += 2;
+		return value;
+	}
+
+	static int RequireString(int index, string[] strings)
+	{
+		if ((uint)index >= (uint)strings.Length && index != NoKey)
+			throw new InvalidOperationException("Rejected record program.");
+		if (index == NoKey)
+			throw new InvalidOperationException("Rejected record program.");
+		return index;
+	}
+
+	static string? Key(string[] strings, int index)
+	{
+		if (index == NoKey)
+			return null;
+		if ((uint)index >= (uint)strings.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		return strings[index];
+	}
+
+	static void Push(Slot[] stack, ref int sp, Slot slot)
+	{
+		if (sp >= stack.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		stack[sp++] = slot;
+	}
+
+	static Slot Pop(Slot[] stack, ref int sp, SlotKind kind)
+	{
+		if (sp == 0 || stack[sp - 1].Kind != kind)
+			throw new InvalidOperationException("Rejected record program.");
+		return stack[--sp];
+	}
+
+	enum SlotKind : byte
+	{
+		Str = 1,
+		Bool = 2,
+		Elem = 3,
+		Mark = 4,
+	}
+
+	readonly record struct Slot(SlotKind Kind, string? Text, bool Flag, Element? Node)
+	{
+		public static Slot Str(string text) => new(SlotKind.Str, text, false, null);
+
+		public static Slot Bool(bool flag) => new(SlotKind.Bool, null, flag, null);
+
+		public static Slot Elem(Element node) => new(SlotKind.Elem, null, false, node);
+
+		public static Slot Mark() => new(SlotKind.Mark, null, false, null);
+	}
+
+	public sealed class Bag
+	{
+		readonly Dictionary<string, string> _strings = new(StringComparer.Ordinal);
+		readonly Dictionary<string, bool> _flags = new(StringComparer.Ordinal);
+		readonly Dictionary<string, int> _numbers = new(StringComparer.Ordinal);
+		readonly Dictionary<string, List<string[]>> _lists = new(StringComparer.Ordinal);
+		readonly object _gate = new();
+
+		public void SeedString(string name, string value)
+		{
+			lock (_gate)
+			{
+				if (!_strings.ContainsKey(name))
+					_strings[name] = value;
+			}
+		}
+
+		public void SeedBool(string name, bool value)
+		{
+			lock (_gate)
+			{
+				if (!_flags.ContainsKey(name))
+					_flags[name] = value;
+			}
+		}
+
+		public void SeedInt(string name, int value)
+		{
+			lock (_gate)
+			{
+				if (!_numbers.ContainsKey(name))
+					_numbers[name] = value;
+			}
+		}
+
+		public void SeedList(string name, List<string[]> rows)
+		{
+			lock (_gate)
+			{
+				if (!_lists.ContainsKey(name))
+					_lists[name] = rows;
+			}
+		}
+
+		public string ReadString(string name)
+		{
+			lock (_gate)
+				return _strings.TryGetValue(name, out var value) ? value : "";
+		}
+
+		public bool ReadBool(string name)
+		{
+			lock (_gate)
+				return _flags.TryGetValue(name, out var value) && value;
+		}
+
+		public int ReadInt(string name)
+		{
+			lock (_gate)
+				return _numbers.TryGetValue(name, out var value) ? value : 0;
+		}
+
+		public void WriteString(string name, string value)
+		{
+			lock (_gate)
+				_strings[name] = value;
+		}
+
+		public void WriteBool(string name, bool value)
+		{
+			lock (_gate)
+				_flags[name] = value;
+		}
+
+		public void AddInt(string name, int delta)
+		{
+			lock (_gate)
+			{
+				_numbers.TryGetValue(name, out var value);
+				_numbers[name] = value + delta;
+			}
+		}
+
+		public IReadOnlyList<string[]> Rows(string name)
+		{
+			lock (_gate)
+				return _lists.TryGetValue(name, out var rows) ? rows : Array.Empty<string[]>();
+		}
+
+		public string Format()
+		{
+			lock (_gate)
+			{
+				var builder = new StringBuilder();
+				foreach (var pair in _strings.OrderBy(item => item.Key, StringComparer.Ordinal))
+				{
+					builder.Append(pair.Key);
+					builder.Append('=');
+					builder.Append(Convert.ToHexString(Encoding.UTF8.GetBytes(pair.Value)).ToLowerInvariant());
+					builder.Append('\n');
+				}
+
+				foreach (var pair in _flags.OrderBy(item => item.Key, StringComparer.Ordinal))
+				{
+					builder.Append(pair.Key);
+					builder.Append('=');
+					builder.Append(pair.Value ? "true" : "false");
+					builder.Append('\n');
+				}
+
+				foreach (var pair in _numbers.OrderBy(item => item.Key, StringComparer.Ordinal))
+				{
+					builder.Append(pair.Key);
+					builder.Append('=');
+					builder.Append(pair.Value.ToString(CultureInfo.InvariantCulture));
+					builder.Append('\n');
+				}
+
+				return builder.ToString();
+			}
+		}
+	}
+}

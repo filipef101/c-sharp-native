@@ -5,7 +5,7 @@ using NativePoc;
 
 namespace NativePoc.Devx;
 
-readonly record struct AgentInvocation(string Verb, string? Serial, string? Path, int X, int Y, string? Text);
+readonly record struct AgentInvocation(string Verb, string? Serial, string? Path, int X, int Y, string? Text, bool Running = false);
 
 static class AgentLoop
 {
@@ -49,20 +49,24 @@ static class AgentLoop
 			}
 
 			var freshness = ScreenSnapshot.Freshness(tree.Text, hash);
-			switch (freshness)
+			var observe = invocation.Verb is "a11y" or "layout" or "logs" or "clock";
+			if (!observe && !invocation.Running)
 			{
-				case ScreenFreshness.Current:
-					break;
-				case ScreenFreshness.Compiled:
-				case ScreenFreshness.Stale:
-					Console.Error.WriteLine(Refusal(freshness, hash));
-					return 3;
-				case ScreenFreshness.Unreadable:
-					Console.Error.WriteLine("screen reply had no source line");
-					return 1;
-				default:
-					Console.Error.WriteLine("screen reply had no source line");
-					return 1;
+				switch (freshness)
+				{
+					case ScreenFreshness.Current:
+						break;
+					case ScreenFreshness.Compiled:
+					case ScreenFreshness.Stale:
+						Console.Error.WriteLine(Refusal(freshness, hash));
+						return 3;
+					case ScreenFreshness.Unreadable:
+						Console.Error.WriteLine("screen reply had no source line");
+						return 1;
+					default:
+						Console.Error.WriteLine("screen reply had no source line");
+						return 1;
+				}
 			}
 
 			switch (invocation.Verb)
@@ -105,6 +109,21 @@ static class AgentLoop
 					return Query(connection, ScreenQuery.PressId(invocation.Path ?? ""));
 				case "enter":
 					return Query(connection, ScreenQuery.EnterId(invocation.Path ?? "", invocation.Text ?? ""));
+				case "a11y":
+					Console.Write(AccessibilityDump.Summarize(AccessibilityDump.Read(serial)));
+					return 0;
+				case "layout":
+					return Query(connection, ScreenQuery.Ask(ScreenQuery.Layout));
+				case "logs":
+					var pidText = AndroidLoop.Adb(serial, "shell", "pidof", LaunchCommand.Package).Stdout.Trim();
+					var pid = pidText.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+					var logs = pid.Length == 0
+						? AndroidLoop.Adb(serial, "logcat", "-d", "-s", "NativePoc:I", "NativePoc:W", "NativePoc:E")
+						: AndroidLoop.Adb(serial, "logcat", "-d", "--pid=" + pid, "-s", "NativePoc:I", "NativePoc:W", "NativePoc:E");
+					Console.Write(logs.Stdout);
+					return logs.Code == 0 ? 0 : 1;
+				case "clock":
+					return Query(connection, ScreenQuery.Ask(ScreenQuery.Clock));
 				default:
 					throw new InvalidOperationException("Unknown agent verb.");
 			}
@@ -119,9 +138,10 @@ static class AgentLoop
 	public static AgentInvocation Parse(IReadOnlyList<string> args)
 	{
 		if (args.Count == 0 || args[0] != "agent")
-			throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type|press|enter");
+			throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type|press|enter|a11y|layout|logs|clock");
 		string? serial = null;
 		string? verb = null;
+		var running = false;
 		var positionals = new List<string>();
 		for (var index = 1; index < args.Count; index++)
 		{
@@ -131,6 +151,12 @@ static class AgentLoop
 				if (index + 1 >= args.Count)
 					throw new UsageException("--device needs a serial.");
 				serial = args[++index];
+				continue;
+			}
+
+			if (arg == "--running")
+			{
+				running = true;
 				continue;
 			}
 
@@ -147,33 +173,37 @@ static class AgentLoop
 		{
 			case "tree":
 			case "state":
+			case "a11y":
+			case "layout":
+			case "logs":
+			case "clock":
 				if (positionals.Count != 0)
 					throw new UsageException("Usage: cnative agent " + verb);
-				return new AgentInvocation(verb, serial, null, 0, 0, null);
+				return new AgentInvocation(verb, serial, null, 0, 0, null, running);
 			case "screenshot":
 				if (positionals.Count != 1)
 					throw new UsageException("Usage: cnative agent screenshot <png>");
-				return new AgentInvocation(verb, serial, positionals[0], 0, 0, null);
+				return new AgentInvocation(verb, serial, positionals[0], 0, 0, null, running);
 			case "tap":
 				if (positionals.Count != 2
 					|| !int.TryParse(positionals[0], NumberStyles.None, CultureInfo.InvariantCulture, out var x)
 					|| !int.TryParse(positionals[1], NumberStyles.None, CultureInfo.InvariantCulture, out var y))
 					throw new UsageException("Usage: cnative agent tap <x> <y>");
-				return new AgentInvocation(verb, serial, null, x, y, null);
+				return new AgentInvocation(verb, serial, null, x, y, null, running);
 			case "type":
 				if (positionals.Count == 0)
 					throw new UsageException("Usage: cnative agent type <text>");
-				return new AgentInvocation(verb, serial, null, 0, 0, string.Join(' ', positionals));
+				return new AgentInvocation(verb, serial, null, 0, 0, string.Join(' ', positionals), running);
 			case "press":
 				if (positionals.Count != 1)
 					throw new UsageException("Usage: cnative agent press <id>");
-				return new AgentInvocation(verb, serial, positionals[0], 0, 0, null);
+				return new AgentInvocation(verb, serial, positionals[0], 0, 0, null, running);
 			case "enter":
 				if (positionals.Count < 2)
 					throw new UsageException("Usage: cnative agent enter <id> <text>");
-				return new AgentInvocation(verb, serial, positionals[0], 0, 0, string.Join(' ', positionals.Skip(1)));
+				return new AgentInvocation(verb, serial, positionals[0], 0, 0, string.Join(' ', positionals.Skip(1)), running);
 			default:
-				throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type|press|enter");
+				throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type|press|enter|a11y|layout|logs|clock");
 		}
 	}
 

@@ -103,12 +103,13 @@ public static class TreeDiff
 		var current = root;
 		for (var i = 0; i < path.Length; i++)
 		{
-			if (current is not Column column)
+			if (current is not Column and not ScrollView)
 				throw new InvalidOperationException("Path crosses a leaf.");
+			var children = ChildrenOf(current);
 			var index = path.Segment(i);
-			if ((uint)index >= (uint)column.Children.Count)
+			if ((uint)index >= (uint)children.Count)
 				throw new ArgumentOutOfRangeException(nameof(path));
-			current = column.Children[index];
+			current = children[index];
 		}
 		return current;
 	}
@@ -273,6 +274,8 @@ public static class TreeDiff
 					patches.Add(new SetSwitch(path, toggle.Value, toggle.AccessibilityLabel));
 				}
 				return;
+			case ScrollView:
+				return;
 			default:
 				throw UnknownElement(next);
 		}
@@ -284,6 +287,8 @@ public static class TreeDiff
 		{
 			case Column column:
 				return column.Children;
+			case ScrollView scroll:
+				return [scroll.Child];
 			case Text:
 			case Button:
 			case TextField:
@@ -308,6 +313,8 @@ public static class TreeDiff
 				return ElementKind.TextField;
 			case Switch:
 				return ElementKind.Switch;
+			case ScrollView:
+				return ElementKind.Scroll;
 			default:
 				throw UnknownElement(element);
 		}

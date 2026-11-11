@@ -39,9 +39,16 @@ static class ArgParser
 		  cnative agent type <text>
 		  cnative agent press <id>
 		  cnative agent enter <id> <text>
+		  cnative agent a11y|layout|logs|clock
+		    a11y is the accessibility tree. layout is bounds per id.
+		    logs is the NativePoc logcat. clock is 0: no screen timer yet.
+		    --running drives the program on screen, not only Screen.cs.
+		  cnative lower <file> [--json] [--apply]
+		    Lower any screen in the documented subset. --json prints
+		    diagnostics with stable ids and source spans.
 		  cnative test android
 		    Run tests/device/*.app.test. A step is screen, enter, press,
-		    state, or tree. type is enter. tap is press.
+		    state, tree, or a11y. type is enter. tap is press.
 		  A drive refuses a Screen.cs hash that does not match the running
 		  program and names: tools/devx/cnative run android --once
 

@@ -652,7 +652,7 @@ static partial class MeasureLoop
 			var note = AndroidLoop.SendPacking(session, repo);
 			var noteTree = Tree(session);
 			var noteOk = note.Applied && Pid(serial) == pid && note.Text.Contains("present=1", StringComparison.Ordinal)
-				&& noteTree.Contains("id=\"list/tent/note\"", StringComparison.Ordinal)
+				&& noteTree.Contains("id=\"scroll/list/tent/note\"", StringComparison.Ordinal)
 				&& noteTree.Contains("value=\"Note\"", StringComparison.Ordinal)
 				&& Items(State(session)) == kept;
 			Line(log, "new-field ok=" + noteOk + " pid=" + Pid(serial));
@@ -662,8 +662,8 @@ static partial class MeasureLoop
 			File.WriteAllText(screen, SwapRow(original));
 			var swapped = AndroidLoop.SendPacking(session, repo);
 			var swappedTree = Tree(session);
-			var editAt = swappedTree.IndexOf("id=\"list/tent/edit\"", StringComparison.Ordinal);
-			var nameAt = swappedTree.IndexOf("id=\"list/tent/name\"", StringComparison.Ordinal);
+			var editAt = swappedTree.IndexOf("id=\"scroll/list/tent/edit\"", StringComparison.Ordinal);
+			var nameAt = swappedTree.IndexOf("id=\"scroll/list/tent/name\"", StringComparison.Ordinal);
 			var swapOk = swapped.Applied && Pid(serial) == pid && editAt >= 0 && nameAt > editAt && Items(State(session)) == kept;
 			Line(log, "layout ok=" + swapOk + " edit-at=" + editAt.ToString(CultureInfo.InvariantCulture) + " name-at=" + nameAt.ToString(CultureInfo.InvariantCulture));
 			if (!swapOk)
@@ -972,8 +972,8 @@ static partial class MeasureLoop
 		var last = "";
 		for (var attempt = 0; attempt < 10; attempt++)
 		{
-			var pressed = session.Connection.Apply(ScreenQuery.PressId("list/tent/packed"));
-			if (pressed.Ok && pressed.Text.Contains("pressed list/tent/packed", StringComparison.Ordinal))
+			var pressed = session.Connection.Apply(ScreenQuery.PressId("scroll/list/tent/packed"));
+			if (pressed.Ok && pressed.Text.Contains("pressed scroll/list/tent/packed", StringComparison.Ordinal))
 				return;
 			last = pressed.Text;
 			Thread.Sleep(250);

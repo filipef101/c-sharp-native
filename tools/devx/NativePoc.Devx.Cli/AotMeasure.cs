@@ -116,7 +116,7 @@ static partial class MeasureLoop
 			var behaved = originalPacking.Replace("state.DraftPacked = false;", "state.DraftPacked = true;", StringComparison.Ordinal);
 			File.WriteAllText(packingPath, behaved);
 			var behavior = AndroidLoop.SendPacking(session, repo);
-			var added = session.Connection.Apply(ScreenQuery.PressId("list/add"));
+			var added = session.Connection.Apply(ScreenQuery.PressId("scroll/list/add"));
 			var after = State(session);
 			var behaviorOk = behavior.Applied
 				&& added.Ok
@@ -146,7 +146,7 @@ static partial class MeasureLoop
 
 	static void FocusProof(StringBuilder log, string serial, ReloadSession session, string pid, string packingPath, string original)
 	{
-		var opened = session.Connection.Apply(ScreenQuery.PressId("list/tent/edit"));
+		var opened = session.Connection.Apply(ScreenQuery.PressId("scroll/list/tent/edit"));
 		if (!opened.Ok)
 			throw new InvalidOperationException("The editor did not open: " + opened.Text);
 		WaitUi(serial, "Item name");

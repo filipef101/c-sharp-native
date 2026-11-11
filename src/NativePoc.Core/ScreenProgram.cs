@@ -48,6 +48,7 @@ public static partial class ScreenProgram
 	public const byte OpMakeScriptSwitch = 34;
 	public const byte OpMakeScriptField = 35;
 	public const byte OpPushDraftNote = 36;
+	public const byte OpMakeScroll = 37;
 
 	public const byte ActRender = 40;
 	public const byte ActRoute = 41;
@@ -98,6 +99,9 @@ public static partial class ScreenProgram
 
 	public static bool IsPacking(ReadOnlySpan<byte> payload) =>
 		IsProgram(payload) && payload.Length > 5 && payload[5] == 1;
+
+	public static bool IsRecord(ReadOnlySpan<byte> payload) =>
+		IsProgram(payload) && payload.Length > 5 && payload[5] == 2;
 
 	public static string SourceHash(string source)
 	{
@@ -289,6 +293,8 @@ public static partial class ScreenProgram
 		}
 
 		public void MakeDynamicColumn(int key) => EmitIndex(OpMakeDynamicColumn, key);
+
+		public void MakeScroll(int key) => EmitIndex(OpMakeScroll, key);
 
 		public void MakeSwitch(int key, byte action)
 		{
@@ -746,6 +752,14 @@ public static partial class ScreenProgram
 					work.Enqueue(Copy(ip, stack, sp, locals));
 					break;
 				}
+				case OpMakeScroll:
+					Require(ref ip, code, 2);
+					if (U16(code, ip - 2) >= stringCount)
+						throw new InvalidOperationException("Rejected screen program.");
+					PopKind(stack, ref sp, Kind.Elem);
+					PushKind(stack, ref sp, Kind.Elem);
+					work.Enqueue(Copy(ip, stack, sp, locals));
+					break;
 				default:
 					throw new InvalidOperationException("Rejected screen program.");
 			}
@@ -1175,6 +1189,14 @@ public static partial class ScreenProgram
 					}
 
 					ip += 4 + length;
+					break;
+				}
+				case OpMakeScroll:
+				{
+					var child = stack[--sp].Node ?? throw new InvalidOperationException("Screen program did not return.");
+					var key = strings[U16(code, ip)];
+					ip += 2;
+					stack[sp++] = Slot.Elem(new ScrollView(child) { Key = key });
 					break;
 				}
 				default:

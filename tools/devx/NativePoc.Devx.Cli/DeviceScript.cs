@@ -7,6 +7,7 @@ enum DeviceVerb
 	Press,
 	State,
 	Tree,
+	A11y,
 }
 
 readonly record struct DeviceStep(int Line, DeviceVerb Verb, string Target, string Text);
@@ -52,6 +53,11 @@ static class DeviceScript
 					if (rest.Length == 0)
 						throw new UsageException("Line " + line + ": tree <text>");
 					steps.Add(new DeviceStep(line, DeviceVerb.Tree, rest, ""));
+					break;
+				case "a11y":
+					if (rest.Length == 0)
+						throw new UsageException("Line " + line + ": a11y <text>");
+					steps.Add(new DeviceStep(line, DeviceVerb.A11y, rest, ""));
 					break;
 				default:
 					throw new UsageException("Line " + line + ": unknown step " + verb + ".");
