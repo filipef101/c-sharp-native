@@ -88,7 +88,7 @@ public static class PackingProgram
 		writer.MakeActionButton(copy, ScreenProgram.PackCopy);
 		writer.MakeDynamicColumn(list);
 		writer.Return();
-		return writer.Finish(null);
+		return writer.Finish(null, 1);
 	}
 
 	static void Title(ScreenProgram.Writer writer, int key, int newItem, int editItem)

@@ -20,6 +20,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\NativePoc.Devx.Cli\NativePoc.Devx.Cli.csproj" />
 		<ProjectReference Include="..\..\..\src\NativePoc.Screen\NativePoc.Screen.csproj" />
+		<ProjectReference Include="..\..\..\samples\NativePoc.Packing\NativePoc.Packing.csproj" />
 		<ProjectReference Include="..\..\NativePoc.HotReload.Host\NativePoc.HotReload.Host.csproj" />
 	</ItemGroup>
 	<ItemGroup>

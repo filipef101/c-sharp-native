@@ -198,6 +198,7 @@ public sealed class PackingTests
 		var program = new PackingHarness();
 		var bound = ScreenProgram.BindPacking(PackingProgram.Bytes);
 		Assert.Equal((byte)'N', PackingProgram.Bytes[0]);
+		Assert.Equal((byte)1, PackingProgram.Bytes[5]);
 		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
 
 		Press(bound, program, "list/tent/packed");

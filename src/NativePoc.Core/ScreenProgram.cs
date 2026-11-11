@@ -67,6 +67,9 @@ public static partial class ScreenProgram
 		&& payload[2] == (byte)'C'
 		&& payload[3] == (byte)'1';
 
+	public static bool IsPacking(ReadOnlySpan<byte> payload) =>
+		IsProgram(payload) && payload.Length > 5 && payload[5] == 1;
+
 	public static string SourceHash(string source)
 	{
 		var hash = SHA256.HashData(Encoding.UTF8.GetBytes(source));
@@ -102,6 +105,8 @@ public static partial class ScreenProgram
 	public static Bound Bind(ReadOnlySpan<byte> payload)
 	{
 		var decoded = Decode(payload);
+		if (decoded.Kind != 0)
+			throw new InvalidOperationException("Rejected screen program.");
 		Verify(decoded.Code, decoded.Strings.Length);
 		var code = decoded.Code;
 		var strings = decoded.Strings;
@@ -114,6 +119,8 @@ public static partial class ScreenProgram
 	public static PackingBound BindPacking(ReadOnlySpan<byte> payload)
 	{
 		var decoded = Decode(payload);
+		if (decoded.Kind != 1)
+			throw new InvalidOperationException("Rejected screen program.");
 		Verify(decoded.Code, decoded.Strings.Length);
 		var code = decoded.Code;
 		var strings = decoded.Strings;
@@ -270,13 +277,17 @@ public static partial class ScreenProgram
 
 		public void Return() => _code.Add(OpReturn);
 
-		public byte[] Finish(string? source)
+		public byte[] Finish(string? source) => Finish(source, 0);
+
+		public byte[] Finish(string? source, byte kind)
 		{
+			if (kind > 1)
+				throw new InvalidOperationException("A screen program kind is out of range.");
 			if (_code.Count == 0 || _code.Count > MaxCode)
 				throw new InvalidOperationException("A screen program has no body.");
-			var hash = new byte[8];
+			var hash = new byte[HashSize];
 			if (source is not null)
-				SHA256.HashData(Encoding.UTF8.GetBytes(source)).AsSpan(0, 8).CopyTo(hash);
+				SHA256.HashData(Encoding.UTF8.GetBytes(source)).AsSpan(0, HashSize).CopyTo(hash);
 			var size = 8 + HashSize;
 			foreach (var text in _strings)
 				size += 2 + Encoding.UTF8.GetByteCount(text);
@@ -287,7 +298,7 @@ public static partial class ScreenProgram
 			payload[2] = (byte)'C';
 			payload[3] = (byte)'1';
 			payload[4] = Version;
-			payload[5] = 0;
+			payload[5] = kind;
 			var cursor = 6;
 			cursor = WriteU16(payload, cursor, _strings.Count);
 			foreach (var text in _strings)
@@ -348,13 +359,13 @@ public static partial class ScreenProgram
 
 	const int HashSize = 8;
 
-	readonly record struct Decoded(string[] Strings, byte[] Code, string SourceHash);
+	readonly record struct Decoded(string[] Strings, byte[] Code, string SourceHash, byte Kind);
 
 	static Decoded Decode(ReadOnlySpan<byte> payload)
 	{
 		if (!IsProgram(payload))
 			throw new InvalidOperationException("Rejected screen program.");
-		if (payload.Length < 6 + HashSize || payload[4] != Version || payload[5] != 0)
+		if (payload.Length < 6 + HashSize || payload[4] != Version || payload[5] > 1)
 			throw new InvalidOperationException("Rejected screen program.");
 		var cursor = 6;
 		var stringCount = ReadU16(payload, ref cursor);
@@ -378,7 +389,7 @@ public static partial class ScreenProgram
 		var sourceHash = hash.IndexOf((byte)0) >= 0 && hash.Trim((byte)0).Length == 0
 			? ""
 			: Convert.ToHexString(hash).ToLowerInvariant();
-		return new Decoded(strings, code, sourceHash);
+		return new Decoded(strings, code, sourceHash, payload[5]);
 	}
 
 	static int ReadU16(ReadOnlySpan<byte> payload, ref int cursor)

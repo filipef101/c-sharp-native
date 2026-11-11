@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Security.Cryptography;
 using System.Text;
+using Android.App;
 using Android.Content;
 using Android.Net;
 using Android.Views;
@@ -150,7 +151,10 @@ static class HotReloadServer
 					return;
 				}
 
-				if (!ArmPresent(activity, done))
+				Activity presented = activity;
+				if (ScreenProgram.IsPacking(dll) && PackingActivity.Current is Activity packingActivity)
+					presented = packingActivity;
+				if (!ArmPresent(presented, done))
 				{
 					title += " present=0";
 					done.Set();
@@ -182,6 +186,14 @@ static class HotReloadServer
 			return activity.Answer(ScreenQuery.Op(dll), dll);
 		if (ScreenProgram.IsProgram(dll))
 		{
+			if (ScreenProgram.IsPacking(dll))
+			{
+				var packing = ScreenProgram.BindPacking(dll);
+				var packingMessage = PackingActivity.UseProgram(packing) + " program=1";
+				Android.Util.Log.Info(MainActivity.Tag, "hotreload-applied " + packingMessage);
+				return packingMessage;
+			}
+
 			var program = ScreenProgram.Bind(dll);
 			var programmed = activity.UseProgram(program);
 			var programmedMessage = programmed + " program=1";
@@ -266,7 +278,7 @@ static class HotReloadServer
 			|| name.StartsWith("System.", StringComparison.Ordinal);
 	}
 
-	static bool ArmPresent(MainActivity activity, ManualResetEventSlim done)
+	static bool ArmPresent(Activity activity, ManualResetEventSlim done)
 	{
 		var root = activity.Window?.DecorView;
 		var observer = root?.ViewTreeObserver;

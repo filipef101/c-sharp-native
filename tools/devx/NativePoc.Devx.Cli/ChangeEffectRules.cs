@@ -22,7 +22,8 @@ static class ChangeEffectRules
 			if (normalized.StartsWith("src/NativePoc.Core/", StringComparison.Ordinal)
 				|| normalized.StartsWith("src/NativePoc.Android/", StringComparison.Ordinal))
 				return ChangeEffect.RestartRequired;
-			if (normalized.StartsWith("src/NativePoc.Screen/", StringComparison.Ordinal))
+			if (normalized.StartsWith("src/NativePoc.Screen/", StringComparison.Ordinal)
+				|| normalized.StartsWith("samples/NativePoc.Packing/", StringComparison.Ordinal))
 				effect = ChangeEffect.ReloadScreen;
 		}
 
@@ -31,6 +32,9 @@ static class ChangeEffectRules
 
 	public static bool IsHostScreen(string relativePath) =>
 		Normalize(relativePath) == "src/NativePoc.Screen/Screen.cs";
+
+	public static bool IsPackingScreen(string relativePath) =>
+		Normalize(relativePath) == "samples/NativePoc.Packing/PackingScreen.cs";
 
 	public static string Normalize(string relativePath) =>
 		relativePath.Replace('\\', '/');

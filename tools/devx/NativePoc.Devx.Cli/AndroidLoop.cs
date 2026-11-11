@@ -82,6 +82,13 @@ static class AndroidLoop
 			var initial = Push(session, options, editStartedMs: null);
 			if (initial.Restarting)
 				Relaunch(session, repo, rid, serial);
+			else
+			{
+				var packingStarted = Stopwatch.GetTimestamp();
+				var packing = SendPacking(session, repo);
+				if (!ReportPacking(packing, editStartedMs: null, packingStarted) && options.Once)
+					return 1;
+			}
 
 			var decision = InitialPush.Decide(initial.Status, initial.Restarting, options.Once);
 			switch (decision)
@@ -107,29 +114,21 @@ static class AndroidLoop
 
 	static int Watch(string repo, string rid, string serial, ReloadSession session, CliOptions options, CancellationToken cancel)
 	{
-		Console.WriteLine("cnative: watching src/NativePoc.Screen");
+		Console.WriteLine("cnative: watching src/NativePoc.Screen and samples/NativePoc.Packing");
 		var debouncer = new ChangeDebouncer(options.DebounceMs);
-		var src = Path.Combine(repo, "src");
-		using var watcher = new FileSystemWatcher(src)
-		{
-			IncludeSubdirectories = true,
-			Filter = "*.cs",
-			NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime,
-		};
 		FileSystemEventHandler onChange = (_, args) =>
 		{
 			if (!string.IsNullOrEmpty(args.FullPath))
 				debouncer.Push(Path.GetRelativePath(repo, args.FullPath), Environment.TickCount64);
 		};
-		watcher.Changed += onChange;
-		watcher.Created += onChange;
-		watcher.Renamed += (_, args) =>
+		RenamedEventHandler onRename = (_, args) =>
 		{
 			if (!string.IsNullOrEmpty(args.FullPath))
 				debouncer.Push(Path.GetRelativePath(repo, args.FullPath), Environment.TickCount64);
 		};
-		watcher.Error += (_, args) => Console.Error.WriteLine("cnative: watch error " + args.GetException().Message);
-		watcher.EnableRaisingEvents = true;
+		ErrorEventHandler onError = (_, args) => Console.Error.WriteLine("cnative: watch error " + args.GetException().Message);
+		using var srcWatcher = WatchDirectory(Path.Combine(repo, "src"), onChange, onRename, onError);
+		using var sampleWatcher = WatchDirectory(Path.Combine(repo, "samples"), onChange, onRename, onError);
 		while (!cancel.IsCancellationRequested)
 		{
 			var now = Environment.TickCount64;
@@ -158,12 +157,30 @@ static class AndroidLoop
 					break;
 				case ChangeEffect.ReloadScreen:
 					NoteUnswapped(batch.Paths);
-					if (!batch.Paths.Any(ChangeEffectRules.IsHostScreen))
-						break;
-					Console.WriteLine("cnative: reload src/NativePoc.Screen/Screen.cs");
-					var outcome = Push(session, options, batch.FirstMs);
-					if (outcome.Restarting)
-						Relaunch(session, repo, rid, serial);
+					if (batch.Paths.Any(ChangeEffectRules.IsHostScreen))
+					{
+						Console.WriteLine("cnative: reload src/NativePoc.Screen/Screen.cs");
+						var outcome = Push(session, options, batch.FirstMs);
+						if (outcome.Restarting)
+							Relaunch(session, repo, rid, serial);
+					}
+
+					if (batch.Paths.Any(ChangeEffectRules.IsPackingScreen))
+					{
+						Console.WriteLine("cnative: reload samples/NativePoc.Packing/PackingScreen.cs");
+						var started = Stopwatch.GetTimestamp();
+						var packing = SendPacking(session, repo);
+						if (!ReportPacking(packing, batch.FirstMs, started) && HostOutput.IsRude(packing.Text))
+						{
+							var packingInteractive = Interactive();
+							var packingRestart = RestartPolicy.ShouldRestart(true, options.RestartOnRude, packingInteractive, ReadAnswer);
+							var packingFollow = ReloadConsole.FollowUp(packingRestart, ReloadConsole.OfferRestartFlag(packingRestart, options.RestartOnRude));
+							if (packingFollow is not null)
+								Console.WriteLine(packingFollow);
+							if (packingRestart)
+								Relaunch(session, repo, rid, serial);
+						}
+					}
 
 					break;
 				case ChangeEffect.RestartRequired:
@@ -208,6 +225,13 @@ static class AndroidLoop
 		foreach (var path in batch)
 		{
 			var normalized = ChangeEffectRules.Normalize(path);
+			if (normalized.StartsWith("samples/NativePoc.Packing/", StringComparison.Ordinal))
+			{
+				if (!ChangeEffectRules.IsPackingScreen(normalized))
+					Console.WriteLine(normalized + " is not in the packing program. cnative lowers samples/NativePoc.Packing/PackingScreen.cs only.");
+				continue;
+			}
+
 			if (!normalized.StartsWith("src/NativePoc.Screen/", StringComparison.Ordinal))
 				continue;
 			if (ChangeEffectRules.IsHostScreen(normalized))
@@ -334,6 +358,79 @@ static class AndroidLoop
 		return new ProgramPush(applied.Ok, false, applied.Text);
 	}
 
+	internal readonly record struct PackingSend(bool Applied, bool Refused, string Text, double Milliseconds);
+
+	internal static PackingSend SendPacking(ReloadSession session, string repo)
+	{
+		var path = Path.Combine(repo, "samples", "NativePoc.Packing", "PackingScreen.cs");
+		string source;
+		try
+		{
+			source = File.ReadAllText(path);
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			return new PackingSend(false, false, ex.Message, 0);
+		}
+
+		var lowered = PackingLowerer.TryLower(source);
+		if (lowered.Program is null)
+			return new PackingSend(false, true, lowered.Reason ?? "The packing screen is not a program this runtime can carry.", 0);
+		try
+		{
+			var applied = session.Connection.Apply(lowered.Program);
+			return new PackingSend(applied.Ok, false, applied.Text, applied.Milliseconds);
+		}
+		catch (InvalidOperationException ex)
+		{
+			return new PackingSend(false, false, ex.Message, 0);
+		}
+	}
+
+	static bool ReportPacking(PackingSend sent, long? editStartedMs, long startedTimestamp)
+	{
+		if (sent.Refused)
+		{
+			Console.WriteLine("packing program refused");
+			Console.WriteLine(sent.Text);
+			return false;
+		}
+
+		if (!sent.Applied)
+		{
+			Console.WriteLine(HostOutput.IsRude(sent.Text) ? "rude edit -> restart required" : "reload failed");
+			Console.WriteLine(sent.Text);
+			return false;
+		}
+
+		var elapsed = Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds;
+		foreach (var line in ReloadConsole.AppliedLines(elapsed, sent.Milliseconds, sent.Text))
+			Console.WriteLine(line);
+		if (editStartedMs is long startedMs)
+			Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"edit-to-reply {Environment.TickCount64 - startedMs} ms"));
+		return true;
+	}
+
+	static FileSystemWatcher WatchDirectory(
+		string directory,
+		FileSystemEventHandler onChange,
+		RenamedEventHandler onRename,
+		ErrorEventHandler onError)
+	{
+		var watcher = new FileSystemWatcher(directory)
+		{
+			IncludeSubdirectories = true,
+			Filter = "*.cs",
+			NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime,
+		};
+		watcher.Changed += onChange;
+		watcher.Created += onChange;
+		watcher.Renamed += onRename;
+		watcher.Error += onError;
+		watcher.EnableRaisingEvents = true;
+		return watcher;
+	}
+
 	static bool Interactive() => !Console.IsInputRedirected;
 
 	static string? ReadAnswer()
@@ -384,6 +481,7 @@ static class AndroidLoop
 		var pushed = SendFile(session);
 		if (!pushed.Applied)
 			Console.WriteLine("screen program was not restored: " + pushed.Text);
+		ReportPacking(SendPacking(session, repo), editStartedMs: null, Stopwatch.GetTimestamp());
 	}
 
 	internal static FoundToken DeployAndLaunch(string repo, string rid, string serial)

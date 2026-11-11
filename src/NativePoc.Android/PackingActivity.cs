@@ -147,7 +147,17 @@ public sealed class PackingActivity : Activity, IPackingHost
 			RunOnUiThread(Run);
 	}
 
-	static readonly ScreenProgram.PackingBound Program = ScreenProgram.BindPacking(PackingProgram.Bytes);
+	static ScreenProgram.PackingBound _program = ScreenProgram.BindPacking(PackingProgram.Bytes);
+
+	public static string UseProgram(ScreenProgram.PackingBound program)
+	{
+		_program = program;
+		var current = Current;
+		if (current is null)
+			return "packing";
+		current.RequestRender();
+		return "packing";
+	}
 
 	void RenderNow()
 	{
@@ -155,7 +165,7 @@ public sealed class PackingActivity : Activity, IPackingHost
 			return;
 		var previousRoot = _reconciler.Root;
 		var state = PackingSession.Shared.State;
-		var tree = Program.Render(new PackingProgramAdapter(state, this));
+		var tree = _program.Render(new PackingProgramAdapter(state, this));
 		_reconciler.Render(tree);
 		if (_reconciler.Root is null)
 			throw new InvalidOperationException("Packing did not mount a root view.");

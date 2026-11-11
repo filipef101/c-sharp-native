@@ -85,6 +85,26 @@ public sealed class LoopRuleTests
 	}
 
 	[Fact]
+	public void Packing_screen_edits_reload()
+	{
+		Assert.Equal(
+			ChangeEffect.ReloadScreen,
+			ChangeEffectRules.Classify(["samples/NativePoc.Packing/PackingScreen.cs"]));
+		Assert.Equal(
+			ChangeEffect.ReloadScreen,
+			ChangeEffectRules.Classify(["samples/NativePoc.Packing/PackingState.cs"]));
+		Assert.Equal(
+			ChangeEffect.RestartRequired,
+			ChangeEffectRules.Classify(
+			[
+				"samples/NativePoc.Packing/PackingScreen.cs",
+				"src/NativePoc.Core/Elements.cs",
+			]));
+		Assert.True(ChangeEffectRules.IsPackingScreen("samples/NativePoc.Packing/PackingScreen.cs"));
+		Assert.False(ChangeEffectRules.IsPackingScreen("samples/NativePoc.Packing/PackingActions.cs"));
+	}
+
+	[Fact]
 	public void Restart_follows_the_flag_or_a_yes_answer()
 	{
 		Assert.False(RestartPolicy.ShouldRestart(false, true, true, () => "y"));
