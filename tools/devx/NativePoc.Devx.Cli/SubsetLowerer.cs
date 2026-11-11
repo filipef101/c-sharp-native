@@ -669,6 +669,7 @@ public static class SubsetLowerer
 		string _rows = "";
 		Style? _pendingStyle;
 		Motion? _pendingMotion;
+		readonly List<(byte Kind, byte[] Script)> _pendingGestures = new();
 		Keyboard _pendingKeyboard;
 		int _pendingLines;
 		Submit _pendingSubmit;
@@ -794,7 +795,7 @@ public static class SubsetLowerer
 			while (index < statements.Count
 				&& statements[index] is IfStatementSyntax branch
 				&& branch.Else is null
-				&& branch.Statement is ReturnStatementSyntax whenTrue)
+				&& ReturnOf(branch.Statement) is ReturnStatementSyntax whenTrue)
 			{
 				if (!Bool(branch.Condition))
 					return false;
@@ -1008,6 +1009,15 @@ public static class SubsetLowerer
 			_code.U16(key);
 			EmitStyle();
 			return true;
+		}
+
+		static ReturnStatementSyntax? ReturnOf(StatementSyntax statement)
+		{
+			if (statement is ReturnStatementSyntax direct)
+				return direct;
+			if (statement is BlockSyntax block && block.Statements.Count == 1 && block.Statements[0] is ReturnStatementSyntax nested)
+				return nested;
+			return null;
 		}
 
 		bool Returned(ReturnStatementSyntax statement)
@@ -1441,6 +1451,7 @@ public static class SubsetLowerer
 			field = 0;
 			_pendingStyle = null;
 			_pendingMotion = null;
+			_pendingGestures.Clear();
 			_pendingKeyboard = Keyboard.Text;
 			_pendingLines = 0;
 			_pendingSubmit = Submit.None;
@@ -1464,6 +1475,24 @@ public static class SubsetLowerer
 					if (!MotionOf(assignment.Right, out var motion))
 						return false;
 					_pendingMotion = motion;
+					continue;
+				}
+
+				if (name.Identifier.ValueText is "OnTap" or "OnLongPress" or "OnSwipe" or "OnRefresh")
+				{
+					if (assignment.Right is not LambdaExpressionSyntax gestureLambda)
+						return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", assignment.Right);
+					if (!Script(gestureLambda, out var gestureScript) || gestureScript.Length == 0)
+						return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", assignment);
+					var kind = name.Identifier.ValueText switch
+					{
+						"OnTap" => Gestures.Tap,
+						"OnLongPress" => Gestures.LongPress,
+						"OnSwipe" => Gestures.Swipe,
+						"OnRefresh" => Gestures.Refresh,
+						_ => (byte)0,
+					};
+					_pendingGestures.Add((kind, gestureScript));
 					continue;
 				}
 
@@ -1519,17 +1548,29 @@ public static class SubsetLowerer
 
 		void EmitMotion()
 		{
-			if (_pendingMotion is not Motion motion || MotionCodec.IsRest(motion))
+			if (_pendingMotion is Motion motion && !MotionCodec.IsRest(motion))
 			{
-				_pendingMotion = null;
-				return;
+				var bytes = new byte[MotionCodec.Bytes];
+				MotionCodec.Write(motion, bytes);
+				_code.Op(RecordProgram.OpMotion);
+				_code.Bytes(bytes);
 			}
 
-			var bytes = new byte[MotionCodec.Bytes];
-			MotionCodec.Write(motion, bytes);
-			_code.Op(RecordProgram.OpMotion);
-			_code.Bytes(bytes);
 			_pendingMotion = null;
+			EmitGestures();
+		}
+
+		void EmitGestures()
+		{
+			foreach (var (kind, script) in _pendingGestures)
+			{
+				_code.Op(RecordProgram.OpGesture);
+				_code.U8(kind);
+				_code.U16(script.Length);
+				_code.Bytes(script);
+			}
+
+			_pendingGestures.Clear();
 		}
 
 		bool MotionOf(ExpressionSyntax expression, out Motion motion)
@@ -1952,6 +1993,8 @@ public static class SubsetLowerer
 			_ = parameter;
 			if (invocation.Expression is not MemberAccessExpressionSyntax member || member.Expression is not IdentifierNameSyntax owner)
 				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+			if (owner.Identifier.ValueText == _state && member.Name.Identifier.ValueText == "Drop")
+				return DropRow(invocation, script);
 			if (owner.Identifier.ValueText == _state && _methods.ContainsKey(_stateType + "." + member.Name.Identifier.ValueText))
 				return StateCall(member.Name.Identifier.ValueText, script, invocation);
 			if (owner.Identifier.ValueText == "PackingTelemetry")
@@ -1992,7 +2035,45 @@ public static class SubsetLowerer
 				return true;
 			}
 
+			if (member.Name.Identifier.ValueText == "Effect" && invocation.ArgumentList.Arguments.Count == 2)
+				return EffectAction(invocation, script);
+
 			return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+		}
+
+		bool DropRow(InvocationExpressionSyntax invocation, List<byte> script)
+		{
+			var args = invocation.ArgumentList.Arguments;
+			if (args.Count != 1
+				|| args[0].Expression is not IdentifierNameSyntax item
+				|| item.Identifier.ValueText != _item
+				|| _item.Length == 0
+				|| _listName.Length == 0
+				|| _itemFields is null)
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+			var id = _itemFields.FindIndex(field => field.Name == "Id");
+			if (id < 0)
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+			Act(script, RecordProgram.ActDropRow, _code.Intern(_listName));
+			U16(script, id);
+			return true;
+		}
+
+		bool EffectAction(InvocationExpressionSyntax invocation, List<byte> script)
+		{
+			var args = invocation.ArgumentList.Arguments;
+			if (args[0].Expression is not LiteralExpressionSyntax property
+				|| !property.IsKind(SyntaxKind.StringLiteralExpression)
+				|| args[1].Expression is not LiteralExpressionSyntax resource
+				|| !resource.IsKind(SyntaxKind.StringLiteralExpression))
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+			var name = property.Token.ValueText;
+			if (_fields.All(field => field.Name != name || field.Kind != ValueKind.Str))
+				return Fail(UnknownMember, "The screen subset does not include " + name + ".", invocation);
+			script.Add(RecordProgram.ActEffect);
+			U16(script, _code.Intern(name));
+			U16(script, _code.Intern(resource.Token.ValueText));
+			return true;
 		}
 
 		bool ModuleCall(string module, string method, InvocationExpressionSyntax invocation, List<byte> script)

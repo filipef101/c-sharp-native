@@ -35,6 +35,14 @@ public static class ElementIds
 		return "submitted " + id;
 	}
 
+	public static string Tap(Element root, string id) => Fire(root, id, static element => element.OnTap, "tap");
+
+	public static string LongPress(Element root, string id) => Fire(root, id, static element => element.OnLongPress, "long-press");
+
+	public static string Swipe(Element root, string id) => Fire(root, id, static element => element.OnSwipe, "swipe");
+
+	public static string Refresh(Element root, string id) => Fire(root, id, static element => element.OnRefresh, "refresh");
+
 	public static string Invoke(Element root, string id, string? text)
 	{
 		var element = Require(root, id);
@@ -62,6 +70,16 @@ public static class ElementIds
 			default:
 				throw new InvalidOperationException("Unknown element.");
 		}
+	}
+
+	static string Fire(Element root, string id, Func<Element, Action?> action, string name)
+	{
+		var element = Require(root, id);
+		var run = action(element);
+		if (run is null)
+			throw new InvalidOperationException("Element " + id + " has no " + name + ".");
+		run();
+		return name + " " + id;
 	}
 
 	static void Walk(Element element, string id, int depth, NodePath path, List<Node> nodes, HashSet<string> seen)

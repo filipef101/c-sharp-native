@@ -14,11 +14,23 @@ sealed class RowWindow : AndroidScroll
 	readonly int _rowHeight;
 	IReadOnlyList<Element> _rows = Array.Empty<Element>();
 	int _origin = -1;
+	bool _refreshEnabled;
+	Action? _refresh;
+	float _downY;
+	bool _pulled;
+	readonly float _density;
+
+	public bool Tracking { get; private set; }
+
+	public Action? OnReleased { get; set; }
 
 	public RowWindow(Context context)
 		: base(context)
 	{
-		_rowHeight = (int)(48 * (context.Resources?.DisplayMetrics?.Density ?? 1f));
+		_density = context.Resources?.DisplayMetrics?.Density ?? 1f;
+		if (_density <= 0)
+			_density = 1f;
+		_rowHeight = (int)(48 * _density);
 		if (_rowHeight < 1)
 			_rowHeight = 48;
 		_canvas = new FrameLayout(context);
@@ -32,6 +44,47 @@ sealed class RowWindow : AndroidScroll
 		}
 
 		ViewTreeObserver?.AddOnScrollChangedListener(new ScrollListener(this));
+	}
+
+	public void ConfigureRefresh(bool enabled, Action? refresh)
+	{
+		_refreshEnabled = enabled;
+		_refresh = refresh;
+	}
+
+	public override bool OnTouchEvent(MotionEvent? ev)
+	{
+		if (ev is not null && _refreshEnabled)
+			Track(ev);
+		return base.OnTouchEvent(ev);
+	}
+
+	void Track(MotionEvent ev)
+	{
+		var action = ev.ActionMasked;
+		if (action == MotionEventActions.Down)
+		{
+			Tracking = true;
+			_downY = ev.GetY();
+			_pulled = false;
+			return;
+		}
+
+		if (action == MotionEventActions.Move && ScrollY <= 0 && ev.GetY() - _downY > 64 * _density)
+		{
+			_pulled = true;
+			return;
+		}
+
+		if (action is not (MotionEventActions.Up or MotionEventActions.Cancel))
+			return;
+		if (action == MotionEventActions.Up && _pulled && ScrollY <= 0)
+			_refresh?.Invoke();
+		Tracking = false;
+		_pulled = false;
+		var done = OnReleased;
+		OnReleased = null;
+		done?.Invoke();
 	}
 
 	public void Bind(IReadOnlyList<Element> rows)

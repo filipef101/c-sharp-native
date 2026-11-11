@@ -28,6 +28,7 @@ static class LowerLoop
 		string? serial = null;
 		var json = false;
 		var apply = false;
+		var bytes = false;
 		for (var index = 1; index < args.Length; index++)
 		{
 			var arg = args[index];
@@ -35,6 +36,9 @@ static class LowerLoop
 			{
 				case "--json":
 					json = true;
+					break;
+				case "--bytes":
+					bytes = true;
 					break;
 				case "--apply":
 					apply = true;
@@ -60,6 +64,8 @@ static class LowerLoop
 			Console.WriteLine(SubsetLowerer.ToJson(result));
 		else if (!result.Ok)
 			Console.Error.WriteLine(result.Diagnostics[0].Id + ": " + result.Diagnostics[0].Message);
+		else if (bytes)
+			Console.Write(FormatBytes(result.Program!));
 		else
 			Console.WriteLine("lowered " + result.Program!.Length.ToString(CultureInfo.InvariantCulture));
 		if (!result.Ok)
@@ -72,5 +78,22 @@ static class LowerLoop
 		var reply = connection.Apply(result.Program!);
 		Console.WriteLine(reply.Text);
 		return reply.Ok ? 0 : 1;
+	}
+
+	static string FormatBytes(byte[] program)
+	{
+		var builder = new System.Text.StringBuilder();
+		builder.Append('[');
+		for (var index = 0; index < program.Length; index++)
+		{
+			if (index % 16 == 0)
+				builder.Append("\n\t\t");
+			builder.Append(program[index].ToString(CultureInfo.InvariantCulture));
+			if (index + 1 < program.Length)
+				builder.Append(',');
+		}
+
+		builder.Append("\n\t];\n");
+		return builder.ToString();
 	}
 }

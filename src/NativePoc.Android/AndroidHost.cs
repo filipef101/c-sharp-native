@@ -17,6 +17,8 @@ sealed class AndroidHost : IElementHost<View>
 	readonly Activity _activity;
 	readonly Func<Element?> _current;
 	readonly Dictionary<View, Listener> _listeners = new();
+	readonly Dictionary<View, NodePath> _paths = new();
+	readonly HashSet<View> _gone = new();
 	bool _applyingText;
 	bool _applyingSwitch;
 
@@ -31,7 +33,7 @@ sealed class AndroidHost : IElementHost<View>
 		switch (kind)
 		{
 			case ElementKind.Column:
-				return new LinearLayout(_activity)
+				return new GestureColumn(_activity)
 				{
 					Orientation = Orientation.Vertical,
 				};
@@ -44,7 +46,7 @@ sealed class AndroidHost : IElementHost<View>
 			case ElementKind.Switch:
 				return new AndroidSwitch(_activity);
 			case ElementKind.Scroll:
-				return new AndroidScroll(_activity)
+				return new RefreshScroll(_activity)
 				{
 					FillViewport = true,
 				};
@@ -266,6 +268,13 @@ sealed class AndroidHost : IElementHost<View>
 		MotionPlayer.Play(view, motion, density);
 	}
 
+	public void SetGesture(View view, byte mask)
+	{
+		if (!_paths.TryGetValue(view, out var path))
+			return;
+		BindGesture(view, path, mask);
+	}
+
 	public void SetImage(View view, string source)
 	{
 		if (view is not ImageView image)
@@ -316,6 +325,7 @@ sealed class AndroidHost : IElementHost<View>
 
 	public void OnMounted(NodePath path, View view)
 	{
+		_paths[view] = path;
 		if (path.Length == 0)
 		{
 			var pad = (int)(16 * (_activity.Resources?.DisplayMetrics?.Density ?? 1f));
@@ -330,18 +340,92 @@ sealed class AndroidHost : IElementHost<View>
 
 	public void Retarget(NodePath path, View view)
 	{
-		if (!_listeners.ContainsKey(view))
-			return;
-		Attach(path, view, logMount: false);
+		_paths[view] = path;
+		if (_listeners.ContainsKey(view))
+			Attach(path, view, logMount: false);
+		if (TryElement(path) is { } element && element.Gesture != 0)
+			BindGesture(view, path, element.Gesture);
 	}
 
 	public void OnUnmounted(NodePath path, View view)
 	{
 		MotionPlayer.Stop(view);
 		Detach(view);
+		_paths.Remove(view);
+		var tracking = view is GestureColumn column && column.Tracking
+			|| view is RefreshScroll scroll && scroll.Tracking
+			|| view is RowWindow window && window.Tracking;
+		if (tracking)
+		{
+			void Done() => Finish(view);
+			if (view is GestureColumn gesture)
+				gesture.OnReleased = Done;
+			else if (view is RefreshScroll refresh)
+				refresh.OnReleased = Done;
+			else if (view is RowWindow rows)
+				rows.OnReleased = Done;
+			view.Post(() => Finish(view));
+			return;
+		}
+
+		Finish(view);
+	}
+
+	void Finish(View view)
+	{
+		if (!_gone.Add(view))
+			return;
 		if (view.Parent is ViewGroup group)
 			group.RemoveView(view);
 		view.Dispose();
+	}
+
+	void BindGesture(View view, NodePath path, byte mask)
+	{
+		if (view is GestureColumn column)
+		{
+			column.Configure(
+				mask,
+				(mask & Gestures.Tap) == 0 ? null : () => Fire(path, Gestures.Tap),
+				(mask & Gestures.LongPress) == 0 ? null : () => Fire(path, Gestures.LongPress),
+				(mask & Gestures.Swipe) == 0 ? null : () => Fire(path, Gestures.Swipe));
+			return;
+		}
+
+		if (view is RefreshScroll scroll)
+		{
+			scroll.Configure((mask & Gestures.Refresh) != 0, (mask & Gestures.Refresh) == 0 ? null : () => Fire(path, Gestures.Refresh));
+			return;
+		}
+
+		if (view is RowWindow window)
+		{
+			window.ConfigureRefresh((mask & Gestures.Refresh) != 0, (mask & Gestures.Refresh) == 0 ? null : () => Fire(path, Gestures.Refresh));
+			return;
+		}
+
+		if (view is TextView text && view is not AndroidButton && view is not EditText)
+		{
+			text.Clickable = (mask & Gestures.Tap) != 0;
+			text.LongClickable = (mask & Gestures.LongPress) != 0;
+			text.SetOnClickListener((mask & Gestures.Tap) == 0 ? null : new TapClick(() => Fire(path, Gestures.Tap)));
+			text.SetOnLongClickListener((mask & Gestures.LongPress) == 0 ? null : new LongClick(() => Fire(path, Gestures.LongPress)));
+		}
+	}
+
+	void Fire(NodePath path, byte kind)
+	{
+		if (TryElement(path) is not { } element)
+			return;
+		var action = kind switch
+		{
+			Gestures.Tap => element.OnTap,
+			Gestures.LongPress => element.OnLongPress,
+			Gestures.Swipe => element.OnSwipe,
+			Gestures.Refresh => element.OnRefresh,
+			_ => null,
+		};
+		action?.Invoke();
 	}
 
 	void Attach(NodePath path, View view, bool logMount)
@@ -501,12 +585,21 @@ sealed class AndroidHost : IElementHost<View>
 		public EventHandler<CompoundButton.CheckedChangeEventArgs>? Checked { get; init; }
 	}
 
-	Element? CurrentElement(NodePath path)
+	Element? CurrentElement(NodePath path) => TryElement(path);
+
+	Element? TryElement(NodePath path)
 	{
 		var root = _current();
 		if (root is null)
 			return null;
-		return TreeDiff.At(root, path);
+		try
+		{
+			return TreeDiff.At(root, path);
+		}
+		catch (InvalidOperationException)
+		{
+			return null;
+		}
 	}
 
 	static InvalidOperationException UnknownKind(ElementKind kind) =>
@@ -622,7 +715,12 @@ sealed class PlatformBridge : IPlatform
 
 	public void RequestRender() => _activity.RequestRender();
 
-	public void Push(string screen) => ScreenNav.Shared.Push(screen);
+	public void Push(string screen)
+	{
+		if (!ScreenNav.Shared.Push(screen))
+			Log.Info(MainActivity.Tag, "nav-miss " + screen);
+		StorageSeed.Refresh(_activity, screen);
+	}
 
 	public void Pop() => ScreenNav.Shared.Pop();
 

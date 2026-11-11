@@ -25,6 +25,7 @@ public sealed class MainActivity : Activity
 	Element? _good;
 	bool _inRender;
 	bool _renderAgain;
+	bool _benchFilled;
 
 	protected override void OnCreate(Bundle? savedInstanceState)
 	{
@@ -42,7 +43,13 @@ public sealed class MainActivity : Activity
 		_host = new AndroidHost(this, () => _reconciler?.Current);
 		_reconciler = new ViewReconciler<View>(_host);
 		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
-		NavCatalog.Install();
+		NavCatalog.InstallRoot();
+		if (Bench || WantsTrips)
+			NavCatalog.InstallRest();
+		if (Bench)
+			ScreenNav.Shared.Push("packing");
+		if (WantsTrips)
+			ScreenNav.Shared.Push("trips");
 		StorageSeed.Apply(this);
 #if DEBUG
 		StateStore.TryLoad(this);
@@ -57,8 +64,14 @@ public sealed class MainActivity : Activity
 #if DEBUG
 		HotReloadServer.Start(this);
 #endif
+		if (!Bench && !WantsTrips)
+			_reconciler?.Root?.Post(() => NavCatalog.InstallRest());
 		StartupMarks.Returned();
 	}
+
+	bool Bench => string.Equals(Intent?.GetStringExtra("nativepoc_bench"), "packing1000", StringComparison.Ordinal);
+
+	bool WantsTrips => string.Equals(Intent?.GetStringExtra("nativepoc_root"), "trips", StringComparison.Ordinal);
 
 	protected override void OnNewIntent(Intent? intent)
 	{
@@ -221,6 +234,8 @@ public sealed class MainActivity : Activity
 				return "restored";
 			case ScreenQuery.Press:
 				return ElementIds.Invoke(RequireTree(), Encoding.UTF8.GetString(payload.AsSpan(6)), null);
+			case ScreenQuery.Swipe:
+				return ElementIds.Swipe(RequireTree(), Encoding.UTF8.GetString(payload.AsSpan(6)));
 			case ScreenQuery.Submit:
 				return ElementIds.Submit(RequireTree(), Encoding.UTF8.GetString(payload.AsSpan(6)));
 			case ScreenQuery.Enter:
@@ -284,6 +299,12 @@ public sealed class MainActivity : Activity
 		{
 			_record = top;
 			_programSource = top.SourceHash;
+			if (Bench && !_benchFilled)
+			{
+				BenchRows.Fill(top.State);
+				_benchFilled = true;
+				Log.Info(Tag, "bench rows=1000 screen=" + top.SourceHash);
+			}
 		}
 
 		if (_record is { } bound)
@@ -340,7 +361,9 @@ public sealed class MainActivity : Activity
 		LastTitle = TitleOf(tree);
 		if (_host is not null && _reconciler.Root is not null)
 			_host.RestoreFocus(_reconciler.Root);
+#if DEBUG
 		LogTree();
+#endif
 		ThemeRuntime.Paint(this, _reconciler.Root);
 		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length + " title=" + LastTitle);
 #if DEBUG

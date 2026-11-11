@@ -39,6 +39,10 @@ sealed class MemoryNode
 
 	public Motion? Motion { get; set; }
 
+	public byte Gesture { get; set; }
+
+	public bool Deferred { get; set; }
+
 	public List<MemoryNode> Children { get; } = new();
 }
 
@@ -87,6 +91,8 @@ sealed class MemoryHost : IElementHost<MemoryNode>
 
 	public void SetMotion(MemoryNode view, Motion motion) => view.Motion = motion;
 
+	public void SetGesture(MemoryNode view, byte mask) => view.Gesture = mask;
+
 	public void SetImage(MemoryNode view, string source) => view.Text = source;
 
 	public void SetSwitch(MemoryNode view, bool value, string accessibilityLabel)
@@ -103,11 +109,29 @@ sealed class MemoryHost : IElementHost<MemoryNode>
 	{
 	}
 
+	public bool Hold { get; set; }
+
+	readonly List<MemoryNode> _deferred = new();
+
 	public void OnUnmounted(NodePath path, MemoryNode view)
 	{
 		view.DisposedWhileAttached = view.Attached;
-		view.Disposed = true;
 		view.Attached = false;
+		if (Hold)
+		{
+			view.Deferred = true;
+			_deferred.Add(view);
+			return;
+		}
+
+		view.Disposed = true;
+	}
+
+	public void Flush()
+	{
+		foreach (var view in _deferred)
+			view.Disposed = true;
+		_deferred.Clear();
 	}
 }
 

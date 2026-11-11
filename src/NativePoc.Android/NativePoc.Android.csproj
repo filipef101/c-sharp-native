@@ -51,6 +51,9 @@
 		<DebuggerSupport>false</DebuggerSupport>
 		<UseSystemResourceKeys>true</UseSystemResourceKeys>
 		<IlcGenerateDebugInfo>false</IlcGenerateDebugInfo>
+		<StackTraceSupport>false</StackTraceSupport>
+		<MetricsSupport>false</MetricsSupport>
+		<StartupHookSupport>false</StartupHookSupport>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(PublishAot)' != 'true'">
 		<PublishTrimmed>true</PublishTrimmed>

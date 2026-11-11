@@ -96,6 +96,8 @@ public sealed record SetStyle(NodePath Path, Style Style) : Patch;
 
 public sealed record SetMotion(NodePath Path, Motion Motion) : Patch;
 
+public sealed record SetGesture(NodePath Path, byte Mask) : Patch;
+
 public sealed record SetImage(NodePath Path, string Source) : Patch;
 
 public static class TreeDiff
@@ -260,6 +262,11 @@ public static class TreeDiff
 			else if (previous?.Motion is not null)
 				patches.Add(new SetMotion(path, Motion.Rest));
 		}
+
+		var previousMask = MaskOf(previous);
+		var nextMask = MaskOf(next);
+		if (previousMask != nextMask)
+			patches.Add(new SetGesture(path, nextMask));
 		switch (next)
 		{
 			case Column:
@@ -314,6 +321,22 @@ public static class TreeDiff
 			default:
 				throw UnknownElement(next);
 		}
+	}
+
+	public static byte MaskOf(Element? element)
+	{
+		if (element is null)
+			return 0;
+		var mask = element.Gesture;
+		if (element.OnTap is not null)
+			mask |= Gestures.Tap;
+		if (element.OnLongPress is not null)
+			mask |= Gestures.LongPress;
+		if (element.OnSwipe is not null)
+			mask |= Gestures.Swipe;
+		if (element.OnRefresh is not null)
+			mask |= Gestures.Refresh;
+		return mask;
 	}
 
 	static IReadOnlyList<Element> ChildrenOf(Element element)

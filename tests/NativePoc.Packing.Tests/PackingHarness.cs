@@ -82,6 +82,10 @@ sealed class PackHost : IElementHost<PackNode>
 	{
 	}
 
+	public void SetGesture(PackNode view, byte mask)
+	{
+	}
+
 	public void SetImage(PackNode view, string source)
 	{
 	}

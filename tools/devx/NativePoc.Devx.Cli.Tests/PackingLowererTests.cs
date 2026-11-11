@@ -94,6 +94,33 @@ public sealed class PackingLowererTests
 		Assert.Equal("true", bag.Cell("Items", "item-1", 0, 2));
 	}
 
+	[Fact]
+	public void Swipe_drops_a_row_long_press_keeps_its_name_and_refresh_starts_an_effect()
+	{
+		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Packing", "PackingScreen.cs"));
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, Message(lowered));
+		var bag = Seed(new PackingModel());
+		var tree = RecordProgram.Bind(lowered.Program!, bag).Render(new Host());
+		Assert.Equal(Gestures.Swipe, ElementIds.Require(tree, "scroll/list/tent").Gesture);
+		Assert.Equal(Gestures.LongPress, ElementIds.Require(tree, "scroll/list/tent/name").Gesture);
+		Assert.Equal(Gestures.Refresh, tree.Gesture);
+		Assert.Equal("long-press scroll/list/tent/name", ElementIds.LongPress(tree, "scroll/list/tent/name"));
+		Assert.Equal("Canvas tent", bag.ReadString("Held"));
+		Assert.Equal("swipe scroll/list/tent", ElementIds.Swipe(tree, "scroll/list/tent"));
+		Assert.Equal(3, bag.CountRows("Items"));
+		Assert.Equal("", bag.Cell("Items", "tent", 0, 0));
+		var effects = new EffectHost();
+		var again = RecordProgram.Bind(lowered.Program!, bag).Render(effects);
+		Assert.Equal("refresh scroll", ElementIds.Refresh(again, "scroll"));
+		Assert.Equal("Fresh", Assert.Single(effects.Effects).Property);
+		Assert.Equal("refresh", Assert.Single(effects.Effects).Resource);
+		Assert.Same(bag, effects.Bag);
+		var model = new PackingModel();
+		ElementIds.Swipe(PackingScreen.Render(model, new Host()), "scroll/list/map");
+		Assert.DoesNotContain(model.Items, item => item.Id == "map");
+	}
+
 	static Element Render(byte[] program, PackingModel model, IPlatform platform) =>
 		RecordProgram.Bind(program, Seed(model)).Render(platform);
 
@@ -123,6 +150,7 @@ public sealed class PackingLowererTests
 	{
 		Assert.Equal(expected.Key, actual.Key);
 		Assert.Equal(expected.Style, actual.Style);
+		Assert.Equal(TreeDiff.MaskOf(expected), TreeDiff.MaskOf(actual));
 		switch (expected)
 		{
 			case Text text:
@@ -155,6 +183,27 @@ public sealed class PackingLowererTests
 				return;
 			default:
 				throw new InvalidOperationException(expected.GetType().Name);
+		}
+	}
+
+	sealed class EffectHost : IPlatform
+	{
+		public List<(string Property, string Resource)> Effects { get; } = new();
+
+		public RecordProgram.Bag? Bag { get; private set; }
+
+		public void CopyNonce(string nonce)
+		{
+		}
+
+		public void RequestRender()
+		{
+		}
+
+		public void Effect(string property, string resource)
+		{
+			Bag = EffectContext.Bag;
+			Effects.Add((property, resource));
 		}
 	}
 

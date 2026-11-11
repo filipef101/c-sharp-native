@@ -85,7 +85,41 @@ static class StorageSeed
 		if (note is not null)
 			bag.WriteString("Note", note);
 		bag.WriteBool("Dark", ThemeRuntime.IsDark(activity));
+		ScreenNav.Shared.Bag("trips").WriteBool("Dark", ThemeRuntime.IsDark(activity));
+		Refresh(activity, "trip");
 		ThemeRuntime.Paint(activity, activity.Window?.DecorView);
 		Android.Util.Log.Info(MainActivity.Tag, "theme mode=" + ThemeRuntime.Mode + " dark=" + (ThemeRuntime.IsDark(activity) ? "1" : "0"));
+	}
+
+	public static void Refresh(Activity activity, string screen)
+	{
+		if (screen == "settings")
+		{
+			var settings = ScreenNav.Shared.Bag("settings");
+			Copy(activity, settings, "name", "Name");
+			Copy(activity, settings, "note", "Note");
+			settings.WriteBool("Dark", ThemeRuntime.IsDark(activity));
+			return;
+		}
+
+		if (screen == "trips")
+		{
+			ScreenNav.Shared.Bag("trips").WriteBool("Dark", ThemeRuntime.IsDark(activity));
+			return;
+		}
+
+		if (screen != "trip")
+			return;
+		var trip = ScreenNav.Shared.Bag("trip");
+		Copy(activity, trip, "trip-id", "OpenId");
+		Copy(activity, trip, "trip-name", "Name");
+		Copy(activity, trip, "trip-note", "Note");
+	}
+
+	static void Copy(Activity activity, RecordProgram.Bag bag, string key, string property)
+	{
+		var value = AppStorage.Get(activity, key);
+		if (value is not null)
+			bag.WriteString(property, value);
 	}
 }

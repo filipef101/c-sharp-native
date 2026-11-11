@@ -353,6 +353,7 @@ public static class ScreenQuery
 	public const byte Submit = 8;
 	public const byte Fault = 9;
 	public const byte Dismiss = 10;
+	public const byte Swipe = 11;
 
 	public static bool IsQuery(ReadOnlySpan<byte> payload) =>
 		payload.Length >= 6
@@ -387,6 +388,10 @@ public static class ScreenQuery
 				if (payload.Length != 6)
 					throw new InvalidOperationException("Rejected screen query.");
 				return op;
+			case Swipe:
+				if (payload.Length < 7)
+					throw new InvalidOperationException("Rejected screen query.");
+				return op;
 			default:
 				throw new InvalidOperationException("Rejected screen query.");
 		}
@@ -400,6 +405,12 @@ public static class ScreenQuery
 	{
 		ArgumentException.ThrowIfNullOrEmpty(id);
 		return WithBody(Press, Encoding.UTF8.GetBytes(id));
+	}
+
+	public static byte[] SwipeId(string id)
+	{
+		ArgumentException.ThrowIfNullOrEmpty(id);
+		return WithBody(Swipe, Encoding.UTF8.GetBytes(id));
 	}
 
 	public static byte[] SubmitId(string id)

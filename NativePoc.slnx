@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/samples/">
     <Project Path="samples/NativePoc.Packing/NativePoc.Packing.csproj" />
+    <Project Path="samples/NativePoc.Trips/NativePoc.Trips.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/NativePoc.Android/NativePoc.Android.csproj" />
@@ -9,6 +10,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/NativePoc.Core.Tests/NativePoc.Core.Tests.csproj" />
+    <Project Path="spikes/ios/NativePoc.iOS.Tests/NativePoc.iOS.Tests.csproj" />
     <Project Path="tests/NativePoc.Packing.Tests/NativePoc.Packing.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">

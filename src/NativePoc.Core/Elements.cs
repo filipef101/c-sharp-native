@@ -252,6 +252,17 @@ public static class ThemeTokens
 	public static uint Accent(bool dark) => dark ? 0xFFE7C27Du : 0xFF8A5A2Bu;
 }
 
+public static class Gestures
+{
+	public const byte Tap = 1;
+
+	public const byte LongPress = 2;
+
+	public const byte Swipe = 4;
+
+	public const byte Refresh = 8;
+}
+
 public abstract record Element
 {
 	public string? Key { get; init; }
@@ -259,6 +270,16 @@ public abstract record Element
 	public Style? Style { get; init; }
 
 	public Motion? Motion { get; init; }
+
+	public byte Gesture { get; init; }
+
+	public Action? OnTap { get; init; }
+
+	public Action? OnLongPress { get; init; }
+
+	public Action? OnSwipe { get; init; }
+
+	public Action? OnRefresh { get; init; }
 
 	private protected Element()
 	{

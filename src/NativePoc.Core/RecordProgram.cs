@@ -39,6 +39,7 @@ public static class RecordProgram
 	public const byte OpEvery = 31;
 	public const byte OpFieldMode = 32;
 	public const byte OpMotion = 33;
+	public const byte OpGesture = 34;
 
 	public const byte ActRender = 1;
 	public const byte ActSetStr = 2;
@@ -60,6 +61,8 @@ public static class RecordProgram
 	public const byte ActSetStrEmpty = 18;
 	public const byte ActSetBoolLen = 19;
 	public const byte ActModule = 20;
+	public const byte ActDropRow = 21;
+	public const byte ActEffect = 22;
 
 	public const byte TypeString = 1;
 	public const byte TypeBool = 2;
@@ -737,9 +740,48 @@ public static class RecordProgram
 				Push(stack, ref sp, Slot.Elem(WithMotion(node, motion)));
 				return ip;
 			}
+			case OpGesture:
+			{
+				if (ip >= end)
+					throw new InvalidOperationException("Rejected record program.");
+				var kind = code[ip++];
+				if (kind is not (Gestures.Tap or Gestures.LongPress or Gestures.Swipe or Gestures.Refresh))
+					throw new InvalidOperationException("Rejected record program.");
+				var length = TakeU16(code, ref ip, end);
+				if (length == 0 || ip + length > end)
+					throw new InvalidOperationException("Rejected record program.");
+				var script = code.AsSpan(ip, length).ToArray();
+				ip += length;
+				var node = Pop(stack, ref sp, SlotKind.Elem).Node ?? throw new InvalidOperationException("Rejected record program.");
+				var rowId = row is { Length: > 0 } ? row[0] : null;
+				Action run = () => RunScript(script, strings, bag, platform, null, false, rowId);
+				Push(stack, ref sp, Slot.Elem(WithGesture(node, kind, run)));
+				return ip;
+			}
 			default:
 				throw new InvalidOperationException("Rejected record program.");
 		}
+	}
+
+	static Element WithGesture(Element element, byte kind, Action run)
+	{
+		var mask = (byte)(element.Gesture | kind);
+		var tap = kind == Gestures.Tap ? run : element.OnTap;
+		var longPress = kind == Gestures.LongPress ? run : element.OnLongPress;
+		var swipe = kind == Gestures.Swipe ? run : element.OnSwipe;
+		var refresh = kind == Gestures.Refresh ? run : element.OnRefresh;
+		return element switch
+		{
+			Column column => column with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
+			Text text => text with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
+			Button button => button with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
+			TextField field => field with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
+			Switch toggle => toggle with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
+			ScrollView scroll => scroll with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
+			ListView list => list with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
+			Image image => image with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
+			_ => throw new InvalidOperationException("Rejected record program."),
+		};
 	}
 
 	static Element WithMotion(Element element, Motion motion) =>
@@ -832,6 +874,20 @@ public static class RecordProgram
 	}
 
 	static void RunScript(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId)
+	{
+		var previous = EffectContext.Bag;
+		EffectContext.Bag = bag;
+		try
+		{
+			RunSteps(script, strings, bag, platform, text, flag, rowId);
+		}
+		finally
+		{
+			EffectContext.Bag = previous;
+		}
+	}
+
+	static void RunSteps(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId)
 	{
 		var ip = 0;
 		var steps = 0;
@@ -970,6 +1026,20 @@ public static class RecordProgram
 					}
 
 					platform.Module(module, method, moduleArgs);
+					break;
+				}
+				case ActDropRow:
+				{
+					var list = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var field = TakeU16(script, ref ip, script.Length);
+					bag.RemoveRow(list, rowId ?? throw new InvalidOperationException("Rejected record program."), field);
+					break;
+				}
+				case ActEffect:
+				{
+					var property = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var resource = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					platform.Effect(property, resource);
 					break;
 				}
 				default:
@@ -1249,6 +1319,28 @@ public static class RecordProgram
 			}
 
 			throw new InvalidOperationException("Rejected record program.");
+		}
+
+		public void RemoveRow(string list, string id, int idField)
+		{
+			lock (_gate)
+			{
+				if (!_lists.TryGetValue(list, out var rows))
+					return;
+				for (var index = rows.Count - 1; index >= 0; index--)
+				{
+					var row = rows[index];
+					if ((uint)idField < (uint)row.Length && row[idField] == id)
+						rows.RemoveAt(index);
+				}
+			}
+		}
+
+		public void ReplaceRows(string name, List<string[]> rows)
+		{
+			ArgumentNullException.ThrowIfNull(rows);
+			lock (_gate)
+				_lists[name] = rows;
 		}
 
 		public void AddRow(string name, string[] cells)

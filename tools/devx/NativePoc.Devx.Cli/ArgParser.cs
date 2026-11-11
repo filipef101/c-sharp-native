@@ -39,13 +39,14 @@ static class ArgParser
 		  cnative agent tap <x> <y>
 		  cnative agent type <text>
 		  cnative agent press <id>
+		  cnative agent swipe <id>
 		  cnative agent enter <id> <text>
 		  cnative agent submit <id>
 		  cnative agent a11y|layout|logs|clock
 		    a11y is the accessibility tree. layout is bounds per id.
 		    logs is the NativePoc logcat. clock is 0 until a screen calls Every.
 		    --running drives the program on screen, not only Screen.cs.
-		  cnative lower <file> [--json] [--apply]
+		  cnative lower <file> [--json] [--bytes] [--apply]
 		    Lower any screen in the documented subset. --json prints
 		    diagnostics with stable ids and source spans.
 		  cnative test android

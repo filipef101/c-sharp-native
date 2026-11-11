@@ -28,6 +28,9 @@ public sealed class AgentParseTests
 		Assert.Equal("Ada Bea", typed.Text);
 		var press = AgentLoop.Parse(["agent", "press", "list/tent/packed"]);
 		Assert.Equal("list/tent/packed", press.Path);
+		var swipe = AgentLoop.Parse(["agent", "swipe", "scroll/list/tent"]);
+		Assert.Equal("swipe", swipe.Verb);
+		Assert.Equal("scroll/list/tent", swipe.Path);
 		var enter = AgentLoop.Parse(["agent", "enter", "editor/name", "Trail", "map"]);
 		Assert.Equal("editor/name", enter.Path);
 		Assert.Equal("Trail map", enter.Text);

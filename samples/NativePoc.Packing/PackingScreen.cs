@@ -23,6 +23,10 @@ public sealed class PackingModel
 
 	public bool DraftPacked { get; set; }
 
+	public string Held { get; set; } = "";
+
+	public string Fresh { get; set; } = "";
+
 	public int NextNumber { get; set; } = 1;
 
 	public List<PackingRow> Items { get; } =
@@ -91,6 +95,15 @@ public sealed class PackingModel
 		}
 
 		Editing = false;
+	}
+
+	public void Drop(PackingRow row)
+	{
+		for (var index = Items.Count - 1; index >= 0; index--)
+		{
+			if (Items[index].Id == row.Id)
+				Items.RemoveAt(index);
+		}
 	}
 
 	public static PackingModel From(PackingState state)
@@ -162,19 +175,29 @@ public static class PackingScreen
 			{ Key = "editor" };
 		var rows = new List<Element>();
 		rows.Add(new Text("Packing") { Key = "title", Style = new Style { FontSize = 22, Weight = FontWeight.Bold, Color = 0xFF1B3A2F } });
+		rows.Add(new Text(state.Fresh.Length == 0 ? "Pull to refresh" : state.Fresh) { Key = "fresh" });
+		rows.Add(new Text(state.Held.Length == 0 ? "Hold a name" : state.Held) { Key = "held" });
 		rows.Add(new Text($"{state.PackedCount} of {state.Items.Count} packed") { Key = "progress", Style = new Style { FontSize = 14, Color = 0xFF5C6B63 } });
 		foreach (var item in state.Items)
 			rows.Add(new Column(
 			[
-				new Text(item.Name) { Key = "name" },
+				new Text(item.Name) { Key = "name", OnLongPress = () => { state.Held = item.Name; host.RequestRender(); } },
 				new Switch(item.Packed, value => { PackingTelemetry.SwitchDeliveries++; item.Packed = value; host.Pulse(); host.RequestRender(); }, "Packed " + item.Name) { Key = "packed" },
 				new Button("Edit", () => { state.EditingId = item.Id; state.DraftName = item.Name; state.DraftPacked = item.Packed; state.Editing = true; host.RequestRender(); }, "Edit " + item.Name) { Key = "edit" },
 			])
-			{ Key = item.Id, Style = new Style { Padding = 12, Background = 0xFFF4F1EA, Radius = 10 } });
+			{
+				Key = item.Id,
+				Style = new Style { Padding = 12, Background = 0xFFF4F1EA, Radius = 10 },
+				OnSwipe = () => { state.Drop(item); host.RequestRender(); },
+			});
 		rows.Add(new Button("Add item", () => { state.EditingId = ""; state.DraftName = ""; state.DraftPacked = false; state.Editing = true; host.RequestRender(); }, "Add item") { Key = "add" });
 		rows.Add(new Button("Copy list", () => { host.CopyText("packing", state.ListText); host.Pulse(); }, "Copy list") { Key = "copy" });
 		rows.Add(new Button("Settings", () => { host.Push("settings"); host.RequestRender(); }, "Settings") { Key = "settings" });
 		rows.Add(new Button("Back", () => { host.Pop(); host.RequestRender(); }, "Back") { Key = "back" });
-		return new ScrollView(new Column(rows) { Key = "list", Style = new Style { Gap = 8 } }) { Key = "scroll" };
+		return new ScrollView(new Column(rows) { Key = "list", Style = new Style { Gap = 8 } })
+		{
+			Key = "scroll",
+			OnRefresh = () => host.Effect("Fresh", "refresh"),
+		};
 	}
 }

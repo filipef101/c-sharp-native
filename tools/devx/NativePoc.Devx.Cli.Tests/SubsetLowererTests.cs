@@ -345,6 +345,42 @@ public sealed class SubsetLowererTests
 		Assert.Equal(["haptic", "share-skipped", "haptic", "share:ada@camp.test"], platform.Calls);
 	}
 
+	[Fact]
+	public void Trips_lower_through_the_subset_and_a_tap_stores_the_open_trip()
+	{
+		var root = RepoRoot.Find(AppContext.BaseDirectory);
+		var list = SubsetLowerer.TryLower(File.ReadAllText(Path.Combine(root, "samples", "NativePoc.Trips", "TripsScreen.cs")));
+		var detail = SubsetLowerer.TryLower(File.ReadAllText(Path.Combine(root, "samples", "NativePoc.Trips", "TripScreen.cs")));
+		var kit = SubsetLowerer.TryLower(File.ReadAllText(Path.Combine(root, "samples", "NativePoc.Trips", "KitScreen.cs")));
+		Assert.True(list.Ok, list.Diagnostics.Count == 0 ? "" : list.Diagnostics[0].Message);
+		Assert.True(detail.Ok, detail.Diagnostics.Count == 0 ? "" : detail.Diagnostics[0].Message);
+		Assert.True(kit.Ok, kit.Diagnostics.Count == 0 ? "" : kit.Diagnostics[0].Message);
+		var platform = new TripPlatform();
+		var bag = new RecordProgram.Bag();
+		var tree = RecordProgram.Bind(list.Program!, bag).Render(platform);
+		Assert.Equal(Gestures.Tap, ElementIds.Require(tree, "scroll/list/coast").Gesture);
+		Assert.Contains("loading", TextValue(tree, "scroll/list/weather"));
+		ElementIds.Tap(tree, "scroll/list/coast");
+		Assert.Equal("coast", bag.ReadString("OpenId"));
+		Assert.Equal("Coast road", bag.ReadString("Name"));
+		Assert.Equal("trip", platform.Pushed);
+		Assert.Contains(platform.Modules, call => call.Contains("storage.Set", StringComparison.Ordinal) && call.Contains("trip-id", StringComparison.Ordinal));
+		var tripBag = new RecordProgram.Bag();
+		tripBag.WriteString("Name", "Coast road");
+		tripBag.WriteString("OpenId", "coast");
+		var trip = RecordProgram.Bind(detail.Program!, tripBag).Render(platform);
+		Assert.Equal("Coast road", TextValue(trip, "trip/title"));
+		ElementIds.Invoke(trip, "trip/note", "fly");
+		Assert.Equal("fly", tripBag.ReadString("Note"));
+		ElementIds.Invoke(trip, "trip/pack", null);
+		Assert.Equal("kit", platform.Pushed);
+		var kitBag = new RecordProgram.Bag();
+		var kitTree = RecordProgram.Bind(kit.Program!, kitBag).Render(platform);
+		ElementIds.Swipe(kitTree, "scroll/list/tent");
+		Assert.Equal(1, kitBag.CountRows("Items"));
+		Assert.Equal(Gestures.Refresh, kitTree.Gesture);
+	}
+
 	static string TextValue(Element root, string id) =>
 		Assert.IsType<Text>(ElementIds.Require(root, id)).Value;
 
@@ -402,6 +438,30 @@ public sealed class SubsetLowererTests
 		}
 
 		public void RequestRender() => Renders++;
+	}
+
+	sealed class TripPlatform : IPlatform
+	{
+		public string Pushed { get; private set; } = "";
+
+		public List<string> Modules { get; } = new();
+
+		public void CopyNonce(string nonce)
+		{
+		}
+
+		public void RequestRender()
+		{
+		}
+
+		public void Push(string screen) => Pushed = screen;
+
+		public void Effect(string property, string resource)
+		{
+		}
+
+		public void Module(string module, string method, string[] args) =>
+			Modules.Add(module + "." + method + " " + string.Join(' ', args));
 	}
 
 	sealed class NavPlatform : IPlatform
