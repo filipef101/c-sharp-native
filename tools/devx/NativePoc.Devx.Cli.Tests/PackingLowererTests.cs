@@ -122,6 +122,7 @@ public sealed class PackingLowererTests
 	static void AssertSame(Element expected, Element actual)
 	{
 		Assert.Equal(expected.Key, actual.Key);
+		Assert.Equal(expected.Style, actual.Style);
 		switch (expected)
 		{
 			case Text text:

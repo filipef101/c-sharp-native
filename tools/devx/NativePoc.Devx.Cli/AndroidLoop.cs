@@ -116,7 +116,7 @@ static class AndroidLoop
 
 	static int Watch(string repo, string rid, string serial, ReloadSession session, CliOptions options, CancellationToken cancel)
 	{
-		Console.WriteLine("cnative: watching src/NativePoc.Screen and samples/NativePoc.Packing");
+		Console.WriteLine("cnative: watching src/NativePoc.Screen, samples/NativePoc.Packing, and samples/<name>");
 		var debouncer = new ChangeDebouncer(options.DebounceMs);
 		FileSystemEventHandler onChange = (_, args) =>
 		{
@@ -165,6 +165,24 @@ static class AndroidLoop
 						var outcome = Push(session, options, batch.FirstMs);
 						if (outcome.Restarting)
 							Relaunch(session, repo, rid, serial);
+					}
+
+					foreach (var path in batch.Paths.Where(ChangeEffectRules.IsAppScreen))
+					{
+						var relative = ChangeEffectRules.Normalize(path);
+						Console.WriteLine("cnative: reload " + relative);
+						var startedApp = Stopwatch.GetTimestamp();
+						var sent = SendSource(session, repo, relative);
+						if (!ReportPacking(sent, batch.FirstMs, startedApp) && HostOutput.IsRude(sent.Text))
+						{
+							var appInteractive = Interactive();
+							var appRestart = RestartPolicy.ShouldRestart(true, options.RestartOnRude, appInteractive, ReadAnswer);
+							var appFollow = ReloadConsole.FollowUp(appRestart, ReloadConsole.OfferRestartFlag(appRestart, options.RestartOnRude));
+							if (appFollow is not null)
+								Console.WriteLine(appFollow);
+							if (appRestart)
+								Relaunch(session, repo, rid, serial);
+						}
 					}
 
 					if (batch.Paths.Any(ChangeEffectRules.IsPackingScreen))
@@ -362,6 +380,22 @@ static class AndroidLoop
 
 	internal readonly record struct PackingSend(bool Applied, bool Refused, string Text, double Milliseconds);
 
+	internal static PackingSend SendSource(ReloadSession session, string repo, string relative)
+	{
+		var path = Path.Combine(repo, relative.Replace('/', Path.DirectorySeparatorChar));
+		string source;
+		try
+		{
+			source = File.ReadAllText(path);
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			return new PackingSend(false, false, ex.Message, 0);
+		}
+
+		return ApplySource(session, source, "The screen is not a program this runtime can carry.");
+	}
+
 	internal static PackingSend SendPacking(ReloadSession session, string repo)
 	{
 		var path = Path.Combine(repo, "samples", "NativePoc.Packing", "PackingScreen.cs");
@@ -375,9 +409,14 @@ static class AndroidLoop
 			return new PackingSend(false, false, ex.Message, 0);
 		}
 
+		return ApplySource(session, source, "The packing screen is not a program this runtime can carry.");
+	}
+
+	static PackingSend ApplySource(ReloadSession session, string source, string refused)
+	{
 		var lowered = SubsetLowerer.TryLower(source);
 		if (!lowered.Ok || lowered.Program is null)
-			return new PackingSend(false, true, lowered.Diagnostics.Count == 0 ? "The packing screen is not a program this runtime can carry." : lowered.Diagnostics[0].Message, 0);
+			return new PackingSend(false, true, lowered.Diagnostics.Count == 0 ? refused : lowered.Diagnostics[0].Message, 0);
 		try
 		{
 			var applied = session.Connection.Apply(lowered.Program);

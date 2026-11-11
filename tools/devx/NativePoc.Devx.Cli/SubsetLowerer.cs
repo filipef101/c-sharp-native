@@ -667,6 +667,7 @@ public static class SubsetLowerer
 		string _item = "";
 		List<Field>? _itemFields;
 		string _rows = "";
+		Style? _pendingStyle;
 		string _listName = "";
 
 		public Lower(
@@ -776,6 +777,15 @@ public static class SubsetLowerer
 		{
 			var statements = block.Statements;
 			var index = 0;
+			while (index < statements.Count)
+			{
+				if (!TryEffect(statements[index], out var consumed))
+					return false;
+				if (!consumed)
+					break;
+				index++;
+			}
+
 			while (index < statements.Count
 				&& statements[index] is IfStatementSyntax branch
 				&& branch.Else is null
@@ -797,6 +807,48 @@ public static class SubsetLowerer
 			if (statements.Count == 1 && statements[0] is ReturnStatementSyntax single)
 				return Returned(single);
 			return Fail(UnknownExpression, "The screen subset does not include this expression.", block);
+		}
+
+		bool TryEffect(StatementSyntax statement, out bool consumed)
+		{
+			consumed = false;
+			if (statement is not ExpressionStatementSyntax expr || expr.Expression is not InvocationExpressionSyntax invocation)
+				return true;
+			if (invocation.Expression is not MemberAccessExpressionSyntax member
+				|| member.Expression is not IdentifierNameSyntax owner
+				|| owner.Identifier.ValueText != _platform)
+				return true;
+			var name = member.Name.Identifier.ValueText;
+			if (name is not ("Effect" or "Every"))
+				return true;
+			consumed = true;
+			if (name == "Every")
+			{
+				if (invocation.ArgumentList.Arguments.Count != 1
+					|| invocation.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax tick
+					|| !tick.IsKind(SyntaxKind.StringLiteralExpression))
+					return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+				var property = tick.Token.ValueText;
+				if (_fields.All(field => field.Name != property || field.Kind != ValueKind.Int))
+					return Fail(UnknownMember, "The screen subset does not include " + property + ".", invocation);
+				_code.Op(RecordProgram.OpEvery);
+				_code.U16(_code.Intern(property));
+				return true;
+			}
+
+			if (invocation.ArgumentList.Arguments.Count != 2
+				|| invocation.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax propertyLiteral
+				|| !propertyLiteral.IsKind(SyntaxKind.StringLiteralExpression)
+				|| invocation.ArgumentList.Arguments[1].Expression is not LiteralExpressionSyntax resourceLiteral
+				|| !resourceLiteral.IsKind(SyntaxKind.StringLiteralExpression))
+				return Fail(BadLambda, "A screen action can assign state, request a render, or copy text.", invocation);
+			var target = propertyLiteral.Token.ValueText;
+			if (_fields.All(field => field.Name != target || field.Kind != ValueKind.Str))
+				return Fail(UnknownMember, "The screen subset does not include " + target + ".", invocation);
+			_code.Op(RecordProgram.OpEffect);
+			_code.U16(_code.Intern(target));
+			_code.U16(_code.Intern(resourceLiteral.Token.ValueText));
+			return true;
 		}
 
 		bool ListBlock(SyntaxList<StatementSyntax> statements, int index)
@@ -911,6 +963,7 @@ public static class SubsetLowerer
 					return Fail(UnknownExpression, "The screen subset does not include this expression.", creation);
 				_code.Op(RecordProgram.OpMakeScroll);
 				_code.U16(key);
+				EmitStyle();
 				return true;
 			}
 
@@ -930,6 +983,7 @@ public static class SubsetLowerer
 				return false;
 			_code.Op(RecordProgram.OpGather);
 			_code.U16(columnKey);
+			EmitStyle();
 			return true;
 		}
 
@@ -947,6 +1001,7 @@ public static class SubsetLowerer
 				return false;
 			_code.Op(op);
 			_code.U16(key);
+			EmitStyle();
 			return true;
 		}
 
@@ -983,6 +1038,8 @@ public static class SubsetLowerer
 					return Column(creation, set);
 				case "ScrollView":
 					return Scroll(creation, set);
+				case "Image":
+					return Image(creation, set);
 				default:
 					return Fail(UnknownElement, "The screen subset does not include " + type + ".", creation);
 			}
@@ -1003,11 +1060,31 @@ public static class SubsetLowerer
 				_code.Op(RecordProgram.OpItemStr);
 				_code.U16(field);
 				_code.Op(RecordProgram.OpMakeTextKey);
+				EmitStyle();
 				return true;
 			}
 
 			_code.Op(RecordProgram.OpMakeText);
 			_code.U16(key);
+			EmitStyle();
+			return true;
+		}
+
+		bool Image(ObjectCreationExpressionSyntax creation, KeySet keys)
+		{
+			if (creation.ArgumentList?.Arguments.Count != 1)
+				return Fail(UnknownElement, "The screen subset does not include Image.", creation);
+			if (!TextValue(creation.ArgumentList.Arguments[0].Expression))
+				return false;
+			if (!KeyOf(creation, out var key, out var dynamic, out _))
+				return false;
+			if (dynamic)
+				return Fail(UnknownExpression, "The screen subset does not include this expression.", creation);
+			if (!keys.Add(this, key, false, creation))
+				return false;
+			_code.Op(RecordProgram.OpMakeImage);
+			_code.U16(key);
+			EmitStyle();
 			return true;
 		}
 
@@ -1068,6 +1145,7 @@ public static class SubsetLowerer
 			_code.U16(key);
 			_code.U16(script.Length);
 			_code.Bytes(script);
+			EmitStyle();
 			return true;
 		}
 
@@ -1097,12 +1175,14 @@ public static class SubsetLowerer
 				_code.U16(field);
 				_code.Op(RecordProgram.OpMakeColumnKey);
 				_code.U8((byte)children.Count);
+				EmitStyle();
 				return true;
 			}
 
 			_code.Op(RecordProgram.OpMakeColumn);
 			_code.U8((byte)children.Count);
 			_code.U16(key);
+			EmitStyle();
 			return true;
 		}
 
@@ -1120,6 +1200,7 @@ public static class SubsetLowerer
 				return false;
 			_code.Op(RecordProgram.OpMakeScroll);
 			_code.U16(key);
+			EmitStyle();
 			return true;
 		}
 
@@ -1352,33 +1433,189 @@ public static class SubsetLowerer
 			key = RecordProgram.NoKey;
 			dynamic = false;
 			field = 0;
+			_pendingStyle = null;
 			if (creation.Initializer is null)
 				return true;
-			if (creation.Initializer.Expressions.Count != 1
-				|| creation.Initializer.Expressions[0] is not AssignmentExpressionSyntax assignment
-				|| assignment.Left is not IdentifierNameSyntax name
-				|| name.Identifier.ValueText != "Key")
-				return Fail(UnknownMember, "The screen subset does not include an element initializer.", creation.Initializer);
-			if (assignment.Right is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
+			foreach (var expression in creation.Initializer.Expressions)
 			{
-				key = _code.Intern(literal.Token.ValueText);
-				return true;
+				if (expression is not AssignmentExpressionSyntax assignment || assignment.Left is not IdentifierNameSyntax name)
+					return Fail(UnknownMember, "The screen subset does not include an element initializer.", creation.Initializer);
+				if (name.Identifier.ValueText == "Style")
+				{
+					if (!StyleOf(assignment.Right, out var style))
+						return false;
+					_pendingStyle = style;
+					continue;
+				}
+
+				if (name.Identifier.ValueText != "Key")
+					return Fail(UnknownMember, "The screen subset does not include an element initializer.", assignment);
+				if (assignment.Right is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
+				{
+					key = _code.Intern(literal.Token.ValueText);
+					continue;
+				}
+
+				if (assignment.Right is MemberAccessExpressionSyntax member
+					&& _itemFields is not null
+					&& member.Expression is IdentifierNameSyntax item
+					&& item.Identifier.ValueText == _item)
+				{
+					var index = _itemFields.FindIndex(candidate => candidate.Name == member.Name.Identifier.ValueText && candidate.Kind == ValueKind.Str);
+					if (index < 0)
+						return Fail(UnknownMember, "The screen subset does not include " + member.Name.Identifier.ValueText + ".", member);
+					dynamic = true;
+					field = index;
+					continue;
+				}
+
+				return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
 			}
 
-			if (assignment.Right is MemberAccessExpressionSyntax member
-				&& _itemFields is not null
-				&& member.Expression is IdentifierNameSyntax item
-				&& item.Identifier.ValueText == _item)
+			return true;
+		}
+
+		void EmitStyle()
+		{
+			if (_pendingStyle is not Style style)
+				return;
+			var bytes = new byte[StyleCodec.Bytes];
+			StyleCodec.Write(style, bytes);
+			_code.Op(RecordProgram.OpStyle);
+			_code.Bytes(bytes);
+			_pendingStyle = null;
+		}
+
+		bool StyleOf(ExpressionSyntax expression, out Style style)
+		{
+			style = default;
+			if (expression is not ObjectCreationExpressionSyntax creation || TypeName(creation) != "Style" || creation.Initializer is null)
+				return Fail(UnknownMember, "The screen subset does not include an element initializer.", expression);
+			var padding = 0;
+			var margin = 0;
+			var gap = 0;
+			var grow = 0;
+			var fontSize = 0;
+			var radius = 0;
+			var align = Align.Start;
+			var weight = FontWeight.Regular;
+			uint color = 0;
+			uint background = 0;
+			foreach (var item in creation.Initializer.Expressions)
 			{
-				var index = _itemFields.FindIndex(candidate => candidate.Name == member.Name.Identifier.ValueText && candidate.Kind == ValueKind.Str);
-				if (index < 0)
-					return Fail(UnknownMember, "The screen subset does not include " + member.Name.Identifier.ValueText + ".", member);
-				dynamic = true;
-				field = index;
-				return true;
+				if (item is not AssignmentExpressionSyntax assignment || assignment.Left is not IdentifierNameSyntax name)
+					return Fail(UnknownMember, "The screen subset does not include an element initializer.", item);
+				switch (name.Identifier.ValueText)
+				{
+					case "Padding":
+						if (!Integer(assignment.Right, out padding))
+							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+						break;
+					case "Margin":
+						if (!Integer(assignment.Right, out margin))
+							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+						break;
+					case "Gap":
+						if (!Integer(assignment.Right, out gap))
+							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+						break;
+					case "Grow":
+						if (!Integer(assignment.Right, out grow))
+							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+						break;
+					case "FontSize":
+						if (!Integer(assignment.Right, out fontSize))
+							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+						break;
+					case "Radius":
+						if (!Integer(assignment.Right, out radius))
+							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+						break;
+					case "Align":
+						if (!EnumValue<Align>(assignment.Right, out align))
+							return Fail(UnknownMember, "The screen subset does not include an element initializer.", assignment.Right);
+						break;
+					case "Weight":
+						if (!EnumValue<FontWeight>(assignment.Right, out weight))
+							return Fail(UnknownMember, "The screen subset does not include an element initializer.", assignment.Right);
+						break;
+					case "Color":
+						if (!ColorValue(assignment.Right, out color))
+							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+						break;
+					case "Background":
+						if (!ColorValue(assignment.Right, out background))
+							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+						break;
+					default:
+						return Fail(UnknownMember, "The screen subset does not include " + name.Identifier.ValueText + ".", assignment);
+				}
 			}
 
-			return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+			style = new Style
+			{
+				Padding = padding,
+				Margin = margin,
+				Gap = gap,
+				Grow = grow,
+				FontSize = fontSize,
+				Radius = radius,
+				Align = align,
+				Weight = weight,
+				Color = color,
+				Background = background,
+			};
+			return true;
+		}
+
+		static bool Integer(ExpressionSyntax expression, out int value)
+		{
+			value = 0;
+			if (expression is not LiteralExpressionSyntax literal || !literal.IsKind(SyntaxKind.NumericLiteralExpression))
+				return false;
+			switch (literal.Token.Value)
+			{
+				case int number:
+					value = number;
+					return true;
+				case uint number when number <= int.MaxValue:
+					value = (int)number;
+					return true;
+				default:
+					return false;
+			}
+		}
+
+		static bool ColorValue(ExpressionSyntax expression, out uint value)
+		{
+			value = 0;
+			if (expression is not LiteralExpressionSyntax literal || !literal.IsKind(SyntaxKind.NumericLiteralExpression))
+				return false;
+			switch (literal.Token.Value)
+			{
+				case int number:
+					value = unchecked((uint)number);
+					return true;
+				case uint number:
+					value = number;
+					return true;
+				case long number when number >= 0 && number <= uint.MaxValue:
+					value = (uint)number;
+					return true;
+				default:
+					return false;
+			}
+		}
+
+		static bool EnumValue<TEnum>(ExpressionSyntax expression, out TEnum value)
+			where TEnum : struct, Enum
+		{
+			value = default;
+			if (expression is not MemberAccessExpressionSyntax member
+				|| member.Expression is not IdentifierNameSyntax owner
+				|| owner.Identifier.ValueText != typeof(TEnum).Name)
+				return false;
+			return Enum.TryParse(member.Name.Identifier.ValueText, out value);
 		}
 
 		bool Script(LambdaExpressionSyntax lambda, out byte[] script)

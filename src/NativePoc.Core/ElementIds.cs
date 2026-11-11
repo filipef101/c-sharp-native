@@ -49,6 +49,7 @@ public static class ElementIds
 			case ScrollView:
 			case ListView:
 			case Text:
+			case Image:
 				throw new InvalidOperationException("Element " + id + " does not take input.");
 			default:
 				throw new InvalidOperationException("Unknown element.");
@@ -89,6 +90,7 @@ public static class ElementIds
 			case Button:
 			case TextField:
 			case Switch:
+			case Image:
 				return Array.Empty<Element>();
 			default:
 				throw new InvalidOperationException("Unknown element.");

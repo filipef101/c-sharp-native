@@ -33,6 +33,10 @@ public static class RecordProgram
 	public const byte OpEqStr = 25;
 	public const byte OpItemBool = 26;
 	public const byte OpMakeList = 27;
+	public const byte OpStyle = 28;
+	public const byte OpMakeImage = 29;
+	public const byte OpEffect = 30;
+	public const byte OpEvery = 31;
 
 	public const byte ActRender = 1;
 	public const byte ActSetStr = 2;
@@ -117,7 +121,18 @@ public static class RecordProgram
 		var strings = decoded.Strings;
 		var names = NamesOf(decoded);
 		return new Bound(
-			platform => Eval(code, strings, bag, platform),
+			platform =>
+			{
+				EffectContext.Bag = bag;
+				try
+				{
+					return Eval(code, strings, bag, platform);
+				}
+				finally
+				{
+					EffectContext.Bag = null;
+				}
+			},
 			decoded.SourceHash,
 			bag,
 			names);
@@ -648,10 +663,54 @@ public static class RecordProgram
 				Push(stack, ref sp, Slot.Elem(new ListView(gathered) { Key = key }));
 				return ip;
 			}
+			case OpStyle:
+			{
+				if (ip + StyleCodec.Bytes > end)
+					throw new InvalidOperationException("Rejected record program.");
+				var style = StyleCodec.Read(code.AsSpan(ip, StyleCodec.Bytes));
+				ip += StyleCodec.Bytes;
+				var node = Pop(stack, ref sp, SlotKind.Elem).Node ?? throw new InvalidOperationException("Rejected record program.");
+				Push(stack, ref sp, Slot.Elem(WithStyle(node, style)));
+				return ip;
+			}
+			case OpMakeImage:
+			{
+				var key = Key(strings, TakeU16(code, ref ip, end));
+				var source = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				Push(stack, ref sp, Slot.Elem(new Image(source) { Key = key }));
+				return ip;
+			}
+			case OpEffect:
+			{
+				var property = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+				var resource = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+				platform.Effect(property, resource);
+				return ip;
+			}
+			case OpEvery:
+			{
+				var property = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+				platform.Every(property);
+				return ip;
+			}
 			default:
 				throw new InvalidOperationException("Rejected record program.");
 		}
 	}
+
+	static Element WithStyle(Element element, Style style) =>
+		element switch
+		{
+			Column column => column with { Style = style },
+			Text text => text with { Style = style },
+			Button button => button with { Style = style },
+			TextField field => field with { Style = style },
+			Switch toggle => toggle with { Style = style },
+			ScrollView scroll => scroll with { Style = style },
+			ListView list => list with { Style = style },
+			Image image => image with { Style = style },
+			_ => throw new InvalidOperationException("Rejected record program."),
+		};
 
 	static int MakeControl(
 		byte op,
@@ -1011,6 +1070,12 @@ public static class RecordProgram
 		{
 			lock (_gate)
 				_flags[name] = value;
+		}
+
+		public void WriteInt(string name, int value)
+		{
+			lock (_gate)
+				_numbers[name] = value;
 		}
 
 		public void AddInt(string name, int delta)

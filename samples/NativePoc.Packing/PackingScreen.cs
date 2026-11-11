@@ -161,8 +161,8 @@ public static class PackingScreen
 			])
 			{ Key = "editor" };
 		var rows = new List<Element>();
-		rows.Add(new Text("Packing") { Key = "title" });
-		rows.Add(new Text($"{state.PackedCount} of {state.Items.Count} packed") { Key = "progress" });
+		rows.Add(new Text("Packing") { Key = "title", Style = new Style { FontSize = 22, Weight = FontWeight.Bold, Color = 0xFF1B3A2F } });
+		rows.Add(new Text($"{state.PackedCount} of {state.Items.Count} packed") { Key = "progress", Style = new Style { FontSize = 14, Color = 0xFF5C6B63 } });
 		foreach (var item in state.Items)
 			rows.Add(new Column(
 			[
@@ -170,11 +170,11 @@ public static class PackingScreen
 				new Switch(item.Packed, value => { PackingTelemetry.SwitchDeliveries++; item.Packed = value; host.Pulse(); host.RequestRender(); }, "Packed " + item.Name) { Key = "packed" },
 				new Button("Edit", () => { state.EditingId = item.Id; state.DraftName = item.Name; state.DraftPacked = item.Packed; state.Editing = true; host.RequestRender(); }, "Edit " + item.Name) { Key = "edit" },
 			])
-			{ Key = item.Id });
+			{ Key = item.Id, Style = new Style { Padding = 12, Background = 0xFFF4F1EA, Radius = 10 } });
 		rows.Add(new Button("Add item", () => { state.EditingId = ""; state.DraftName = ""; state.DraftPacked = false; state.Editing = true; host.RequestRender(); }, "Add item") { Key = "add" });
 		rows.Add(new Button("Copy list", () => { host.CopyText("packing", state.ListText); host.Pulse(); }, "Copy list") { Key = "copy" });
 		rows.Add(new Button("Settings", () => { host.Push("settings"); host.RequestRender(); }, "Settings") { Key = "settings" });
 		rows.Add(new Button("Back", () => { host.Pop(); host.RequestRender(); }, "Back") { Key = "back" });
-		return new ScrollView(new Column(rows) { Key = "list" }) { Key = "scroll" };
+		return new ScrollView(new Column(rows) { Key = "list", Style = new Style { Gap = 8 } }) { Key = "scroll" };
 	}
 }

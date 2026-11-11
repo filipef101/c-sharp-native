@@ -1,4 +1,6 @@
 using Android.Content;
+using Android.Graphics;
+using Android.Graphics.Drawables;
 using Android.Text;
 using Android.Util;
 using Android.Views;
@@ -47,6 +49,11 @@ sealed class AndroidHost : IElementHost<View>
 				};
 			case ElementKind.List:
 				return new RowWindow(_activity);
+			case ElementKind.Image:
+				return new ImageView(_activity)
+				{
+					LayoutParameters = new ViewGroup.LayoutParams(Dp(24), Dp(24)),
+				};
 			default:
 				throw UnknownKind(kind);
 		}
@@ -109,6 +116,107 @@ sealed class AndroidHost : IElementHost<View>
 			_applyingText = false;
 			FieldFocus.Frozen = false;
 		}
+	}
+
+	public void SetStyle(View view, Style style)
+	{
+		var density = _activity.Resources?.DisplayMetrics?.Density ?? 1f;
+		int Px(int dp) => (int)(dp * density);
+		if (style.Padding != 0)
+		{
+			var pad = Px(style.Padding);
+			view.SetPadding(pad, pad, pad, pad);
+		}
+
+		if (view.LayoutParameters is ViewGroup.MarginLayoutParams margin)
+		{
+			if (style.Margin != 0)
+			{
+				var edge = Px(style.Margin);
+				margin.SetMargins(edge, edge, edge, edge);
+			}
+
+			if (margin is LinearLayout.LayoutParams linear && style.Grow > 0)
+			{
+				linear.Height = 0;
+				linear.Weight = style.Grow;
+			}
+
+			view.LayoutParameters = margin;
+		}
+
+		if (view is LinearLayout row)
+		{
+			if (style.Gap > 0)
+			{
+				var gap = Px(style.Gap);
+				var divider = new GradientDrawable();
+				divider.SetColor(Android.Graphics.Color.Transparent);
+				divider.SetSize(gap, gap);
+				row.SetDividerDrawable(divider);
+				row.ShowDividers = ShowDividers.Middle;
+			}
+
+			row.SetGravity(style.Align switch
+			{
+				Align.Center => GravityFlags.CenterHorizontal,
+				Align.End => GravityFlags.End,
+				Align.Stretch => GravityFlags.FillHorizontal,
+				Align.Start => GravityFlags.Start,
+				_ => throw new InvalidOperationException("Unknown alignment."),
+			});
+		}
+
+		if (view is TextView text)
+		{
+			text.Gravity = style.Align switch
+			{
+				Align.Center => GravityFlags.CenterHorizontal,
+				Align.End => GravityFlags.End,
+				Align.Stretch => GravityFlags.FillHorizontal,
+				Align.Start => GravityFlags.Start,
+				_ => throw new InvalidOperationException("Unknown alignment."),
+			};
+			if (style.FontSize > 0)
+				text.SetTextSize(ComplexUnitType.Sp, style.FontSize);
+			if (style.Weight == FontWeight.Bold)
+				text.SetTypeface(Typeface.DefaultBold, TypefaceStyle.Bold);
+			if (style.Color != 0)
+				text.SetTextColor(new Android.Graphics.Color(unchecked((int)style.Color)));
+		}
+
+		if (style.Background != 0 || style.Radius > 0)
+		{
+			var drawable = new GradientDrawable();
+			drawable.SetCornerRadius(Px(style.Radius));
+			drawable.SetColor(style.Background == 0
+				? Android.Graphics.Color.Transparent
+				: new Android.Graphics.Color(unchecked((int)style.Background)));
+			view.Background = drawable;
+		}
+	}
+
+	public void SetImage(View view, string source)
+	{
+		if (view is not ImageView image)
+			throw new InvalidOperationException("Image patch targeted a non-image view.");
+		var id = _activity.Resources?.GetIdentifier(source, "drawable", _activity.PackageName) ?? 0;
+		if (id == 0)
+			throw new InvalidOperationException("Drawable " + source + " was not found.");
+		image.SetImageResource(id);
+		image.ContentDescription = source;
+		if (image.LayoutParameters is ViewGroup.LayoutParams layout)
+		{
+			layout.Width = Dp(24);
+			layout.Height = Dp(24);
+			image.LayoutParameters = layout;
+		}
+	}
+
+	int Dp(int value)
+	{
+		var density = _activity.Resources?.DisplayMetrics?.Density ?? 1f;
+		return (int)(value * density);
 	}
 
 	public void SetList(View view, IReadOnlyList<Element> rows)
@@ -408,4 +516,9 @@ sealed class PlatformBridge : IPlatform
 	public void Push(string screen) => ScreenNav.Shared.Push(screen);
 
 	public void Pop() => ScreenNav.Shared.Pop();
+
+	public void Effect(string property, string resource) =>
+		EffectRuntime.Start(_activity, property, resource, () => _activity.RequestRender());
+
+	public void Every(string property) => ClockRuntime.Arm(property);
 }

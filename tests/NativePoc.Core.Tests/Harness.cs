@@ -35,6 +35,8 @@ sealed class MemoryNode
 
 	public bool Checked { get; set; }
 
+	public Style? Style { get; set; }
+
 	public List<MemoryNode> Children { get; } = new();
 }
 
@@ -74,6 +76,10 @@ sealed class MemoryHost : IElementHost<MemoryNode>
 	public void SetList(MemoryNode view, IReadOnlyList<Element> rows)
 	{
 	}
+
+	public void SetStyle(MemoryNode view, Style style) => view.Style = style;
+
+	public void SetImage(MemoryNode view, string source) => view.Text = source;
 
 	public void SetSwitch(MemoryNode view, bool value, string accessibilityLabel)
 	{

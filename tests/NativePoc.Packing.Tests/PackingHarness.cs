@@ -70,6 +70,14 @@ sealed class PackHost : IElementHost<PackNode>
 	{
 	}
 
+	public void SetStyle(PackNode view, Style style)
+	{
+	}
+
+	public void SetImage(PackNode view, string source)
+	{
+	}
+
 	public void SetSwitch(PackNode view, bool value, string accessibilityLabel)
 	{
 		view.Checked = value;

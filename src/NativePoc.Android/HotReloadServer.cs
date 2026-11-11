@@ -199,6 +199,7 @@ static class HotReloadServer
 		{
 			if (!ScreenProgram.IsRecord(dll))
 				throw new InvalidOperationException("The screen program is not a record.");
+			EffectGate.Shared.NoteReload();
 			var screenId = RecordProgram.ScreenId(dll);
 			if (screenId.Length == 0)
 				screenId = "screen";

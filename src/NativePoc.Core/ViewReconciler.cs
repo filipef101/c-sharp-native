@@ -19,6 +19,10 @@ public interface IElementHost<TView>
 
 	void SetList(TView view, IReadOnlyList<Element> rows);
 
+	void SetStyle(TView view, Style style);
+
+	void SetImage(TView view, string source);
+
 	void OnMounted(NodePath path, TView view);
 
 	void Retarget(NodePath path, TView view);
@@ -99,6 +103,12 @@ public sealed class ViewReconciler<TView>
 				return;
 			case SetList setList:
 				_host.SetList(ViewAt(setList.Path), setList.Rows);
+				return;
+			case SetStyle setStyle:
+				_host.SetStyle(ViewAt(setStyle.Path), setStyle.Style);
+				return;
+			case SetImage setImage:
+				_host.SetImage(ViewAt(setImage.Path), setImage.Source);
 				return;
 			case Reorder reorder:
 				ApplyReorder(reorder.Parent, reorder.Sources);

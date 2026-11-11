@@ -327,4 +327,9 @@ sealed class PackingPlatform : IPlatform
 	public void Push(string screen) => ScreenNav.Shared.Push(screen);
 
 	public void Pop() => ScreenNav.Shared.Pop();
+
+	public void Effect(string property, string resource) =>
+		EffectRuntime.Start(_activity, property, resource, () => _activity.RequestRender());
+
+	public void Every(string property) => ClockRuntime.Arm(property);
 }

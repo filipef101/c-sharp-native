@@ -107,6 +107,10 @@ public static class ScreenSnapshot
 				Key(builder, list.Key);
 				builder.Append(" count=").Append(list.Rows.Count.ToString(CultureInfo.InvariantCulture)).Append('\n');
 				return;
+			case Image image:
+				Key(builder, image.Key);
+				builder.Append(" source=").Append(Quote(image.Source)).Append('\n');
+				return;
 			default:
 				throw Unknown(element);
 		}
@@ -130,6 +134,8 @@ public static class ScreenSnapshot
 				return "scroll";
 			case ListView:
 				return "list";
+			case Image:
+				return "image";
 			default:
 				throw Unknown(element);
 		}
@@ -145,6 +151,7 @@ public static class ScreenSnapshot
 			Switch => "switch",
 			ScrollView => "scroll",
 			ListView => "list",
+			Image => "image",
 			_ => throw Unknown(element),
 		};
 

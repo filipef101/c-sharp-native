@@ -245,11 +245,76 @@ public sealed class SubsetLowererTests
 		Assert.Equal("list", tree.Key);
 	}
 
+	[Fact]
+	public void A_styled_text_and_an_image_lower_and_a_font_change_is_set_style()
+	{
+		const string source = """
+			namespace Demo;
+			public sealed class Board
+			{
+				public string Banner { get; set; } = "loading";
+				public int Tick { get; set; }
+			}
+			public static class BoardScreen
+			{
+				public const string ScreenId = "places";
+				public static Element Render(Board state, IPlatform platform)
+				{
+					platform.Effect("Banner", "places");
+					platform.Every("Tick");
+					return new Column(
+						new Text(state.Banner) { Key = "banner", Style = new Style { FontSize = 22, Weight = FontWeight.Bold, Color = 0xFF1B3A2F } },
+						new Image("marker") { Key = "marker" }
+					)
+					{ Key = "places", Style = new Style { Gap = 8, Padding = 12 } };
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var platform = new EffectPlatform();
+		var tree = RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag()).Render(platform);
+		Assert.Equal(["Banner", "Tick"], platform.Calls);
+		var column = Assert.IsType<Column>(tree);
+		Assert.Equal(8, column.Style!.Value.Gap);
+		Assert.Equal(12, column.Style.Value.Padding);
+		var banner = Assert.IsType<Text>(column.Children[0]);
+		Assert.Equal(22, banner.Style!.Value.FontSize);
+		Assert.Equal(FontWeight.Bold, banner.Style.Value.Weight);
+		Assert.Equal(0xFF1B3A2Fu, banner.Style.Value.Color);
+		Assert.Equal("marker", Assert.IsType<Image>(column.Children[1]).Source);
+
+		var edited = source.Replace("FontSize = 22", "FontSize = 18", StringComparison.Ordinal);
+		var again = SubsetLowerer.TryLower(edited);
+		Assert.True(again.Ok);
+		var next = RecordProgram.Bind(again.Program!, new RecordProgram.Bag()).Render(new EffectPlatform());
+		var patches = TreeDiff.Diff(tree, next);
+		Assert.Contains(patches, patch => patch is SetStyle set && set.Style.FontSize == 18);
+		Assert.DoesNotContain(patches, patch => patch is Replace);
+	}
+
 	static string TextValue(Element root, string id) =>
 		Assert.IsType<Text>(ElementIds.Require(root, id)).Value;
 
 	static string FieldValue(Element root, string id) =>
 		Assert.IsType<TextField>(ElementIds.Require(root, id)).Value;
+
+	sealed class EffectPlatform : IPlatform
+	{
+		public List<string> Calls { get; } = new();
+
+		public void CopyNonce(string nonce)
+		{
+		}
+
+		public void RequestRender()
+		{
+		}
+
+		public void Effect(string property, string resource) => Calls.Add(property);
+
+		public void Every(string property) => Calls.Add(property);
+	}
 
 	sealed class Platform : IPlatform
 	{

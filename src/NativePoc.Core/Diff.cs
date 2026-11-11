@@ -90,6 +90,10 @@ public sealed record Reorder(NodePath Parent, IReadOnlyList<int> Sources) : Patc
 
 public sealed record SetList(NodePath Path, IReadOnlyList<Element> Rows) : Patch;
 
+public sealed record SetStyle(NodePath Path, Style Style) : Patch;
+
+public sealed record SetImage(NodePath Path, string Source) : Patch;
+
 public static class TreeDiff
 {
 	public static List<Patch> Diff(Element? previous, Element next)
@@ -243,6 +247,8 @@ public static class TreeDiff
 
 	static void ApplyProps(Element? previous, Element next, NodePath path, List<Patch> patches)
 	{
+		if (next.Style is Style style && previous?.Style != style)
+			patches.Add(new SetStyle(path, style));
 		switch (next)
 		{
 			case Column:
@@ -281,6 +287,10 @@ public static class TreeDiff
 			case ListView list:
 				patches.Add(new SetList(path, list.Rows));
 				return;
+			case Image image:
+				if (previous is not Image previousImage || previousImage.Source != image.Source)
+					patches.Add(new SetImage(path, image.Source));
+				return;
 			default:
 				throw UnknownElement(next);
 		}
@@ -299,6 +309,7 @@ public static class TreeDiff
 			case Button:
 			case TextField:
 			case Switch:
+			case Image:
 				return Array.Empty<Element>();
 			default:
 				throw UnknownElement(element);
@@ -323,6 +334,8 @@ public static class TreeDiff
 				return ElementKind.Scroll;
 			case ListView:
 				return ElementKind.List;
+			case Image:
+				return ElementKind.Image;
 			default:
 				throw UnknownElement(element);
 		}

@@ -127,6 +127,25 @@ public sealed class LoopRuleTests
 			]));
 		Assert.True(ChangeEffectRules.IsPackingScreen("samples/NativePoc.Packing/PackingScreen.cs"));
 		Assert.False(ChangeEffectRules.IsPackingScreen("samples/NativePoc.Packing/PackingActions.cs"));
+		Assert.True(ChangeEffectRules.IsAppScreen("samples/hello/HelloScreen.cs"));
+		Assert.Equal(ChangeEffect.ReloadScreen, ChangeEffectRules.Classify(["samples/hello/HelloScreen.cs"]));
+		Assert.False(ChangeEffectRules.IsAppScreen("samples/NativePoc.Packing/PackingScreen.cs"));
+		Assert.False(ChangeEffectRules.IsAppScreen("samples/NativePoc.LongList/LongListScreen.cs"));
+	}
+
+	[Fact]
+	public void New_writes_a_screen_and_refuses_a_second_time()
+	{
+		var root = Directory.CreateTempSubdirectory("cnative-new-").FullName;
+		var file = NewLoop.Write(root, "hello");
+		Assert.Equal(Path.Combine(root, "samples", "hello", "HelloScreen.cs"), file);
+		var source = File.ReadAllText(file);
+		Assert.Contains("public const string ScreenId = \"hello\";", source, StringComparison.Ordinal);
+		Assert.Contains("new Button(\"Add\"", source, StringComparison.Ordinal);
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		Assert.Throws<UsageException>(() => NewLoop.Write(root, "hello"));
+		Assert.Throws<UsageException>(() => NewLoop.Write(root, "Hello"));
 	}
 
 	[Fact]

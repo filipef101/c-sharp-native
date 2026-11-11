@@ -21,7 +21,11 @@ The render body is one of:
 - a chain of `if (condition) return element;` ending in `return element;`
 - `var rows = new List<Element>();` with `Add` calls before and after one `foreach`, then `return` of a `ScrollView`, `ListView`, or column of that list
 
-Elements are `Text`, `Button`, `TextField`, `Switch`, `Column`, `ScrollView`, and `ListView`. A column's children are arguments or a collection expression. `Key` is a string literal, or an item string field (`Key = item.Id`). Keys in one parent are all set or all absent. `new ListView(rows) { Key = "..." }` is the recycled list.
+Elements are `Text`, `Button`, `TextField`, `Switch`, `Column`, `ScrollView`, `ListView`, and `Image`. A column's children are arguments or a collection expression. `Key` is a string literal, or an item string field (`Key = item.Id`). Keys in one parent are all set or all absent. `new ListView(rows) { Key = "..." }` is the recycled list. `new Image("marker")` names a drawable resource.
+
+An element may set `Style = new Style { ... }`. The fields are `Padding`, `Margin`, `Gap`, `Grow`, `Align` (`Align.Start`, `Align.Center`, `Align.End`, `Align.Stretch`), `FontSize`, `Weight` (`FontWeight.Regular`, `FontWeight.Bold`), `Radius`, `Color`, and `Background`. Numbers are dp except `FontSize`, which is sp. `Color` and `Background` are `0xAARRGGBB`. Zero means unset, so a styled child does not clear the root padding. A style-only edit is a `SetStyle` patch on the same view.
+
+The render body may start with `platform.Effect("Property", "resource")` and `platform.Every("Property")`. `Effect` names a string property and a local asset (`resource` + `.txt`). The host starts one task for that pair. A reload while the task is pending does not start a second task, and the task writes the property once. `Every` names an int property. It does not run a timer. `cnative agent clock` adds one to each armed property.
 
 Expressions are string literals, `+`, `$"..."` with holes of the same expressions, `condition ? a : b`, and parentheses. A condition is a bool property, `true` / `false`, `property.Length == 0`, or string equality. An int property interpolates as a decimal. `foreach` reads item string fields and item bools.
 
@@ -62,6 +66,7 @@ An action is a lambda. It may assign a property from the lambda argument, a lite
 | Switch | switch | `android.widget.Switch` | the label |
 | ScrollView | scroll | `android.widget.ScrollView` | none |
 | ListView | list | `android.widget.ScrollView` (20 slots) | none |
+| Image | image | `android.widget.ImageView` | the drawable name |
 
 `cnative agent a11y` prints `class`, `desc`, `text`, and `bounds` from `uiautomator dump`. A `tests/device` step `a11y <text>` asserts that dump.
 
@@ -69,4 +74,4 @@ An action is a lambda. It may assign a property from the lambda argument, a lite
 
 `cnative agent layout` prints `id`, `left`, `top`, `width`, and `height` for each element, from the mounted view. `cnative agent logs` prints `logcat -d --pid=<app> -s NativePoc:I NativePoc:W NativePoc:E` for the running process.
 
-No screen starts a timer or an animation. `cnative agent clock` therefore answers `animations=0` and `clock=0` on every call. A later timer has to advance only when that verb steps it, so a test can pin the frame.
+No screen starts an animation. `cnative agent clock` answers `animations=0`. When no screen has called `Every`, it also answers `clock=0`. After a screen arms an int with `Every`, each call adds one to that property and answers `clock=N`, where `N` is how many times the verb has stepped. The clock does not move between calls.

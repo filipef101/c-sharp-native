@@ -200,7 +200,11 @@ public sealed class MainActivity : Activity
 			case ScreenQuery.Layout:
 				return UiSurface.Layout();
 			case ScreenQuery.Clock:
-				return "animations=0\nclock=0\n";
+				return ClockRuntime.Step(() =>
+				{
+					RequestRender();
+					PackingActivity.RequestCurrent();
+				});
 			case ScreenQuery.Restore:
 				StateCheckpoint.ReadInto(payload.AsSpan(6), AppSession.Shared.State);
 				if (StateCheckpoint.TryReadPacking(payload.AsSpan(6), out var packing))

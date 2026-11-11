@@ -22,6 +22,7 @@ static class ArgParser
 {
 	public const string Usage =
 		"""
+		cnative new <name>
 		cnative run android [options]
 
 		  Build Debug, install it on the running emulator or device, launch it,
@@ -41,7 +42,7 @@ static class ArgParser
 		  cnative agent enter <id> <text>
 		  cnative agent a11y|layout|logs|clock
 		    a11y is the accessibility tree. layout is bounds per id.
-		    logs is the NativePoc logcat. clock is 0: no screen timer yet.
+		    logs is the NativePoc logcat. clock is 0 until a screen calls Every.
 		    --running drives the program on screen, not only Screen.cs.
 		  cnative lower <file> [--json] [--apply]
 		    Lower any screen in the documented subset. --json prints
