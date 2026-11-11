@@ -8,6 +8,18 @@ static class StateStore
 {
 	const string FileName = "nativepoc-state.bin";
 
+	public static void Delete(Context context)
+	{
+		try
+		{
+			context.DeleteFile(FileName);
+		}
+		catch (Exception ex) when (ex is IOException or Java.IO.IOException)
+		{
+			Log.Warn(MainActivity.Tag, "state-delete " + ex.GetType().Name);
+		}
+	}
+
 	public static void Save(Context context)
 	{
 		try

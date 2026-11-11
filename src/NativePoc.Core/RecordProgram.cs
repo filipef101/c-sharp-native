@@ -70,6 +70,49 @@ public static class RecordProgram
 	public const byte ActModule = 20;
 	public const byte ActDropRow = 21;
 	public const byte ActEffect = 22;
+	public const byte ActAddInt = 23;
+	public const byte ActNotBool = 24;
+	public const byte ActSetStrCat = 25;
+	public const byte ActIf = 26;
+	public const byte ActSetInt = 27;
+	public const byte ActLocal = 28;
+	public const byte ActAddRow = 29;
+	public const byte ActClearList = 30;
+	public const byte ActRemoveAt = 31;
+	public const byte ActSetBoolSlot = 32;
+	public const byte ActNotSlot = 33;
+
+	public const byte IntExprLit = 0;
+	public const byte IntExprProp = 1;
+	public const byte IntExprLocal = 2;
+	public const byte IntExprAdd = 3;
+	public const byte IntExprSub = 4;
+
+	public const byte StrLit = 0;
+	public const byte StrProp = 1;
+	public const byte StrInt = 2;
+	public const byte StrLocal = 3;
+	public const byte StrIntLocal = 4;
+
+	public const byte CondBool = 0;
+	public const byte CondNotBool = 1;
+	public const byte CondEmpty = 2;
+	public const byte CondPresent = 3;
+	public const byte CondStrEq = 4;
+	public const byte CondIntEq = 5;
+	public const byte CondIntNe = 6;
+	public const byte CondLocal = 7;
+	public const byte CondNotLocal = 8;
+	public const byte CondStrNe = 9;
+	public const byte CondLocalIntEq = 10;
+	public const byte CondLit = 11;
+
+	public const byte LocalInt = 1;
+	public const byte LocalStr = 2;
+	public const byte LocalBool = 3;
+
+	public const string CounterScreenId = "counter";
+	public const string PackingScreenId = "packing";
 
 	public const byte TypeString = 1;
 	public const byte TypeBool = 2;
@@ -97,17 +140,20 @@ public static class RecordProgram
 		readonly Bag _bag;
 		readonly string[] _names;
 
-		public Bound(Func<IPlatform, Element> render, string sourceHash, Bag bag, string[] names)
+		public Bound(Func<IPlatform, Element> render, string sourceHash, Bag bag, string[] names, string screenId)
 		{
 			Render = render;
 			SourceHash = sourceHash;
 			_bag = bag;
 			_names = names;
+			ScreenId = screenId;
 		}
 
 		public Func<IPlatform, Element> Render { get; }
 
 		public string SourceHash { get; }
+
+		public string ScreenId { get; }
 
 		public Bag State => _bag;
 
@@ -150,7 +196,117 @@ public static class RecordProgram
 			},
 			decoded.SourceHash,
 			bag,
-			names);
+			names,
+			ScreenIdOf(decoded));
+	}
+
+	public static bool SharesAppCounter(ReadOnlySpan<byte> payload) =>
+		string.Equals(ScreenId(payload), CounterScreenId, StringComparison.Ordinal);
+
+	public static bool SharesPacking(ReadOnlySpan<byte> payload) =>
+		string.Equals(ScreenId(payload), PackingScreenId, StringComparison.Ordinal);
+
+	public static void SeedAppCounter(ReadOnlySpan<byte> payload, Bag bag, int count, string name, bool greetingFirst, bool plainRoot)
+	{
+		ArgumentNullException.ThrowIfNull(bag);
+		if (!SharesAppCounter(payload))
+			return;
+		var names = Names(payload);
+		if (!ContainsName(names, "Count"))
+			return;
+		bag.SeedInt("Count", count);
+		if (ContainsName(names, "Name"))
+			bag.SeedString("Name", name ?? "");
+		if (ContainsName(names, "GreetingFirst"))
+			bag.SeedBool("GreetingFirst", greetingFirst);
+		if (ContainsName(names, "PlainRoot"))
+			bag.SeedBool("PlainRoot", plainRoot);
+	}
+
+	public static bool PublishAppCounter(Bound program, int count, string name, bool greetingFirst, bool plainRoot, out int nextCount, out string nextName, out bool nextGreeting, out bool nextPlain)
+	{
+		nextCount = count;
+		nextName = name ?? "";
+		nextGreeting = greetingFirst;
+		nextPlain = plainRoot;
+		if (!string.Equals(program.ScreenId, CounterScreenId, StringComparison.Ordinal) || !program.Has("Count"))
+			return false;
+		nextCount = program.State.ReadInt("Count");
+		if (program.Has("Name"))
+			nextName = program.State.ReadString("Name");
+		if (program.Has("GreetingFirst"))
+			nextGreeting = program.State.ReadBool("GreetingFirst");
+		if (program.Has("PlainRoot"))
+			nextPlain = program.State.ReadBool("PlainRoot");
+		return true;
+	}
+
+	public static string KeptNote(ReadOnlySpan<byte> payload, Bag bag)
+	{
+		ArgumentNullException.ThrowIfNull(bag);
+		var decoded = Decode(payload);
+		var parts = new List<string>();
+		foreach (var prop in decoded.Props)
+		{
+			var name = decoded.Strings[prop.Name];
+			switch (prop.Type)
+			{
+				case TypeString:
+					if (!bag.TryReadString(name, out var liveText))
+						continue;
+					var initialText = decoded.Strings[prop.Text];
+					if (!string.Equals(liveText, initialText, StringComparison.Ordinal))
+						parts.Add(name + "=\"" + OneLine(liveText) + "\" (initializer \"" + OneLine(initialText) + "\")");
+					break;
+				case TypeBool:
+					if (!bag.TryReadBool(name, out var liveFlag))
+						continue;
+					if (liveFlag != prop.Flag)
+						parts.Add(name + "=" + (liveFlag ? "true" : "false") + " (initializer " + (prop.Flag ? "true" : "false") + ")");
+					break;
+				case TypeInt:
+					if (!bag.TryReadInt(name, out var liveNumber))
+						continue;
+					if (liveNumber != prop.Number)
+						parts.Add(name + "=" + liveNumber.ToString(CultureInfo.InvariantCulture) + " (initializer " + prop.Number.ToString(CultureInfo.InvariantCulture) + ")");
+					break;
+			}
+		}
+
+		if (parts.Count == 0)
+			return "";
+		return "state kept " + string.Join(", ", parts) + ". cnative reset-state";
+	}
+
+	static string ScreenIdOf(Decoded decoded)
+	{
+		foreach (var prop in decoded.Props)
+		{
+			if (prop.Type == TypeScreen)
+				return decoded.Strings[prop.Text];
+		}
+
+		return "";
+	}
+
+	static bool ContainsName(string[] names, string name)
+	{
+		foreach (var item in names)
+		{
+			if (item == name)
+				return true;
+		}
+
+		return false;
+	}
+
+	static string OneLine(string value)
+	{
+		return value
+			.Replace("\\", "\\\\", StringComparison.Ordinal)
+			.Replace("\"", "\\\"", StringComparison.Ordinal)
+			.Replace("\r", "", StringComparison.Ordinal)
+			.Replace("\n", " ", StringComparison.Ordinal);
 	}
 
 	public static string[] Names(ReadOnlySpan<byte> payload) => NamesOf(Decode(payload));
@@ -971,8 +1127,13 @@ public static class RecordProgram
 		}
 	}
 
-	static void RunSteps(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId)
+	static void RunSteps(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId) =>
+		RunSteps(script, strings, bag, platform, text, flag, rowId, new HandlerFrame(), 0);
+
+	static void RunSteps(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId, HandlerFrame frame, int depth)
 	{
+		if (depth > 8)
+			throw new InvalidOperationException("Rejected record program.");
 		var ip = 0;
 		var steps = 0;
 		while (ip < script.Length)
@@ -1126,10 +1287,260 @@ public static class RecordProgram
 					platform.Effect(property, resource);
 					break;
 				}
+				case ActAddInt:
+				{
+					var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					bag.AddInt(name, ReadIntExpr(script, ref ip, strings, bag, frame));
+					break;
+				}
+				case ActNotBool:
+				{
+					var dest = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var source = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					bag.WriteBool(dest, !bag.ReadBool(source));
+					break;
+				}
+				case ActSetStrCat:
+				{
+					var dest = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					if (ip >= script.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var count = script[ip++];
+					var builder = new StringBuilder();
+					for (var index = 0; index < count; index++)
+						builder.Append(ReadStrPart(script, ref ip, strings, bag, frame));
+					bag.WriteString(dest, builder.ToString());
+					break;
+				}
+				case ActIf:
+				{
+					var condition = ReadCond(script, ref ip, strings, bag, frame);
+					var thenLen = TakeU16(script, ref ip, script.Length);
+					if (ip + thenLen > script.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var thenAt = ip;
+					ip += thenLen;
+					var elseLen = TakeU16(script, ref ip, script.Length);
+					if (ip + elseLen > script.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var elseAt = ip;
+					ip += elseLen;
+					var chosenAt = condition ? thenAt : elseAt;
+					var chosenLen = condition ? thenLen : elseLen;
+					if (chosenLen > 0)
+						RunSteps(script.AsSpan(chosenAt, chosenLen).ToArray(), strings, bag, platform, text, flag, rowId, frame, depth + 1);
+					break;
+				}
+				case ActSetInt:
+				{
+					var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					bag.WriteInt(name, ReadIntExpr(script, ref ip, strings, bag, frame));
+					break;
+				}
+				case ActLocal:
+				{
+					var slot = ReadSlot(script, ref ip);
+					if (ip >= script.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var type = script[ip++];
+					switch (type)
+					{
+						case LocalInt:
+							frame.Ints[slot] = ReadIntExpr(script, ref ip, strings, bag, frame);
+							break;
+						case LocalStr:
+							if (ip >= script.Length)
+								throw new InvalidOperationException("Rejected record program.");
+							var pieces = script[ip++];
+							var builder = new StringBuilder();
+							for (var index = 0; index < pieces; index++)
+								builder.Append(ReadStrPart(script, ref ip, strings, bag, frame));
+							frame.Strings[slot] = builder.ToString();
+							break;
+						case LocalBool:
+							frame.Flags[slot] = ReadCond(script, ref ip, strings, bag, frame);
+							break;
+						default:
+							throw new InvalidOperationException("Rejected record program.");
+					}
+
+					break;
+				}
+				case ActAddRow:
+				{
+					var list = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					if (ip >= script.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var width = script[ip++];
+					var cells = new string[width];
+					for (var index = 0; index < width; index++)
+						cells[index] = ReadStrPart(script, ref ip, strings, bag, frame);
+					bag.AddRow(list, cells);
+					break;
+				}
+				case ActClearList:
+					bag.ClearList(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]);
+					break;
+				case ActRemoveAt:
+				{
+					var list = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					bag.RemoveAt(list, ReadIntExpr(script, ref ip, strings, bag, frame));
+					break;
+				}
+				case ActSetBoolSlot:
+				{
+					var dest = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					bag.WriteBool(dest, frame.Flags[ReadSlot(script, ref ip)]);
+					break;
+				}
+				case ActNotSlot:
+				{
+					var dest = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					bag.WriteBool(dest, !frame.Flags[ReadSlot(script, ref ip)]);
+					break;
+				}
 				default:
 					throw new InvalidOperationException("Rejected record program.");
 			}
 		}
+	}
+
+	sealed class HandlerFrame
+	{
+		public readonly int[] Ints = new int[8];
+		public readonly string[] Strings = new string[8];
+		public readonly bool[] Flags = new bool[8];
+	}
+
+	static int ReadIntExpr(byte[] script, ref int ip, string[] strings, Bag bag, HandlerFrame frame)
+	{
+		if (ip >= script.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var tag = script[ip++];
+		switch (tag)
+		{
+			case IntExprLit:
+				return ReadI32(script, ref ip);
+			case IntExprProp:
+				return bag.ReadInt(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]);
+			case IntExprLocal:
+				return frame.Ints[ReadSlot(script, ref ip)];
+			case IntExprAdd:
+				return ReadIntExpr(script, ref ip, strings, bag, frame) + ReadIntExpr(script, ref ip, strings, bag, frame);
+			case IntExprSub:
+				return ReadIntExpr(script, ref ip, strings, bag, frame) - ReadIntExpr(script, ref ip, strings, bag, frame);
+			default:
+				throw new InvalidOperationException("Rejected record program.");
+		}
+	}
+
+	static string ReadStrPart(byte[] script, ref int ip, string[] strings, Bag bag, HandlerFrame frame)
+	{
+		if (ip >= script.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var kind = script[ip++];
+		switch (kind)
+		{
+			case StrLit:
+				return strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+			case StrProp:
+				return bag.ReadString(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]);
+			case StrInt:
+				return bag.ReadInt(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]).ToString(CultureInfo.InvariantCulture);
+			case StrLocal:
+				return frame.Strings[TakeSlot(script, ref ip)] ?? "";
+			case StrIntLocal:
+				return frame.Ints[TakeSlot(script, ref ip)].ToString(CultureInfo.InvariantCulture);
+			default:
+				throw new InvalidOperationException("Rejected record program.");
+		}
+	}
+
+	static bool ReadCond(byte[] script, ref int ip, string[] strings, Bag bag, HandlerFrame frame)
+	{
+		if (ip >= script.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var tag = script[ip++];
+		switch (tag)
+		{
+			case CondBool:
+				return bag.ReadBool(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]);
+			case CondNotBool:
+				return !bag.ReadBool(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]);
+			case CondEmpty:
+				return bag.ReadString(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]).Length == 0;
+			case CondPresent:
+				return bag.ReadString(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]).Length != 0;
+			case CondStrEq:
+			{
+				var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+				var literal = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+				return bag.ReadString(name) == literal;
+			}
+			case CondStrNe:
+			{
+				var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+				var literal = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+				return bag.ReadString(name) != literal;
+			}
+			case CondIntEq:
+			{
+				var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+				return bag.ReadInt(name) == ReadI32(script, ref ip);
+			}
+			case CondIntNe:
+			{
+				var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+				return bag.ReadInt(name) != ReadI32(script, ref ip);
+			}
+			case CondLocal:
+				return frame.Flags[ReadSlot(script, ref ip)];
+			case CondNotLocal:
+				return !frame.Flags[ReadSlot(script, ref ip)];
+			case CondLocalIntEq:
+			{
+				var slot = ReadSlot(script, ref ip);
+				return frame.Ints[slot] == ReadI32(script, ref ip);
+			}
+			case CondLit:
+			{
+				if (ip >= script.Length)
+					throw new InvalidOperationException("Rejected record program.");
+				var bit = script[ip++];
+				if (bit > 1)
+					throw new InvalidOperationException("Rejected record program.");
+				return bit == 1;
+			}
+			default:
+				throw new InvalidOperationException("Rejected record program.");
+		}
+	}
+
+	static int ReadI32(byte[] script, ref int ip)
+	{
+		if (ip + 4 > script.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var value = script[ip] | (script[ip + 1] << 8) | (script[ip + 2] << 16) | (script[ip + 3] << 24);
+		ip += 4;
+		return value;
+	}
+
+	static int ReadSlot(byte[] script, ref int ip)
+	{
+		if (ip >= script.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var slot = script[ip++];
+		if (slot > 7)
+			throw new InvalidOperationException("Rejected record program.");
+		return slot;
+	}
+
+	static int TakeSlot(byte[] script, ref int ip)
+	{
+		var slot = TakeU16(script, ref ip, script.Length);
+		if (slot > 7)
+			throw new InvalidOperationException("Rejected record program.");
+		return slot;
 	}
 
 	static bool CommitDraft(byte[] script, string[] strings, Bag bag, ref int ip)
@@ -1374,6 +1785,33 @@ public static class RecordProgram
 				return _numbers.TryGetValue(name, out var value) ? value : 0;
 		}
 
+		public bool TryReadString(string name, out string value)
+		{
+			lock (_gate)
+			{
+				if (_strings.TryGetValue(name, out var found))
+				{
+					value = found;
+					return true;
+				}
+			}
+
+			value = "";
+			return false;
+		}
+
+		public bool TryReadBool(string name, out bool value)
+		{
+			lock (_gate)
+				return _flags.TryGetValue(name, out value);
+		}
+
+		public bool TryReadInt(string name, out int value)
+		{
+			lock (_gate)
+				return _numbers.TryGetValue(name, out value);
+		}
+
 		public void WriteString(string name, string value)
 		{
 			lock (_gate)
@@ -1499,6 +1937,27 @@ public static class RecordProgram
 				}
 
 				rows.Add(cells);
+			}
+		}
+
+		public void ClearList(string name)
+		{
+			lock (_gate)
+			{
+				if (_lists.TryGetValue(name, out var rows))
+					rows.Clear();
+			}
+		}
+
+		public void RemoveAt(string name, int index)
+		{
+			lock (_gate)
+			{
+				if (!_lists.TryGetValue(name, out var rows))
+					return;
+				if ((uint)index >= (uint)rows.Count)
+					return;
+				rows.RemoveAt(index);
 			}
 		}
 

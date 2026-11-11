@@ -227,6 +227,29 @@ public sealed class MainActivity : Activity
 		return LastTitle;
 	}
 
+#if DEBUG
+	string ResetKeptState()
+	{
+		var state = AppSession.Shared.State;
+		state.Count = 0;
+		state.Name = "";
+		state.GreetingFirst = false;
+		state.PlainRoot = false;
+		PackingView.ResetToSeed();
+		StateStore.Delete(this);
+		ScreenNav.Shared.ResetBags();
+		ScreenNav.Shared.Prepare((program, bag) => RecordSession.Prepare(program, bag));
+		var top = ScreenNav.Shared.Top();
+		if (top is null)
+			return "state reset";
+		if (PackingActivity.Current is { HasWindowFocus: true })
+			PackingActivity.UseProgram(top.Value);
+		else
+			UseProgram(top.Value);
+		return "state reset";
+	}
+#endif
+
 	public string Answer(byte op, byte[] payload)
 	{
 		switch (op)
@@ -280,6 +303,12 @@ public sealed class MainActivity : Activity
 #if DEBUG
 				DevOverlay.Dismiss(this, log: true);
 				return "overlay dismissed";
+#else
+				throw new InvalidOperationException("Unknown screen query.");
+#endif
+			case ScreenQuery.Reset:
+#if DEBUG
+				return ResetKeptState();
 #else
 				throw new InvalidOperationException("Unknown screen query.");
 #endif

@@ -26,6 +26,21 @@ static class PackingView
 		};
 	}
 
+	public static void ResetToSeed()
+	{
+		var seed = PackingState.Seed();
+		var state = PackingSession.Shared.State;
+		state.Items.Clear();
+		foreach (var item in seed.Items)
+			state.Items.Add(new PackingItem(item.Id, item.Name, item.Packed));
+		state.Route = PackingRoute.List;
+		state.EditingId = null;
+		state.DraftName = "";
+		state.DraftNote = "";
+		state.DraftPacked = false;
+		state.NextNumber = seed.NextNumber;
+	}
+
 	public static void Apply(PackingCheckpoint checkpoint)
 	{
 		ArgumentNullException.ThrowIfNull(checkpoint);

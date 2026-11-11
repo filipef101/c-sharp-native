@@ -1,6 +1,6 @@
 # Screen program subset
 
-`cnative lower <file>` lowers any screen class that stays in the subset below. It does not look at the file name. `Screen.cs`, `PackingScreen.cs`, and `SettingsScreen.cs` all lower through this subset. The running activity applies the record with `UseProgram`. A counter program publishes `Count`, `Name`, `GreetingFirst`, and `PlainRoot` into `AppState`. A packing program publishes `Items`, `Editing`, and the draft fields into `PackingState`. There is no activity per screen and no per-screen lowerer.
+`cnative lower <file>` lowers any screen class that stays in the subset below. It does not look at the file name. `Screen.cs`, `PackingScreen.cs`, and `SettingsScreen.cs` all lower through this subset. The running activity applies the record with `UseProgram`. The screen whose id is `counter` publishes `Count`, `Name`, `GreetingFirst`, and `PlainRoot` into `AppState`. The screen whose id is `packing` publishes `Items`, `Editing`, and the draft fields into `PackingState`. Any other screen keeps those values in its own bag. There is no activity per screen and no per-screen lowerer.
 
 ```sh
 cnative lower samples/NativePoc.Settings/SettingsScreen.cs --json
@@ -31,7 +31,34 @@ The render body may start with `platform.Effect("Property", "resource")` and `pl
 
 Expressions are string literals, `+`, `$"..."` with holes of the same expressions, `condition ? a : b`, and parentheses. A condition is a bool property, `true` / `false`, `property.Length == 0`, or string equality. An int property interpolates as a decimal. `foreach` reads item string fields and item bools.
 
-An action is a lambda. It may assign a property from the lambda argument, a literal, or an item field, assign an item bool, use `property++` on an int, call `platform.RequestRender()`, call `platform.Pulse()`, call `platform.CopyNonce` with a string literal, a string property, or `"poc-" + state.Count`, call `platform.CopyText` with a literal label and the list text, call `platform.Push("screen-id")`, call `platform.Pop()`, or call `state.Commit()`. A `public const string ScreenId` names the screen on the stack. Each id keeps its own record across a reload. A `PackingTelemetry` increment inside an action is a no-op in the program. The C# method still increments.
+An action is a lambda. The running process interprets it with a switch in `RecordProgram.RunSteps`. That switch is compiled into the NativeAOT binary. An action does not call `Assembly.Load` and does not generate code.
+
+An action may:
+
+- assign a property from the lambda argument, a literal, a property of the same kind, or an item field
+- use `property++`, `++property`, `property--`, and `--property` on an int. Those are statements. `var n = ++state.Count` is refused
+- use `property += expr` and `property -= expr` on an int. `expr` is an int literal, an int property, an int local, unary minus, or `+` / `-` of those
+- use `flag = !flag`, `flag = !other`, and `flag = other` on bools
+- concatenate strings with `+`, `+=`, and `$"..."`. A hole is a literal, a string or int property, or a string or int local. An arithmetic hole is refused; assign it to a local first
+- use `value = condition ? a : b`, and `if (condition) statement else statement`. `if` nests at most eight deep
+- declare one local at a time, `var` or a typed name, of int, string, or bool. An action has eight slots. A local stays visible for the rest of that action. A second `var` of the same name is refused
+- call `list.Add(new T { Field = cell })`, `list.Clear()`, and `list.RemoveAt(index)` on a state list. A cell is a string literal, a string property, a string local, or a bool literal. A missing cell is `""` or `false`. `RemoveAt` past the end does nothing
+- call `platform.RequestRender()`, `platform.Pulse()`, `platform.CopyNonce` with a string literal, a string property, or `"poc-" + state.Count`, `platform.CopyText` with a literal label and the list text, `platform.Push("screen-id")`, `platform.Pop()`, and `platform.Effect`
+- call `state.Commit()` and, inside a foreach, `state.Drop(item)`
+- call `Haptics.Confirm`, `Share.Text`, `Clipboard.Copy`, `Storage.Set`, and `Theme.Mode` as in [platform-modules.md](platform-modules.md)
+
+A condition is a bool property, a bool local, `!` of those, `true`, `false`, `text.Length == 0`, `text.Length != 0`, `text == "literal"`, `text != "literal"`, `count == number`, or `count != number`. The property is on the left. An int local may use `==` against a literal.
+
+These stay refused. Each one is `subset.bad-lambda` because the switch has no opcode for it:
+
+- `*`, `/`, `%`, and `<`, `>`, `<=`, `>=`. The int expression is only a literal, a property, a local, or `+` / `-`
+- `for`, `while`, and `foreach` inside an action. The script is straight-line statements plus `if`, and each branch stops at 128 steps
+- `await`. An action does not start a task
+- a call that is not in the list above, including `state.Title.Trim()`. The switch does not look up methods
+- `?.`, `out`, `ref`, two names in one declaration, a list-typed local, and a nested lambda. A local is one slot
+- `list.Remove(item)` and assigning one list to another. A row leaves by index, or by `state.Drop(item)` on the row being drawn
+
+A `public const string ScreenId` names the screen on the stack. Each id keeps its own record across a reload. A `PackingTelemetry` increment inside an action is a no-op in the program. The C# method still increments.
 
 `cnative agent tree` prints one `stack N id` line per frame, from the bottom of the stack. The stack is also the `NAV` trailer after the STC1 packing note. The version byte stays 1 or 2. A checkpoint without that trailer still loads. Bytes that are not the trailer are rejected.
 
@@ -49,7 +76,7 @@ An action is a lambda. It may assign a property from the lambda argument, a lite
 | `subset.duplicate-key` | two children with the same literal key |
 | `subset.mixed-keys` | a parent mixes keyed and unkeyed children |
 
-A running `cnative run android` prints `path:line:column: id: message` and `The edit was not applied. The last program stays until relaunch.` The device overlay shows the same id and message. `--restart-on-rude` relaunches the installed process without publishing again, restores the checkpoint, and applies the last program that lowered. A Core or Android edit still rebuilds first. A parse error in a generated screen is `subset.not-a-screen` and uses that same relaunch. A parse error in `Screen.cs` is the compiler's `error CSxxxx` line, and that process stays up. Debug writes `files/nativepoc-state.bin` from `StateStore` on each render, including the nav bags, and the launch does not delete that file. A reload keeps a bag value when the property name and type are still there, so changing an initializer does not replace a title the screen is already showing. A string literal in the render does change.
+A running `cnative run android` prints `path:line:column: id: message` and `The edit was not applied. The last program stays until relaunch.` The device overlay shows the same id and message. `--restart-on-rude` relaunches the installed process without publishing again, restores the checkpoint, and applies the last program that lowered. A Core or Android edit still rebuilds first. A parse error in a generated screen is `subset.not-a-screen` and uses that same relaunch. A parse error in `Screen.cs` is the compiler's `error CSxxxx` line, and that process stays up. Debug writes `files/nativepoc-state.bin` from `StateStore` on each render, including the nav bags, and the launch does not delete that file. A reload keeps a bag value when the property name and type are still there, because `Seed*` writes only when the key is missing. Changing `"Hello"` to `"Hello again"` leaves the heading on `Hello`. The apply reply then adds one line, `state kept Title="Hello" (initializer "Hello again"). cnative reset-state`. Several kept properties share that line, separated by commas. A first show has no keys, so it prints no line. A string literal in the render does change. `cnative reset-state` zeros the counter `AppState`, restores the packing sample list, deletes `files/nativepoc-state.bin`, replaces every nav bag, and applies the screen on top again so the initializers show. The next render writes a new state file from that reset. Only the `counter` screen reads and writes `AppState`. Only the `packing` screen reads and writes the packing list. A generated `notes` screen with its own `Count` does not inherit the counter.
 
 ## Scroll
 

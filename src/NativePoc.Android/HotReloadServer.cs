@@ -204,6 +204,7 @@ static class HotReloadServer
 			if (screenId.Length == 0)
 				screenId = "screen";
 			var bag = ScreenNav.Shared.Bag(screenId);
+			var kept = RecordProgram.KeptNote(dll, bag);
 			RecordSession.Prepare(dll, bag);
 			ScreenNav.Shared.Show(dll);
 			var record = ScreenNav.Shared.Top() ?? RecordProgram.Bind(dll, bag);
@@ -213,6 +214,8 @@ static class HotReloadServer
 			else
 				programmed = activity.UseProgram(record);
 			var programmedMessage = programmed + " program=1";
+			if (kept.Length > 0)
+				programmedMessage += "\n" + kept;
 			Android.Util.Log.Info(MainActivity.Tag, "hotreload-applied " + programmedMessage);
 			return programmedMessage;
 		}

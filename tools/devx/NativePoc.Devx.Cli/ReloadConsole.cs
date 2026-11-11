@@ -17,10 +17,32 @@ static class ReloadConsole
 
 	public static IReadOnlyList<string> AppliedLines(double elapsedMs, double applyMs, string reply)
 	{
+		var note = "";
+		var split = reply.IndexOf('\n');
+		if (split >= 0)
+		{
+			var rest = reply[(split + 1)..].Trim();
+			if (rest.StartsWith("state kept ", StringComparison.Ordinal))
+			{
+				note = rest;
+				reply = reply[..split];
+			}
+		}
+
+		if (note.Length == 0)
+		{
+			return
+			[
+				string.Create(CultureInfo.InvariantCulture, $"reloaded in {elapsedMs:F1} ms (apply {applyMs:F1} ms)"),
+				"reply " + reply,
+			];
+		}
+
 		return
 		[
 			string.Create(CultureInfo.InvariantCulture, $"reloaded in {elapsedMs:F1} ms (apply {applyMs:F1} ms)"),
 			"reply " + reply,
+			note,
 		];
 	}
 

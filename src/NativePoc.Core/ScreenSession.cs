@@ -8,6 +8,7 @@ public sealed class ScreenSession : IPlatform
 	readonly List<string> _effects = new();
 	readonly List<string> _copies = new();
 	readonly List<string> _stack = new();
+	readonly List<string> _modules = new();
 	bool _requested;
 	bool _rendering;
 	Element? _root;
@@ -35,6 +36,8 @@ public sealed class ScreenSession : IPlatform
 	public IReadOnlyList<string> Copies => _copies;
 
 	public IReadOnlyList<string> Stack => _stack;
+
+	public IReadOnlyList<string> Modules => _modules;
 
 	public int Steps => _steps;
 
@@ -98,6 +101,8 @@ public sealed class ScreenSession : IPlatform
 	}
 
 	public void Effect(string property, string resource) => _effects.Add(property + "=" + resource);
+
+	public void Module(string module, string method, string[] args) => _modules.Add(module + "." + method);
 
 	public void Every(string property)
 	{

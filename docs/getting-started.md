@@ -35,13 +35,23 @@ That publishes the Debug NativeAOT listener (`dotnet publish -c Debug -f net10.0
 
 `cnative run android` without `--listener` is the Debug build (`-t:Run` in `AndroidBuild.DebugRun`). It does not publish NativeAOT. The reload below was the listener.
 
-Change the `"Count "` literal in `samples/hello/HelloScreen.cs` to `"Taps "` and save. The watcher lowers that file and applies it in the same process. The log line is `cnative: reload samples/hello/HelloScreen.cs`, then `reloaded in`. The heading is `state.Title`. A reload keeps a bag value when the name and type are still there, so changing the `"Hello"` initializer does not change a heading the screen is already showing.
+Change the `"Count "` literal in `samples/hello/HelloScreen.cs` to `"Taps "` and save. The watcher lowers that file and applies it in the same process. The log line is `cnative: reload samples/hello/HelloScreen.cs`, then `reloaded in`. The heading is `state.Title`.
+
+`state.Count += 1` in the Add handler reloads in that same process. `state.Count *= 2` does not: the log is `samples/hello/HelloScreen.cs:line:column: subset.bad-lambda: A screen action can update state, branch on it, change a list, or call the platform.` and `The edit was not applied. The last program stays until relaunch.`
+
+A reload keeps a bag value when the name and type are still there. Changing the `"Hello"` initializer to `"Hello again"` does not change a heading the screen is already showing. The apply reply adds one line: `state kept Title="Hello" (initializer "Hello again"). cnative reset-state`. From another terminal:
+
+```sh
+tools/devx/cnative reset-state
+```
+
+That clears the bags and `files/nativepoc-state.bin`, then shows the initializer. The listener has to be the process from `--listener` above. A `cnative new notes` screen has its own `Count`. It does not take the counter's count.
 
 `samples/NativePoc.Packing/PackingScreen.cs` and `src/NativePoc.Screen/Screen.cs` reload the same way. Only `src/NativePoc.Screen/Screen.cs` goes through the resident compiler, and that compiler's output is lowered before it is applied. A generated screen and the packing screen are lowered as programs. Other files need a rebuild.
 
 An edit the program cannot carry prints `path:line:column: id: message` and `The edit was not applied. The last program stays until relaunch.` `--restart-on-rude` relaunches the installed process, restores state, and applies the last program that lowered. It does not publish again. A Core or Android edit is rebuilt first. The ids are in [screen-program-subset.md](screen-program-subset.md).
 
-The listener run that checked these commands is [docs/devx/evidence/listener-new-screen.txt](devx/evidence/listener-new-screen.txt).
+The listener run that checked `+=`, the kept line, and `cnative reset-state` is [docs/devx/evidence/listener-handlers.txt](devx/evidence/listener-handlers.txt). Pid 3985, `IsDynamicCodeSupported=False`. An earlier walkthrough on pid 3242, from before `+=` was accepted, is [docs/devx/evidence/listener-new-screen.txt](devx/evidence/listener-new-screen.txt).
 
 ## Tests and the Android build
 

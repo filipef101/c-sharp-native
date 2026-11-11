@@ -7,19 +7,12 @@ static class RecordSession
 	public static void Prepare(ReadOnlySpan<byte> payload, RecordProgram.Bag bag)
 	{
 		ArgumentNullException.ThrowIfNull(bag);
-		var names = RecordProgram.Names(payload);
-		if (Has(names, "Count"))
-		{
-			var state = AppSession.Shared.State;
-			bag.SeedInt("Count", state.Count);
-			if (Has(names, "Name"))
-				bag.SeedString("Name", state.Name);
-			if (Has(names, "GreetingFirst"))
-				bag.SeedBool("GreetingFirst", state.GreetingFirst);
-			if (Has(names, "PlainRoot"))
-				bag.SeedBool("PlainRoot", state.PlainRoot);
-		}
+		var state = AppSession.Shared.State;
+		RecordProgram.SeedAppCounter(payload, bag, state.Count, state.Name, state.GreetingFirst, state.PlainRoot);
+		if (!RecordProgram.SharesPacking(payload))
+			return;
 
+		var names = RecordProgram.Names(payload);
 		var packing = PackingSession.Shared.State;
 		if (Has(names, "Editing"))
 			bag.SeedBool("Editing", packing.Route == PackingRoute.Editor);
@@ -44,19 +37,16 @@ static class RecordSession
 	public static void Publish(RecordProgram.Bound program)
 	{
 		var bag = program.State;
-		if (program.Has("Count"))
+		var state = AppSession.Shared.State;
+		if (RecordProgram.PublishAppCounter(program, state.Count, state.Name, state.GreetingFirst, state.PlainRoot, out var count, out var name, out var greetingFirst, out var plainRoot))
 		{
-			var state = AppSession.Shared.State;
-			state.Count = bag.ReadInt("Count");
-			if (program.Has("Name"))
-				state.Name = bag.ReadString("Name");
-			if (program.Has("GreetingFirst"))
-				state.GreetingFirst = bag.ReadBool("GreetingFirst");
-			if (program.Has("PlainRoot"))
-				state.PlainRoot = bag.ReadBool("PlainRoot");
+			state.Count = count;
+			state.Name = name;
+			state.GreetingFirst = greetingFirst;
+			state.PlainRoot = plainRoot;
 		}
 
-		if (!program.Has("Items") || !program.Has("Editing"))
+		if (!string.Equals(program.ScreenId, RecordProgram.PackingScreenId, StringComparison.Ordinal) || !program.Has("Items") || !program.Has("Editing"))
 			return;
 		var packing = PackingSession.Shared.State;
 		packing.Route = bag.ReadBool("Editing") ? PackingRoute.Editor : PackingRoute.List;

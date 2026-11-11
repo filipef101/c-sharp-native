@@ -24,6 +24,7 @@ static class ArgParser
 	public const string Usage =
 		"""
 		cnative new <name>
+		cnative reset-state [--device <serial>]
 		cnative run android [options]
 
 		  Build Debug, install it on the running emulator or device, launch it,
@@ -35,6 +36,9 @@ static class ArgParser
 		  A screen edit is lowered to a program the running process interprets.
 		  An edit the program cannot carry is refused. cnative prints
 		  file:line:column: id: message and leaves the last program up.
+		  When a live value differs from the initializer in the edit, cnative
+		  prints one "state kept" line. cnative reset-state clears the bags
+		  and files/nativepoc-state.bin, then shows those initializers.
 		  --restart-on-rude relaunches the installed process and restores
 		  state, then applies the last program that lowered. A Core or
 		  Android edit is rebuilt before that relaunch.

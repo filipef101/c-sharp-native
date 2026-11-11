@@ -1,0 +1,151 @@
+NativeAOT dev listener, widened handlers, emulator-run.
+AVD poc34, serial emulator-5554, API 34, x86_64, KVM.
+Host load at 21:18:06 UTC, before publish: 0.37 0.36 0.35.
+
+Debug listener publish, android-x64, NativePocDevListener=true.
+lib/x86_64/libNativePoc.Android.so is 9756560 bytes.
+Signed APK is 3683251 bytes, sha256 6cf694d7943d14bec2554703799d1b77909aa7a5ee75235723900ed113d212b5.
+The .so contains the UTF-16 text "state kept" and ". cnative reset-state". Built.
+
+One process, pid 3985. logcat:
+  runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False
+  hotreload-listen
+The pid was still 3985 after the last tap.
+
+cnative new hello, same pid:
+reloaded in 31.3 ms (apply 27.1 ms)
+reply Hello program=1 present=1
+agent tree: hello/title Hello, hello/count Count 0.
+
+Initializer "Hello" to "Hello again", same pid:
+reloaded in 11.0 ms (apply 9.1 ms)
+reply Hello program=1
+state kept Title="Hello" (initializer "Hello again"). cnative reset-state present=1
+agent tree stayed Hello, Count 0.
+
+cnative reset-state, same pid:
+state reset
+agent tree: hello/title Hello again, hello/count Count 0.
+
+state.Count += 1, same pid:
+reloaded in 28.4 ms (apply 23.8 ms)
+reply Hello again program=1 present=1
+press hello/add. Tree: Count 1.
+
+cnative new notes after that tap, same pid:
+reloaded in 23.9 ms (apply 21.9 ms)
+reply Hello program=1 present=1
+agent tree: notes/title Hello, notes/count Count 0.
+Hello's bag was Count 1. Notes did not inherit it. The Count 2 on pid 3730 was not a second handler. A program with a property named Count used to publish into AppState, notes seeded from that, one notes tap made 2, and files/nativepoc-state.bin restored the notes bag into pid 3730.
+
+state.Count -= 1:
+reloaded in 23.9 ms (apply 22.5 ms)
+state kept Count=1 (initializer 0). cnative reset-state present=1
+press hello/add. Tree: Count 0.
+
+state.Count--:
+reloaded in 28.1 ms (apply 26.6 ms)
+press hello/add. Tree: Count -1.
+
+++state.Count:
+reloaded in 18.9 ms (apply 17.7 ms)
+state kept Count=-1 (initializer 0). cnative reset-state present=1
+press hello/add. Tree: Count 0.
+
+state.Count = state.Count + 2:
+reloaded in 17.5 ms (apply 16.2 ms)
+press hello/add. Tree: Count 2.
+
+state.Title = state.Title + "!":
+reloaded in 27.3 ms (apply 25.5 ms)
+state kept Count=2 (initializer 0). cnative reset-state present=1
+press hello/add. Tree: Hello again!, Count 2.
+
+state.Title += "!":
+reloaded in 15.8 ms (apply 15.0 ms)
+state kept Count=2 (initializer 0), Title="Hello again!" (initializer "Hello again"). cnative reset-state present=1
+press hello/add. Tree: Hello again!!, Count 2.
+
+state.Title = $"{state.Title} {state.Count}":
+reloaded in 23.8 ms (apply 22.8 ms)
+state kept Count=2 (initializer 0), Title="Hello again!!" (initializer "Hello again"). cnative reset-state present=1
+press hello/add. Tree: Hello again!! 2, Count 2.
+
+state.Open = !state.Open; state.Title = state.Open ? "Yes" : "No":
+reloaded in 37.2 ms (apply 33.0 ms)
+state kept Count=2 (initializer 0), Title="Hello again!! 2" (initializer "Hello again"). cnative reset-state present=1
+First press: Yes, Count 2. Second press: No, Count 2.
+
+if (state.Open) state.Count += 5; else state.Open = !state.Open:
+reloaded in 21.6 ms (apply 19.2 ms)
+state kept Count=2 (initializer 0), Title="No" (initializer "Hello again"). cnative reset-state present=1
+First press: Count 2 (the else arm). Second press: Count 7.
+
+var next = state.Count + 1; var label = state.Title + " " + next; state.Count = next; state.Title = label:
+reloaded in 24.9 ms (apply 22.2 ms)
+state kept Count=7 (initializer 0), Open=true (initializer false), Title="No" (initializer "Hello again"). cnative reset-state present=1
+First press: No 8, Count 8. A second press of that same handler: No 8 9, Count 9.
+
+state.Count *= 2, same pid, refused:
+samples/hello/HelloScreen.cs:19:30: subset.bad-lambda: A screen action can update state, branch on it, change a list, or call the platform.
+The edit was not applied. The last program stays until relaunch.
+pass --restart-on-rude to relaunch and keep state
+pid stayed 3985. The answer to the restart prompt was n.
+
+Haptics.Confirm(platform); state.Count += 1:
+reloaded in 27.3 ms (apply 25.2 ms)
+press hello/add. Tree: Count 10.
+logcat: haptic-ok
+
+Share.Text(platform, state.Title):
+reloaded in 12.9 ms (apply 11.4 ms)
+press hello/add. Tree stayed No 8 9, Count 10.
+logcat: share-text chars=6
+
+Clipboard.Copy(platform, "form", state.Title):
+reloaded in 78.2 ms (apply 76.7 ms)
+present=0
+press hello/add returned InvalidOperationException: Clipboard round-trip failed.
+logcat: hotreload-error InvalidOperationException Clipboard round-trip failed.
+clipboard-ok was not logged. The handler was accepted. CopyText set the clip and the read-back did not match. Emulator-run of that round-trip: failed. The headless corpus still records the clipboard.Copy opcode.
+
+Storage.Set(platform, "title", state.Title); state.Count += 1:
+reloaded in 20.4 ms (apply 17.7 ms)
+present=0
+press hello/add. Tree: Count 11.
+logcat: storage-set key=title chars=6
+
+Theme.Mode(platform, state.Open); state.Count += 1:
+reloaded in 12.2 ms (apply 10.7 ms)
+present=0
+press hello/add. Tree: Count 12.
+logcat: storage-set key=theme chars=4
+logcat: theme mode=dark dark=1
+
+platform.Push("settings"):
+reloaded in 11.0 ms (apply 10.1 ms)
+present=0
+press hello/add. Tree: settings/mode Night, stack 5 settings.
+
+platform.Pop(), applied while settings was on top, so the apply showed hello again, then the tap popped that frame:
+reloaded in 16.0 ms (apply 15.2 ms)
+reply No 8 9 program=1
+present=0
+press hello/add. Tree returned to settings/mode Night.
+
+Notes list, same pid. Add:
+reloaded in 17.8 ms (apply 14.4 ms)
+reply Added 0 program=1 present=0
+press notes/add. Tree: Added 1, text Lantern.
+
+RemoveAt(0):
+reloaded in 10.6 ms (apply 9.6 ms)
+state kept Added=1 (initializer 0). cnative reset-state present=0
+press notes/add. Tree: Added 2, no Lantern row.
+
+Add then Clear:
+reloaded in 10.3 ms (apply 9.4 ms)
+state kept Added=2 (initializer 0). cnative reset-state present=0
+press notes/add. Tree: Added 3, no Lantern row.
+
+present=0 on the later replies is the listener reporting that the activity it would wait on did not have window focus, or the present wait was not armed. The agent tree after those replies is the tree above. Emulator-run.

@@ -800,6 +800,37 @@ static class AndroidLoop
 		return token;
 	}
 
+	internal static int ResetState(string[] args)
+	{
+		string? serial = null;
+		for (var index = 1; index < args.Length; index++)
+		{
+			if (args[index] == "--device" && index + 1 < args.Length && !args[index + 1].StartsWith('-'))
+			{
+				serial = args[++index];
+				continue;
+			}
+
+			throw new UsageException("Usage: cnative reset-state [--device <serial>]");
+		}
+
+		serial = ResolveSerial(serial);
+		var token = ReadTokenOnce(serial);
+		if (token.Hex.Length == 0)
+			throw new InvalidOperationException("The running process has no hot reload token.");
+		using var connection = new HotReloadConnection(serial, token.Hex);
+		var reply = connection.Apply(ScreenQuery.Ask(ScreenQuery.Reset));
+		if (!reply.Ok || reply.Text != "state reset")
+		{
+			Console.WriteLine("state was not reset: " + reply.Text);
+			return 1;
+		}
+
+		Adb(serial, "shell", "run-as", LaunchCommand.Package, "rm", "-f", "files/nativepoc-state.bin");
+		Console.WriteLine("state reset");
+		return 0;
+	}
+
 	internal static string ResolveSerial(string? requested)
 	{
 		var listed = ProcessRunner.Run("adb", ["devices"]);

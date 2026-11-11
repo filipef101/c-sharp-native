@@ -390,6 +390,15 @@ public sealed class ScreenNav
 		}
 	}
 
+	public void ResetBags()
+	{
+		lock (_gate)
+		{
+			foreach (var id in _bags.Keys.ToArray())
+				_bags[id] = new RecordProgram.Bag();
+		}
+	}
+
 	public void Restore(NavCheckpoint nav)
 	{
 		ArgumentNullException.ThrowIfNull(nav);

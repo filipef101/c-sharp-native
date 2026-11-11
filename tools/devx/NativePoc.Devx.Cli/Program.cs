@@ -12,6 +12,8 @@ try
 		return MeasureLoop.Run(args);
 	if (args.Length > 0 && args[0] == "test")
 		return TestLoop.Run(args);
+	if (args.Length > 0 && args[0] == "reset-state")
+		return AndroidLoop.ResetState(args);
 	var options = ArgParser.Parse(args);
 	if (options.Help)
 	{

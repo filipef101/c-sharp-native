@@ -364,6 +364,7 @@ public static class ScreenQuery
 	public const byte Fault = 9;
 	public const byte Dismiss = 10;
 	public const byte Swipe = 11;
+	public const byte Reset = 12;
 
 	public static bool IsQuery(ReadOnlySpan<byte> payload) =>
 		payload.Length >= 6
@@ -395,6 +396,7 @@ public static class ScreenQuery
 					throw new InvalidOperationException("Rejected screen query.");
 				return op;
 			case Dismiss:
+			case Reset:
 				if (payload.Length != 6)
 					throw new InvalidOperationException("Rejected screen query.");
 				return op;
