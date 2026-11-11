@@ -21,6 +21,7 @@ static class PackingView
 			NextNumber = state.NextNumber,
 			EditingId = state.EditingId,
 			DraftName = state.DraftName,
+			DraftNote = state.DraftNote,
 			Items = items,
 		};
 	}
@@ -37,5 +38,6 @@ static class PackingView
 		state.NextNumber = checkpoint.NextNumber;
 		state.EditingId = checkpoint.EditingId;
 		state.DraftName = checkpoint.DraftName;
+		state.DraftNote = checkpoint.DraftNote;
 	}
 }

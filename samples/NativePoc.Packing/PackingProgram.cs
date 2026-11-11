@@ -128,6 +128,8 @@ public sealed class PackingProgramAdapter : IPackingProgram
 
 	public string DraftName => _state.DraftName;
 
+	public string DraftNote => _state.DraftNote;
+
 	public bool DraftPacked => _state.DraftPacked;
 
 	public string ItemId(int index) => _state.Items[index].Id;
@@ -168,4 +170,98 @@ public sealed class PackingProgramAdapter : IPackingProgram
 	public void Back() => PackingActions.Back(_state, _host);
 
 	public void Copy() => PackingActions.Copy(_state, _host);
+
+	string? _trimmed;
+
+	public bool Apply(byte op, int itemIndex, bool argument, string? text)
+	{
+		switch (op)
+		{
+			case ScreenProgram.ActRender:
+				_host.RequestRender();
+				return true;
+			case ScreenProgram.ActRoute:
+				_state.Route = argument ? PackingRoute.Editor : PackingRoute.List;
+				return true;
+			case ScreenProgram.ActEditingClear:
+				_state.EditingId = null;
+				return true;
+			case ScreenProgram.ActEditingItem:
+				_state.EditingId = _state.Items[itemIndex].Id;
+				return true;
+			case ScreenProgram.ActDraftClear:
+				_state.DraftName = "";
+				return true;
+			case ScreenProgram.ActDraftFromItem:
+				_state.DraftName = _state.Items[itemIndex].Name;
+				return true;
+			case ScreenProgram.ActDraftPacked:
+				_state.DraftPacked = argument;
+				return true;
+			case ScreenProgram.ActDraftPackedItem:
+				_state.DraftPacked = _state.Items[itemIndex].Packed;
+				return true;
+			case ScreenProgram.ActDraftPackedArg:
+				_state.DraftPacked = argument;
+				return true;
+			case ScreenProgram.ActItemPackedArg:
+				_state.Items[itemIndex].Packed = argument;
+				return true;
+			case ScreenProgram.ActItemPackedDraft:
+			{
+				var editing = _state.EditingId ?? throw new InvalidOperationException("Packing item was not found.");
+				Find(editing).Packed = _state.DraftPacked;
+				return true;
+			}
+			case ScreenProgram.ActRename:
+			{
+				var id = _state.EditingId ?? throw new InvalidOperationException("Packing item was not found.");
+				var item = Find(id);
+				item.Name = _trimmed ?? _state.DraftName;
+				return true;
+			}
+			case ScreenProgram.ActTrimGate:
+				_trimmed = _state.DraftName.Trim();
+				return _trimmed.Length > 0;
+			case ScreenProgram.ActAdd:
+				_state.Items.Add(new PackingItem((text ?? "") + _state.NextNumber.ToString(System.Globalization.CultureInfo.InvariantCulture), _trimmed ?? _state.DraftName, _state.DraftPacked));
+				_state.NextNumber++;
+				_trimmed = null;
+				return true;
+			case ScreenProgram.ActRemove:
+				_state.Items.RemoveAt(itemIndex);
+				return true;
+			case ScreenProgram.ActCopy:
+				_host.Native.CopyText(text ?? "", _state.CopyText());
+				return true;
+			case ScreenProgram.ActPulse:
+				_host.Native.Pulse();
+				return true;
+			case ScreenProgram.ActCountSwitch:
+				PackingTelemetry.SwitchDeliveries++;
+				return true;
+			case ScreenProgram.ActCountField:
+				PackingTelemetry.FieldDeliveries++;
+				return true;
+			case ScreenProgram.ActDraftFromArg:
+				_state.DraftName = text ?? "";
+				return true;
+			case ScreenProgram.ActDraftNoteArg:
+				_state.DraftNote = text ?? "";
+				return true;
+			default:
+				throw new InvalidOperationException("Rejected packing action.");
+		}
+	}
+
+	PackingItem Find(string id)
+	{
+		foreach (var item in _state.Items)
+		{
+			if (item.Id == id)
+				return item;
+		}
+
+		throw new InvalidOperationException("Packing item was not found.");
+	}
 }

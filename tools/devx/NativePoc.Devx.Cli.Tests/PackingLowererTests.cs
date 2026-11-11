@@ -87,6 +87,69 @@ public sealed class PackingLowererTests
 		Assert.Throws<InvalidOperationException>(() => ScreenProgram.BindPacking(counter));
 	}
 
+	[Fact]
+	public void A_changed_add_and_a_changed_save_prefix_reload_as_behavior()
+	{
+		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Packing", "PackingScreen.cs"));
+		var edited = source
+			.Replace("state.DraftPacked = false;", "state.DraftPacked = true;", StringComparison.Ordinal)
+			.Replace("\"item-\" + state.NextNumber", "\"kit-\" + state.NextNumber", StringComparison.Ordinal);
+		var lowered = PackingLowerer.TryLower(edited);
+		Assert.Null(lowered.Reason);
+		var bound = ScreenProgram.BindPacking(lowered.Program!);
+		var state = PackingState.Seed();
+		var host = new PackingProgramAdapter(state, new Host());
+		ElementIds.Invoke(bound.Render(host), "list/add", null);
+		Assert.True(state.DraftPacked);
+		Assert.Equal(PackingRoute.Editor, state.Route);
+		state.DraftName = "Tarp";
+		ElementIds.Invoke(bound.Render(host), "editor/save", null);
+		Assert.Equal("kit-1", state.Items[^1].Id);
+		Assert.Equal("Tarp", state.Items[^1].Name);
+		Assert.True(state.Items[^1].Packed);
+		Assert.Equal(PackingRoute.List, state.Route);
+	}
+
+	[Fact]
+	public void Anything_past_toggle_rename_add_or_remove_is_refused()
+	{
+		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Packing", "PackingScreen.cs"));
+		var cleared = source.Replace(
+			"state.EditingId = null;",
+			"state.Items.Clear();\n\t\tstate.EditingId = null;",
+			StringComparison.Ordinal);
+		var lowered = PackingLowerer.TryLower(cleared);
+		Assert.Null(lowered.Program);
+		Assert.Equal("A packing action can toggle, rename, add, or remove.", lowered.Reason);
+	}
+
+	[Fact]
+	public void A_note_field_lowers_and_a_second_name_field_is_refused()
+	{
+		var source = File.ReadAllText(Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "NativePoc.Packing", "PackingScreen.cs"));
+		var note = source.Replace(
+			"{ Key = \"name\" },\n\t\t\tnew Switch(\n\t\t\t\tstate.DraftPacked,",
+			"{ Key = \"name\" },\n\t\t\tnew TextField(\n\t\t\t\tstate.DraftNote,\n\t\t\t\tvalue =>\n\t\t\t\t{\n\t\t\t\t\tstate.DraftNote = value;\n\t\t\t\t\thost.RequestRender();\n\t\t\t\t},\n\t\t\t\t\"Note\",\n\t\t\t\t\"Note\")\n\t\t\t{ Key = \"note\" },\n\t\t\tnew Switch(\n\t\t\t\tstate.DraftPacked,",
+			StringComparison.Ordinal);
+		var lowered = PackingLowerer.TryLower(note);
+		Assert.Null(lowered.Reason);
+		var bound = ScreenProgram.BindPacking(lowered.Program!);
+		var state = PackingState.Seed();
+		var host = new PackingProgramAdapter(state, new Host());
+		ElementIds.Invoke(bound.Render(host), "list/tent/edit", null);
+		ElementIds.Invoke(bound.Render(host), "editor/note", "hem");
+		Assert.Equal("hem", state.DraftNote);
+		Assert.Equal("Canvas tent", state.DraftName);
+
+		var again = source.Replace(
+			"{ Key = \"name\" },\n\t\t\tnew Switch(\n\t\t\t\tstate.DraftPacked,",
+			"{ Key = \"name\" },\n\t\t\tnew TextField(\n\t\t\t\tstate.DraftName,\n\t\t\t\tvalue =>\n\t\t\t\t{\n\t\t\t\t\tstate.DraftName = value;\n\t\t\t\t\thost.RequestRender();\n\t\t\t\t},\n\t\t\t\t\"Again\",\n\t\t\t\t\"Again\")\n\t\t\t{ Key = \"again\" },\n\t\t\tnew Switch(\n\t\t\t\tstate.DraftPacked,",
+			StringComparison.Ordinal);
+		var refused = PackingLowerer.TryLower(again);
+		Assert.Null(refused.Program);
+		Assert.Equal("The editor already has a name field.", refused.Reason);
+	}
+
 	static void AssertSame(Element expected, Element actual)
 	{
 		Assert.Equal(expected.Key, actual.Key);

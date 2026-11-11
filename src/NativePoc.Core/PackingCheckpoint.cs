@@ -17,12 +17,14 @@ public sealed class PackingCheckpoint
 
 	public string DraftName { get; init; } = "";
 
+	public string DraftNote { get; init; } = "";
+
 	public IReadOnlyList<PackingCheckpointItem> Items { get; init; } = [];
 
 	public static int Size(PackingCheckpoint packing)
 	{
 		ArgumentNullException.ThrowIfNull(packing);
-		var size = 1 + 1 + 4 + 2 + ByteCount(packing.EditingId) + 2 + ByteCount(packing.DraftName) + 2;
+		var size = 1 + 1 + 4 + 2 + ByteCount(packing.EditingId) + 2 + ByteCount(packing.DraftName) + 2 + 2 + ByteCount(packing.DraftNote);
 		foreach (var item in packing.Items)
 			size += 2 + ByteCount(item.Id) + 2 + ByteCount(item.Name) + 1;
 		return size;
@@ -49,6 +51,8 @@ public sealed class PackingCheckpoint
 			cursor = WriteText(payload, cursor, item.Name);
 			payload[cursor++] = item.Packed ? (byte)1 : (byte)0;
 		}
+
+		cursor = WriteText(payload, cursor, packing.DraftNote);
 	}
 
 	public static PackingCheckpoint Read(ReadOnlySpan<byte> payload, ref int cursor)
@@ -80,6 +84,9 @@ public sealed class PackingCheckpoint
 			items[index] = new PackingCheckpointItem(id, name, packed == 1);
 		}
 
+		var note = "";
+		if (cursor < payload.Length)
+			note = ReadText(payload, ref cursor) ?? "";
 		return new PackingCheckpoint
 		{
 			Editor = editor == 1,
@@ -87,6 +94,7 @@ public sealed class PackingCheckpoint
 			NextNumber = next,
 			EditingId = editing,
 			DraftName = draft ?? "",
+			DraftNote = note,
 			Items = items,
 		};
 	}
@@ -99,6 +107,7 @@ public sealed class PackingCheckpoint
 		builder.Append(CultureInfo.InvariantCulture, $"next={NextNumber}\n");
 		builder.Append("editing=").Append(EditingId is null ? "" : Hex(EditingId)).Append('\n');
 		builder.Append("draft=").Append(Hex(DraftName)).Append('\n');
+		builder.Append("note=").Append(Hex(DraftNote)).Append('\n');
 		foreach (var item in Items)
 		{
 			builder.Append("item=")
@@ -122,6 +131,7 @@ public sealed class PackingCheckpoint
 		int? next = null;
 		string? editingLine = null;
 		string? draftLine = null;
+		string? noteLine = null;
 		var items = new List<PackingCheckpointItem>();
 		foreach (var line in lines)
 		{
@@ -164,6 +174,12 @@ public sealed class PackingCheckpoint
 				continue;
 			}
 
+			if (Take(line, "note=", out var noteValue))
+			{
+				noteLine = noteValue;
+				continue;
+			}
+
 			if (!Take(line, "item=", out var itemValue))
 				continue;
 			var parts = itemValue.Split(' ');
@@ -190,6 +206,9 @@ public sealed class PackingCheckpoint
 		}
 		if (!Hex(draftLine, out var draft))
 			return false;
+		var note = "";
+		if (noteLine is not null && !Hex(noteLine, out note))
+			return false;
 		checkpoint = new PackingCheckpoint
 		{
 			Editor = route == "Editor",
@@ -197,6 +216,7 @@ public sealed class PackingCheckpoint
 			NextNumber = next.Value,
 			EditingId = editing,
 			DraftName = draft,
+			DraftNote = note,
 			Items = items,
 		};
 		return true;

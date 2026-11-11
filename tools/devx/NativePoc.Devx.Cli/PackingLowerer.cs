@@ -26,15 +26,17 @@ static class PackingLowerer
 
 	sealed record EditorTitle(string Key, string Newer, string Older) : Piece(Key);
 
-	sealed record DraftField(string Key, string Placeholder, string Label) : Piece(Key);
+	sealed record DraftField(string Key, string Placeholder, string Label, List<PackingActionLowerer.Act> Script, bool Note) : Piece(Key);
 
-	sealed record DraftPacked(string Key, string Label) : Piece(Key);
+	sealed record DraftPacked(string Key, string Label, List<PackingActionLowerer.Act> Script) : Piece(Key);
 
 	sealed record ActionButton(string Key, string Title, string Label, byte Code) : Piece(Key);
 
 	sealed record Progress(string Key, string Mid, string Suffix) : Piece(Key);
 
-	sealed record Rows(List<Piece> Children) : Piece("");
+	sealed record Rows(List<Piece> Children, List<PackingActionLowerer.Act> Packed) : Piece("");
+
+	const byte RemoveCode = 8;
 
 	readonly record struct Built(string Key, List<Piece> Pieces);
 
@@ -96,7 +98,7 @@ static class PackingLowerer
 			return LowerResult.Refuse(editorMember == "" ? "The editor needs View." : "A packing program cannot carry " + editorMember + ".");
 		if (Unexpected(list, "View") is string listMember)
 			return LowerResult.Refuse(listMember == "" ? "The packing list needs View." : "A packing program cannot carry " + listMember + ".");
-		if (Unexpected(actions, "BeginAdd", "BeginEdit", "Save", "Back", "Copy", "Find") is string actionMember)
+		if (Unexpected(actions, "BeginAdd", "BeginEdit", "Save", "Back", "Copy", "Find") is string actionMember && actionMember != "Remove")
 			return LowerResult.Refuse(actionMember == "" ? "The packing actions are incomplete." : "A packing program cannot carry " + actionMember + ".");
 		if (!Routes(screen, out var routeReason))
 			return LowerResult.Refuse(routeReason ?? "The packing screen has to show the list and the editor.");
@@ -120,10 +122,12 @@ static class PackingLowerer
 		var listBody = listBuilt.Value;
 		if (RequireList(listBody.Pieces) is string listProblem)
 			return LowerResult.Refuse(listProblem);
+		if (!PackingActionLowerer.TryMethods(actions, out var actionsScripts, out var actionReason))
+			return LowerResult.Refuse(actionReason ?? "A packing action can toggle, rename, add, or remove.");
 
 		try
 		{
-			return LowerResult.Ready(Emit(source, editorBody, listBody));
+			return LowerResult.Ready(Emit(source, editorBody, listBody, actionsScripts));
 		}
 		catch (InvalidOperationException ex)
 		{
@@ -131,13 +135,13 @@ static class PackingLowerer
 		}
 	}
 
-	static byte[] Emit(string source, Built editor, Built list)
+	static byte[] Emit(string source, Built editor, Built list, Dictionary<string, List<PackingActionLowerer.Act>> actions)
 	{
 		var writer = new ScreenProgram.Writer();
 		writer.PushEditor();
 		var listAt = writer.JumpIfFalse();
 		foreach (var piece in editor.Pieces)
-			EmitEditor(writer, piece);
+			EmitEditor(writer, piece, actions);
 		writer.MakeKeyedColumn((byte)editor.Pieces.Count, writer.Intern(editor.Key));
 		writer.Return();
 		writer.Patch(listAt, writer.Here);
@@ -148,13 +152,13 @@ static class PackingLowerer
 			{
 				var items = writer.BeginItems();
 				foreach (var child in rows.Children)
-					EmitRow(writer, child);
+					EmitRow(writer, child, rows, actions);
 				writer.MakeItemColumn((byte)rows.Children.Count);
 				writer.EndItems(items);
 				continue;
 			}
 
-			EmitList(writer, piece);
+			EmitList(writer, piece, actions);
 		}
 
 		writer.MakeDynamicColumn(writer.Intern(list.Key));
@@ -162,7 +166,7 @@ static class PackingLowerer
 		return writer.Finish(source, 1);
 	}
 
-	static void EmitEditor(ScreenProgram.Writer writer, Piece piece)
+	static void EmitEditor(ScreenProgram.Writer writer, Piece piece, Dictionary<string, List<PackingActionLowerer.Act>> actions)
 	{
 		switch (piece)
 		{
@@ -178,18 +182,21 @@ static class PackingLowerer
 				writer.MakeText(writer.Intern(title.Key));
 				return;
 			case DraftField field:
-				writer.PushDraftName();
+				if (field.Note)
+					writer.PushDraftNote();
+				else
+					writer.PushDraftName();
 				writer.PushString(writer.Intern(field.Placeholder));
 				writer.PushString(writer.Intern(field.Label));
-				writer.MakeDraftField(writer.Intern(field.Key));
+				writer.MakeScriptField(writer.Intern(field.Key), PackingActionLowerer.Encode(writer, field.Script));
 				return;
 			case DraftPacked packed:
 				writer.PushDraftPacked();
 				writer.PushString(writer.Intern(packed.Label));
-				writer.MakeSwitch(writer.Intern(packed.Key), ScreenProgram.PackDraftPacked);
+				writer.MakeScriptSwitch(writer.Intern(packed.Key), PackingActionLowerer.Encode(writer, packed.Script));
 				return;
 			case ActionButton button:
-				EmitAction(writer, button);
+				EmitAction(writer, button, actions);
 				return;
 			case LiteralText text:
 				EmitText(writer, text);
@@ -199,7 +206,7 @@ static class PackingLowerer
 		}
 	}
 
-	static void EmitList(ScreenProgram.Writer writer, Piece piece)
+	static void EmitList(ScreenProgram.Writer writer, Piece piece, Dictionary<string, List<PackingActionLowerer.Act>> actions)
 	{
 		switch (piece)
 		{
@@ -217,14 +224,14 @@ static class PackingLowerer
 				writer.MakeText(writer.Intern(progress.Key));
 				return;
 			case ActionButton button:
-				EmitAction(writer, button);
+				EmitAction(writer, button, actions);
 				return;
 			default:
 				throw new InvalidOperationException("The packing list has an element this program cannot carry.");
 		}
 	}
 
-	static void EmitRow(ScreenProgram.Writer writer, Piece piece)
+	static void EmitRow(ScreenProgram.Writer writer, Piece piece, Rows rows, Dictionary<string, List<PackingActionLowerer.Act>> actions)
 	{
 		switch (piece)
 		{
@@ -235,12 +242,17 @@ static class PackingLowerer
 			case ItemPacked packed:
 				writer.PushItemPacked();
 				EmitLabel(writer, packed.Prefix, packed.WithName);
-				writer.MakeSwitch(writer.Intern(packed.Key), ScreenProgram.PackItemPacked);
+				writer.MakeScriptSwitch(writer.Intern(packed.Key), PackingActionLowerer.Encode(writer, rows.Packed));
 				return;
 			case ItemEdit edit:
 				writer.PushString(writer.Intern(edit.Title));
 				EmitLabel(writer, edit.Prefix, edit.WithName);
-				writer.MakeActionButton(writer.Intern(edit.Key), ScreenProgram.PackEdit);
+				writer.MakeScriptButton(writer.Intern(edit.Key), PackingActionLowerer.Encode(writer, actions["BeginEdit"]));
+				return;
+			case ActionButton button when button.Code == RemoveCode:
+				writer.PushString(writer.Intern(button.Title));
+				writer.PushString(writer.Intern(button.Label));
+				writer.MakeScriptButton(writer.Intern(button.Key), PackingActionLowerer.Encode(writer, actions["Remove"]));
 				return;
 			case LiteralText text:
 				EmitText(writer, text);
@@ -263,11 +275,20 @@ static class PackingLowerer
 		writer.Concat();
 	}
 
-	static void EmitAction(ScreenProgram.Writer writer, ActionButton button)
+	static void EmitAction(ScreenProgram.Writer writer, ActionButton button, Dictionary<string, List<PackingActionLowerer.Act>> actions)
 	{
+		var name = button.Code switch
+		{
+			ScreenProgram.PackSave => "Save",
+			ScreenProgram.PackBack => "Back",
+			ScreenProgram.PackAdd => "BeginAdd",
+			ScreenProgram.PackCopy => "Copy",
+			RemoveCode => "Remove",
+			_ => throw new InvalidOperationException("A packing action can toggle, rename, add, or remove."),
+		};
 		writer.PushString(writer.Intern(button.Title));
 		writer.PushString(writer.Intern(button.Label));
-		writer.MakeActionButton(writer.Intern(button.Key), button.Code);
+		writer.MakeScriptButton(writer.Intern(button.Key), PackingActionLowerer.Encode(writer, actions[name]));
 	}
 
 	static void EmitText(ScreenProgram.Writer writer, LiteralText text)
@@ -390,9 +411,9 @@ static class PackingLowerer
 			var statement = statements[index];
 			if (statement is ForEachStatementSyntax)
 			{
-				if (!ValidLoop(statement, name, out reason))
+				if (!ValidLoop(statement, name, out var packed, out reason) || packed is null)
 					return false;
-				pieces.Add(new Rows(row));
+				pieces.Add(new Rows(row, packed));
 				continue;
 			}
 
@@ -555,7 +576,9 @@ static class PackingLowerer
 				return false;
 			}
 
-			piece = new DraftPacked(key, literal.Token.ValueText);
+			if (!PackingActionLowerer.TryLambda(lambda, out var script, out reason) || script is null)
+				return false;
+			piece = new DraftPacked(key, literal.Token.ValueText, script);
 			reason = null;
 			return true;
 		}
@@ -597,6 +620,19 @@ static class PackingLowerer
 
 		if (place == Place.Row)
 		{
+			if (action is LambdaExpressionSyntax remove && Calls(remove, "Remove"))
+			{
+				if (labelExpr is not LiteralExpressionSyntax removeLabel || !removeLabel.IsKind(SyntaxKind.StringLiteralExpression))
+				{
+					reason = "A button label has to be a literal.";
+					return false;
+				}
+
+				piece = new ActionButton(key, title.Token.ValueText, removeLabel.Token.ValueText, RemoveCode);
+				reason = null;
+				return true;
+			}
+
 			if (action is not IdentifierNameSyntax handler || handler.Identifier.ValueText != onEdit)
 			{
 				reason = "The edit button has to use the row edit.";
@@ -663,9 +699,7 @@ static class PackingLowerer
 		}
 
 		var args = creation.ArgumentList.Arguments;
-		if (!IsMember(args[0].Expression, "state", "DraftName")
-			|| args[1].Expression is not LambdaExpressionSyntax lambda
-			|| !Assigns(lambda, "DraftName")
+		if (args[1].Expression is not LambdaExpressionSyntax lambda
 			|| args[2].Expression is not LiteralExpressionSyntax placeholder
 			|| !placeholder.IsKind(SyntaxKind.StringLiteralExpression)
 			|| args[3].Expression is not LiteralExpressionSyntax label
@@ -675,7 +709,17 @@ static class PackingLowerer
 			return false;
 		}
 
-		piece = new DraftField(key, placeholder.Token.ValueText, label.Token.ValueText);
+		var note = IsMember(args[0].Expression, "state", "DraftNote");
+		var name = IsMember(args[0].Expression, "state", "DraftName");
+		if (name && !Assigns(lambda, "DraftName") || note && !Assigns(lambda, "DraftNote") || (!name && !note))
+		{
+			reason = "A packing program cannot carry that text field.";
+			return false;
+		}
+
+		if (!PackingActionLowerer.TryLambda(lambda, out var script, out reason) || script is null)
+			return false;
+		piece = new DraftField(key, placeholder.Token.ValueText, label.Token.ValueText, script, note);
 		reason = null;
 		return true;
 	}
@@ -759,8 +803,9 @@ static class PackingLowerer
 		return true;
 	}
 
-	static bool ValidLoop(StatementSyntax statement, string variable, out string? reason)
+	static bool ValidLoop(StatementSyntax statement, string variable, out List<PackingActionLowerer.Act>? packed, out string? reason)
 	{
+		packed = null;
 		reason = null;
 		if (statement is not ForEachStatementSyntax loop || !IsMember(loop.Expression, "state", "Items"))
 		{
@@ -812,12 +857,14 @@ static class PackingLowerer
 			return false;
 		}
 
-		if (args[2].Expression is not LambdaExpressionSyntax packed || !Assigns(packed, "Packed"))
+		if (args[2].Expression is not LambdaExpressionSyntax packedLambda || !Assigns(packedLambda, "Packed"))
 		{
 			reason = "The item loop has to write the packed flag.";
 			return false;
 		}
 
+		if (!PackingActionLowerer.TryLambda(packedLambda, out packed, out reason) || packed is null)
+			return false;
 		return true;
 	}
 
@@ -1062,6 +1109,8 @@ static class PackingLowerer
 				case ItemEdit:
 				case LiteralText:
 					break;
+				case ActionButton button when button.Code == RemoveCode:
+					break;
 				default:
 					return "The row has an element this program cannot carry.";
 			}
@@ -1074,10 +1123,22 @@ static class PackingLowerer
 	{
 		if (Count<EditorTitle>(pieces) != 1)
 			return "The editor title has to follow the editing id.";
-		if (Count<DraftField>(pieces) != 1)
-			return Count<DraftField>(pieces) == 0
+		var names = 0;
+		var notes = 0;
+		foreach (var piece in pieces)
+		{
+			if (piece is DraftField field && field.Note)
+				notes++;
+			else if (piece is DraftField)
+				names++;
+		}
+
+		if (names != 1)
+			return names == 0
 				? "The editor needs its name field."
 				: "The editor already has a name field.";
+		if (notes > 1)
+			return "The editor already has a note field.";
 		if (Count<DraftPacked>(pieces) != 1)
 			return "The editor needs its packed switch.";
 		if (CountAction(pieces, ScreenProgram.PackSave) != 1)

@@ -32,6 +32,8 @@ public sealed class PackingState
 
 	public string DraftName { get; set; } = "";
 
+	public string DraftNote { get; set; } = "";
+
 	public bool DraftPacked { get; set; }
 
 	public int NextNumber { get; set; } = 1;

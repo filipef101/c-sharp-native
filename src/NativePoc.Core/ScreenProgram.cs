@@ -44,6 +44,35 @@ public static partial class ScreenProgram
 	public const byte OpMakeSwitch = 30;
 	public const byte OpMakeActionButton = 31;
 	public const byte OpMakeDraftField = 32;
+	public const byte OpMakeScriptButton = 33;
+	public const byte OpMakeScriptSwitch = 34;
+	public const byte OpMakeScriptField = 35;
+	public const byte OpPushDraftNote = 36;
+
+	public const byte ActRender = 40;
+	public const byte ActRoute = 41;
+	public const byte ActEditingClear = 42;
+	public const byte ActEditingItem = 43;
+	public const byte ActDraftClear = 44;
+	public const byte ActDraftFromItem = 45;
+	public const byte ActDraftPacked = 46;
+	public const byte ActDraftPackedItem = 47;
+	public const byte ActDraftPackedArg = 48;
+	public const byte ActItemPackedArg = 49;
+	public const byte ActItemPackedDraft = 50;
+	public const byte ActRename = 51;
+	public const byte ActTrimGate = 52;
+	public const byte ActJumpIfEditing = 53;
+	public const byte ActJumpIfNew = 54;
+	public const byte ActJump = 55;
+	public const byte ActAdd = 56;
+	public const byte ActRemove = 57;
+	public const byte ActCopy = 58;
+	public const byte ActPulse = 59;
+	public const byte ActCountSwitch = 60;
+	public const byte ActCountField = 61;
+	public const byte ActDraftFromArg = 62;
+	public const byte ActDraftNoteArg = 63;
 
 	public const byte PackAdd = 1;
 	public const byte PackEdit = 2;
@@ -275,6 +304,14 @@ public static partial class ScreenProgram
 
 		public void MakeDraftField(int key) => EmitIndex(OpMakeDraftField, key);
 
+		public void PushDraftNote() => _code.Add(OpPushDraftNote);
+
+		public void MakeScriptButton(int key, ReadOnlySpan<byte> script) => EmitScript(OpMakeScriptButton, key, script);
+
+		public void MakeScriptSwitch(int key, ReadOnlySpan<byte> script) => EmitScript(OpMakeScriptSwitch, key, script);
+
+		public void MakeScriptField(int key, ReadOnlySpan<byte> script) => EmitScript(OpMakeScriptField, key, script);
+
 		public void Return() => _code.Add(OpReturn);
 
 		public byte[] Finish(string? source) => Finish(source, 0);
@@ -331,6 +368,16 @@ public static partial class ScreenProgram
 				throw new InvalidOperationException("A screen local is out of range.");
 			_code.Add(op);
 			_code.Add(slot);
+		}
+
+		void EmitScript(byte op, int key, ReadOnlySpan<byte> script)
+		{
+			if (script.Length == 0 || script.Length > MaxCode)
+				throw new InvalidOperationException("A packing action is empty.");
+			EmitIndex(op, key);
+			EmitU16(script.Length);
+			foreach (var item in script)
+				_code.Add(item);
 		}
 
 		void EmitIndex(byte op, int index)
@@ -579,6 +626,7 @@ public static partial class ScreenProgram
 				case OpPushItemCount:
 				case OpPushPackedCount:
 				case OpPushItemName:
+				case OpPushDraftNote:
 					PushKind(stack, ref sp, Kind.Str);
 					work.Enqueue(Copy(ip, stack, sp, locals));
 					break;
@@ -666,6 +714,38 @@ public static partial class ScreenProgram
 					PushKind(stack, ref sp, Kind.Elem);
 					work.Enqueue(Copy(ip, stack, sp, locals));
 					break;
+				case OpMakeScriptButton:
+				case OpMakeScriptSwitch:
+				case OpMakeScriptField:
+				{
+					Require(ref ip, code, 4);
+					var key = U16(code, ip - 4);
+					var length = U16(code, ip - 2);
+					if (key >= stringCount || length == 0 || ip + length > end)
+						throw new InvalidOperationException("Rejected screen program.");
+					VerifyScript(code, ip, ip + length, stringCount);
+					if (op == OpMakeScriptField)
+					{
+						PopKind(stack, ref sp, Kind.Str);
+						PopKind(stack, ref sp, Kind.Str);
+						PopKind(stack, ref sp, Kind.Str);
+					}
+					else if (op == OpMakeScriptSwitch)
+					{
+						PopKind(stack, ref sp, Kind.Str);
+						PopKind(stack, ref sp, Kind.Bool);
+					}
+					else
+					{
+						PopKind(stack, ref sp, Kind.Str);
+						PopKind(stack, ref sp, Kind.Str);
+					}
+
+					PushKind(stack, ref sp, Kind.Elem);
+					ip += length;
+					work.Enqueue(Copy(ip, stack, sp, locals));
+					break;
+				}
 				default:
 					throw new InvalidOperationException("Rejected screen program.");
 			}
@@ -934,6 +1014,9 @@ public static partial class ScreenProgram
 				case OpPushItemName:
 					stack[sp++] = Slot.Str(Rows().ItemName(itemIndex));
 					break;
+				case OpPushDraftNote:
+					stack[sp++] = Slot.Str(Rows().DraftNote);
+					break;
 				case OpPushItemPacked:
 					stack[sp++] = Slot.Bool(Rows().ItemPacked(itemIndex));
 					break;
@@ -1049,6 +1132,51 @@ public static partial class ScreenProgram
 					ip += 2;
 					break;
 				}
+				case OpMakeScriptButton:
+				case OpMakeScriptSwitch:
+				case OpMakeScriptField:
+				{
+					var key = strings[U16(code, ip)];
+					var length = U16(code, ip + 2);
+					var body = code.AsSpan(ip + 4, length).ToArray();
+					var index = itemIndex;
+					var rows = Rows();
+					if (op == OpMakeScriptField)
+					{
+						var label = stack[--sp].Text ?? "";
+						var placeholder = stack[--sp].Text ?? "";
+						var value = stack[--sp].Text ?? "";
+						stack[sp++] = Slot.Elem(new TextField(
+							value,
+							next => RunScript(rows, body, strings, index, false, next),
+							placeholder,
+							label)
+						{ Key = key });
+					}
+					else if (op == OpMakeScriptSwitch)
+					{
+						var label = stack[--sp].Text ?? "";
+						var value = stack[--sp].Flag;
+						stack[sp++] = Slot.Elem(new Switch(
+							value,
+							next => RunScript(rows, body, strings, index, next, null),
+							label)
+						{ Key = key });
+					}
+					else
+					{
+						var label = stack[--sp].Text ?? "";
+						var title = stack[--sp].Text ?? "";
+						stack[sp++] = Slot.Elem(new Button(
+							title,
+							() => RunScript(rows, body, strings, index, false, null),
+							label)
+						{ Key = key });
+					}
+
+					ip += 4 + length;
+					break;
+				}
 				default:
 					throw new InvalidOperationException("Rejected screen program.");
 			}
@@ -1069,6 +1197,136 @@ public static partial class ScreenProgram
 		for (var index = count - 1; index >= 0; index--)
 			children[index] = stack[--sp].Node ?? throw new InvalidOperationException("Screen program did not return.");
 		return new Column(children) { Key = key };
+	}
+
+	static void VerifyScript(byte[] code, int start, int end, int stringCount)
+	{
+		var ip = start;
+		while (ip < end)
+		{
+			var op = code[ip++];
+			switch (op)
+			{
+				case ActRender:
+				case ActEditingClear:
+				case ActEditingItem:
+				case ActDraftClear:
+				case ActDraftFromItem:
+				case ActDraftPackedItem:
+				case ActDraftPackedArg:
+				case ActItemPackedArg:
+				case ActItemPackedDraft:
+				case ActRename:
+				case ActTrimGate:
+				case ActRemove:
+				case ActPulse:
+				case ActCountSwitch:
+				case ActCountField:
+				case ActDraftFromArg:
+				case ActDraftNoteArg:
+					break;
+				case ActRoute:
+				case ActDraftPacked:
+					if (ip >= end || code[ip] > 1)
+						throw new InvalidOperationException("Rejected screen program.");
+					ip++;
+					break;
+				case ActJump:
+				case ActJumpIfEditing:
+				case ActJumpIfNew:
+				{
+					if (ip + 2 > end)
+						throw new InvalidOperationException("Rejected screen program.");
+					var relative = I16(code, ip);
+					var target = ip + 2 + relative;
+					if (relative <= 0 || target > end)
+						throw new InvalidOperationException("Rejected screen program.");
+					ip += 2;
+					break;
+				}
+				case ActAdd:
+				case ActCopy:
+					if (ip + 2 > end || U16(code, ip) >= stringCount)
+						throw new InvalidOperationException("Rejected screen program.");
+					ip += 2;
+					break;
+				default:
+					throw new InvalidOperationException("Rejected screen program.");
+			}
+		}
+	}
+
+	static void RunScript(IPackingProgram rows, byte[] script, string[] strings, int itemIndex, bool argument, string? text)
+	{
+		var ip = 0;
+		var steps = 0;
+		while (ip < script.Length)
+		{
+			if (++steps > MaxCode)
+				throw new InvalidOperationException("Rejected packing action.");
+			var op = script[ip++];
+			switch (op)
+			{
+				case ActJump:
+					ip += 2 + I16(script, ip);
+					break;
+				case ActJumpIfNew:
+				{
+					var relative = I16(script, ip);
+					ip += 2;
+					if (rows.EditingId is null)
+						ip += relative;
+					break;
+				}
+				case ActJumpIfEditing:
+				{
+					var relative = I16(script, ip);
+					ip += 2;
+					if (rows.EditingId is not null)
+						ip += relative;
+					break;
+				}
+				case ActRoute:
+				case ActDraftPacked:
+					if (!rows.Apply(op, itemIndex, script[ip++] == 1, null))
+						return;
+					break;
+				case ActAdd:
+				case ActCopy:
+				{
+					var value = strings[U16(script, ip)];
+					ip += 2;
+					if (!rows.Apply(op, itemIndex, argument, value))
+						return;
+					break;
+				}
+				case ActDraftFromArg:
+				case ActDraftNoteArg:
+					if (!rows.Apply(op, itemIndex, argument, text))
+						return;
+					break;
+				case ActRender:
+				case ActEditingClear:
+				case ActEditingItem:
+				case ActDraftClear:
+				case ActDraftFromItem:
+				case ActDraftPackedItem:
+				case ActDraftPackedArg:
+				case ActItemPackedArg:
+				case ActItemPackedDraft:
+				case ActRename:
+				case ActTrimGate:
+				case ActRemove:
+				case ActPulse:
+				case ActCountSwitch:
+				case ActCountField:
+					if (!rows.Apply(op, itemIndex, argument, null))
+						return;
+					break;
+				default:
+					throw new InvalidOperationException("Rejected packing action.");
+			}
+		}
 	}
 
 	static void RunPack(IPackingProgram rows, byte action, int index)

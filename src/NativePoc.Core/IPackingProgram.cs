@@ -12,6 +12,8 @@ public interface IPackingProgram
 
 	string DraftName { get; }
 
+	string DraftNote { get; }
+
 	bool DraftPacked { get; }
 
 	string ItemId(int index);
@@ -35,4 +37,6 @@ public interface IPackingProgram
 	void Back();
 
 	void Copy();
+
+	bool Apply(byte op, int itemIndex, bool argument, string? text);
 }
