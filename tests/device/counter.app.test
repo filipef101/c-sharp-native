@@ -1,0 +1,7 @@
+# Counter: type a name, tap save, read the checkpoint text.
+screen counter
+type name Ada
+tap save
+state count=1
+state name=416461
+tree id="save"

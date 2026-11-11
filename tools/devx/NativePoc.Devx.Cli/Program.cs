@@ -6,6 +6,8 @@ try
 		return AgentLoop.Run(args);
 	if (args.Length > 0 && args[0] == "measure")
 		return MeasureLoop.Run(args);
+	if (args.Length > 0 && args[0] == "test")
+		return TestLoop.Run(args);
 	var options = ArgParser.Parse(args);
 	if (options.Help)
 	{

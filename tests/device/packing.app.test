@@ -1,0 +1,5 @@
+# Packing: tap the tent packed switch and read the item line.
+screen packing
+tap list/tent/packed
+state item=74656e74 43616e7661732074656e74 true
+tree id="list/tent/packed"
