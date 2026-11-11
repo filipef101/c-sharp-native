@@ -602,6 +602,7 @@ public static partial class SubsetLowerer
 		Bool,
 		Int,
 		List,
+		Double,
 		FlagCount,
 		ListText,
 	}
@@ -837,7 +838,7 @@ public static partial class SubsetLowerer
 				if (invocation.ArgumentList.Arguments.Count != 1
 					|| invocation.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax tick
 					|| !tick.IsKind(SyntaxKind.StringLiteralExpression))
-					return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", invocation);
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 				var property = tick.Token.ValueText;
 				if (_fields.All(field => field.Name != property || field.Kind != ValueKind.Int))
 					return Fail(UnknownMember, "The screen subset does not include " + property + ".", invocation);
@@ -851,7 +852,7 @@ public static partial class SubsetLowerer
 				|| !propertyLiteral.IsKind(SyntaxKind.StringLiteralExpression)
 				|| invocation.ArgumentList.Arguments[1].Expression is not LiteralExpressionSyntax resourceLiteral
 				|| !resourceLiteral.IsKind(SyntaxKind.StringLiteralExpression))
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", invocation);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			var target = propertyLiteral.Token.ValueText;
 			if (_fields.All(field => field.Name != target || field.Kind != ValueKind.Str))
 				return Fail(UnknownMember, "The screen subset does not include " + target + ".", invocation);
@@ -1145,7 +1146,7 @@ public static partial class SubsetLowerer
 				if (!TextValue(args[0].Expression))
 					return false;
 				if (args[1].Expression is not LambdaExpressionSyntax fieldLambda)
-					return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", args[1].Expression);
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", args[1].Expression);
 				if (!TextValue(args[2].Expression) || !TextValue(args[3].Expression))
 					return false;
 				if (!Script(fieldLambda, out script))
@@ -1156,7 +1157,7 @@ public static partial class SubsetLowerer
 				if (!Bool(args[0].Expression))
 					return false;
 				if (args[1].Expression is not LambdaExpressionSyntax switchLambda)
-					return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", args[1].Expression);
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", args[1].Expression);
 				if (!TextValue(args[2].Expression))
 					return false;
 				if (!Script(switchLambda, out script))
@@ -1167,7 +1168,7 @@ public static partial class SubsetLowerer
 				if (!TextValue(args[0].Expression))
 					return false;
 				if (args[1].Expression is not LambdaExpressionSyntax buttonLambda)
-					return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", args[1].Expression);
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", args[1].Expression);
 				if (!TextValue(args[2].Expression))
 					return false;
 				if (!Script(buttonLambda, out script))
@@ -1186,7 +1187,7 @@ public static partial class SubsetLowerer
 			if (!keys.Add(this, key, false, creation))
 				return false;
 			if (script.Length == 0)
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", creation);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", creation);
 			_code.Op(op);
 			_code.U16(key);
 			_code.U16(script.Length);
@@ -1566,7 +1567,7 @@ public static partial class SubsetLowerer
 					}
 
 					if (assignment.Right is not LambdaExpressionSyntax eventLambda || !Script(eventLambda, out var eventScript) || eventScript.Length == 0)
-						return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", assignment.Right);
+						return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", assignment.Right);
 					_pendingEventScript = eventScript;
 					continue;
 				}
@@ -1574,9 +1575,9 @@ public static partial class SubsetLowerer
 				if (name.Identifier.ValueText is "OnTap" or "OnLongPress" or "OnSwipe" or "OnRefresh")
 				{
 					if (assignment.Right is not LambdaExpressionSyntax gestureLambda)
-						return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", assignment.Right);
+						return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", assignment.Right);
 					if (!Script(gestureLambda, out var gestureScript) || gestureScript.Length == 0)
-						return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", assignment);
+						return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", assignment);
 					var kind = name.Identifier.ValueText switch
 					{
 						"OnTap" => Gestures.Tap,
@@ -1760,7 +1761,7 @@ public static partial class SubsetLowerer
 						|| Fail(UnknownMember, "The screen subset does not include an element initializer.", expression);
 				case "OnSubmit":
 					if (expression is not LambdaExpressionSyntax lambda || !Script(lambda, out var script))
-						return expression is LambdaExpressionSyntax ? false : Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", expression);
+						return expression is LambdaExpressionSyntax ? false : Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", expression);
 					_pendingSubmitScript = script;
 					return true;
 				default:
@@ -1926,11 +1927,13 @@ public static partial class SubsetLowerer
 				_ => null,
 			};
 			if (parameter is null)
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", lambda);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", lambda);
 			var savedLocals = _locals;
 			var savedSlots = _localSlots;
+			var savedBound = _boundRows;
 			_locals = new Dictionary<string, (byte Slot, ValueKind Kind)>(StringComparer.Ordinal);
 			_localSlots = 0;
+			_boundRows = null;
 			try
 			{
 				var bytes = new List<byte>();
@@ -1948,7 +1951,7 @@ public static partial class SubsetLowerer
 					}
 				}
 				else
-					return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", lambda);
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", lambda);
 
 				script = bytes.ToArray();
 				return true;
@@ -1957,6 +1960,7 @@ public static partial class SubsetLowerer
 			{
 				_locals = savedLocals;
 				_localSlots = savedSlots;
+				_boundRows = savedBound;
 			}
 		}
 
@@ -1971,19 +1975,19 @@ public static partial class SubsetLowerer
 					&& telemetryOwner.Identifier.ValueText == "PackingTelemetry":
 					return true;
 				case AssignmentExpressionSyntax compound when compound.IsKind(SyntaxKind.AddAssignmentExpression) || compound.IsKind(SyntaxKind.SubtractAssignmentExpression):
-					return Compound(compound, script);
+					return Compound(compound, script) || VmExprStatement(compound, parameter, script);
 				case PostfixUnaryExpressionSyntax postfix when postfix.IsKind(SyntaxKind.PostIncrementExpression):
-					return Increment(postfix.Operand, script);
+					return Increment(postfix.Operand, script) || VmExprStatement(postfix, parameter, script);
 				case PostfixUnaryExpressionSyntax postfix when postfix.IsKind(SyntaxKind.PostDecrementExpression):
-					return Decrement(postfix.Operand, script);
+					return Decrement(postfix.Operand, script) || VmExprStatement(postfix, parameter, script);
 				case PrefixUnaryExpressionSyntax prefix when prefix.IsKind(SyntaxKind.PreIncrementExpression):
-					return Increment(prefix.Operand, script);
+					return Increment(prefix.Operand, script) || VmExprStatement(prefix, parameter, script);
 				case PrefixUnaryExpressionSyntax prefix when prefix.IsKind(SyntaxKind.PreDecrementExpression):
-					return Decrement(prefix.Operand, script);
+					return Decrement(prefix.Operand, script) || VmExprStatement(prefix, parameter, script);
 				case InvocationExpressionSyntax invocation:
 					return Call(invocation, parameter, script);
 				default:
-					return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", expression);
+					return VmExprStatement(expression, parameter, script);
 			}
 		}
 
@@ -1998,7 +2002,7 @@ public static partial class SubsetLowerer
 			{
 				var index = _itemFields.FindIndex(candidate => candidate.Name == itemMember.Name.Identifier.ValueText && candidate.Kind == ValueKind.Bool);
 				if (index < 0 || _listName.Length == 0)
-					return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", assignment);
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", assignment);
 				Act(script, RecordProgram.ActSetRowBool, _code.Intern(_listName));
 				U16(script, index);
 				return true;
@@ -2013,7 +2017,7 @@ public static partial class SubsetLowerer
 			{
 				var index = _itemFields.FindIndex(candidate => candidate.Name == right.Name.Identifier.ValueText);
 				if (index < 0 || _listName.Length == 0)
-					return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", assignment);
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", assignment);
 				if (target.Kind == ValueKind.Str && _itemFields[index].Kind == ValueKind.Str)
 				{
 					Act(script, RecordProgram.ActTakeStr, _code.Intern(target.Name));
@@ -2030,18 +2034,18 @@ public static partial class SubsetLowerer
 					return true;
 				}
 
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", assignment);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", assignment);
 			}
 
 			if (assignment.Left is not MemberAccessExpressionSyntax member || !Member(member, out var field))
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", assignment);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", assignment);
 			if (assignment.Right is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == parameter && parameter.Length > 0)
 			{
 				if (field.Kind == ValueKind.Str)
 					return Act(script, RecordProgram.ActSetStr, _code.Intern(field.Name));
 				if (field.Kind == ValueKind.Bool)
 					return Act(script, RecordProgram.ActSetBool, _code.Intern(field.Name));
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", assignment);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", assignment);
 			}
 
 			if (assignment.Right is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression) && field.Kind == ValueKind.Str)
@@ -2086,7 +2090,13 @@ public static partial class SubsetLowerer
 			}
 
 			if (assignment.Right is ConditionalExpressionSyntax branch)
-				return Ternary(field, branch, script);
+			{
+				var mark = Errors.Count;
+				if (Ternary(field, branch, script))
+					return true;
+				if (Errors.Count > mark)
+					return false;
+			}
 			if (field.Kind == ValueKind.Int && WriteIntExpr(assignment.Right, out var intExpr))
 			{
 				script.Add(RecordProgram.ActSetInt);
@@ -2109,7 +2119,7 @@ public static partial class SubsetLowerer
 			if (field.Kind == ValueKind.Bool && BoolSource(assignment.Right, script, field.Name))
 				return true;
 
-			return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", assignment);
+			return VmStore(field, assignment.Right, script);
 		}
 
 		bool LengthOf(BinaryExpressionSyntax binary, out string source)
@@ -2131,7 +2141,7 @@ public static partial class SubsetLowerer
 		bool Increment(ExpressionSyntax operand, List<byte> script)
 		{
 			if (operand is not MemberAccessExpressionSyntax member || !Member(member, out var field) || field.Kind != ValueKind.Int)
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", operand);
+				return false;
 			return Act(script, RecordProgram.ActInc, _code.Intern(field.Name));
 		}
 
@@ -2145,7 +2155,7 @@ public static partial class SubsetLowerer
 				&& ListField(listTarget.Name.Identifier.ValueText, out var listField))
 				return ListMutate(listField, listCall.Name.Identifier.ValueText, invocation, script);
 			if (invocation.Expression is not MemberAccessExpressionSyntax member || member.Expression is not IdentifierNameSyntax owner)
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", invocation);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			if (owner.Identifier.ValueText == _state && member.Name.Identifier.ValueText == "Drop")
 				return DropRow(invocation, script);
 			if (owner.Identifier.ValueText == _state && _methods.ContainsKey(_stateType + "." + member.Name.Identifier.ValueText))
@@ -2155,7 +2165,7 @@ public static partial class SubsetLowerer
 			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme")
 				return ModuleCall(owner.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, script);
 			if (owner.Identifier.ValueText != _platform)
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", invocation);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			if (member.Name.Identifier.ValueText == "RequestRender" && invocation.ArgumentList.Arguments.Count == 0)
 			{
 				script.Add(RecordProgram.ActRender);
@@ -2177,7 +2187,7 @@ public static partial class SubsetLowerer
 				if (invocation.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax pushed
 					|| !pushed.IsKind(SyntaxKind.StringLiteralExpression)
 					|| pushed.Token.ValueText.Length == 0)
-					return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", invocation);
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 				Act(script, RecordProgram.ActPush, _code.Intern(pushed.Token.ValueText));
 				return true;
 			}
@@ -2191,7 +2201,7 @@ public static partial class SubsetLowerer
 			if (member.Name.Identifier.ValueText == "Effect" && invocation.ArgumentList.Arguments.Count == 2)
 				return EffectAction(invocation, script);
 
-			return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", invocation);
+			return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 		}
 
 		bool DropRow(InvocationExpressionSyntax invocation, List<byte> script)
@@ -2203,10 +2213,10 @@ public static partial class SubsetLowerer
 				|| _item.Length == 0
 				|| _listName.Length == 0
 				|| _itemFields is null)
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", invocation);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			var id = _itemFields.FindIndex(field => field.Name == "Id");
 			if (id < 0)
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", invocation);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			Act(script, RecordProgram.ActDropRow, _code.Intern(_listName));
 			U16(script, id);
 			return true;
@@ -2219,7 +2229,7 @@ public static partial class SubsetLowerer
 				|| !property.IsKind(SyntaxKind.StringLiteralExpression)
 				|| args[1].Expression is not LiteralExpressionSyntax resource
 				|| !resource.IsKind(SyntaxKind.StringLiteralExpression))
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", invocation);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			var name = property.Token.ValueText;
 			if (_fields.All(field => field.Name != name || field.Kind != ValueKind.Str))
 				return Fail(UnknownMember, "The screen subset does not include " + name + ".", invocation);
@@ -2233,7 +2243,7 @@ public static partial class SubsetLowerer
 		{
 			var args = invocation.ArgumentList.Arguments;
 			if (args.Count == 0 || args[0].Expression is not IdentifierNameSyntax platform || platform.Identifier.ValueText != _platform)
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", invocation);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			var encoded = new List<(byte Kind, int Index)>();
 			if (module == "Haptics" && method == "Confirm" && args.Count == 1)
 			{
@@ -2246,7 +2256,7 @@ public static partial class SubsetLowerer
 			else if (module == "Clipboard" && method == "Copy" && args.Count == 3)
 			{
 				if (args[1].Expression is not LiteralExpressionSyntax label || !label.IsKind(SyntaxKind.StringLiteralExpression))
-					return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", args[1].Expression);
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", args[1].Expression);
 				encoded.Add((0, _code.Intern(label.Token.ValueText)));
 				if (!ModuleArg(args[2].Expression, encoded))
 					return false;
@@ -2254,7 +2264,7 @@ public static partial class SubsetLowerer
 			else if (module == "Storage" && method == "Set" && args.Count == 3)
 			{
 				if (args[1].Expression is not LiteralExpressionSyntax key || !key.IsKind(SyntaxKind.StringLiteralExpression))
-					return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", args[1].Expression);
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", args[1].Expression);
 				encoded.Add((0, _code.Intern(key.Token.ValueText)));
 				if (!ModuleArg(args[2].Expression, encoded))
 					return false;
@@ -2265,7 +2275,7 @@ public static partial class SubsetLowerer
 					return false;
 			}
 			else
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", invocation);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 
 			script.Add(RecordProgram.ActModule);
 			U16(script, _code.Intern(module.ToLowerInvariant()));
@@ -2300,7 +2310,7 @@ public static partial class SubsetLowerer
 				return true;
 			}
 
-			return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", expression);
+			return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", expression);
 		}
 
 		bool StateCall(string name, List<byte> script, InvocationExpressionSyntax invocation)
@@ -2308,7 +2318,7 @@ public static partial class SubsetLowerer
 			if (name == "Commit")
 				return Commit(script);
 			if (!_methods.TryGetValue(_stateType + "." + name, out var method) || method.Body is null)
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", invocation);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			foreach (var statement in method.Body.Statements)
 			{
 				if (!Statement(statement, "", script))
@@ -2322,12 +2332,12 @@ public static partial class SubsetLowerer
 		{
 			var list = _fields.FirstOrDefault(field => field.Kind == ValueKind.List);
 			if (list is null || !_records.TryGetValue(list.Item, out var itemFields))
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", script.Count.ToString(CultureInfo.InvariantCulture));
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", script.Count.ToString(CultureInfo.InvariantCulture));
 			var id = itemFields.FindIndex(field => field.Name == "Id");
 			var rowName = itemFields.FindIndex(field => field.Name == "Name");
 			var packed = itemFields.FindIndex(field => field.Name == "Packed");
 			if (id < 0 || rowName < 0 || packed < 0)
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", list.Name);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", list.Name);
 			script.Add(RecordProgram.ActCommitDraft);
 			U16(script, _code.Intern(list.Name));
 			U16(script, id);
@@ -2347,9 +2357,9 @@ public static partial class SubsetLowerer
 			var label = invocation.ArgumentList.Arguments[0].Expression;
 			var rows = invocation.ArgumentList.Arguments[1].Expression;
 			if (label is not LiteralExpressionSyntax literal || !literal.IsKind(SyntaxKind.StringLiteralExpression))
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", label);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", label);
 			if (rows is not MemberAccessExpressionSyntax member || !Member(member, out var field) || field.Kind != ValueKind.ListText)
-				return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", rows);
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", rows);
 			script.Add(RecordProgram.ActCopyRows);
 			U16(script, _code.Intern(field.SourceList));
 			U16(script, field.NameIndex);
@@ -2377,7 +2387,7 @@ public static partial class SubsetLowerer
 				return true;
 			}
 
-			return Fail(BadLambda, "A screen action can update state, branch on it, change a list, or call the platform.", expression);
+			return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", expression);
 		}
 
 		static bool Act(List<byte> script, byte op, int name)

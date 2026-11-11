@@ -1,0 +1,697 @@
+using System.Globalization;
+
+namespace NativePoc;
+
+public static partial class RecordProgram
+{
+	public const byte VmLitI = 1;
+	public const byte VmLitD = 2;
+	public const byte VmLitB = 3;
+	public const byte VmLitS = 4;
+	public const byte VmLitNull = 5;
+	public const byte VmLoadI = 6;
+	public const byte VmLoadB = 7;
+	public const byte VmLoadS = 8;
+	public const byte VmLoadLocal = 9;
+	public const byte VmStoreI = 10;
+	public const byte VmStoreB = 11;
+	public const byte VmStoreS = 12;
+	public const byte VmStoreLocal = 13;
+	public const byte VmPop = 14;
+	public const byte VmDup = 15;
+	public const byte VmNeg = 16;
+	public const byte VmNot = 17;
+	public const byte VmAdd = 18;
+	public const byte VmSub = 19;
+	public const byte VmMul = 20;
+	public const byte VmDiv = 21;
+	public const byte VmRem = 22;
+	public const byte VmEq = 23;
+	public const byte VmNe = 24;
+	public const byte VmLt = 25;
+	public const byte VmLe = 26;
+	public const byte VmGt = 27;
+	public const byte VmGe = 28;
+	public const byte VmText = 29;
+	public const byte VmToInt = 30;
+	public const byte VmToDouble = 31;
+	public const byte VmJump = 32;
+	public const byte VmJumpIfFalse = 33;
+	public const byte VmJumpIfNotNull = 34;
+	public const byte VmJumpIfNull = 35;
+	public const byte VmCall = 36;
+	public const byte VmIncProp = 37;
+	public const byte VmIncLocal = 38;
+	public const byte VmLoadCount = 39;
+	public const byte VmLoadCell = 40;
+	public const byte VmRowRemove = 41;
+	public const byte VmRowContains = 42;
+	public const byte VmRowIndex = 43;
+	public const byte VmNest = 44;
+	public const byte VmTryParse = 45;
+
+	public const byte VmKindInt = 1;
+	public const byte VmKindDouble = 2;
+	public const byte VmKindBool = 3;
+	public const byte VmKindStr = 4;
+
+	public const byte VmIncPre = 1;
+	public const byte VmIncPost = 2;
+	public const byte VmDecPre = 3;
+	public const byte VmDecPost = 4;
+
+	public const ushort VmTrim = 1;
+	public const ushort VmUpper = 2;
+	public const ushort VmLower = 3;
+	public const ushort VmContains = 4;
+	public const ushort VmStarts = 5;
+	public const ushort VmSubstring = 6;
+	public const ushort VmLength = 7;
+	public const ushort VmMin = 8;
+	public const ushort VmMax = 9;
+	public const ushort VmAbs = 10;
+	public const ushort VmRound = 11;
+	public const ushort VmParse = 12;
+
+	const byte ValNull = 0;
+	const byte ValInt = 1;
+	const byte ValDouble = 2;
+	const byte ValBool = 3;
+	const byte ValStr = 4;
+
+	static void RunVm(byte[] code, int origin, int length, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId, HandlerFrame frame, int depth)
+	{
+		var stack = new Val[64];
+		var sp = 0;
+		var ip = origin;
+		var end = origin + length;
+		while (ip < end)
+		{
+			frame.Tick();
+			var op = code[ip++];
+			switch (op)
+			{
+				case VmLitI:
+					Push(stack, ref sp, Val.FromInt(ReadI32(code, ref ip)));
+					break;
+				case VmLitD:
+					Push(stack, ref sp, Val.FromDouble(ReadF64(code, ref ip)));
+					break;
+				case VmLitB:
+					Push(stack, ref sp, Val.FromBool(ReadBit(code, ref ip)));
+					break;
+				case VmLitS:
+					Push(stack, ref sp, Val.FromStr(strings[RequireString(TakeU16(code, ref ip, end), strings)]));
+					break;
+				case VmLitNull:
+					Push(stack, ref sp, default);
+					break;
+				case VmLoadI:
+					Push(stack, ref sp, Val.FromInt(bag.ReadInt(strings[RequireString(TakeU16(code, ref ip, end), strings)])));
+					break;
+				case VmLoadB:
+					Push(stack, ref sp, Val.FromBool(bag.ReadBool(strings[RequireString(TakeU16(code, ref ip, end), strings)])));
+					break;
+				case VmLoadS:
+					Push(stack, ref sp, Val.FromStr(bag.ReadString(strings[RequireString(TakeU16(code, ref ip, end), strings)])));
+					break;
+				case VmLoadLocal:
+					Push(stack, ref sp, LoadLocal(frame, ReadKind(code, ref ip), ReadSlot(code, ref ip)));
+					break;
+				case VmStoreI:
+					bag.WriteInt(strings[RequireString(TakeU16(code, ref ip, end), strings)], AsInt(Pop(stack, ref sp)));
+					break;
+				case VmStoreB:
+					bag.WriteBool(strings[RequireString(TakeU16(code, ref ip, end), strings)], AsBool(Pop(stack, ref sp)));
+					break;
+				case VmStoreS:
+					bag.WriteString(strings[RequireString(TakeU16(code, ref ip, end), strings)], AsText(Pop(stack, ref sp)));
+					break;
+				case VmStoreLocal:
+					StoreLocal(frame, ReadKind(code, ref ip), ReadSlot(code, ref ip), Pop(stack, ref sp));
+					break;
+				case VmPop:
+					Pop(stack, ref sp);
+					break;
+				case VmDup:
+				{
+					var top = Pop(stack, ref sp);
+					Push(stack, ref sp, top);
+					Push(stack, ref sp, top);
+					break;
+				}
+				case VmNeg:
+					Push(stack, ref sp, Negate(Pop(stack, ref sp)));
+					break;
+				case VmNot:
+					Push(stack, ref sp, Val.FromBool(!AsBool(Pop(stack, ref sp))));
+					break;
+				case VmAdd:
+				case VmSub:
+				case VmMul:
+				case VmDiv:
+				case VmRem:
+				{
+					var right = Pop(stack, ref sp);
+					var left = Pop(stack, ref sp);
+					Push(stack, ref sp, Arithmetic(op, left, right));
+					break;
+				}
+				case VmEq:
+				case VmNe:
+				case VmLt:
+				case VmLe:
+				case VmGt:
+				case VmGe:
+				{
+					var right = Pop(stack, ref sp);
+					var left = Pop(stack, ref sp);
+					Push(stack, ref sp, Val.FromBool(Compare(op, left, right)));
+					break;
+				}
+				case VmText:
+					Push(stack, ref sp, Val.FromStr(AsText(Pop(stack, ref sp))));
+					break;
+				case VmToInt:
+					Push(stack, ref sp, Val.FromInt(AsInt(Pop(stack, ref sp))));
+					break;
+				case VmToDouble:
+					Push(stack, ref sp, Val.FromDouble(AsDouble(Pop(stack, ref sp))));
+					break;
+				case VmJump:
+				{
+					var rel = ReadI16(code, ref ip);
+					ip = Jump(ip, end, rel);
+					break;
+				}
+				case VmJumpIfFalse:
+				{
+					var rel = ReadI16(code, ref ip);
+					if (!AsBool(Pop(stack, ref sp)))
+						ip = Jump(ip, end, rel);
+					break;
+				}
+				case VmJumpIfNotNull:
+				{
+					var rel = ReadI16(code, ref ip);
+					if (sp == 0)
+						throw new InvalidOperationException("Rejected record program.");
+					if (!IsNull(stack[sp - 1]))
+						ip = Jump(ip, end, rel);
+					else
+						Pop(stack, ref sp);
+					break;
+				}
+				case VmJumpIfNull:
+				{
+					var rel = ReadI16(code, ref ip);
+					var probed = Pop(stack, ref sp);
+					if (IsNull(probed))
+						ip = Jump(ip, end, rel);
+					break;
+				}
+				case VmCall:
+				{
+					var id = TakeU16(code, ref ip, end);
+					var argc = code[ip++];
+					var args = new Val[argc];
+					for (var index = argc - 1; index >= 0; index--)
+						args[index] = Pop(stack, ref sp);
+					Push(stack, ref sp, Call(id, args));
+					break;
+				}
+				case VmIncProp:
+				{
+					var name = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+					Push(stack, ref sp, Val.FromInt(StepInt(bag.ReadInt(name), code[ip++], out var updated)));
+					bag.WriteInt(name, updated);
+					break;
+				}
+				case VmIncLocal:
+				{
+					var slot = ReadSlot(code, ref ip);
+					var mode = code[ip++];
+					var updated = StepInt(frame.Ints[slot], mode, out var stored);
+					frame.Ints[slot] = stored;
+					Push(stack, ref sp, Val.FromInt(updated));
+					break;
+				}
+				case VmLoadCount:
+					Push(stack, ref sp, Val.FromInt(bag.CountRows(strings[RequireString(TakeU16(code, ref ip, end), strings)])));
+					break;
+				case VmLoadCell:
+				{
+					var list = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+					var slot = ReadSlot(code, ref ip);
+					var field = TakeU16(code, ref ip, end);
+					Push(stack, ref sp, Val.FromStr(bag.CellAt(list, frame.Ints[slot], field)));
+					break;
+				}
+				case VmRowRemove:
+				case VmRowContains:
+				case VmRowIndex:
+				{
+					var list = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+					var slot = ReadSlot(code, ref ip);
+					var index = frame.Ints[slot];
+					var present = bag.RowInRange(list, index);
+					if (op == VmRowRemove && present)
+						bag.RemoveAt(list, index);
+					if (op == VmRowIndex)
+						Push(stack, ref sp, Val.FromInt(present ? index : -1));
+					else
+						Push(stack, ref sp, Val.FromBool(op == VmRowRemove ? present : present));
+					break;
+				}
+				case VmNest:
+				{
+					var nested = TakeU16(code, ref ip, end);
+					if (ip + nested > end)
+						throw new InvalidOperationException("Rejected record program.");
+					var slice = new byte[nested];
+					Buffer.BlockCopy(code, ip, slice, 0, nested);
+					ip += nested;
+					RunSteps(slice, strings, bag, platform, text, flag, rowId, frame, depth + 1);
+					break;
+				}
+				case VmTryParse:
+				{
+					var slot = ReadSlot(code, ref ip);
+					var parsed = int.TryParse(AsText(Pop(stack, ref sp)), NumberStyles.Integer, CultureInfo.InvariantCulture, out var number);
+					frame.Ints[slot] = parsed ? number : 0;
+					Push(stack, ref sp, Val.FromBool(parsed));
+					break;
+				}
+				default:
+					throw new InvalidOperationException("Rejected record program.");
+			}
+		}
+
+		if (ip != end)
+			throw new InvalidOperationException("Rejected record program.");
+	}
+
+	static int StepInt(int current, byte mode, out int stored)
+	{
+		switch (mode)
+		{
+			case VmIncPre:
+				stored = current + 1;
+				return stored;
+			case VmIncPost:
+				stored = current + 1;
+				return current;
+			case VmDecPre:
+				stored = current - 1;
+				return stored;
+			case VmDecPost:
+				stored = current - 1;
+				return current;
+			default:
+				throw new InvalidOperationException("Rejected record program.");
+		}
+	}
+
+	static Val Call(int id, Val[] args)
+	{
+		switch (id)
+		{
+			case VmTrim:
+				return Val.FromStr(RequireText(args, 1).Trim());
+			case VmUpper:
+				return Val.FromStr(RequireText(args, 1).ToUpperInvariant());
+			case VmLower:
+				return Val.FromStr(RequireText(args, 1).ToLowerInvariant());
+			case VmContains:
+				return Val.FromBool(RequireText(args, 2).Contains(AsText(args[1]), StringComparison.Ordinal));
+			case VmStarts:
+				return Val.FromBool(RequireText(args, 2).StartsWith(AsText(args[1]), StringComparison.Ordinal));
+			case VmSubstring:
+			{
+				var source = RequireText(args, args.Length);
+				var start = AsInt(args[1]);
+				var length = args.Length == 3 ? AsInt(args[2]) : source.Length - start;
+				if (start < 0 || length < 0 || start + length > source.Length)
+					throw new ActionStoppedException("action stopped: Substring is outside the string");
+				return Val.FromStr(source.Substring(start, length));
+			}
+			case VmLength:
+				return Val.FromInt(RequireText(args, 1).Length);
+			case VmMin:
+			case VmMax:
+				return Extreme(id == VmMax, args);
+			case VmAbs:
+				return Absolute(RequireNumber(args, 1));
+			case VmRound:
+				return Val.FromDouble(Math.Round(AsDouble(RequireNumber(args, 1)), MidpointRounding.ToEven));
+			case VmParse:
+				if (!int.TryParse(RequireText(args, 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+					throw new ActionStoppedException("action stopped: int.Parse failed");
+				return Val.FromInt(parsed);
+			default:
+				throw new InvalidOperationException("Rejected record program.");
+		}
+	}
+
+	static Val Extreme(bool max, Val[] args)
+	{
+		if (args.Length != 2)
+			throw new InvalidOperationException("Rejected record program.");
+		if (args[0].Kind == ValDouble || args[1].Kind == ValDouble)
+		{
+			var left = AsDouble(args[0]);
+			var right = AsDouble(args[1]);
+			return Val.FromDouble(max ? Math.Max(left, right) : Math.Min(left, right));
+		}
+
+		var a = AsInt(args[0]);
+		var b = AsInt(args[1]);
+		return Val.FromInt(max ? Math.Max(a, b) : Math.Min(a, b));
+	}
+
+	static Val Absolute(Val value)
+	{
+		if (value.Kind == ValDouble)
+			return Val.FromDouble(Math.Abs(value.Double));
+		var number = AsInt(value);
+		if (number == int.MinValue)
+			throw new ActionStoppedException("action stopped: Math.Abs overflow");
+		return Val.FromInt(Math.Abs(number));
+	}
+
+	static string RequireText(Val[] args, int count)
+	{
+		if (args.Length != count)
+			throw new InvalidOperationException("Rejected record program.");
+		if (IsNull(args[0]))
+			throw new ActionStoppedException("action stopped: the value is null");
+		return AsText(args[0]);
+	}
+
+	static Val RequireNumber(Val[] args, int count)
+	{
+		if (args.Length != count)
+			throw new InvalidOperationException("Rejected record program.");
+		return args[0];
+	}
+
+	static Val Arithmetic(byte op, Val left, Val right)
+	{
+		if (op == VmAdd && (left.Kind == ValStr || right.Kind == ValStr || IsNull(left) || IsNull(right)))
+			return Val.FromStr(AsText(left) + AsText(right));
+		if (left.Kind == ValDouble || right.Kind == ValDouble)
+		{
+			var a = AsDouble(left);
+			var b = AsDouble(right);
+			var result = op switch
+			{
+				VmAdd => a + b,
+				VmSub => a - b,
+				VmMul => a * b,
+				VmDiv => Divide(a, b),
+				VmRem => Remainder(a, b),
+				_ => throw new InvalidOperationException("Rejected record program."),
+			};
+			return Val.FromDouble(result);
+		}
+
+		var x = AsInt(left);
+		var y = AsInt(right);
+		var whole = op switch
+		{
+			VmAdd => x + y,
+			VmSub => x - y,
+			VmMul => x * y,
+			VmDiv => Divide(x, y),
+			VmRem => Remainder(x, y),
+			_ => throw new InvalidOperationException("Rejected record program."),
+		};
+		return Val.FromInt(whole);
+	}
+
+	static double Divide(double left, double right)
+	{
+		if (right == 0)
+			throw new ActionStoppedException("action stopped: divide by zero");
+		return left / right;
+	}
+
+	static int Divide(int left, int right)
+	{
+		if (right == 0)
+			throw new ActionStoppedException("action stopped: divide by zero");
+		return left / right;
+	}
+
+	static double Remainder(double left, double right)
+	{
+		if (right == 0)
+			throw new ActionStoppedException("action stopped: divide by zero");
+		return left % right;
+	}
+
+	static int Remainder(int left, int right)
+	{
+		if (right == 0)
+			throw new ActionStoppedException("action stopped: divide by zero");
+		return left % right;
+	}
+
+	static bool Compare(byte op, Val left, Val right)
+	{
+		if (IsNull(left) || IsNull(right))
+		{
+			var same = IsNull(left) && IsNull(right);
+			if (op == VmEq)
+				return same;
+			if (op == VmNe)
+				return !same;
+			throw new ActionStoppedException("action stopped: the value is null");
+		}
+
+		if (left.Kind == ValStr || right.Kind == ValStr)
+		{
+			var order = string.CompareOrdinal(AsText(left), AsText(right));
+			return op switch
+			{
+				VmEq => order == 0,
+				VmNe => order != 0,
+				VmLt => order < 0,
+				VmLe => order <= 0,
+				VmGt => order > 0,
+				VmGe => order >= 0,
+				_ => throw new InvalidOperationException("Rejected record program."),
+			};
+		}
+
+		if ((left.Kind == ValBool || right.Kind == ValBool) && op is VmEq or VmNe)
+		{
+			var same = AsBool(left) == AsBool(right);
+			return op == VmEq ? same : !same;
+		}
+
+		if (left.Kind == ValDouble || right.Kind == ValDouble)
+		{
+			var a = AsDouble(left);
+			var b = AsDouble(right);
+			return op switch
+			{
+				VmEq => a == b,
+				VmNe => a != b,
+				VmLt => a < b,
+				VmLe => a <= b,
+				VmGt => a > b,
+				VmGe => a >= b,
+				_ => throw new InvalidOperationException("Rejected record program."),
+			};
+		}
+
+		var x = AsInt(left);
+		var y = AsInt(right);
+		return op switch
+		{
+			VmEq => x == y,
+			VmNe => x != y,
+			VmLt => x < y,
+			VmLe => x <= y,
+			VmGt => x > y,
+			VmGe => x >= y,
+			_ => throw new InvalidOperationException("Rejected record program."),
+		};
+	}
+
+	static Val Negate(Val value)
+	{
+		if (value.Kind == ValDouble)
+			return Val.FromDouble(-value.Double);
+		return Val.FromInt(-AsInt(value));
+	}
+
+	static Val LoadLocal(HandlerFrame frame, byte kind, int slot) => kind switch
+	{
+		VmKindInt => Val.FromInt(frame.Ints[slot]),
+		VmKindDouble => Val.FromDouble(frame.Doubles[slot]),
+		VmKindBool => Val.FromBool(frame.Flags[slot]),
+		VmKindStr => frame.Strings[slot] is null ? default : Val.FromStr(frame.Strings[slot]!),
+		_ => throw new InvalidOperationException("Rejected record program."),
+	};
+
+	static void StoreLocal(HandlerFrame frame, byte kind, int slot, Val value)
+	{
+		switch (kind)
+		{
+			case VmKindInt:
+				frame.Ints[slot] = AsInt(value);
+				break;
+			case VmKindDouble:
+				frame.Doubles[slot] = AsDouble(value);
+				break;
+			case VmKindBool:
+				frame.Flags[slot] = AsBool(value);
+				break;
+			case VmKindStr:
+				frame.Strings[slot] = IsNull(value) ? null : AsText(value);
+				break;
+			default:
+				throw new InvalidOperationException("Rejected record program.");
+		}
+	}
+
+	static int AsInt(Val value)
+	{
+		if (value.Kind == ValInt)
+			return value.Int;
+		if (value.Kind == ValDouble)
+		{
+			if (double.IsNaN(value.Double) || double.IsInfinity(value.Double))
+				throw new ActionStoppedException("action stopped: number is not finite");
+			return (int)value.Double;
+		}
+
+		if (value.Kind == ValBool)
+			return value.Flag ? 1 : 0;
+		throw new ActionStoppedException("action stopped: the value is not an int");
+	}
+
+	static double AsDouble(Val value)
+	{
+		if (value.Kind == ValDouble)
+			return value.Double;
+		if (value.Kind == ValInt)
+			return value.Int;
+		throw new ActionStoppedException("action stopped: the value is not a number");
+	}
+
+	static bool AsBool(Val value)
+	{
+		if (value.Kind == ValBool)
+			return value.Flag;
+		throw new ActionStoppedException("action stopped: the value is not a bool");
+	}
+
+	static string AsText(Val value) => value.Kind switch
+	{
+		ValNull => "",
+		ValStr => value.Text ?? "",
+		ValInt => value.Int.ToString(CultureInfo.InvariantCulture),
+		ValBool => value.Flag ? "true" : "false",
+		ValDouble => value.Double.ToString(CultureInfo.InvariantCulture),
+		_ => "",
+	};
+
+	static bool IsNull(Val value) => value.Kind == ValNull;
+
+	static void Push(Val[] stack, ref int sp, Val value)
+	{
+		if (sp >= stack.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		stack[sp++] = value;
+	}
+
+	static Val Pop(Val[] stack, ref int sp)
+	{
+		if (sp == 0)
+			throw new InvalidOperationException("Rejected record program.");
+		return stack[--sp];
+	}
+
+	static int Jump(int ip, int end, int relative)
+	{
+		var next = ip + relative;
+		if (next < 0 || next > end)
+			throw new InvalidOperationException("Rejected record program.");
+		return next;
+	}
+
+	static byte ReadKind(byte[] code, ref int ip)
+	{
+		if (ip >= code.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var kind = code[ip++];
+		if (kind is < VmKindInt or > VmKindStr)
+			throw new InvalidOperationException("Rejected record program.");
+		return kind;
+	}
+
+	static bool ReadBit(byte[] code, ref int ip)
+	{
+		if (ip >= code.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var bit = code[ip++];
+		if (bit > 1)
+			throw new InvalidOperationException("Rejected record program.");
+		return bit == 1;
+	}
+
+	static short ReadI16(byte[] code, ref int ip)
+	{
+		if (ip + 2 > code.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var value = (short)(code[ip] | (code[ip + 1] << 8));
+		ip += 2;
+		return value;
+	}
+
+	static double ReadF64(byte[] code, ref int ip)
+	{
+		if (ip + 8 > code.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var value = BitConverter.Int64BitsToDouble(
+			code[ip]
+			| ((long)code[ip + 1] << 8)
+			| ((long)code[ip + 2] << 16)
+			| ((long)code[ip + 3] << 24)
+			| ((long)code[ip + 4] << 32)
+			| ((long)code[ip + 5] << 40)
+			| ((long)code[ip + 6] << 48)
+			| ((long)code[ip + 7] << 56));
+		ip += 8;
+		return value;
+	}
+
+	readonly struct Val
+	{
+		public readonly byte Kind;
+		public readonly int Int;
+		public readonly double Double;
+		public readonly bool Flag;
+		public readonly string? Text;
+
+		Val(byte kind, int whole, double real, bool flag, string? text)
+		{
+			Kind = kind;
+			Int = whole;
+			Double = real;
+			Flag = flag;
+			Text = text;
+		}
+
+		public static Val FromInt(int value) => new(ValInt, value, 0, false, null);
+
+		public static Val FromDouble(double value) => new(ValDouble, 0, value, false, null);
+
+		public static Val FromBool(bool value) => new(ValBool, 0, 0, value, null);
+
+		public static Val FromStr(string value) => new(ValStr, 0, 0, false, value);
+	}
+}

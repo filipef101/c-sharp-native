@@ -768,14 +768,7 @@ sealed class PlatformBridge : IPlatform
 
 	public void CopyNonce(string nonce)
 	{
-		var clipboard = _activity.GetSystemService(Context.ClipboardService) as Android.Content.ClipboardManager;
-		if (clipboard is null)
-			throw new InvalidOperationException("Clipboard service is unavailable.");
-		clipboard.PrimaryClip = ClipData.NewPlainText("nonce", nonce);
-		var read = clipboard.PrimaryClip?.GetItemAt(0)?.Text?.ToString() ?? "";
-		if (!string.Equals(read, nonce, StringComparison.Ordinal))
-			throw new InvalidOperationException("Clipboard round-trip failed.");
-		Log.Info(MainActivity.Tag, "clipboard-ok " + nonce);
+		AndroidNativeServices.CopyChecked(_activity, "nonce", nonce);
 	}
 
 	public void RequestRender() => _activity.RequestRender();

@@ -31,32 +31,37 @@ The render body may start with `platform.Effect("Property", "resource")` and `pl
 
 Expressions are string literals, `+`, `$"..."` with holes of the same expressions, `condition ? a : b`, and parentheses. A condition is a bool property, `true` / `false`, `property.Length == 0`, or string equality. An int property interpolates as a decimal. `foreach` reads item string fields and item bools.
 
-An action is a lambda. The running process interprets it with a switch in `RecordProgram.RunSteps`. That switch is compiled into the NativeAOT binary. An action does not call `Assembly.Load` and does not generate code.
+An action is a lambda. The running process interprets it with a switch in `RecordProgram.RunSteps`. That switch is compiled into the NativeAOT binary. An action does not call `Assembly.Load` and does not generate code. The forms opcodes 1–33 already name stay in that encoding. Anything else is one `ActVm` program, a stack machine in [architecture.md](architecture.md). One tap stops after 100000 steps. The log line is `action stopped after 100000 steps`, or `action stopped:` and the reason. The writes so far stay, and the host asks for a render. The process stays up.
 
 An action may:
 
 - assign a property from the lambda argument, a literal, a property of the same kind, or an item field
-- use `property++`, `++property`, `property--`, and `--property` on an int. Those are statements. `var n = ++state.Count` is refused
-- use `property += expr` and `property -= expr` on an int. `expr` is an int literal, an int property, an int local, unary minus, or `+` / `-` of those
+- use `+`, `-`, `*`, `/`, `%`, and unary minus on int and double. Integer `/` and `%` match C#. Divide by zero stops the action
+- use `<`, `>`, `<=`, `>=`, `==`, `!=`, `!`, `&&`, and `||`. `&&` and `||` skip the side that must not run
+- use `property++`, `++property`, `property--`, and `--property` on an int, as a statement or as a value (`var n = ++state.Count`)
+- use `+=`, `-=`, `*=`, `/=`, and `%=` on an int, and `+=` on a string
 - use `flag = !flag`, `flag = !other`, and `flag = other` on bools
-- concatenate strings with `+`, `+=`, and `$"..."`. A hole is a literal, a string or int property, or a string or int local. An arithmetic hole is refused; assign it to a local first
-- use `value = condition ? a : b`, and `if (condition) statement else statement`. `if` nests at most eight deep
-- declare one local at a time, `var` or a typed name, of int, string, or bool. An action has eight slots. A local stays visible for the rest of that action. A second `var` of the same name is refused
-- call `list.Add(new T { Field = cell })`, `list.Clear()`, and `list.RemoveAt(index)` on a state list. A cell is a string literal, a string property, a string local, or a bool literal. A missing cell is `""` or `false`. `RemoveAt` past the end does nothing
+- concatenate strings with `+`, `+=`, and `$"..."`. A hole may be any expression the VM can evaluate, including arithmetic
+- use `value = condition ? a : b`, and `if` / `else`. An `if` that the older condition opcodes can name stays those opcodes and nests at most eight deep. Any other condition is a jump in the VM
+- use `for`, `while`, and `foreach` over a state list. `foreach` walks by index. The body may read `item.Field`. Removing the current row does not rewind the index
+- use `?.` and `??`. `?.` does not call when the receiver is null. `??` replaces that null
+- declare one local at a time, `var` or a typed name, of int, double, string, or bool. An action has eight slots. A local stays visible for the rest of that action. A second `var` of the same name is refused. `string label = null` stores null
+- call `list.Add(new T { Field = cell })`, `list.Clear()`, `list.RemoveAt(index)`, and, on the row a `foreach` is visiting, `list.Remove(item)`, `list.Contains(item)`, and `list.IndexOf(item)`. `list.Count` is the row count. A cell is a string literal, a string property, a string local, or a bool literal. A missing cell is `""` or `false`. `RemoveAt` past the end does nothing
+- call `Trim`, `ToUpper`, `ToLower`, `Contains`, `StartsWith`, `Substring`, and `Length` on a string. `ToUpper` and `ToLower` use the invariant culture. `Substring` past the end stops the action
+- call `Math.Min`, `Math.Max`, `Math.Abs`, and `Math.Round`. `Round` uses midpoint-to-even and returns a double. Storing a double in an int needs `(int)`
+- call `int.Parse` and `int.TryParse(text, out var name)`. Parse failure stops the action. `TryParse` is the one `out` the VM accepts
 - call `platform.RequestRender()`, `platform.Pulse()`, `platform.CopyNonce` with a string literal, a string property, or `"poc-" + state.Count`, `platform.CopyText` with a literal label and the list text, `platform.Push("screen-id")`, `platform.Pop()`, and `platform.Effect`
 - call `state.Commit()` and, inside a foreach, `state.Drop(item)`
 - call `Haptics.Confirm`, `Share.Text`, `Clipboard.Copy`, `Storage.Set`, and `Theme.Mode` as in [platform-modules.md](platform-modules.md)
 
-A condition is a bool property, a bool local, `!` of those, `true`, `false`, `text.Length == 0`, `text.Length != 0`, `text == "literal"`, `text != "literal"`, `count == number`, or `count != number`. The property is on the left. An int local may use `==` against a literal.
+These stay refused. The VM has no arm for them, and a reload cannot invent one:
 
-These stay refused. Each one is `subset.bad-lambda` because the switch has no opcode for it:
-
-- `*`, `/`, `%`, and `<`, `>`, `<=`, `>=`. The int expression is only a literal, a property, a local, or `+` / `-`
-- `for`, `while`, and `foreach` inside an action. The script is straight-line statements plus `if`, and each branch stops at 128 steps
 - `await`. An action does not start a task
-- a call that is not in the list above, including `state.Title.Trim()`. The switch does not look up methods
-- `?.`, `out`, `ref`, two names in one declaration, a list-typed local, and a nested lambda. A local is one slot
-- `list.Remove(item)` and assigning one list to another. A row leaves by index, or by `state.Drop(item)` on the row being drawn
+- a call that is not in the list above, including `state.Title.Normalize()`. The table is a switch, not a lookup
+- a new type, or a generic that the edit instantiates for the first time. The binary was compiled without it
+- `out` and `ref` other than `int.TryParse`, two names in one declaration, a list-typed local, a nested lambda, and assigning one list to another
+
+`cnative run android --restart-on-rude` relaunches the installed process. The C# compiler then puts that method or type into the next binary. The relaunch keeps the checkpoint.
 
 A `public const string ScreenId` names the screen on the stack. Each id keeps its own record across a reload. A `PackingTelemetry` increment inside an action is a no-op in the program. The C# method still increments.
 

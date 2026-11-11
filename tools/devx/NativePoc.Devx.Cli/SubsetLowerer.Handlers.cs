@@ -8,7 +8,7 @@ public static partial class SubsetLowerer
 {
 	sealed partial class Lower
 	{
-		const string ActionLimit = "A screen action can update state, branch on it, change a list, or call the platform.";
+		const string ActionLimit = "A screen action can update state, branch, loop, or call a method compiled into the binary.";
 
 		bool Statement(StatementSyntax statement, string parameter, List<byte> script)
 		{
@@ -20,6 +20,12 @@ public static partial class SubsetLowerer
 					return LocalDecl(local, script);
 				case IfStatementSyntax branch:
 					return If(branch, parameter, script);
+				case WhileStatementSyntax loop:
+					return VmWhile(loop, parameter, script);
+				case ForStatementSyntax loop:
+					return VmFor(loop, parameter, script);
+				case ForEachStatementSyntax loop:
+					return VmForeach(loop, parameter, script);
 				default:
 					return Fail(BadLambda, ActionLimit, statement);
 			}
@@ -29,7 +35,7 @@ public static partial class SubsetLowerer
 		{
 			var condition = new List<byte>();
 			if (!WriteCond(branch.Condition, condition))
-				return Fail(BadLambda, ActionLimit, branch.Condition);
+				return VmIf(branch, parameter, script);
 			var thenScript = new List<byte>();
 			if (!Branch(branch.Statement, parameter, thenScript))
 				return false;
@@ -104,13 +110,13 @@ public static partial class SubsetLowerer
 				return true;
 			}
 
-			return Fail(BadLambda, ActionLimit, init);
+			return VmLocal(variable, script);
 		}
 
 		bool Compound(AssignmentExpressionSyntax assignment, List<byte> script)
 		{
 			if (assignment.Left is not MemberAccessExpressionSyntax member || !Member(member, out var field))
-				return Fail(BadLambda, ActionLimit, assignment);
+				return false;
 			var subtract = assignment.IsKind(SyntaxKind.SubtractAssignmentExpression);
 			if (field.Kind == ValueKind.Int)
 			{
@@ -123,7 +129,7 @@ public static partial class SubsetLowerer
 				}
 
 				if (!WriteIntExprInto(Bare(assignment.Right), delta))
-					return Fail(BadLambda, ActionLimit, assignment.Right);
+					return false;
 				script.Add(RecordProgram.ActAddInt);
 				U16(script, _code.Intern(field.Name));
 				script.AddRange(delta);
@@ -136,7 +142,7 @@ public static partial class SubsetLowerer
 				U16(parts, _code.Intern(field.Name));
 				var count = 1;
 				if (!WriteStrParts(Bare(assignment.Right), parts, ref count))
-					return Fail(BadLambda, ActionLimit, assignment.Right);
+					return false;
 				script.Add(RecordProgram.ActSetStrCat);
 				U16(script, _code.Intern(field.Name));
 				script.Add((byte)count);
@@ -144,13 +150,13 @@ public static partial class SubsetLowerer
 				return true;
 			}
 
-			return Fail(BadLambda, ActionLimit, assignment);
+			return false;
 		}
 
 		bool Decrement(ExpressionSyntax operand, List<byte> script)
 		{
 			if (operand is not MemberAccessExpressionSyntax member || !Member(member, out var field) || field.Kind != ValueKind.Int)
-				return Fail(BadLambda, ActionLimit, operand);
+				return false;
 			script.Add(RecordProgram.ActAddInt);
 			U16(script, _code.Intern(field.Name));
 			script.Add(RecordProgram.IntExprLit);
@@ -162,7 +168,7 @@ public static partial class SubsetLowerer
 		{
 			var condition = new List<byte>();
 			if (!WriteCond(choice.Condition, condition))
-				return Fail(BadLambda, ActionLimit, choice.Condition);
+				return false;
 			var thenScript = new List<byte>();
 			var elseScript = new List<byte>();
 			if (!Store(field, choice.WhenTrue, thenScript) || !Store(field, choice.WhenFalse, elseScript))
@@ -549,7 +555,7 @@ public static partial class SubsetLowerer
 
 			if (method == "Add" && args.Count == 1)
 				return ListAdd(list, args[0].Expression, script);
-			return Fail(BadLambda, ActionLimit, invocation);
+			return VmList(list, method, invocation, script);
 		}
 
 		bool ListAdd(Field list, ExpressionSyntax expression, List<byte> script)

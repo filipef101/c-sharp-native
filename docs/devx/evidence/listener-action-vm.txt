@@ -1,0 +1,94 @@
+Action VM on the NativeAOT listener. Emulator-run 2026-11-11.
+AVD poc34, API 34, x86_64, serial emulator-5554, KVM. One listener pid.
+
+Debug listener publish, this tree:
+  lib/x86_64/libNativePoc.Android.so 9815760 bytes
+  signed APK 3707827 bytes
+  sha256 43ffc3bf4657f405fc5e8b3339b7d495502b1842bef544d441546a38f41d379a
+  Assembly.Load absent (UTF-8 and UTF-16LE search). npoc-hotreload present as UTF-8.
+  IsDynamicCodeSupported=False on pid 4934. hotreload-listen on pid 4934.
+
+Every line below is that pid. Apply is the device exchange inside "reloaded in".
+The tree value after the tap matched the expected text.
+
+clipboard   reloaded in 16.1 ms (apply 13.0 ms)   value vm-clip
+            clipboard-focus=1 api=34
+            clipboard-ok chars=7 text=vm-clip
+div         reloaded in 61.4 ms (apply 57.9 ms)   Count 2     (8/3)
+rem         reloaded in 25.3 ms (apply 23.8 ms)   Count 1     (7%2)
+mul-assign  reloaded in 17.8 ms (apply 15.6 ms)   Count 8     (4 then *= 2)
+lt          reloaded in 17.8 ms (apply 14.0 ms)   yes
+gt          reloaded in 21.4 ms (apply 19.6 ms)   gt
+le          reloaded in 30.2 ms (apply 29.5 ms)   le
+ge          reloaded in 27.2 ms (apply 26.3 ms)   ge
+and         reloaded in 29.5 ms (apply 28.6 ms)   yes
+or          reloaded in 12.2 ms (apply 11.2 ms)   or
+interp      reloaded in 29.2 ms (apply 28.1 ms)   6           ("{Count * 2}")
+post-inc    reloaded in 22.2 ms (apply 19.4 ms)   0           (var n = Count++)
+pre-inc     reloaded in 14.6 ms (apply 13.6 ms)   1           (var n = ++Count)
+upper       reloaded in 25.7 ms (apply 24.1 ms)   AB
+lower       reloaded in 20.1 ms (apply 19.4 ms)   ab
+contains    reloaded in 24.3 ms (apply 23.5 ms)   yes
+starts      reloaded in 20.1 ms (apply 18.8 ms)   yes
+substr      reloaded in 26.2 ms (apply 25.3 ms)   el
+length      reloaded in 16.0 ms (apply 15.2 ms)   Count 5
+abs         reloaded in 15.4 ms (apply 13.8 ms)   Count 4
+min         reloaded in 28.7 ms (apply 26.6 ms)   Count 1
+max         reloaded in 13.4 ms (apply 12.4 ms)   Count 3
+round       reloaded in 18.9 ms (apply 14.2 ms)   Count 2     ((int)Math.Round(1.6))
+double      reloaded in 19.6 ms (apply 18.2 ms)   Count 6     (1.5 * 4.0)
+trim-literal reloaded in 20.4 ms (apply 19.7 ms)  Hello
+trim-state  reloaded in 17.2 ms (apply 15.9 ms)   hi          (state.Title.Trim())
+null-coalesce reloaded in 19.9 ms (apply 19.1 ms) kept
+null-conditional reloaded in 14.8 ms (apply 12.8 ms) empty   (label?.Trim() ?? "empty")
+parse       reloaded in 18.8 ms (apply 17.2 ms)   Count 12
+tryparse    reloaded in 21.4 ms (apply 19.1 ms)   Count 9
+while       reloaded in 23.9 ms (apply 22.7 ms)   Count 3
+foreach sum reloaded in 27.0 ms (apply 24.1 ms)   Count 6     (names "2" and "4")
+list remove reloaded in 20.1 ms (apply 18.9 ms)   Count 1
+list index  reloaded in 25.7 ms (apply 23.5 ms)   open, Added 0, Count 1
+
+1000-iteration handler, same pid. Apply 21.9 ms (reloaded in 23.1 ms).
+Tree after the taps: Count 1000. Ten taps, action-us, each steps=11010:
+  8913 7995 7409 8748 7996 8184 8192 7918 5890 4898
+  sorted 4898 5890 7409 7918 7995 7996 8184 8192 8748 8913
+  Hyndman-Fan type 7 p50 = (7995+7996)/2 = 7995.5 us
+  No "action stopped" line on these taps. 11010 is under the 100000 budget.
+  The time includes storing Count and RequestRender.
+
+Infinite loop, same pid: while (true) state.Count += 1
+  reloaded in 27.7 ms (apply 26.9 ms)
+  action stopped after 100000 steps
+  action-us=11378 steps=100001
+  The step counter is one past the budget because the check runs after the increment.
+  The process stayed pid 4934. The next tree reply was 460 bytes.
+  The following edit applied in 16.0 ms and the tap showed Count 1.
+
+Normalize, same pid: state.Title.Normalize()
+  subset.bad-lambda, "The edit was not applied. The last program stays until relaunch."
+  pid stayed 4934. Headless corpus asserts the same sentence. The device log line is the stays sentence.
+
+Clipboard after Share.Text, still pid 4934:
+  share reloaded in 44.0 ms (apply 43.0 ms), share-text chars=2, action-us=87076 steps=2
+  copy reloaded in 17.2 ms (apply 16.6 ms)
+  clipboard-focus=0 api=34
+  clipboard-ok chars=11 text=after-share
+  action-us=145133 steps=2
+  The window had lost focus to the share chooser. The copy still read back.
+  The thrown "Clipboard round-trip failed" from pid 3985 did not recur.
+  The longer failure sentence (dismiss the share sheet, or the character counts) was not thrown on this pid.
+
+Release loop bench, same emulator session, different process. The listener was not running.
+  signed APK 2749229 bytes, sha256 13e6ae3f19659034238e0debebf2f1b92d08884320616a82104273fe8271bc02
+  lib/x86_64/libNativePoc.Android.so 6362128 bytes
+  npoc-hotreload absent. Assembly.Load absent. IsDynamicCodeSupported=False on pid 5436.
+  am start --es nativepoc_bench loop1000. Ten calls of the same 1000-iteration loop, result=1000:
+    3 0 0 0 0 0 0 0 0 0 us
+    sorted 0 0 0 0 0 0 0 0 0 3
+    p50 0 us
+  The clock quantum is 1 us. NativeAOT may have folded the loop. The result was 1000, so the value was kept.
+  This number is the compiled method only. It does not store Count or request a render.
+
+Headless, not the device: dotnet test after the VM.
+  Devx 102, Core 55, Packing 14. Includes the 1000-loop, the budget stop, and divide by zero
+  ("action stopped: divide by zero"). Divide by zero was not repeated on the emulator.

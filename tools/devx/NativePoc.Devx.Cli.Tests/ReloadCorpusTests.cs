@@ -33,14 +33,18 @@ public sealed class ReloadCorpusTests
 		added.Tap("hello/add");
 		Assert.Contains("Count 1", added.Tree(), StringComparison.Ordinal);
 
-		var multiplied = handler.Replace("state.Count++;", "state.Count *= 2;", StringComparison.Ordinal);
-		var refused = SubsetLowerer.TryLower(multiplied);
+		var multiplied = Open(handler.Replace("state.Count++;", "state.Count = 3 * 4;", StringComparison.Ordinal));
+		multiplied.Tap("hello/add");
+		Assert.Contains("Count 12", multiplied.Tree(), StringComparison.Ordinal);
+
+		var normalized = handler.Replace("state.Count++;", "state.Title = state.Title.Normalize();", StringComparison.Ordinal);
+		var refused = SubsetLowerer.TryLower(normalized);
 		Assert.False(refused.Ok);
 		Assert.Equal(SubsetLowerer.BadLambda, refused.Diagnostics[0].Id);
 		var line = DeveloperRefusal.Line("samples/hello/HelloScreen.cs", refused.Diagnostics[0]);
 		Assert.Contains("samples/hello/HelloScreen.cs:", line, StringComparison.Ordinal);
 		Assert.Contains("subset.bad-lambda:", line, StringComparison.Ordinal);
-		Assert.Contains("A screen action can update state, branch on it, change a list, or call the platform.", line, StringComparison.Ordinal);
+		Assert.Contains("A screen action can update state, branch, loop, or call a method compiled into the binary.", line, StringComparison.Ordinal);
 		Assert.Equal("restarting", DeveloperRefusal.FollowUp(true, false));
 		Assert.Equal("pass --restart-on-rude to relaunch and keep state", DeveloperRefusal.FollowUp(false, true));
 		Assert.Null(DeveloperRefusal.FollowUp(false, false));
@@ -162,12 +166,66 @@ public sealed class ReloadCorpusTests
 		popped.Tap("hello/add");
 		Assert.Empty(popped.Stack);
 
-		var trimmed = SubsetLowerer.TryLower(hello.Replace("state.Count++;", "state.Title = state.Title.Trim();", StringComparison.Ordinal));
-		Assert.False(trimmed.Ok);
-		Assert.Equal(SubsetLowerer.BadLambda, trimmed.Diagnostics[0].Id);
-		var loop = SubsetLowerer.TryLower(hello.Replace("state.Count++;", "while (state.Count < 3) state.Count++;", StringComparison.Ordinal));
-		Assert.False(loop.Ok);
-		Assert.Equal(SubsetLowerer.BadLambda, loop.Diagnostics[0].Id);
+		Tap(hello.Replace("state.Count++;", "state.Title = \"  hi  \".Trim();", StringComparison.Ordinal), "hi");
+		Tap(hello.Replace("state.Count++;", "while (state.Count < 3) state.Count++;", StringComparison.Ordinal), "Count 3");
+	}
+
+	[Fact]
+	public void The_action_vm_runs_arithmetic_loops_and_calls()
+	{
+		var hello = NewLoop.Template("hello");
+		Tap(hello.Replace("state.Count++;", "state.Count = 8 / 3;", StringComparison.Ordinal), "Count 2");
+		Tap(hello.Replace("state.Count++;", "state.Count = 7 % 2;", StringComparison.Ordinal), "Count 1");
+		Tap(hello.Replace("state.Count++;", "state.Count = 4; state.Count *= 2;", StringComparison.Ordinal), "Count 8");
+		Tap(hello.Replace("state.Count++;", "state.Title = state.Count < 1 ? \"yes\" : \"no\";", StringComparison.Ordinal), "yes");
+		Tap(hello.Replace("state.Count++;", "state.Title = state.Count > 1 && false ? \"no\" : \"yes\";", StringComparison.Ordinal), "yes");
+		Tap(hello.Replace("state.Count++;", "state.Count = 3; state.Title = $\"{state.Count * 2}\";", StringComparison.Ordinal), "6");
+		Tap(hello.Replace("state.Count++;", "var n = state.Count++; state.Title = $\"{n}\";", StringComparison.Ordinal), "0");
+		Tap(hello.Replace("state.Count++;", "var n = ++state.Count; state.Title = $\"{n}\";", StringComparison.Ordinal), "1");
+		Tap(hello.Replace("state.Count++;", "state.Title = \"ab\".ToUpper();", StringComparison.Ordinal), "AB");
+		Tap(hello.Replace("state.Count++;", "state.Title = \"AB\".ToLower();", StringComparison.Ordinal), "ab");
+		Tap(hello.Replace("state.Count++;", "state.Title = \"hello\".Contains(\"ell\") ? \"yes\" : \"no\";", StringComparison.Ordinal), "yes");
+		Tap(hello.Replace("state.Count++;", "state.Title = \"hello\".StartsWith(\"he\") ? \"yes\" : \"no\";", StringComparison.Ordinal), "yes");
+		Tap(hello.Replace("state.Count++;", "state.Title = \"hello\".Substring(1, 2);", StringComparison.Ordinal), "el");
+		Tap(hello.Replace("state.Count++;", "state.Count = \"hello\".Length;", StringComparison.Ordinal), "Count 5");
+		Tap(hello.Replace("state.Count++;", "state.Count = Math.Abs(-4);", StringComparison.Ordinal), "Count 4");
+		Tap(hello.Replace("state.Count++;", "state.Count = Math.Min(3, 1);", StringComparison.Ordinal), "Count 1");
+		Tap(hello.Replace("state.Count++;", "state.Count = Math.Max(3, 1);", StringComparison.Ordinal), "Count 3");
+		Tap(hello.Replace("state.Count++;", "state.Count = (int)Math.Round(1.6);", StringComparison.Ordinal), "Count 2");
+		Tap(hello.Replace("state.Count++;", "var x = 1.5 * 4.0; state.Count = (int)x;", StringComparison.Ordinal), "Count 6");
+		Tap(hello.Replace("state.Count++;", "state.Title = \"  Hello  \".Trim();", StringComparison.Ordinal), "Hello");
+		Tap(hello.Replace("state.Count++;", "string label = null; state.Title = label ?? \"kept\";", StringComparison.Ordinal), "kept");
+		Tap(hello.Replace("state.Count++;", "string label = null; state.Title = label?.Trim() ?? \"empty\";", StringComparison.Ordinal), "empty");
+		Tap(hello.Replace("state.Count++;", "state.Title = \"12\"; state.Count = int.Parse(state.Title);", StringComparison.Ordinal), "Count 12");
+		var parsed = Open(hello.Replace("state.Count++;", "if (int.TryParse(\"9\", out var n)) state.Count = n;", StringComparison.Ordinal));
+		parsed.Tap("hello/add");
+		Assert.Contains("Count 9", parsed.Tree(), StringComparison.Ordinal);
+
+		var summed = Open(ListScreen("state.Items.Add(new Note { Name = \"2\" }); state.Items.Add(new Note { Name = \"4\" }); var sum = 0; foreach (var item in state.Items) sum += int.Parse(item.Name); state.Count = sum;"));
+		summed.Tap("notes/add");
+		Assert.Equal(6, summed.Bag.ReadInt("Count"));
+		var removed = Open(ListScreen("state.Items.Add(new Note { Name = \"Lantern\" }); state.Items.Add(new Note { Name = \"Rope\" }); foreach (var item in state.Items) if (item.Name == \"Lantern\") state.Items.Remove(item);"));
+		removed.Tap("notes/add");
+		Assert.Equal("Rope", Assert.Single(removed.Bag.Rows("Items"))[0]);
+		var found = Open(ListScreen("state.Items.Add(new Note { Name = \"Lantern\" }); var seen = false; var at = -1; foreach (var item in state.Items) { if (state.Items.Contains(item)) seen = true; at = state.Items.IndexOf(item); } state.Count = state.Items.Count; state.Open = seen; state.Added = at;"));
+		found.Tap("notes/add");
+		Assert.Equal(1, found.Bag.ReadInt("Count"));
+		Assert.True(found.Bag.ReadBool("Open"));
+		Assert.Equal(0, found.Bag.ReadInt("Added"));
+
+		var looped = Open(hello.Replace("state.Count++;", "var n = 0; for (var i = 0; i < 1000; i++) n++; state.Count = n;", StringComparison.Ordinal));
+		looped.Tap("hello/add");
+		Assert.Contains("Count 1000", looped.Tree(), StringComparison.Ordinal);
+		Assert.True(ActionLog.LastSteps < RecordProgram.ActionStepBudget);
+		Assert.Null(ActionLog.LastStop);
+
+		var stopped = Open(hello.Replace("state.Count++;", "while (true) state.Count += 1;", StringComparison.Ordinal));
+		stopped.Tap("hello/add");
+		Assert.Equal("action stopped after 100000 steps", ActionLog.LastStop);
+		Assert.True(stopped.Bag.ReadInt("Count") > 0);
+		var divided = Open(hello.Replace("state.Count++;", "state.Count = 1 / 0;", StringComparison.Ordinal));
+		divided.Tap("hello/add");
+		Assert.Equal("action stopped: divide by zero", ActionLog.LastStop);
 	}
 
 	[Fact]
@@ -251,6 +309,9 @@ public sealed class Note
 public sealed class NotesState
 {
 	public List<Note> Items { get; } = [];
+	public int Count { get; set; }
+	public int Added { get; set; }
+	public bool Open { get; set; }
 }
 
 public static class NotesScreen

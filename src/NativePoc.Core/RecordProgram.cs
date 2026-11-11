@@ -4,7 +4,7 @@ using System.Text;
 
 namespace NativePoc;
 
-public static class RecordProgram
+public static partial class RecordProgram
 {
 	public const byte OpPushStr = 1;
 	public const byte OpPushBool = 2;
@@ -81,6 +81,9 @@ public static class RecordProgram
 	public const byte ActRemoveAt = 31;
 	public const byte ActSetBoolSlot = 32;
 	public const byte ActNotSlot = 33;
+	public const byte ActVm = 34;
+
+	public const int ActionStepBudget = 100_000;
 
 	public const byte IntExprLit = 0;
 	public const byte IntExprProp = 1;
@@ -1117,29 +1120,41 @@ public static class RecordProgram
 	{
 		var previous = EffectContext.Bag;
 		EffectContext.Bag = bag;
+		var frame = new HandlerFrame();
+		string? stop = null;
+		var clock = System.Diagnostics.Stopwatch.StartNew();
 		try
 		{
-			RunSteps(script, strings, bag, platform, text, flag, rowId);
+			RunSteps(script, strings, bag, platform, text, flag, rowId, frame, 0);
+		}
+		catch (ActionStoppedException ex)
+		{
+			stop = ex.Message;
+			platform.RequestRender();
 		}
 		finally
 		{
+			clock.Stop();
 			EffectContext.Bag = previous;
+			var micros = clock.ElapsedTicks * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
+			ActionLog.Note(micros, frame.Steps, stop);
 		}
 	}
 
-	static void RunSteps(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId) =>
-		RunSteps(script, strings, bag, platform, text, flag, rowId, new HandlerFrame(), 0);
+	static void RunSteps(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId, HandlerFrame frame, int depth) =>
+		RunSteps(script, strings, bag, platform, text, flag, rowId, frame, depth, 0, script.Length);
 
-	static void RunSteps(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId, HandlerFrame frame, int depth)
+	static void RunSteps(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId, HandlerFrame frame, int depth, int origin, int limit)
 	{
 		if (depth > 8)
 			throw new InvalidOperationException("Rejected record program.");
-		var ip = 0;
-		var steps = 0;
-		while (ip < script.Length)
+		var ip = origin;
+		var end = origin + limit;
+		if (end > script.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		while (ip < end)
 		{
-			if (++steps > 128)
-				throw new InvalidOperationException("Rejected record program.");
+			frame.Tick();
 			var op = script[ip++];
 			switch (op)
 			{
@@ -1399,17 +1414,34 @@ public static class RecordProgram
 					bag.WriteBool(dest, !frame.Flags[ReadSlot(script, ref ip)]);
 					break;
 				}
+				case ActVm:
+				{
+					var length = TakeU16(script, ref ip, end);
+					if (ip + length > end)
+						throw new InvalidOperationException("Rejected record program.");
+					RunVm(script, ip, length, strings, bag, platform, text, flag, rowId, frame, depth);
+					ip += length;
+					break;
+				}
 				default:
 					throw new InvalidOperationException("Rejected record program.");
 			}
 		}
 	}
 
-	sealed class HandlerFrame
+	internal sealed class HandlerFrame
 	{
 		public readonly int[] Ints = new int[8];
-		public readonly string[] Strings = new string[8];
+		public readonly double[] Doubles = new double[8];
+		public readonly string?[] Strings = new string?[8];
 		public readonly bool[] Flags = new bool[8];
+		public int Steps;
+
+		public void Tick()
+		{
+			if (++Steps > ActionStepBudget)
+				throw new ActionStoppedException("action stopped after " + ActionStepBudget.ToString(CultureInfo.InvariantCulture) + " steps");
+		}
 	}
 
 	static int ReadIntExpr(byte[] script, ref int ip, string[] strings, Bag bag, HandlerFrame frame)
@@ -1959,6 +1991,23 @@ public static class RecordProgram
 					return;
 				rows.RemoveAt(index);
 			}
+		}
+
+		public string CellAt(string name, int row, int field)
+		{
+			lock (_gate)
+			{
+				if (!_lists.TryGetValue(name, out var rows) || (uint)row >= (uint)rows.Count)
+					return "";
+				var cells = rows[row];
+				return (uint)field < (uint)cells.Length ? cells[field] : "";
+			}
+		}
+
+		public bool RowInRange(string name, int index)
+		{
+			lock (_gate)
+				return _lists.TryGetValue(name, out var rows) && (uint)index < (uint)rows.Count;
 		}
 
 		public string RowLines(string list, int textField, int flagField)

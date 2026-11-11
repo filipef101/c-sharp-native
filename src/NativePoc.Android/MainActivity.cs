@@ -31,6 +31,12 @@ public sealed class MainActivity : Activity
 	protected override void OnCreate(Bundle? savedInstanceState)
 	{
 		base.OnCreate(savedInstanceState);
+		ActionLog.OnScript = (micros, steps, stop) =>
+		{
+			if (stop is not null)
+				Log.Info(Tag, stop);
+			Log.Info(Tag, "action-us=" + micros.ToString(CultureInfo.InvariantCulture) + " steps=" + steps.ToString(CultureInfo.InvariantCulture));
+		};
 		StartupMarks.Activity();
 		ThemeRuntime.Load(this);
 		ThemeRuntime.ApplyWindow(this);
@@ -90,6 +96,18 @@ public sealed class MainActivity : Activity
 			});
 		}
 		StartupMarks.Returned();
+		ScheduleLoopBench();
+	}
+
+	void ScheduleLoopBench()
+	{
+		if (!string.Equals(Intent?.GetStringExtra("nativepoc_bench"), "loop1000", StringComparison.Ordinal))
+			return;
+		_reconciler?.Root?.Post(() =>
+		{
+			for (var round = 0; round < 10; round++)
+				LoopBench.Measure();
+		});
 	}
 
 	bool Bench => string.Equals(Intent?.GetStringExtra("nativepoc_bench"), "packing1000", StringComparison.Ordinal);
@@ -110,6 +128,8 @@ public sealed class MainActivity : Activity
 			AppSession.Shared.State.PlainRoot = true;
 			RequestRender();
 		}
+
+		ScheduleLoopBench();
 	}
 
 	protected override void OnResume()
