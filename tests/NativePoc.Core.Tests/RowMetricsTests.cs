@@ -56,4 +56,43 @@ public sealed class RowMetricsTests
 		Assert.Equal("Ridge line", slot.Subtitle);
 		Assert.Equal("", slot.Picture);
 	}
+
+	[Fact]
+	public void The_height_prefix_matches_a_linear_walk()
+	{
+		var prefix = new RowPrefix(1000, 10);
+		var heights = new int[1000];
+		for (var index = 0; index < heights.Length; index++)
+			heights[index] = 10;
+		Expect(prefix, heights);
+		for (var index = 0; index < heights.Length; index++)
+		{
+			if (index % 3 == 0)
+				heights[index] += 8;
+			if (index % 4 == 0)
+				heights[index] += 40;
+			prefix.Set(index, heights[index]);
+			prefix.Set(index, heights[index]);
+		}
+
+		Expect(prefix, heights);
+		Assert.Equal(0, prefix.IndexAt(0));
+		Assert.Equal(999, prefix.IndexAt(prefix.Total));
+		Assert.Equal(0, new RowPrefix(0, 10).IndexAt(4));
+	}
+
+	static void Expect(RowPrefix prefix, int[] heights)
+	{
+		var y = 0;
+		for (var index = 0; index < heights.Length; index++)
+		{
+			Assert.Equal(y, prefix.Y(index));
+			Assert.Equal(index, prefix.IndexAt(y));
+			Assert.Equal(index, prefix.IndexAt(y + heights[index] - 1));
+			y += heights[index];
+		}
+
+		Assert.Equal(y, prefix.Total);
+		Assert.Equal(y, prefix.Y(heights.Length));
+	}
 }

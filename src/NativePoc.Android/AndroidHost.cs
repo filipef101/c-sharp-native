@@ -640,10 +640,43 @@ sealed class AndroidHost : IElementHost<View>
 
 sealed class AndroidField : EditText
 {
+	static bool _loggedFocus;
+
 	public string? Key { get; set; }
 
 	public AndroidField(Context context) : base(context)
 	{
+		FocusableInTouchMode = false;
+		if (OperatingSystem.IsAndroidVersionAtLeast(26))
+			ImportantForAutofill = ImportantForAutofill.No;
+		ViewTreeObserver?.AddOnPreDrawListener(new TouchFocus(this));
+	}
+
+	sealed class TouchFocus : Java.Lang.Object, ViewTreeObserver.IOnPreDrawListener
+	{
+		readonly AndroidField _field;
+		bool _done;
+
+		public TouchFocus(AndroidField field) => _field = field;
+
+		public bool OnPreDraw()
+		{
+			if (_done)
+				return true;
+			_done = true;
+			var focused = _field.IsFocused;
+			_field.FocusableInTouchMode = true;
+			if (OperatingSystem.IsAndroidVersionAtLeast(26))
+				_field.ImportantForAutofill = ImportantForAutofill.Auto;
+			_field.ViewTreeObserver?.RemoveOnPreDrawListener(this);
+			if (_loggedFocus)
+				return true;
+			_loggedFocus = true;
+			Log.Info(
+				MainActivity.Tag,
+				"startup field-focus focused=" + (focused ? "1" : "0"));
+			return true;
+		}
 	}
 }
 

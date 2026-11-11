@@ -81,7 +81,14 @@ public sealed class MainActivity : Activity
 		HotReloadServer.Start(this);
 #endif
 		if (!Bench && !wantsRoot)
-			_reconciler?.Root?.Post(() => NavCatalog.InstallRest());
+		{
+			_reconciler?.Root?.Post(() =>
+			{
+				var started = SystemClock.ElapsedRealtime();
+				NavCatalog.InstallRest();
+				StartupMarks.Note("catalog", SystemClock.ElapsedRealtime() - started);
+			});
+		}
 		StartupMarks.Returned();
 	}
 

@@ -17,8 +17,7 @@ sealed class RowWindow : AndroidScroll
 	readonly int _line;
 	readonly int _image;
 	IReadOnlyList<Element> _rows = Array.Empty<Element>();
-	int[] _heights = Array.Empty<int>();
-	bool[] _known = Array.Empty<bool>();
+	RowPrefix? _prefix;
 	int _origin = -1;
 	int _stamp = -1;
 	bool _refreshEnabled;
@@ -119,8 +118,7 @@ sealed class RowWindow : AndroidScroll
 	public void Bind(IReadOnlyList<Element> rows)
 	{
 		_rows = rows;
-		_heights = new int[rows.Count];
-		_known = new bool[rows.Count];
+		_prefix = new RowPrefix(rows.Count, _line);
 		_origin = -1;
 		_stamp = -1;
 		var canvasHeight = CanvasHeight();
@@ -138,8 +136,7 @@ sealed class RowWindow : AndroidScroll
 		{
 			var face = RowFace.Read(_rows[index]);
 			var height = RowMetrics.Height(face, _density, _fontScale);
-			_heights[index] = height;
-			_known[index] = true;
+			_prefix?.Set(index, height);
 			stamp = unchecked(stamp * 31 + height);
 			stamp = unchecked(stamp * 31 + face.Key.GetHashCode(StringComparison.Ordinal));
 			stamp = unchecked(stamp * 31 + face.Title.GetHashCode(StringComparison.Ordinal));
@@ -173,10 +170,10 @@ sealed class RowWindow : AndroidScroll
 
 			view.Visibility = ViewStates.Visible;
 			var face = RowFace.Read(_rows[index]);
-			var height = _known[index] ? _heights[index] : _line;
+			var height = _prefix?.HeightAt(index) ?? _line;
 			if (view.LayoutParameters is FrameLayout.LayoutParams layout)
 			{
-				layout.TopMargin = Prefix(index);
+				layout.TopMargin = _prefix?.Y(index) ?? 0;
 				layout.Height = height;
 				view.LayoutParameters = layout;
 			}
@@ -187,32 +184,16 @@ sealed class RowWindow : AndroidScroll
 
 	int FirstIndex()
 	{
-		var y = Math.Max(0, ScrollY);
-		var at = 0;
-		for (var index = 0; index < _rows.Count; index++)
-		{
-			var height = _known[index] ? _heights[index] : _line;
-			if (at + height > y)
-				return index;
-			at += height;
-		}
-
-		return Math.Max(0, _rows.Count - 1);
-	}
-
-	int Prefix(int index)
-	{
-		var y = 0;
-		for (var cursor = 0; cursor < index; cursor++)
-			y += _known[cursor] ? _heights[cursor] : _line;
-		return y;
+		if (_prefix is null || _rows.Count == 0)
+			return 0;
+		return _prefix.IndexAt(Math.Max(0, ScrollY));
 	}
 
 	int CanvasHeight()
 	{
-		if (_rows.Count == 0)
+		if (_rows.Count == 0 || _prefix is null)
 			return _line;
-		return Math.Max(_line, Prefix(_rows.Count));
+		return Math.Max(_line, _prefix.Total);
 	}
 
 	sealed class RowSlot : LinearLayout

@@ -35,6 +35,17 @@ static class StartupMarks
 		_managed = managed;
 		Android.Util.Log.Info(MainActivity.Tag, "startup mark=managed-main since-process-ms=" + managed.ToString(CultureInfo.InvariantCulture));
 		Android.Util.Log.Info(MainActivity.Tag, "startup mark=activity since-process-ms=" + since.ToString(CultureInfo.InvariantCulture));
+		LogGc("activity");
+	}
+
+	public static void LogGc(string name)
+	{
+		Android.Util.Log.Info(
+			MainActivity.Tag,
+			"startup gc at=" + name
+			+ " gen0=" + GC.CollectionCount(0).ToString(CultureInfo.InvariantCulture)
+			+ " gen1=" + GC.CollectionCount(1).ToString(CultureInfo.InvariantCulture)
+			+ " gen2=" + GC.CollectionCount(2).ToString(CultureInfo.InvariantCulture));
 	}
 
 	public static void Note(string name, long ms)
@@ -95,6 +106,7 @@ static class StartupMarks
 			_present = true;
 			var since = SystemClock.ElapsedRealtime() - _process;
 			Android.Util.Log.Info(MainActivity.Tag, "startup mark=first-present since-process-ms=" + since.ToString(CultureInfo.InvariantCulture));
+			LogGc("present");
 			if (MainActivity.Current is Activity activity)
 			{
 				try

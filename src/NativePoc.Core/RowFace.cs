@@ -52,6 +52,93 @@ public readonly record struct RowFace(string Key, string Title, string Subtitle,
 	}
 }
 
+public sealed class RowPrefix
+{
+	readonly int[] _tree;
+	readonly int[] _height;
+
+	public RowPrefix(int count, int fallback)
+	{
+		if (count < 0)
+			throw new ArgumentOutOfRangeException(nameof(count));
+		if (fallback < 1)
+			fallback = 1;
+		Count = count;
+		_height = new int[count];
+		_tree = new int[count + 1];
+		for (var index = 0; index < count; index++)
+		{
+			_height[index] = fallback;
+			Add(index, fallback);
+		}
+	}
+
+	public int Count { get; }
+
+	public int Total => Sum(Count);
+
+	public int Y(int index)
+	{
+		if ((uint)index > (uint)Count)
+			throw new ArgumentOutOfRangeException(nameof(index));
+		return Sum(index);
+	}
+
+	public int HeightAt(int index)
+	{
+		if ((uint)index >= (uint)Count)
+			throw new ArgumentOutOfRangeException(nameof(index));
+		return _height[index];
+	}
+
+	public void Set(int index, int height)
+	{
+		if ((uint)index >= (uint)Count)
+			throw new ArgumentOutOfRangeException(nameof(index));
+		if (height < 1)
+			height = 1;
+		var delta = height - _height[index];
+		if (delta == 0)
+			return;
+		_height[index] = height;
+		Add(index, delta);
+	}
+
+	public int IndexAt(int y)
+	{
+		if (Count == 0)
+			return 0;
+		if (y < 0)
+			y = 0;
+		var lo = 0;
+		var hi = Count - 1;
+		while (lo < hi)
+		{
+			var mid = (lo + hi + 1) >>> 1;
+			if (Y(mid) <= y)
+				lo = mid;
+			else
+				hi = mid - 1;
+		}
+
+		return lo;
+	}
+
+	void Add(int index, int delta)
+	{
+		for (var at = index + 1; at <= Count; at += at & -at)
+			_tree[at] += delta;
+	}
+
+	int Sum(int count)
+	{
+		var total = 0;
+		for (var at = count; at > 0; at -= at & -at)
+			total += _tree[at];
+		return total;
+	}
+}
+
 public static class RowMetrics
 {
 	public static int Line(float density, float fontScale)
