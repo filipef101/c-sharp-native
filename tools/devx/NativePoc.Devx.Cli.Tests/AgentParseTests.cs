@@ -1,3 +1,5 @@
+using NativePoc;
+
 namespace NativePoc.Devx.Tests;
 
 public sealed class AgentParseTests
@@ -24,6 +26,21 @@ public sealed class AgentParseTests
 		Assert.Equal(40, tap.Y);
 		var typed = AgentLoop.Parse(["agent", "type", "Ada", "Bea"]);
 		Assert.Equal("Ada Bea", typed.Text);
+		var press = AgentLoop.Parse(["agent", "press", "list/tent/packed"]);
+		Assert.Equal("list/tent/packed", press.Path);
+		var enter = AgentLoop.Parse(["agent", "enter", "editor/name", "Trail", "map"]);
+		Assert.Equal("editor/name", enter.Path);
+		Assert.Equal("Trail map", enter.Text);
+	}
+
+	[Fact]
+	public void A_stale_drive_names_the_rebuild()
+	{
+		var stale = AgentLoop.Refusal(ScreenFreshness.Stale, "abcd");
+		var compiled = AgentLoop.Refusal(ScreenFreshness.Compiled, "abcd");
+		Assert.Contains("tools/devx/cnative run android --once", stale);
+		Assert.Contains("abcd", stale);
+		Assert.Contains(AgentLoop.RebuildWith, compiled);
 	}
 
 	[Theory]

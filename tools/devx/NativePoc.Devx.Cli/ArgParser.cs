@@ -37,6 +37,10 @@ static class ArgParser
 		  cnative agent screenshot <png>
 		  cnative agent tap <x> <y>
 		  cnative agent type <text>
+		  cnative agent press <id>
+		  cnative agent enter <id> <text>
+		  A drive refuses a Screen.cs hash that does not match the running
+		  program and names: tools/devx/cnative run android --once
 
 		  --device <serial>     adb serial. Default: the only online device.
 		  --abi <rid>           android-x64 or android-arm64. Default: the device ABI.

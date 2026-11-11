@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Android.Content;
 using Android.Net;
+using Android.Views;
 
 namespace NativePoc;
 
@@ -141,14 +142,26 @@ static class HotReloadServer
 		{
 			try
 			{
+				var waitForPresent = !ScreenQuery.IsQuery(dll) && ScreenProgram.IsProgram(dll);
 				title = Apply(dll, activity);
+				if (!waitForPresent)
+				{
+					done.Set();
+					return;
+				}
+
+				if (!ArmPresent(activity, done))
+				{
+					title += " present=0";
+					done.Set();
+					return;
+				}
+
+				title += " present=1";
 			}
 			catch (Exception ex)
 			{
 				error = ex;
-			}
-			finally
-			{
 				done.Set();
 			}
 		});
@@ -251,6 +264,44 @@ static class HotReloadServer
 			|| name == "netstandard"
 			|| name == "mscorlib"
 			|| name.StartsWith("System.", StringComparison.Ordinal);
+	}
+
+	static bool ArmPresent(MainActivity activity, ManualResetEventSlim done)
+	{
+		var root = activity.Window?.DecorView;
+		var observer = root?.ViewTreeObserver;
+		if (root is null || observer is null || !observer.IsAlive)
+			return false;
+		observer.AddOnDrawListener(new PresentDraw(root, done));
+		root.Invalidate();
+		return true;
+	}
+
+	sealed class PresentDraw : Java.Lang.Object, ViewTreeObserver.IOnDrawListener
+	{
+		readonly View _view;
+		readonly ManualResetEventSlim _done;
+		int _fired;
+
+		public PresentDraw(View view, ManualResetEventSlim done)
+		{
+			_view = view;
+			_done = done;
+		}
+
+		public void OnDraw()
+		{
+			if (Interlocked.Exchange(ref _fired, 1) != 0)
+				return;
+			Android.Util.Log.Info(MainActivity.Tag, "present-frame");
+			_view.Post(() =>
+			{
+				var observer = _view.ViewTreeObserver;
+				if (observer is not null && observer.IsAlive)
+					observer.RemoveOnDrawListener(this);
+				_done.Set();
+			});
+		}
 	}
 
 	static void LogFailure(string hex, Exception ex)

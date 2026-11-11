@@ -1,4 +1,5 @@
 using System.Text;
+using NativePoc;
 
 namespace NativePoc.Tests;
 
@@ -83,6 +84,57 @@ public sealed class ScreenProgramTests
 		Assert.Equal(copy.Name, again.Name);
 		Assert.Equal(copy.GreetingFirst, again.GreetingFirst);
 		Assert.Equal(copy.PlainRoot, again.PlainRoot);
+	}
+
+	[Fact]
+	public void Packing_checkpoint_round_trips_beside_the_counter()
+	{
+		var state = new AppState { Count = 4, Name = "Ada", GreetingFirst = true };
+		var packing = new PackingCheckpoint
+		{
+			Editor = true,
+			DraftPacked = true,
+			NextNumber = 9,
+			EditingId = "map",
+			DraftName = "Trail map",
+			Items =
+			[
+				new PackingCheckpointItem("tent", "Canvas tent", true),
+				new PackingCheckpointItem("map", "Ridge\nmap", false),
+			],
+		};
+		var text = ScreenSnapshot.FormatState(state) + packing.Format();
+		var read = new AppState();
+		Assert.True(ScreenSnapshot.TryReadState(text, read));
+		Assert.Equal("Ada", read.Name);
+		Assert.Equal(4, read.Count);
+		Assert.True(PackingCheckpoint.TryParse(text, out var parsed));
+		Assert.True(parsed.Editor);
+		Assert.Equal("Trail map", parsed.DraftName);
+		Assert.Equal("map", parsed.EditingId);
+		Assert.Equal("Ridge\nmap", parsed.Items[1].Name);
+		Assert.False(parsed.Items[1].Packed);
+
+		var bytes = StateCheckpoint.Write(state, packing);
+		var again = new AppState();
+		StateCheckpoint.ReadInto(bytes, again);
+		Assert.True(StateCheckpoint.TryReadPacking(bytes, out var restored));
+		Assert.Equal(state.Name, again.Name);
+		Assert.Equal(packing.Items.Count, restored.Items.Count);
+		Assert.Equal(packing.Items[1].Name, restored.Items[1].Name);
+		Assert.Equal(packing.NextNumber, restored.NextNumber);
+		Assert.False(StateCheckpoint.TryReadPacking(StateCheckpoint.Write(state), out _));
+	}
+
+	[Fact]
+	public void Counter_ids_stay_on_the_keyed_children()
+	{
+		var tree = Screen.Render(new AppState { Name = "Ada" }, new RecordingPlatform());
+		var nodes = ElementIds.Flatten(tree);
+		Assert.Contains(nodes, node => node.Id == "title" && node.Element is Text);
+		Assert.Contains(nodes, node => node.Id == "name");
+		Assert.Equal("entered name", ElementIds.Invoke(tree, "name", "Bea"));
+		Assert.Equal("pressed save", ElementIds.Invoke(tree, "save", null));
 	}
 
 	[Fact]

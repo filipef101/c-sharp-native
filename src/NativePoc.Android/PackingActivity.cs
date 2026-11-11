@@ -19,6 +19,10 @@ namespace NativePoc;
 	LaunchMode = LaunchMode.SingleTop)]
 public sealed class PackingActivity : Activity, IPackingHost
 {
+	public static PackingActivity? Current { get; private set; }
+
+	public static void RequestCurrent() => Current?.RequestRender();
+
 	AndroidHost? _host;
 	ViewReconciler<View>? _reconciler;
 	AndroidNativeServices? _services;
@@ -38,7 +42,16 @@ public sealed class PackingActivity : Activity, IPackingHost
 		_services = new AndroidNativeServices(this);
 		_host = new AndroidHost(this, () => _reconciler?.Current);
 		_reconciler = new ViewReconciler<View>(_host);
+		Current = this;
+		UiSurface.Bind(this, () => _reconciler?.Current);
 		RenderNow();
+	}
+
+	protected override void OnResume()
+	{
+		base.OnResume();
+		Current = this;
+		UiSurface.Bind(this, () => _reconciler?.Current);
 	}
 
 #pragma warning disable CA1422
@@ -89,6 +102,9 @@ public sealed class PackingActivity : Activity, IPackingHost
 
 	protected override void OnDestroy()
 	{
+		if (ReferenceEquals(Current, this))
+			Current = null;
+		UiSurface.Clear(this);
 		if (OperatingSystem.IsAndroidVersionAtLeast(33))
 			UnregisterBackCallback();
 		_reconciler?.Release();

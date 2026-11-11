@@ -15,8 +15,11 @@ public static class ScreenSnapshot
 {
 	public static string FormatTree(Element? element)
 	{
+		if (element is null)
+			return "empty\n";
 		var builder = new StringBuilder();
-		Write(builder, element, 0);
+		foreach (var node in ElementIds.Flatten(element))
+			Write(builder, node);
 		return builder.ToString();
 	}
 
@@ -32,7 +35,7 @@ public static class ScreenSnapshot
 	{
 		ArgumentNullException.ThrowIfNull(state);
 		var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-		if (lines.Length != 5 || lines[4].Length != 0)
+		if (lines.Length < 5 || lines[^1].Length != 0)
 			return false;
 		if (!Take(lines[0], "count=", out var countText) || !int.TryParse(countText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count))
 			return false;
@@ -63,44 +66,34 @@ public static class ScreenSnapshot
 			: ScreenFreshness.Stale;
 	}
 
-	static void Write(StringBuilder builder, Element? element, int depth)
+	static void Write(StringBuilder builder, ElementIds.Node node)
 	{
-		if (element is null)
-		{
-			builder.Append("empty\n");
-			return;
-		}
-
-		builder.Append(' ', depth * 2);
+		builder.Append(' ', node.Depth * 2);
+		var element = node.Element;
+		builder.Append(Kind(element));
+		builder.Append(" id=").Append(Quote(node.Id));
 		switch (element)
 		{
 			case Column column:
-				builder.Append("column");
 				Key(builder, column.Key);
 				builder.Append('\n');
-				foreach (var child in column.Children)
-					Write(builder, child, depth + 1);
 				return;
 			case Text text:
-				builder.Append("text");
 				Key(builder, text.Key);
 				builder.Append(" value=").Append(Quote(text.Value)).Append('\n');
 				return;
 			case Button button:
-				builder.Append("button");
 				Key(builder, button.Key);
 				builder.Append(" title=").Append(Quote(button.Title));
 				builder.Append(" label=").Append(Quote(button.AccessibilityLabel)).Append('\n');
 				return;
 			case TextField field:
-				builder.Append("textfield");
 				Key(builder, field.Key);
 				builder.Append(" value=").Append(Quote(field.Value));
 				builder.Append(" placeholder=").Append(Quote(field.Placeholder));
 				builder.Append(" label=").Append(Quote(field.AccessibilityLabel)).Append('\n');
 				return;
 			case Switch toggle:
-				builder.Append("switch");
 				Key(builder, toggle.Key);
 				builder.Append(" value=").Append(toggle.Value ? "true" : "false");
 				builder.Append(" label=").Append(Quote(toggle.AccessibilityLabel)).Append('\n');
@@ -109,6 +102,17 @@ public static class ScreenSnapshot
 				throw Unknown(element);
 		}
 	}
+
+	static string Kind(Element element) =>
+		element switch
+		{
+			Column => "column",
+			Text => "text",
+			Button => "button",
+			TextField => "textfield",
+			Switch => "switch",
+			_ => throw Unknown(element),
+		};
 
 	static void Key(StringBuilder builder, string? key)
 	{
@@ -173,18 +177,21 @@ public static class ScreenSnapshot
 
 public static class StateCheckpoint
 {
-	public static byte[] Write(AppState state)
+	public static byte[] Write(AppState state) => Write(state, null);
+
+	public static byte[] Write(AppState state, PackingCheckpoint? packing)
 	{
 		ArgumentNullException.ThrowIfNull(state);
 		var name = Encoding.UTF8.GetBytes(state.Name);
 		if (name.Length > ushort.MaxValue)
 			throw new InvalidOperationException("The screen name is too long to checkpoint.");
-		var payload = new byte[4 + 1 + 4 + 1 + 2 + name.Length];
+		var packingSize = packing is null ? 0 : PackingCheckpoint.Size(packing);
+		var payload = new byte[12 + name.Length + packingSize];
 		payload[0] = (byte)'S';
 		payload[1] = (byte)'T';
 		payload[2] = (byte)'C';
 		payload[3] = (byte)'1';
-		payload[4] = 1;
+		payload[4] = packing is null ? (byte)1 : (byte)2;
 		payload[5] = (byte)state.Count;
 		payload[6] = (byte)(state.Count >> 8);
 		payload[7] = (byte)(state.Count >> 16);
@@ -198,31 +205,71 @@ public static class StateCheckpoint
 		payload[10] = (byte)name.Length;
 		payload[11] = (byte)(name.Length >> 8);
 		name.CopyTo(payload, 12);
+		if (packing is not null)
+		{
+			var cursor = 12 + name.Length;
+			PackingCheckpoint.Write(payload, ref cursor, packing);
+			if (cursor != payload.Length)
+				throw new InvalidOperationException("The packing checkpoint did not fill its buffer.");
+		}
+
 		return payload;
 	}
 
 	public static void ReadInto(ReadOnlySpan<byte> payload, AppState state)
 	{
-		ArgumentNullException.ThrowIfNull(state);
+		var (count, greetingFirst, plainRoot, name) = ReadApp(payload, out _);
+		state.Count = count;
+		state.GreetingFirst = greetingFirst;
+		state.PlainRoot = plainRoot;
+		state.Name = name;
+	}
+
+	public static bool TryReadPacking(ReadOnlySpan<byte> payload, out PackingCheckpoint packing)
+	{
+		ReadApp(payload, out var read);
+		if (read is null)
+		{
+			packing = new PackingCheckpoint();
+			return false;
+		}
+
+		packing = read;
+		return true;
+	}
+
+	static (int Count, bool GreetingFirst, bool PlainRoot, string Name) ReadApp(ReadOnlySpan<byte> payload, out PackingCheckpoint? packing)
+	{
+		packing = null;
 		if (payload.Length < 12
 			|| payload[0] != (byte)'S'
 			|| payload[1] != (byte)'T'
 			|| payload[2] != (byte)'C'
 			|| payload[3] != (byte)'1'
-			|| payload[4] != 1)
+			|| payload[4] is not (1 or 2))
 			throw new InvalidOperationException("Rejected state checkpoint.");
 		var count = payload[5] | (payload[6] << 8) | (payload[7] << 16) | (payload[8] << 24);
 		var flags = payload[9];
 		if ((flags & ~3) != 0)
 			throw new InvalidOperationException("Rejected state checkpoint.");
 		var length = payload[10] | (payload[11] << 8);
-		if (payload.Length != 12 + length)
+		if (12 + length > payload.Length)
 			throw new InvalidOperationException("Rejected state checkpoint.");
 		var name = Encoding.UTF8.GetString(payload.Slice(12, length));
-		state.Count = count;
-		state.GreetingFirst = (flags & 1) != 0;
-		state.PlainRoot = (flags & 2) != 0;
-		state.Name = name;
+		var cursor = 12 + length;
+		if (payload[4] == 1)
+		{
+			if (cursor != payload.Length)
+				throw new InvalidOperationException("Rejected state checkpoint.");
+		}
+		else
+		{
+			packing = PackingCheckpoint.Read(payload, ref cursor);
+			if (cursor != payload.Length)
+				throw new InvalidOperationException("Rejected state checkpoint.");
+		}
+
+		return (count, (flags & 1) != 0, (flags & 2) != 0, name);
 	}
 }
 
@@ -231,6 +278,8 @@ public static class ScreenQuery
 	public const byte Tree = 1;
 	public const byte State = 2;
 	public const byte Restore = 3;
+	public const byte Press = 4;
+	public const byte Enter = 5;
 
 	public static bool IsQuery(ReadOnlySpan<byte> payload) =>
 		payload.Length >= 6
@@ -241,26 +290,54 @@ public static class ScreenQuery
 
 	public static byte Op(ReadOnlySpan<byte> payload)
 	{
-		if (!IsQuery(payload) || payload[4] != 1 || payload[5] is < Tree or > Restore)
+		if (!IsQuery(payload) || payload[4] != 1)
 			throw new InvalidOperationException("Rejected screen query.");
-		if (payload[5] != Restore && payload.Length != 6)
-			throw new InvalidOperationException("Rejected screen query.");
-		return payload[5];
+		var op = payload[5];
+		switch (op)
+		{
+			case Tree:
+			case State:
+				if (payload.Length != 6)
+					throw new InvalidOperationException("Rejected screen query.");
+				return op;
+			case Restore:
+			case Press:
+			case Enter:
+				if (payload.Length < 7)
+					throw new InvalidOperationException("Rejected screen query.");
+				return op;
+			default:
+				throw new InvalidOperationException("Rejected screen query.");
+		}
 	}
 
 	public static byte[] Ask(byte op) => [(byte)'N', (byte)'P', (byte)'C', (byte)'Q', 1, op];
 
-	public static byte[] RestoreState(byte[] checkpoint)
+	public static byte[] RestoreState(byte[] checkpoint) => WithBody(Restore, checkpoint);
+
+	public static byte[] PressId(string id)
 	{
-		ArgumentNullException.ThrowIfNull(checkpoint);
-		var payload = new byte[6 + checkpoint.Length];
+		ArgumentException.ThrowIfNullOrEmpty(id);
+		return WithBody(Press, Encoding.UTF8.GetBytes(id));
+	}
+
+	public static byte[] EnterId(string id, string text)
+	{
+		ArgumentException.ThrowIfNullOrEmpty(id);
+		ArgumentNullException.ThrowIfNull(text);
+		return WithBody(Enter, Encoding.UTF8.GetBytes(id + "\n" + text));
+	}
+
+	static byte[] WithBody(byte op, byte[] body)
+	{
+		var payload = new byte[6 + body.Length];
 		payload[0] = (byte)'N';
 		payload[1] = (byte)'P';
 		payload[2] = (byte)'C';
 		payload[3] = (byte)'Q';
 		payload[4] = 1;
-		payload[5] = Restore;
-		checkpoint.CopyTo(payload, 6);
+		payload[5] = op;
+		body.CopyTo(payload, 6);
 		return payload;
 	}
 }

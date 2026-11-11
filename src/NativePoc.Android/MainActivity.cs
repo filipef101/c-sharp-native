@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text;
 using Android.Content;
 using Android.Content.PM;
 using Android.OS;
@@ -37,6 +38,7 @@ public sealed class MainActivity : Activity
 		_platform = new PlatformBridge(this);
 		_host = new AndroidHost(this, () => _reconciler?.Current);
 		_reconciler = new ViewReconciler<View>(_host);
+		UiSurface.Bind(this, () => _reconciler?.Current);
 		RenderNow();
 		if (string.Equals(Intent?.GetStringExtra("nativepoc_keyed_move"), "1", StringComparison.Ordinal))
 		{
@@ -66,10 +68,18 @@ public sealed class MainActivity : Activity
 		}
 	}
 
+	protected override void OnResume()
+	{
+		base.OnResume();
+		Current = this;
+		UiSurface.Bind(this, () => _reconciler?.Current);
+	}
+
 	protected override void OnDestroy()
 	{
 		if (ReferenceEquals(Current, this))
 			Current = null;
+		UiSurface.Clear(this);
 		base.OnDestroy();
 	}
 
@@ -140,17 +150,32 @@ public sealed class MainActivity : Activity
 		switch (op)
 		{
 			case ScreenQuery.Tree:
-				return "source=" + _programSource + "\n" + ScreenSnapshot.FormatTree(_reconciler?.Current);
+				return "source=" + _programSource + "\n" + ScreenSnapshot.FormatTree(CurrentTree());
 			case ScreenQuery.State:
-				return ScreenSnapshot.FormatState(AppSession.Shared.State);
+				return ScreenSnapshot.FormatState(AppSession.Shared.State) + PackingView.Capture().Format();
 			case ScreenQuery.Restore:
 				StateCheckpoint.ReadInto(payload.AsSpan(6), AppSession.Shared.State);
+				if (StateCheckpoint.TryReadPacking(payload.AsSpan(6), out var packing))
+					PackingView.Apply(packing);
 				RequestRender();
+				PackingActivity.RequestCurrent();
 				return "restored";
+			case ScreenQuery.Press:
+				return ElementIds.Invoke(RequireTree(), Encoding.UTF8.GetString(payload.AsSpan(6)), null);
+			case ScreenQuery.Enter:
+				var body = Encoding.UTF8.GetString(payload.AsSpan(6));
+				var split = body.IndexOf('\n');
+				if (split <= 0)
+					throw new InvalidOperationException("Enter needs an element id.");
+				return ElementIds.Invoke(RequireTree(), body[..split], body[(split + 1)..]);
 			default:
 				throw new InvalidOperationException("Unknown screen query.");
 		}
 	}
+
+	Element? CurrentTree() => UiSurface.Current() ?? _reconciler?.Current;
+
+	Element RequireTree() => CurrentTree() ?? throw new InvalidOperationException("No screen is current.");
 
 	string ApplyRender(Func<AppState, IPlatform, Element> render)
 	{

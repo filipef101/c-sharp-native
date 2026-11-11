@@ -8,6 +8,16 @@ readonly record struct AgentInvocation(string Verb, string? Serial, string? Path
 
 static class AgentLoop
 {
+	public const string RebuildWith = "Rebuild with: tools/devx/cnative run android --once";
+
+	public static string Refusal(ScreenFreshness freshness, string hash) =>
+		freshness switch
+		{
+			ScreenFreshness.Stale => "stale build: src/NativePoc.Screen/Screen.cs hash " + hash + " does not match the running program. " + RebuildWith,
+			ScreenFreshness.Compiled => "stale build: the running screen is the compiled Render, not src/NativePoc.Screen/Screen.cs. " + RebuildWith,
+			ScreenFreshness.Current => throw new InvalidOperationException("A current screen is not a refusal."),
+			ScreenFreshness.Unreadable => throw new InvalidOperationException("An unreadable screen is not a stale refusal."),
+		};
 	public static int Run(string[] args)
 	{
 		AgentInvocation invocation;
@@ -37,15 +47,14 @@ static class AgentLoop
 				return 1;
 			}
 
-			switch (ScreenSnapshot.Freshness(tree.Text, hash))
+			var freshness = ScreenSnapshot.Freshness(tree.Text, hash);
+			switch (freshness)
 			{
 				case ScreenFreshness.Current:
 					break;
 				case ScreenFreshness.Compiled:
-					Console.Error.WriteLine("screen is the compiled Render; push a program before driving it");
-					return 3;
 				case ScreenFreshness.Stale:
-					Console.Error.WriteLine("screen is stale: src/NativePoc.Screen/Screen.cs changed since the running program");
+					Console.Error.WriteLine(Refusal(freshness, hash));
 					return 3;
 				case ScreenFreshness.Unreadable:
 					Console.Error.WriteLine("screen reply had no source line");
@@ -91,6 +100,10 @@ static class AgentLoop
 					}
 
 					return 0;
+				case "press":
+					return Query(connection, ScreenQuery.PressId(invocation.Path ?? ""));
+				case "enter":
+					return Query(connection, ScreenQuery.EnterId(invocation.Path ?? "", invocation.Text ?? ""));
 				default:
 					throw new InvalidOperationException("Unknown agent verb.");
 			}
@@ -105,7 +118,7 @@ static class AgentLoop
 	public static AgentInvocation Parse(IReadOnlyList<string> args)
 	{
 		if (args.Count == 0 || args[0] != "agent")
-			throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type");
+			throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type|press|enter");
 		string? serial = null;
 		string? verb = null;
 		var positionals = new List<string>();
@@ -150,9 +163,30 @@ static class AgentLoop
 				if (positionals.Count == 0)
 					throw new UsageException("Usage: cnative agent type <text>");
 				return new AgentInvocation(verb, serial, null, 0, 0, string.Join(' ', positionals));
+			case "press":
+				if (positionals.Count != 1)
+					throw new UsageException("Usage: cnative agent press <id>");
+				return new AgentInvocation(verb, serial, positionals[0], 0, 0, null);
+			case "enter":
+				if (positionals.Count < 2)
+					throw new UsageException("Usage: cnative agent enter <id> <text>");
+				return new AgentInvocation(verb, serial, positionals[0], 0, 0, string.Join(' ', positionals.Skip(1)));
 			default:
-				throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type");
+				throw new UsageException("Usage: cnative agent tree|state|screenshot|tap|type|press|enter");
 		}
+	}
+
+	static int Query(HotReloadConnection connection, byte[] payload)
+	{
+		var reply = connection.Apply(payload);
+		if (!reply.Ok)
+		{
+			Console.Error.WriteLine(reply.Text);
+			return 1;
+		}
+
+		Console.WriteLine(reply.Text);
+		return 0;
 	}
 
 	static int Screenshot(string serial, string path)

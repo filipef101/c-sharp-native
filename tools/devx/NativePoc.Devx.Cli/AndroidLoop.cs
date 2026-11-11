@@ -305,6 +305,35 @@ static class AndroidLoop
 		return new PushOutcome(ReloadStatus.Applied, false);
 	}
 
+	internal readonly record struct ProgramPush(bool Applied, bool Refused, string Text);
+
+	internal static ProgramPush SendFile(ReloadSession session)
+	{
+		CompileOutput compiled;
+		try
+		{
+			compiled = session.Compiler.CompileFile();
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			return new ProgramPush(false, false, ex.Message);
+		}
+
+		if (compiled.Assembly is null)
+		{
+			var errors = compiled.Errors.Count == 0
+				? "reload failed"
+				: string.Join('\n', compiled.Errors.Select(error => error.Display));
+			return new ProgramPush(false, false, errors);
+		}
+
+		var lowered = ScreenLowerer.TryLower(session.Compiler.ReadSource());
+		if (lowered.Program is null)
+			return new ProgramPush(false, true, lowered.Reason ?? "The screen is not a program this runtime can carry.");
+		var applied = session.Connection.Apply(lowered.Program);
+		return new ProgramPush(applied.Ok, false, applied.Text);
+	}
+
 	static bool Interactive() => !Console.IsInputRedirected;
 
 	static string? ReadAnswer()
@@ -324,7 +353,10 @@ static class AndroidLoop
 			var state = new AppState();
 			if (!ScreenSnapshot.TryReadState(reply.Text, state))
 				throw new InvalidOperationException("The state reply was not a checkpoint.");
-			checkpoint = StateCheckpoint.Write(state);
+			PackingCheckpoint? packing = null;
+			if (PackingCheckpoint.TryParse(reply.Text, out var parsed))
+				packing = parsed;
+			checkpoint = StateCheckpoint.Write(state, packing);
 		}
 		catch (Exception ex) when (ex is InvalidOperationException or IOException)
 		{
@@ -352,7 +384,7 @@ static class AndroidLoop
 		}
 	}
 
-	static FoundToken DeployAndLaunch(string repo, string rid, string serial)
+	internal static FoundToken DeployAndLaunch(string repo, string rid, string serial)
 	{
 		Console.WriteLine("cnative: building Debug " + rid + " for " + serial);
 		var project = Path.Combine(repo, "src", "NativePoc.Android", "NativePoc.Android.csproj");

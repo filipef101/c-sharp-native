@@ -1,3 +1,5 @@
+using NativePoc;
+
 namespace NativePoc.Packing.Tests;
 
 public sealed class PackingTests
@@ -187,6 +189,20 @@ public sealed class PackingTests
 		Assert.Null(harness.Reconciler.Root);
 		Assert.True(toggle.Disposed);
 		Assert.Equal(0, harness.Host.Listeners(toggle));
+	}
+
+	[Fact]
+	public void Stable_ids_drive_a_row_and_the_editor()
+	{
+		var harness = new PackingHarness();
+		var tree = harness.Reconciler.Current ?? throw new InvalidOperationException("The list is not mounted.");
+		Assert.Equal("pressed list/tent/packed", ElementIds.Invoke(tree, "list/tent/packed", null));
+		Assert.True(harness.State.Items[0].Packed);
+		Assert.Equal("pressed list/tent/edit", ElementIds.Invoke(harness.Reconciler.Current!, "list/tent/edit", null));
+		Assert.Equal(PackingRoute.Editor, harness.State.Route);
+		Assert.Equal("entered editor/name", ElementIds.Invoke(harness.Reconciler.Current!, "editor/name", "Canvas tent X"));
+		Assert.Equal("pressed editor/save", ElementIds.Invoke(harness.Reconciler.Current!, "editor/save", null));
+		Assert.Equal("Canvas tent X", harness.State.Items[0].Name);
 	}
 
 	[Fact]
