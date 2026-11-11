@@ -192,6 +192,89 @@ public sealed class PackingTests
 	}
 
 	[Fact]
+	public void The_program_matches_the_packing_screen_and_its_actions()
+	{
+		var screen = new PackingHarness();
+		var program = new PackingHarness();
+		var bound = ScreenProgram.BindPacking(PackingProgram.Bytes);
+		Assert.Equal((byte)'N', PackingProgram.Bytes[0]);
+		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
+
+		Press(bound, program, "list/tent/packed");
+		screen.SetPacked("tent", true);
+		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
+		Assert.True(program.State.Items[0].Packed);
+
+		Press(bound, program, "list/tent/edit");
+		screen.PressRow("tent", "edit");
+		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
+		Enter(bound, program, "editor/name", "Canvas tent X");
+		screen.Type("Canvas tent X");
+		Press(bound, program, "editor/save");
+		screen.Press("save");
+		Assert.Equal("Canvas tent X", program.State.Items[0].Name);
+		Assert.Equal(Describe(PackingScreen.Render(screen.State, screen)), Describe(bound.Render(new PackingProgramAdapter(program.State, program))));
+
+		Press(bound, program, "list/add");
+		Enter(bound, program, "editor/name", "Lantern");
+		Press(bound, program, "editor/packed");
+		Press(bound, program, "editor/save");
+		Assert.Equal("Lantern", program.State.Items[4].Name);
+		Assert.True(program.State.Items[4].Packed);
+		Assert.Equal(PackingRoute.List, program.State.Route);
+	}
+
+	static void Press(ScreenProgram.PackingBound bound, PackingHarness harness, string id)
+	{
+		var tree = bound.Render(new PackingProgramAdapter(harness.State, harness));
+		ElementIds.Invoke(tree, id, null);
+	}
+
+	static void Enter(ScreenProgram.PackingBound bound, PackingHarness harness, string id, string text)
+	{
+		var tree = bound.Render(new PackingProgramAdapter(harness.State, harness));
+		ElementIds.Invoke(tree, id, text);
+	}
+
+	static string Describe(Element element)
+	{
+		var builder = new System.Text.StringBuilder();
+		Describe(element, builder);
+		return builder.ToString();
+	}
+
+	static void Describe(Element element, System.Text.StringBuilder builder)
+	{
+		builder.Append(element.Key ?? "").Append(':');
+		switch (element)
+		{
+			case Column column:
+				builder.Append("column");
+				foreach (var child in column.Children)
+				{
+					builder.Append('{');
+					Describe(child, builder);
+					builder.Append('}');
+				}
+				return;
+			case Text text:
+				builder.Append("text=").Append(text.Value);
+				return;
+			case Button button:
+				builder.Append("button=").Append(button.Title).Append('/').Append(button.AccessibilityLabel);
+				return;
+			case TextField field:
+				builder.Append("field=").Append(field.Value).Append('/').Append(field.Placeholder).Append('/').Append(field.AccessibilityLabel);
+				return;
+			case Switch toggle:
+				builder.Append("switch=").Append(toggle.Value ? "1" : "0").Append('/').Append(toggle.AccessibilityLabel);
+				return;
+			default:
+				throw new InvalidOperationException("Unknown element.");
+		}
+	}
+
+	[Fact]
 	public void Stable_ids_drive_a_row_and_the_editor()
 	{
 		var harness = new PackingHarness();

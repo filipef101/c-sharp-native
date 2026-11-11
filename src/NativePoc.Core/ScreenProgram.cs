@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -7,7 +8,7 @@ namespace NativePoc;
 /// A screen as data. The bytes are a stack program the process already contains.
 /// Applying one does not load an assembly.
 /// </summary>
-public static class ScreenProgram
+public static partial class ScreenProgram
 {
 	public const byte Version = 1;
 
@@ -27,13 +28,37 @@ public static class ScreenProgram
 	public const byte OpMakeButton = 14;
 	public const byte OpMakeColumn = 15;
 	public const byte OpReturn = 16;
+	public const byte OpPushEditor = 17;
+	public const byte OpPushEditingId = 18;
+	public const byte OpPushDraftName = 19;
+	public const byte OpPushDraftPacked = 20;
+	public const byte OpPushItemCount = 21;
+	public const byte OpPushPackedCount = 22;
+	public const byte OpPushItemName = 23;
+	public const byte OpPushItemPacked = 24;
+	public const byte OpMark = 25;
+	public const byte OpForEachItem = 26;
+	public const byte OpMakeKeyedColumn = 27;
+	public const byte OpMakeItemColumn = 28;
+	public const byte OpMakeDynamicColumn = 29;
+	public const byte OpMakeSwitch = 30;
+	public const byte OpMakeActionButton = 31;
+	public const byte OpMakeDraftField = 32;
+
+	public const byte PackAdd = 1;
+	public const byte PackEdit = 2;
+	public const byte PackSave = 3;
+	public const byte PackBack = 4;
+	public const byte PackCopy = 5;
+	public const byte PackItemPacked = 6;
+	public const byte PackDraftPacked = 7;
 
 	public const int MaxStrings = 64;
 	public const int MaxStringBytes = 4096;
 	public const int MaxCode = 8192;
-	public const int MaxStack = 16;
+	public const int MaxStack = 64;
 	public const int MaxLocals = 8;
-	public const int MaxChildren = 8;
+	public const int MaxChildren = 64;
 
 	public static bool IsProgram(ReadOnlySpan<byte> payload) =>
 		payload.Length >= 4
@@ -61,6 +86,19 @@ public static class ScreenProgram
 		public string SourceHash { get; }
 	}
 
+	public readonly struct PackingBound
+	{
+		public PackingBound(Func<IPackingProgram, Element> render, string sourceHash)
+		{
+			Render = render;
+			SourceHash = sourceHash;
+		}
+
+		public Func<IPackingProgram, Element> Render { get; }
+
+		public string SourceHash { get; }
+	}
+
 	public static Bound Bind(ReadOnlySpan<byte> payload)
 	{
 		var decoded = Decode(payload);
@@ -69,7 +107,19 @@ public static class ScreenProgram
 		var strings = decoded.Strings;
 		var sourceHash = decoded.SourceHash;
 		return new Bound(
-			(state, platform) => Eval(code, strings, state, platform),
+			(state, platform) => Eval(code, strings, state, platform, null),
+			sourceHash);
+	}
+
+	public static PackingBound BindPacking(ReadOnlySpan<byte> payload)
+	{
+		var decoded = Decode(payload);
+		Verify(decoded.Code, decoded.Strings.Length);
+		var code = decoded.Code;
+		var strings = decoded.Strings;
+		var sourceHash = decoded.SourceHash;
+		return new PackingBound(
+			packing => Eval(code, strings, null, null, packing),
 			sourceHash);
 	}
 
@@ -146,6 +196,77 @@ public static class ScreenProgram
 			_code.Add(OpMakeColumn);
 			_code.Add(count);
 		}
+
+		public void PushEditor() => _code.Add(OpPushEditor);
+
+		public void PushEditingId() => _code.Add(OpPushEditingId);
+
+		public void PushDraftName() => _code.Add(OpPushDraftName);
+
+		public void PushDraftPacked() => _code.Add(OpPushDraftPacked);
+
+		public void PushItemCount() => _code.Add(OpPushItemCount);
+
+		public void PushPackedCount() => _code.Add(OpPushPackedCount);
+
+		public void PushItemName() => _code.Add(OpPushItemName);
+
+		public void PushItemPacked() => _code.Add(OpPushItemPacked);
+
+		public void Mark() => _code.Add(OpMark);
+
+		public int BeginItems()
+		{
+			_code.Add(OpForEachItem);
+			var at = _code.Count;
+			_code.Add(0);
+			_code.Add(0);
+			return at;
+		}
+
+		public void EndItems(int operandAt)
+		{
+			var length = _code.Count - (operandAt + 2);
+			if (length <= 0 || length > ushort.MaxValue)
+				throw new InvalidOperationException("An item row has no body.");
+			_code[operandAt] = (byte)length;
+			_code[operandAt + 1] = (byte)(length >> 8);
+		}
+
+		public void MakeKeyedColumn(byte count, int key)
+		{
+			if (count > MaxChildren)
+				throw new InvalidOperationException("A screen column has too many children.");
+			if ((uint)key >= (uint)_strings.Count)
+				throw new InvalidOperationException("A screen string index is out of range.");
+			_code.Add(OpMakeKeyedColumn);
+			_code.Add(count);
+			EmitU16(key);
+		}
+
+		public void MakeItemColumn(byte count)
+		{
+			if (count > MaxChildren)
+				throw new InvalidOperationException("A screen column has too many children.");
+			_code.Add(OpMakeItemColumn);
+			_code.Add(count);
+		}
+
+		public void MakeDynamicColumn(int key) => EmitIndex(OpMakeDynamicColumn, key);
+
+		public void MakeSwitch(int key, byte action)
+		{
+			EmitIndex(OpMakeSwitch, key);
+			_code.Add(action);
+		}
+
+		public void MakeActionButton(int key, byte action)
+		{
+			EmitIndex(OpMakeActionButton, key);
+			_code.Add(action);
+		}
+
+		public void MakeDraftField(int key) => EmitIndex(OpMakeDraftField, key);
 
 		public void Return() => _code.Add(OpReturn);
 
@@ -275,13 +396,18 @@ public static class ScreenProgram
 		Str = 1,
 		Bool = 2,
 		Elem = 3,
+		Mark = 4,
+		Repeat = 5,
 	}
 
-	static void Verify(byte[] code, int stringCount)
+	static void Verify(byte[] code, int stringCount) =>
+		VerifyRegion(code, stringCount, 0, code.Length, expectReturn: true, new List<(int Start, int End)>());
+
+	static void VerifyRegion(byte[] code, int stringCount, int start, int end, bool expectReturn, List<(int Start, int End)> bodies)
 	{
 		var seen = new Dictionary<int, string>();
 		var work = new Queue<Frame>();
-		work.Enqueue(new Frame(0, new Kind[MaxStack], 0, new Kind[MaxLocals]));
+		work.Enqueue(new Frame(start, new Kind[MaxStack], 0, new Kind[MaxLocals]));
 		var returned = false;
 		while (work.Count > 0)
 		{
@@ -294,8 +420,25 @@ public static class ScreenProgram
 				continue;
 			}
 
-			if ((uint)frame.Ip >= (uint)code.Length)
+			if (!expectReturn && frame.Ip == end)
+			{
+				if (frame.Sp != 1 || frame.Stack[0] != Kind.Elem)
+					throw new InvalidOperationException("Rejected screen program.");
+				returned = true;
+				continue;
+			}
+
+			if ((uint)frame.Ip >= (uint)end)
 				throw new InvalidOperationException("Rejected screen program.");
+			if (expectReturn)
+			{
+				foreach (var body in bodies)
+				{
+					if (frame.Ip >= body.Start && frame.Ip < body.End)
+						throw new InvalidOperationException("Rejected screen program.");
+				}
+			}
+
 			seen[frame.Ip] = signature;
 			var ip = frame.Ip;
 			var op = code[ip++];
@@ -337,7 +480,7 @@ public static class ScreenProgram
 					Require(ref ip, code, 2);
 					PopKind(stack, ref sp, Kind.Bool);
 					var target = ip + I16(code, ip - 2);
-					if (target <= frame.Ip)
+					if (target <= frame.Ip || target > end || (!expectReturn && target < start))
 						throw new InvalidOperationException("Rejected screen program.");
 					work.Enqueue(Copy(ip, stack, sp, locals));
 					work.Enqueue(Copy(target, stack, sp, locals));
@@ -347,7 +490,7 @@ public static class ScreenProgram
 				{
 					Require(ref ip, code, 2);
 					var target = ip + I16(code, ip - 2);
-					if (target <= frame.Ip)
+					if (target <= frame.Ip || target > end || (!expectReturn && target < start))
 						throw new InvalidOperationException("Rejected screen program.");
 					work.Enqueue(Copy(target, stack, sp, locals));
 					break;
@@ -410,9 +553,107 @@ public static class ScreenProgram
 					break;
 				}
 				case OpReturn:
-					if (sp != 1 || stack[0] != Kind.Elem)
+					if (!expectReturn || sp != 1 || stack[0] != Kind.Elem)
 						throw new InvalidOperationException("Rejected screen program.");
 					returned = true;
+					break;
+				case OpPushEditor:
+				case OpPushDraftPacked:
+				case OpPushItemPacked:
+					PushKind(stack, ref sp, Kind.Bool);
+					work.Enqueue(Copy(ip, stack, sp, locals));
+					break;
+				case OpPushEditingId:
+				case OpPushDraftName:
+				case OpPushItemCount:
+				case OpPushPackedCount:
+				case OpPushItemName:
+					PushKind(stack, ref sp, Kind.Str);
+					work.Enqueue(Copy(ip, stack, sp, locals));
+					break;
+				case OpMark:
+					PushKind(stack, ref sp, Kind.Mark);
+					work.Enqueue(Copy(ip, stack, sp, locals));
+					break;
+				case OpForEachItem:
+				{
+					if (!expectReturn)
+						throw new InvalidOperationException("Rejected screen program.");
+					Require(ref ip, code, 2);
+					var length = U16(code, ip - 2);
+					var bodyEnd = ip + length;
+					if (length == 0 || bodyEnd > end)
+						throw new InvalidOperationException("Rejected screen program.");
+					bodies.Add((ip, bodyEnd));
+					VerifyRegion(code, stringCount, ip, bodyEnd, expectReturn: false, bodies);
+					ip = bodyEnd;
+					PushKind(stack, ref sp, Kind.Repeat);
+					work.Enqueue(Copy(ip, stack, sp, locals));
+					break;
+				}
+				case OpMakeKeyedColumn:
+				{
+					Require(ref ip, code, 3);
+					var count = code[ip - 3];
+					if (count > MaxChildren || U16(code, ip - 2) >= stringCount)
+						throw new InvalidOperationException("Rejected screen program.");
+					for (var child = 0; child < count; child++)
+						PopKind(stack, ref sp, Kind.Elem);
+					PushKind(stack, ref sp, Kind.Elem);
+					work.Enqueue(Copy(ip, stack, sp, locals));
+					break;
+				}
+				case OpMakeItemColumn:
+				{
+					Require(ref ip, code, 1);
+					var count = code[ip - 1];
+					if (count > MaxChildren)
+						throw new InvalidOperationException("Rejected screen program.");
+					for (var child = 0; child < count; child++)
+						PopKind(stack, ref sp, Kind.Elem);
+					PushKind(stack, ref sp, Kind.Elem);
+					work.Enqueue(Copy(ip, stack, sp, locals));
+					break;
+				}
+				case OpMakeDynamicColumn:
+				{
+					Require(ref ip, code, 2);
+					if (U16(code, ip - 2) >= stringCount)
+						throw new InvalidOperationException("Rejected screen program.");
+					while (sp > 0 && (stack[sp - 1] == Kind.Elem || stack[sp - 1] == Kind.Repeat))
+						sp--;
+					PopKind(stack, ref sp, Kind.Mark);
+					PushKind(stack, ref sp, Kind.Elem);
+					work.Enqueue(Copy(ip, stack, sp, locals));
+					break;
+				}
+				case OpMakeSwitch:
+					Require(ref ip, code, 3);
+					if (U16(code, ip - 3) >= stringCount || code[ip - 1] is not (PackItemPacked or PackDraftPacked))
+						throw new InvalidOperationException("Rejected screen program.");
+					PopKind(stack, ref sp, Kind.Str);
+					PopKind(stack, ref sp, Kind.Bool);
+					PushKind(stack, ref sp, Kind.Elem);
+					work.Enqueue(Copy(ip, stack, sp, locals));
+					break;
+				case OpMakeActionButton:
+					Require(ref ip, code, 3);
+					if (U16(code, ip - 3) >= stringCount || code[ip - 1] is not (PackAdd or PackEdit or PackSave or PackBack or PackCopy))
+						throw new InvalidOperationException("Rejected screen program.");
+					PopKind(stack, ref sp, Kind.Str);
+					PopKind(stack, ref sp, Kind.Str);
+					PushKind(stack, ref sp, Kind.Elem);
+					work.Enqueue(Copy(ip, stack, sp, locals));
+					break;
+				case OpMakeDraftField:
+					Require(ref ip, code, 2);
+					if (U16(code, ip - 2) >= stringCount)
+						throw new InvalidOperationException("Rejected screen program.");
+					PopKind(stack, ref sp, Kind.Str);
+					PopKind(stack, ref sp, Kind.Str);
+					PopKind(stack, ref sp, Kind.Str);
+					PushKind(stack, ref sp, Kind.Elem);
+					work.Enqueue(Copy(ip, stack, sp, locals));
 					break;
 				default:
 					throw new InvalidOperationException("Rejected screen program.");
@@ -511,20 +752,47 @@ public static class ScreenProgram
 		public static Slot Bool(bool flag) => new(Kind.Bool, null, flag, null);
 
 		public static Slot Elem(Element node) => new(Kind.Elem, null, false, node);
+
+		public static Slot Mark() => new(Kind.Mark, null, false, null);
 	}
 
-	static Element Eval(byte[] code, string[] strings, AppState state, IPlatform platform)
+	static Element Eval(byte[] code, string[] strings, AppState? state, IPlatform? platform, IPackingProgram? packing)
 	{
-		ArgumentNullException.ThrowIfNull(state);
-		ArgumentNullException.ThrowIfNull(platform);
+		if (packing is null)
+		{
+			ArgumentNullException.ThrowIfNull(state);
+			ArgumentNullException.ThrowIfNull(platform);
+		}
+		else
+			ArgumentNullException.ThrowIfNull(packing);
+
 		var stack = new Slot[MaxStack];
 		var locals = new Slot[MaxLocals];
 		var sp = 0;
 		var ip = 0;
 		var steps = 0;
+		var itemIndex = -1;
+		var foreachRemaining = 0;
+		var foreachStart = 0;
+		var foreachEnd = 0;
+		var foreachBase = 0;
+		var limit = code.Length * 64;
 		while (ip < code.Length)
 		{
-			if (++steps > code.Length)
+			if (foreachRemaining > 0 && ip == foreachEnd)
+			{
+				if (sp != foreachBase + 1)
+					throw new InvalidOperationException("Screen program did not return.");
+				foreachRemaining--;
+				itemIndex++;
+				if (foreachRemaining == 0)
+					continue;
+				foreachBase = sp;
+				ip = foreachStart;
+				continue;
+			}
+
+			if (++steps > limit)
 				throw new InvalidOperationException("Screen program did not return.");
 			var op = code[ip++];
 			switch (op)
@@ -534,16 +802,16 @@ public static class ScreenProgram
 					ip += 2;
 					break;
 				case OpPushCount:
-					stack[sp++] = Slot.Str(state.Count.ToString());
+					stack[sp++] = Slot.Str(ScreenState().Count.ToString());
 					break;
 				case OpPushName:
-					stack[sp++] = Slot.Str(state.Name);
+					stack[sp++] = Slot.Str(ScreenState().Name);
 					break;
 				case OpPushPlainRoot:
-					stack[sp++] = Slot.Bool(state.PlainRoot);
+					stack[sp++] = Slot.Bool(ScreenState().PlainRoot);
 					break;
 				case OpPushGreetingFirst:
-					stack[sp++] = Slot.Bool(state.GreetingFirst);
+					stack[sp++] = Slot.Bool(ScreenState().GreetingFirst);
 					break;
 				case OpConcat:
 				{
@@ -585,12 +853,14 @@ public static class ScreenProgram
 					var label = stack[--sp].Text ?? "";
 					var placeholder = stack[--sp].Text ?? "";
 					var value = stack[--sp].Text ?? "";
+					var screen = ScreenState();
+					var screenPlatform = ScreenPlatform();
 					stack[sp++] = Slot.Elem(new TextField(
 						value,
 						next =>
 						{
-							state.Name = next;
-							platform.RequestRender();
+							screen.Name = next;
+							screenPlatform.RequestRender();
 						},
 						placeholder,
 						label)
@@ -604,13 +874,15 @@ public static class ScreenProgram
 					var title = stack[--sp].Text ?? "";
 					var key = strings[U16(code, ip)];
 					var prefix = strings[U16(code, ip + 2)];
+					var counted = ScreenState();
+					var countedPlatform = ScreenPlatform();
 					stack[sp++] = Slot.Elem(new Button(
 						title,
 						() =>
 						{
-							state.Count++;
-							platform.CopyNonce(prefix + state.Count);
-							platform.RequestRender();
+							counted.Count++;
+							countedPlatform.CopyNonce(prefix + counted.Count);
+							countedPlatform.RequestRender();
 						},
 						label)
 					{ Key = key });
@@ -630,11 +902,185 @@ public static class ScreenProgram
 					if (sp != 1 || stack[0].Node is not Element result)
 						throw new InvalidOperationException("Screen program did not return.");
 					return result;
+				case OpPushEditor:
+					stack[sp++] = Slot.Bool(Rows().Editor);
+					break;
+				case OpPushEditingId:
+					stack[sp++] = Slot.Str(Rows().EditingId ?? "");
+					break;
+				case OpPushDraftName:
+					stack[sp++] = Slot.Str(Rows().DraftName);
+					break;
+				case OpPushDraftPacked:
+					stack[sp++] = Slot.Bool(Rows().DraftPacked);
+					break;
+				case OpPushItemCount:
+					stack[sp++] = Slot.Str(Rows().ItemCount.ToString(CultureInfo.InvariantCulture));
+					break;
+				case OpPushPackedCount:
+					stack[sp++] = Slot.Str(Rows().PackedCount.ToString(CultureInfo.InvariantCulture));
+					break;
+				case OpPushItemName:
+					stack[sp++] = Slot.Str(Rows().ItemName(itemIndex));
+					break;
+				case OpPushItemPacked:
+					stack[sp++] = Slot.Bool(Rows().ItemPacked(itemIndex));
+					break;
+				case OpMark:
+					stack[sp++] = Slot.Mark();
+					break;
+				case OpForEachItem:
+				{
+					var bodyLength = U16(code, ip);
+					ip += 2;
+					var bodyStart = ip;
+					var bodyEnd = ip + bodyLength;
+					if (bodyEnd > code.Length)
+						throw new InvalidOperationException("Screen program did not return.");
+					var count = Rows().ItemCount;
+					if (count > MaxChildren)
+						throw new InvalidOperationException("Screen program did not return.");
+					if (count == 0)
+					{
+						ip = bodyEnd;
+						break;
+					}
+
+					foreachStart = bodyStart;
+					foreachEnd = bodyEnd;
+					foreachRemaining = count;
+					foreachBase = sp;
+					itemIndex = 0;
+					ip = bodyStart;
+					break;
+				}
+				case OpMakeKeyedColumn:
+				{
+					var count = code[ip++];
+					var key = strings[U16(code, ip)];
+					ip += 2;
+					var keyed = TakeColumn(stack, ref sp, count, key);
+					stack[sp++] = Slot.Elem(keyed);
+					break;
+				}
+				case OpMakeItemColumn:
+				{
+					var count = code[ip++];
+					var itemColumn = TakeColumn(stack, ref sp, count, Rows().ItemId(itemIndex));
+					stack[sp++] = Slot.Elem(itemColumn);
+					break;
+				}
+				case OpMakeDynamicColumn:
+				{
+					var key = strings[U16(code, ip)];
+					ip += 2;
+					var gathered = new List<Element>();
+					while (sp > 0 && stack[sp - 1].Kind != Kind.Mark)
+						gathered.Add(stack[--sp].Node ?? throw new InvalidOperationException("Screen program did not return."));
+					if (sp == 0 || stack[--sp].Kind != Kind.Mark)
+						throw new InvalidOperationException("Screen program did not return.");
+					if (gathered.Count > MaxChildren)
+						throw new InvalidOperationException("Screen program did not return.");
+					gathered.Reverse();
+					stack[sp++] = Slot.Elem(new Column(gathered) { Key = key });
+					break;
+				}
+				case OpMakeSwitch:
+				{
+					var label = stack[--sp].Text ?? "";
+					var value = stack[--sp].Flag;
+					var key = strings[U16(code, ip)];
+					var action = code[ip + 2];
+					var index = itemIndex;
+					var rows = Rows();
+					stack[sp++] = Slot.Elem(new Switch(
+						value,
+						next =>
+						{
+							if (action == PackItemPacked)
+								rows.SetItemPacked(index, next);
+							else
+								rows.SetDraftPacked(next);
+						},
+						label)
+					{ Key = key });
+					ip += 3;
+					break;
+				}
+				case OpMakeActionButton:
+				{
+					var label = stack[--sp].Text ?? "";
+					var title = stack[--sp].Text ?? "";
+					var key = strings[U16(code, ip)];
+					var action = code[ip + 2];
+					var index = itemIndex;
+					var rows = Rows();
+					stack[sp++] = Slot.Elem(new Button(
+						title,
+						() => RunPack(rows, action, index),
+						label)
+					{ Key = key });
+					ip += 3;
+					break;
+				}
+				case OpMakeDraftField:
+				{
+					var label = stack[--sp].Text ?? "";
+					var placeholder = stack[--sp].Text ?? "";
+					var value = stack[--sp].Text ?? "";
+					var rows = Rows();
+					stack[sp++] = Slot.Elem(new TextField(
+						value,
+						next => rows.SetDraftName(next),
+						placeholder,
+						label)
+					{ Key = strings[U16(code, ip)] });
+					ip += 2;
+					break;
+				}
 				default:
 					throw new InvalidOperationException("Rejected screen program.");
 			}
 		}
 
 		throw new InvalidOperationException("Screen program did not return.");
+
+		AppState ScreenState() => state ?? throw new InvalidOperationException("Rejected screen program.");
+
+		IPlatform ScreenPlatform() => platform ?? throw new InvalidOperationException("Rejected screen program.");
+
+		IPackingProgram Rows() => packing ?? throw new InvalidOperationException("Rejected screen program.");
+	}
+
+	static Column TakeColumn(Slot[] stack, ref int sp, int count, string? key)
+	{
+		var children = new Element[count];
+		for (var index = count - 1; index >= 0; index--)
+			children[index] = stack[--sp].Node ?? throw new InvalidOperationException("Screen program did not return.");
+		return new Column(children) { Key = key };
+	}
+
+	static void RunPack(IPackingProgram rows, byte action, int index)
+	{
+		switch (action)
+		{
+			case PackAdd:
+				rows.BeginAdd();
+				return;
+			case PackEdit:
+				rows.BeginEdit(index);
+				return;
+			case PackSave:
+				rows.Save();
+				return;
+			case PackBack:
+				rows.Back();
+				return;
+			case PackCopy:
+				rows.Copy();
+				return;
+			default:
+				throw new InvalidOperationException("Rejected screen program.");
+		}
 	}
 }
