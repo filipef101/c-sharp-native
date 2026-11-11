@@ -73,7 +73,7 @@ public static partial class ScreenProgram
 	public static string SourceHash(string source)
 	{
 		var hash = SHA256.HashData(Encoding.UTF8.GetBytes(source));
-		return Convert.ToHexString(hash.AsSpan(0, 8)).ToLowerInvariant();
+		return Convert.ToHexString(hash.AsSpan(0, HashSize)).ToLowerInvariant();
 	}
 
 	public readonly struct Bound
@@ -357,7 +357,7 @@ public static partial class ScreenProgram
 		}
 	}
 
-	const int HashSize = 8;
+	const int HashSize = 16;
 
 	readonly record struct Decoded(string[] Strings, byte[] Code, string SourceHash, byte Kind);
 

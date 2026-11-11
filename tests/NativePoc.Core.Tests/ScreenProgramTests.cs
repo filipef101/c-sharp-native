@@ -15,7 +15,9 @@ public sealed class ScreenProgramTests
 		Assert.NotEqual((byte)'M', program[0]);
 		Assert.False(ScreenProgram.IsProgram(Encoding.ASCII.GetBytes("MZ")));
 
+		Assert.Equal(32, ScreenProgram.SourceHash("counter").Length);
 		var bound = ScreenProgram.Bind(program);
+		Assert.Equal(ScreenProgram.SourceHash("counter"), bound.SourceHash);
 		var tree = bound.Render(state, platform);
 		var column = Assert.IsType<Column>(tree);
 		var title = Assert.IsType<Text>(column.Children[0]);

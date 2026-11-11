@@ -82,6 +82,8 @@ static class MeasureLoop
 		var rid = Abi.RidFromProperty(Prop(serial, "ro.product.cpu.abi"));
 		var log = new StringBuilder();
 		Line(log, "clock=Screen.cs write, then compile, lower, socket apply, UI render, OnDraw, reply");
+		Line(log, "frame-clock=same write until gfxinfo FrameCompleted advances");
+		Line(log, "framebuffer-clock=same write until screencap bytes change");
 		Line(log, "present=the reply is written after PresentDraw.OnDraw on the decor view");
 		Line(log, "label=emulator-run");
 		Line(log, "abi=" + Prop(serial, "ro.product.cpu.abi"));
@@ -104,24 +106,47 @@ static class MeasureLoop
 				throw new InvalidOperationException("The EditText did not show Ada before the series.");
 			var pid = Pid(serial);
 			Line(log, "pid=" + pid);
+			Line(log, "source-hash-bytes=16");
 			var timings = new double[samples];
+			var frameTimings = new double[samples];
+			var pixelTimings = new double[samples];
 			for (var index = 0; index < samples; index++)
 			{
 				var prefix = "P" + index.ToString("00", CultureInfo.InvariantCulture) + " ";
+				ResetFrames(serial);
+				var frameBefore = LatestFrame(serial);
+				var pixelsBefore = Capture(serial);
 				var started = Stopwatch.GetTimestamp();
 				File.WriteAllText(screen, WithPrefix(original, prefix));
 				var pushed = AndroidLoop.SendFile(session);
 				var elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 				timings[index] = elapsed;
+				var frameMs = -1.0;
+				var pixelMs = -1.0;
+				var deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 3;
+				while ((frameMs < 0 || pixelMs < 0) && Stopwatch.GetTimestamp() < deadline)
+				{
+					if (frameMs < 0 && LatestFrame(serial) > frameBefore)
+						frameMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+					if (pixelMs < 0 && !Capture(serial).AsSpan().SequenceEqual(pixelsBefore))
+						pixelMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+				}
+
+				frameTimings[index] = frameMs;
+				pixelTimings[index] = pixelMs;
 				var now = Pid(serial);
 				var expected = prefix.TrimEnd() + " 0";
 				var ok = pushed.Applied
 					&& now == pid
 					&& pushed.Text.StartsWith(expected, StringComparison.Ordinal)
 					&& pushed.Text.Contains("program=1", StringComparison.Ordinal)
-					&& pushed.Text.Contains("present=1", StringComparison.Ordinal);
+					&& pushed.Text.Contains("present=1", StringComparison.Ordinal)
+					&& frameMs >= 0
+					&& pixelMs >= 0;
 				Line(log, "sample=" + index.ToString(CultureInfo.InvariantCulture)
-					+ " ms=" + elapsed.ToString("F4", CultureInfo.InvariantCulture)
+					+ " ondraw-ms=" + elapsed.ToString("F4", CultureInfo.InvariantCulture)
+					+ " frame-ms=" + frameMs.ToString("F4", CultureInfo.InvariantCulture)
+					+ " framebuffer-ms=" + pixelMs.ToString("F4", CultureInfo.InvariantCulture)
 					+ " pid=" + now
 					+ " reply=" + pushed.Text.Replace('\n', ' ')
 					+ " ok=" + ok);
@@ -129,11 +154,18 @@ static class MeasureLoop
 					throw new InvalidOperationException("Sample " + index.ToString(CultureInfo.InvariantCulture) + " did not present in place.");
 			}
 
-			Line(log, "samples-ms=" + string.Join(",", timings.Select(value => value.ToString("F4", CultureInfo.InvariantCulture))));
+			Line(log, "samples-ondraw-ms=" + string.Join(",", timings.Select(value => value.ToString("F4", CultureInfo.InvariantCulture))));
+			Line(log, "samples-frame-ms=" + string.Join(",", frameTimings.Select(value => value.ToString("F4", CultureInfo.InvariantCulture))));
+			Line(log, "samples-framebuffer-ms=" + string.Join(",", pixelTimings.Select(value => value.ToString("F4", CultureInfo.InvariantCulture))));
 			Line(log, "n=" + samples.ToString(CultureInfo.InvariantCulture));
-			Line(log, "p50-ms=" + Percentile(timings, 1, 2).ToString("F4", CultureInfo.InvariantCulture));
-			Line(log, "p90-ms=" + Percentile(timings, 9, 10).ToString("F4", CultureInfo.InvariantCulture));
+			Line(log, "ondraw-p50-ms=" + Percentile(timings, 1, 2).ToString("F4", CultureInfo.InvariantCulture));
+			Line(log, "ondraw-p90-ms=" + Percentile(timings, 9, 10).ToString("F4", CultureInfo.InvariantCulture));
+			Line(log, "frame-p50-ms=" + Percentile(frameTimings, 1, 2).ToString("F4", CultureInfo.InvariantCulture));
+			Line(log, "frame-p90-ms=" + Percentile(frameTimings, 9, 10).ToString("F4", CultureInfo.InvariantCulture));
+			Line(log, "framebuffer-p50-ms=" + Percentile(pixelTimings, 1, 2).ToString("F4", CultureInfo.InvariantCulture));
+			Line(log, "framebuffer-p90-ms=" + Percentile(pixelTimings, 9, 10).ToString("F4", CultureInfo.InvariantCulture));
 			Line(log, "percentile=Hyndman-Fan type 7");
+			Line(log, "frame-timestamp=gfxinfo FrameCompleted. DisplayPresentTime and SurfaceFlinger --latency are 0 on this swiftshader emulator.");
 			Directory.CreateDirectory("/opt/cursor/artifacts");
 			File.WriteAllText("/opt/cursor/artifacts/measure-screen-program.txt", log.ToString());
 			var last = "P" + (samples - 1).ToString("00", CultureInfo.InvariantCulture) + " 0";
@@ -213,6 +245,12 @@ static class MeasureLoop
 	static void Shot(string serial, string path)
 	{
 		Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+		var bytes = Capture(serial);
+		File.WriteAllBytes(path, bytes);
+	}
+
+	static byte[] Capture(string serial)
+	{
 		var start = new ProcessStartInfo("adb")
 		{
 			RedirectStandardOutput = true,
@@ -229,9 +267,46 @@ static class MeasureLoop
 		var bytes = Encoding.Latin1.GetBytes(process.StandardOutput.ReadToEnd());
 		process.StandardError.ReadToEnd();
 		process.WaitForExit();
-		File.WriteAllBytes(path, bytes);
-		if (process.ExitCode != 0 || bytes.Length < 8)
-			throw new InvalidOperationException("screencap failed.");
+		if (process.ExitCode != 0 || bytes.Length < 8 || bytes[0] != 0x89 || bytes[1] != (byte)'P' || bytes[2] != (byte)'N' || bytes[3] != (byte)'G')
+			throw new InvalidOperationException("screencap failed (" + bytes.Length.ToString(CultureInfo.InvariantCulture) + " bytes).");
+		return bytes;
+	}
+
+	static void ResetFrames(string serial)
+	{
+		var dumped = AndroidLoop.Adb(serial, "shell", "dumpsys", "gfxinfo", "com.scratch.nativepoc", "reset");
+		if (dumped.Code != 0)
+			throw new InvalidOperationException("gfxinfo reset failed: " + dumped.Stderr + dumped.Stdout);
+	}
+
+	static long LatestFrame(string serial)
+	{
+		var dumped = AndroidLoop.Adb(serial, "shell", "dumpsys", "gfxinfo", "com.scratch.nativepoc", "framestats");
+		if (dumped.Code != 0)
+			throw new InvalidOperationException("gfxinfo failed: " + dumped.Stderr + dumped.Stdout);
+		long latest = 0;
+		var inTable = false;
+		foreach (var raw in dumped.Stdout.Split('\n'))
+		{
+			var line = raw.TrimEnd('\r');
+			if (line == "---PROFILEDATA---")
+			{
+				if (inTable)
+					break;
+				inTable = true;
+				continue;
+			}
+
+			if (!inTable || line.StartsWith("Flags,", StringComparison.Ordinal) || line.Length == 0)
+				continue;
+			var fields = line.Split(',');
+			if (fields.Length < 17)
+				continue;
+			if (long.TryParse(fields[16], NumberStyles.Integer, CultureInfo.InvariantCulture, out var completed) && completed > latest)
+				latest = completed;
+		}
+
+		return latest;
 	}
 
 	static string Pid(string serial)
