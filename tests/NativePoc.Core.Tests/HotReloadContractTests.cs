@@ -40,6 +40,8 @@ public sealed class HotReloadContractTests
 		Assert.True(program > query);
 		Assert.True(load > program);
 		Assert.Contains("UseProgram", server);
+		Assert.Contains("#if NATIVEPOC_PROGRAM_ONLY", server);
+		Assert.Contains("This build has no assembly loader.", server);
 	}
 
 	[Fact]

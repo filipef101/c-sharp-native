@@ -10,6 +10,8 @@ static class MeasureLoop
 	{
 		if (args.Length > 1 && args[1] == "packing")
 			return Packing(args);
+		if (args.Length > 1 && args[1] == "program-only")
+			return ProgramOnly(args);
 		int samples;
 		string? serial;
 		try
@@ -245,6 +247,197 @@ static class MeasureLoop
 	{
 		var result = AndroidLoop.Adb(serial, "shell", "getprop", name);
 		return result.Stdout.Trim();
+	}
+
+	static int ProgramOnly(string[] args)
+	{
+		string? serial;
+		try
+		{
+			serial = ParseProgramOnly(args);
+		}
+		catch (UsageException ex)
+		{
+			Console.Error.WriteLine(ex.Message);
+			return 2;
+		}
+
+		try
+		{
+			return ExecuteProgramOnly(serial);
+		}
+		catch (Exception ex)
+		{
+			try
+			{
+				Console.Error.WriteLine("cnative: " + ex.GetType().Name + " " + ex.Message);
+			}
+			catch (Exception write) when (write is IOException or ArgumentException)
+			{
+				File.AppendAllText("/opt/cursor/artifacts/measure-error.txt", ex + "\n" + write);
+			}
+
+			return 1;
+		}
+	}
+
+	static string? ParseProgramOnly(IReadOnlyList<string> args)
+	{
+		if (args.Count < 2 || args[0] != "measure" || args[1] != "program-only")
+			throw new UsageException("Usage: cnative measure program-only [--device serial]");
+		string? serial = null;
+		for (var index = 2; index < args.Count; index++)
+		{
+			switch (args[index])
+			{
+				case "--device":
+					if (index + 1 >= args.Count)
+						throw new UsageException("--device needs a serial.");
+					serial = args[++index];
+					break;
+				default:
+					throw new UsageException("Usage: cnative measure program-only [--device serial]");
+			}
+		}
+
+		return serial;
+	}
+
+	static int ExecuteProgramOnly(string? requestedSerial)
+	{
+		var repo = RepoRoot.Find(Directory.GetCurrentDirectory());
+		var screen = Path.Combine(repo, ScreenCompiler.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+		var original = File.ReadAllText(screen);
+		var serial = AndroidLoop.ResolveSerial(requestedSerial);
+		var rid = Abi.RidFromProperty(Prop(serial, "ro.product.cpu.abi"));
+		var dll = Path.Combine(repo, "src", "NativePoc.Android", "bin", "Debug", "net10.0-android", rid, "NativePoc.Android.dll");
+		var log = new StringBuilder();
+		Line(log, "label=emulator-run for the edit; the loader scan is the built assembly");
+		Line(log, "variant=Debug NativePocProgramOnly, listener compiled in, assembly loader compiled out");
+		Line(log, "proxy=closest Android stand-in for an iOS NativeAOT process. This is not an iOS run.");
+		Line(log, "abi=" + Prop(serial, "ro.product.cpu.abi"));
+		Line(log, "sdk=" + Prop(serial, "ro.build.version.sdk"));
+		Line(log, "qemu=" + Prop(serial, "ro.kernel.qemu"));
+		var session = new ReloadSession();
+		try
+		{
+			BuildAndroid(repo, rid, programOnly: false, trimAnalyzer: false);
+			var loaderBefore = CountText(dll, "AssemblyLoadContext") + CountText(dll, "LoadFromStream");
+			Line(log, "default-build loader-hits=" + loaderBefore.ToString(CultureInfo.InvariantCulture));
+			if (loaderBefore == 0)
+				throw new InvalidOperationException("The default Debug assembly did not contain the loader.");
+			BuildAndroid(repo, rid, programOnly: true, trimAnalyzer: true);
+			var loaderAfter = CountText(dll, "AssemblyLoadContext") + CountText(dll, "LoadFromStream");
+			Line(log, "program-only-build loader-hits=" + loaderAfter.ToString(CultureInfo.InvariantCulture) + " bytes=" + new FileInfo(dll).Length.ToString(CultureInfo.InvariantCulture));
+			if (loaderAfter != 0)
+				throw new InvalidOperationException("The program-only assembly still contains the loader.");
+			session.Token = AndroidLoop.DeployAndLaunch(
+				repo,
+				rid,
+				serial,
+				["-p:NativePocProgramOnly=true", "-p:EnableTrimAnalyzer=true"]);
+			var installed = CountText(dll, "AssemblyLoadContext") + CountText(dll, "LoadFromStream");
+			Line(log, "installed loader-hits=" + installed.ToString(CultureInfo.InvariantCulture));
+			if (installed != 0)
+				throw new InvalidOperationException("The installed assembly still contains the loader.");
+			session.Open(repo, serial);
+			var warmup = AndroidLoop.SendFile(session);
+			if (!warmup.Applied || !warmup.Text.Contains("program=1", StringComparison.Ordinal) || !warmup.Text.Contains("present=1", StringComparison.Ordinal))
+				throw new InvalidOperationException("Warmup was not a presented program: " + warmup.Text);
+			var entered = session.Connection.Apply(ScreenQuery.EnterId("name", "Ada"));
+			if (!entered.Ok)
+				throw new InvalidOperationException("The name was not entered: " + entered.Text);
+			var pid = Pid(serial);
+			Line(log, "pid=" + pid);
+			var started = Stopwatch.GetTimestamp();
+			File.WriteAllText(screen, WithPrefix(original, "AOT "));
+			var pushed = AndroidLoop.SendFile(session);
+			var elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+			var now = Pid(serial);
+			var ui = Ui(serial);
+			var editOk = pushed.Applied
+				&& now == pid
+				&& pushed.Text.StartsWith("AOT 0", StringComparison.Ordinal)
+				&& pushed.Text.Contains("program=1", StringComparison.Ordinal)
+				&& pushed.Text.Contains("present=1", StringComparison.Ordinal)
+				&& ui.Contains("text=\"AOT 0\"", StringComparison.Ordinal)
+				&& ui.Contains("text=\"Ada\"", StringComparison.Ordinal);
+			Line(log, "edit ms=" + elapsed.ToString("F4", CultureInfo.InvariantCulture) + " pid=" + now + " reply=" + pushed.Text.Replace('\n', ' ') + " ok=" + editOk);
+			if (!editOk)
+				throw new InvalidOperationException("The title edit did not present in the program-only build.");
+			Shot(serial, "/opt/cursor/artifacts/program-only-present.png");
+			var denied = session.Connection.Apply(Encoding.UTF8.GetBytes("not-a-program"));
+			var deniedPid = Pid(serial);
+			var still = Ui(serial);
+			var deniedOk = !denied.Ok
+				&& denied.Text.Contains("no assembly loader", StringComparison.Ordinal)
+				&& deniedPid == pid
+				&& still.Contains("text=\"AOT 0\"", StringComparison.Ordinal)
+				&& still.Contains("text=\"Ada\"", StringComparison.Ordinal);
+			Line(log, "loader-denied ok=" + deniedOk + " pid=" + deniedPid + " text=" + denied.Text.Replace('\n', ' '));
+			if (!deniedOk)
+				throw new InvalidOperationException("A non-program payload was not rejected in place.");
+			File.WriteAllText(screen, original);
+			Directory.CreateDirectory("/opt/cursor/artifacts");
+			File.WriteAllText("/opt/cursor/artifacts/measure-program-only.txt", log.ToString());
+			return 0;
+		}
+		finally
+		{
+			if (!string.Equals(File.ReadAllText(screen), original, StringComparison.Ordinal))
+				File.WriteAllText(screen, original);
+			session.Dispose();
+		}
+	}
+
+	static void BuildAndroid(string repo, string rid, bool programOnly, bool trimAnalyzer)
+	{
+		var project = Path.Combine(repo, "src", "NativePoc.Android", "NativePoc.Android.csproj");
+		var arguments = new List<string>
+		{
+			"build",
+			project,
+			"-c", "Debug",
+			"-f", "net10.0-android",
+			"-r", rid,
+		};
+		if (programOnly)
+			arguments.Add("-p:NativePocProgramOnly=true");
+		if (trimAnalyzer)
+			arguments.Add("-p:EnableTrimAnalyzer=true");
+		var build = ProcessRunner.Run("dotnet", arguments, repo, Console.WriteLine, Console.Error.WriteLine);
+		if (build.Code != 0)
+			throw new InvalidOperationException("Debug build exited " + build.Code + ".");
+	}
+
+	static int CountText(string path, string needle)
+	{
+		var bytes = File.ReadAllBytes(path);
+		return CountPattern(bytes, Encoding.ASCII.GetBytes(needle)) + CountPattern(bytes, Encoding.Unicode.GetBytes(needle));
+	}
+
+	static int CountPattern(byte[] bytes, byte[] pattern)
+	{
+		if (pattern.Length == 0 || bytes.Length < pattern.Length)
+			return 0;
+		var count = 0;
+		for (var index = 0; index <= bytes.Length - pattern.Length; index++)
+		{
+			var match = true;
+			for (var offset = 0; offset < pattern.Length; offset++)
+			{
+				if (bytes[index + offset] != pattern[offset])
+				{
+					match = false;
+					break;
+				}
+			}
+
+			if (match)
+				count++;
+		}
+
+		return count;
 	}
 
 	static int Packing(string[] args)

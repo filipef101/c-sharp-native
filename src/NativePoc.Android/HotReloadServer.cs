@@ -1,7 +1,9 @@
 #if DEBUG
 using System.Diagnostics.CodeAnalysis;
+#if !NATIVEPOC_PROGRAM_ONLY
 using System.Reflection;
 using System.Runtime.Loader;
+#endif
 using System.Security.Cryptography;
 using System.Text;
 using Android.App;
@@ -23,7 +25,9 @@ static class HotReloadServer
 
 	static byte[]? _token;
 
+#if !NATIVEPOC_PROGRAM_ONLY
 	static AssemblyLoadContext? _loaded;
+#endif
 
 	public static void Start(Context context)
 	{
@@ -201,6 +205,9 @@ static class HotReloadServer
 			return programmedMessage;
 		}
 
+#if NATIVEPOC_PROGRAM_ONLY
+		throw new InvalidOperationException("This build has no assembly loader.");
+#else
 		AssemblyLoadContext context;
 		Assembly assembly;
 		var collectible = true;
@@ -240,8 +247,10 @@ static class HotReloadServer
 		var message = title + " collectible=" + collectible;
 		Android.Util.Log.Info(MainActivity.Tag, "hotreload-applied " + message);
 		return message;
+#endif
 	}
 
+#if !NATIVEPOC_PROGRAM_ONLY
 	[UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Debug-only loader for a screen assembly compiled on the host.")]
 	static (AssemblyLoadContext Context, Assembly Assembly) Load(byte[] dll, bool collectible)
 	{
@@ -277,6 +286,7 @@ static class HotReloadServer
 			|| name == "mscorlib"
 			|| name.StartsWith("System.", StringComparison.Ordinal);
 	}
+#endif
 
 	static bool ArmPresent(Activity activity, ManualResetEventSlim done)
 	{

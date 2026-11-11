@@ -484,21 +484,29 @@ static class AndroidLoop
 		ReportPacking(SendPacking(session, repo), editStartedMs: null, Stopwatch.GetTimestamp());
 	}
 
-	internal static FoundToken DeployAndLaunch(string repo, string rid, string serial)
+	internal static FoundToken DeployAndLaunch(string repo, string rid, string serial, IReadOnlyList<string>? extraBuild = null)
 	{
 		Console.WriteLine("cnative: building Debug " + rid + " for " + serial);
 		var project = Path.Combine(repo, "src", "NativePoc.Android", "NativePoc.Android.csproj");
+		var arguments = new List<string>
+		{
+			"build",
+			project,
+			"-c", "Debug",
+			"-f", "net10.0-android",
+			"-r", rid,
+			"-t:Run",
+			"-p:AdbTarget=-s " + serial,
+		};
+		if (extraBuild is not null)
+		{
+			foreach (var extra in extraBuild)
+				arguments.Add(extra);
+		}
+
 		var build = ProcessRunner.Run(
 			"dotnet",
-			[
-				"build",
-				project,
-				"-c", "Debug",
-				"-f", "net10.0-android",
-				"-r", rid,
-				"-t:Run",
-				"-p:AdbTarget=-s " + serial,
-			],
+			arguments,
 			repo,
 			Console.WriteLine,
 			Console.Error.WriteLine);

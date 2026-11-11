@@ -397,6 +397,7 @@ The in-place mechanism this CLI drives is the Debug screen-assembly swap already
 
 - The command does not boot an emulator. Expo and `ns run android` can. An online `adb` device is required.
 - `src/NativePoc.Screen/Screen.cs` and `samples/NativePoc.Packing/PackingScreen.cs` are lowered into the in-place edit. A row label, an added text field, or a reordered row stays in the running process with the list. A new `Element` type or an `AppState` shape change is still not an in-place edit.
+- A Debug build with `-p:NativePocProgramOnly=true` compiles the listener in and compiles the assembly loader out. The trim analyzer reports nothing, and that assembly contains neither `AssemblyLoadContext` nor `LoadFromStream`. The process is still the Debug runtime (`IsDynamicCodeSupported=True`), so this is the closest Android stand-in for an iOS NativeAOT process, not a NativeAOT binary and not an iOS run.
 - A rude restart is a full Debug `-t:Run`, so it is a new process. `cnative run android --restart-on-rude` reads the counter and the packing list before that launch and writes them back, then pushes the screen program again. Measured on the emulator: the typed name, the count, and the packing rows were still there. A force-stop outside that command still starts from the seed.
 - There is no on-device error surface, no debugger, no IDE gutter, and no iOS path.
 - `run-as cat /proc/net/unix` is `Permission denied` on this API 34 image. The socket name is the fixed `localabstract:npoc-hotreload`. The token file is the per-process bearer, not the socket name.
