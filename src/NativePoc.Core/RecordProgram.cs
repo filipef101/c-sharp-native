@@ -45,6 +45,8 @@ public static partial class RecordProgram
 	public const byte OpPlural = 37;
 	public const byte OpFormat = 38;
 	public const byte OpMakeHost = 39;
+	public const byte OpCall = 40;
+	public const byte OpVmBool = 41;
 
 	public const int EagerRowLimit = 24;
 
@@ -122,6 +124,9 @@ public static partial class RecordProgram
 	public const byte TypeInt = 3;
 	public const byte TypeList = 4;
 	public const byte TypeScreen = 5;
+	public const byte TypeRoutine = 6;
+
+	public const string CallDepthStop = "action stopped after 64 calls";
 
 	public const int NoKey = 0xFFFF;
 
@@ -136,7 +141,8 @@ public static partial class RecordProgram
 		bool Flag,
 		int Number,
 		int[] Fields,
-		int[][] Rows);
+		int[][] Rows,
+		byte[]? Code = null);
 
 	public readonly struct Bound
 	{
@@ -418,6 +424,8 @@ public static partial class RecordProgram
 				return size;
 			case TypeScreen:
 				return size + 2;
+			case TypeRoutine:
+				return size + 3 + prop.Fields.Length + 2 + (prop.Code?.Length ?? 0);
 			default:
 				throw new InvalidOperationException("A record property is out of range.");
 		}
@@ -456,6 +464,15 @@ public static partial class RecordProgram
 				return cursor;
 			case TypeScreen:
 				return WriteU16(payload, cursor, prop.Text);
+			case TypeRoutine:
+				payload[cursor++] = prop.Flag ? (byte)1 : (byte)0;
+				payload[cursor++] = (byte)prop.Text;
+				payload[cursor++] = (byte)prop.Number;
+				foreach (var kind in prop.Fields)
+					payload[cursor++] = (byte)kind;
+				cursor = WriteU16(payload, cursor, prop.Code?.Length ?? 0);
+				prop.Code?.CopyTo(payload, cursor);
+				return cursor + (prop.Code?.Length ?? 0);
 			default:
 				throw new InvalidOperationException("A record property is out of range.");
 		}
@@ -564,6 +581,28 @@ public static partial class RecordProgram
 				if (screen >= stringCount)
 					throw new InvalidOperationException("Rejected record program.");
 				return new PropDef(type, name, screen, false, 0, Array.Empty<int>(), Array.Empty<int[]>());
+			case TypeRoutine:
+				if (cursor + 3 > payload.Length - 16)
+					throw new InvalidOperationException("Rejected record program.");
+				var element = payload[cursor++];
+				var returnKind = payload[cursor++];
+				var argc = payload[cursor++];
+				if (element > 1 || argc > 8)
+					throw new InvalidOperationException("Rejected record program.");
+				var argKinds = new int[argc];
+				for (var arg = 0; arg < argc; arg++)
+				{
+					if (cursor >= payload.Length - 16)
+						throw new InvalidOperationException("Rejected record program.");
+					argKinds[arg] = payload[cursor++];
+				}
+
+				var routineLength = ReadU16(payload, ref cursor);
+				if (cursor + routineLength > payload.Length - 16)
+					throw new InvalidOperationException("Rejected record program.");
+				var routine = payload.Slice(cursor, routineLength).ToArray();
+				cursor += routineLength;
+				return new PropDef(type, name, returnKind, element == 1, argc, argKinds, Array.Empty<int[]>(), routine);
 			default:
 				throw new InvalidOperationException("Rejected record program.");
 		}
@@ -580,6 +619,7 @@ public static partial class RecordProgram
 
 	static void Seed(Decoded decoded, Bag bag)
 	{
+		var routines = new List<Routine>();
 		foreach (var prop in decoded.Props)
 		{
 			var name = decoded.Strings[prop.Name];
@@ -608,18 +648,28 @@ public static partial class RecordProgram
 					break;
 				case TypeScreen:
 					break;
+				case TypeRoutine:
+					var kinds = new byte[prop.Fields.Length];
+					for (var arg = 0; arg < kinds.Length; arg++)
+						kinds[arg] = (byte)prop.Fields[arg];
+					routines.Add(new Routine(name, (byte)prop.Text, (byte)prop.Number, kinds, prop.Flag, prop.Code ?? Array.Empty<byte>()));
+					break;
 				default:
 					throw new InvalidOperationException("Rejected record program.");
 			}
 		}
+
+		bag.SetRoutines(routines.ToArray());
 	}
 
-	static Element Eval(byte[] code, string[] strings, Bag bag, IPlatform platform)
+	static Element Eval(byte[] code, string[] strings, Bag bag, IPlatform platform) =>
+		Eval(code, strings, bag, platform, null);
+
+	static Element Eval(byte[] code, string[] strings, Bag bag, IPlatform platform, string[]? row)
 	{
 		ArgumentNullException.ThrowIfNull(platform);
 		var stack = new Slot[ScreenProgram.MaxStack];
 		var sp = 0;
-		string[]? row = null;
 		Element? returned = null;
 		var ip = 0;
 		while (ip < code.Length)
@@ -996,6 +1046,24 @@ public static partial class RecordProgram
 					args[index] = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
 				var template = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
 				Push(stack, ref sp, Slot.Str(StringTable.Format(template, args)));
+				return ip;
+			}
+			case OpCall:
+			{
+				var routine = bag.RoutineAt(TakeU16(code, ref ip, end));
+				if (!routine.Element)
+					throw new InvalidOperationException("Rejected record program.");
+				Push(stack, ref sp, Slot.Elem(Eval(routine.Code, strings, bag, platform, row)));
+				return ip;
+			}
+			case OpVmBool:
+			{
+				var length = TakeU16(code, ref ip, end);
+				if (ip + length > end)
+					throw new InvalidOperationException("Rejected record program.");
+				var value = RunVm(code, ip, length, strings, bag, platform, null, false, null, new HandlerFrame(), 0);
+				ip += length;
+				Push(stack, ref sp, Slot.Bool(value.Flag));
 				return ip;
 			}
 			default:
@@ -1431,11 +1499,45 @@ public static partial class RecordProgram
 
 	internal sealed class HandlerFrame
 	{
-		public readonly int[] Ints = new int[8];
-		public readonly double[] Doubles = new double[8];
-		public readonly string?[] Strings = new string?[8];
-		public readonly bool[] Flags = new bool[8];
+		public int[] Ints = new int[8];
+		public double[] Doubles = new double[8];
+		public string?[] Strings = new string?[8];
+		public bool[] Flags = new bool[8];
 		public int Steps;
+		public bool Watching;
+		public string? WatchList;
+		public int WatchStamp;
+		int _calls;
+		readonly int[][] _savedInts = new int[64][];
+		readonly double[][] _savedDoubles = new double[64][];
+		readonly string?[][] _savedStrings = new string?[64][];
+		readonly bool[][] _savedFlags = new bool[64][];
+
+		public int CallDepth => _calls;
+
+		public void EnterCall()
+		{
+			if (_calls >= 64)
+				throw new ActionStoppedException(CallDepthStop);
+			_savedInts[_calls] = Ints;
+			_savedDoubles[_calls] = Doubles;
+			_savedStrings[_calls] = Strings;
+			_savedFlags[_calls] = Flags;
+			Ints = new int[8];
+			Doubles = new double[8];
+			Strings = new string?[8];
+			Flags = new bool[8];
+			_calls++;
+		}
+
+		public void LeaveCall()
+		{
+			_calls--;
+			Ints = _savedInts[_calls];
+			Doubles = _savedDoubles[_calls];
+			Strings = _savedStrings[_calls];
+			Flags = _savedFlags[_calls];
+		}
 
 		public void Tick()
 		{
@@ -1755,13 +1857,64 @@ public static partial class RecordProgram
 		public IReadOnlyList<(string Name, string[][] Rows)> Lists { get; init; } = [];
 	}
 
+	public sealed class Routine
+	{
+		public Routine(string name, byte returnKind, byte argc, byte[] argKinds, bool element, byte[] code)
+		{
+			Name = name;
+			ReturnKind = returnKind;
+			Argc = argc;
+			ArgKinds = argKinds;
+			Element = element;
+			Code = code;
+		}
+
+		public string Name { get; }
+
+		public byte ReturnKind { get; }
+
+		public byte Argc { get; }
+
+		public byte[] ArgKinds { get; }
+
+		public bool Element { get; }
+
+		public byte[] Code { get; }
+	}
+
 	public sealed class Bag
 	{
 		readonly Dictionary<string, string> _strings = new(StringComparer.Ordinal);
+		Routine[] _routines = Array.Empty<Routine>();
 		readonly Dictionary<string, bool> _flags = new(StringComparer.Ordinal);
 		readonly Dictionary<string, int> _numbers = new(StringComparer.Ordinal);
 		readonly Dictionary<string, List<string[]>> _lists = new(StringComparer.Ordinal);
+		readonly Dictionary<string, int> _stamps = new(StringComparer.Ordinal);
 		readonly object _gate = new();
+
+		public void SetRoutines(Routine[] routines)
+		{
+			ArgumentNullException.ThrowIfNull(routines);
+			_routines = routines;
+		}
+
+		public Routine RoutineAt(int index)
+		{
+			if ((uint)index >= (uint)_routines.Length)
+				throw new InvalidOperationException("Rejected record program.");
+			return _routines[index];
+		}
+
+		public int ListStamp(string name)
+		{
+			lock (_gate)
+				return _stamps.TryGetValue(name, out var stamp) ? stamp : 0;
+		}
+
+		void Touch(string name)
+		{
+			_stamps[name] = _stamps.TryGetValue(name, out var stamp) ? stamp + 1 : 1;
+		}
 
 		public void SeedString(string name, string value)
 		{
@@ -1945,7 +2098,10 @@ public static partial class RecordProgram
 				{
 					var row = rows[index];
 					if ((uint)idField < (uint)row.Length && row[idField] == id)
+					{
 						rows.RemoveAt(index);
+						Touch(list);
+					}
 				}
 			}
 		}
@@ -1969,6 +2125,7 @@ public static partial class RecordProgram
 				}
 
 				rows.Add(cells);
+				Touch(name);
 			}
 		}
 
@@ -1978,6 +2135,7 @@ public static partial class RecordProgram
 			{
 				if (_lists.TryGetValue(name, out var rows))
 					rows.Clear();
+				Touch(name);
 			}
 		}
 
@@ -1990,6 +2148,7 @@ public static partial class RecordProgram
 				if ((uint)index >= (uint)rows.Count)
 					return;
 				rows.RemoveAt(index);
+				Touch(name);
 			}
 		}
 

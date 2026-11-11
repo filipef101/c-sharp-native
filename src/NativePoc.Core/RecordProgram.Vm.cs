@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace NativePoc;
 
@@ -49,6 +50,12 @@ public static partial class RecordProgram
 	public const byte VmRowIndex = 43;
 	public const byte VmNest = 44;
 	public const byte VmTryParse = 45;
+	public const byte VmUser = 46;
+	public const byte VmWatch = 47;
+
+	public const string CollectionModified = "Collection was modified; enumeration operation may not execute.";
+
+	static readonly string NullMessage = new NullReferenceException().Message;
 
 	public const byte VmKindInt = 1;
 	public const byte VmKindDouble = 2;
@@ -79,7 +86,8 @@ public static partial class RecordProgram
 	const byte ValBool = 3;
 	const byte ValStr = 4;
 
-	static void RunVm(byte[] code, int origin, int length, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId, HandlerFrame frame, int depth)
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+	static Val RunVm(byte[] code, int origin, int length, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId, HandlerFrame frame, int depth)
 	{
 		var stack = new Val[64];
 		var sp = 0;
@@ -87,13 +95,20 @@ public static partial class RecordProgram
 		var end = origin + length;
 		while (ip < end)
 		{
-			frame.Tick();
+			if (++frame.Steps > ActionStepBudget)
+				throw new ActionStoppedException("action stopped after " + ActionStepBudget.ToString(CultureInfo.InvariantCulture) + " steps");
 			var op = code[ip++];
 			switch (op)
 			{
 				case VmLitI:
-					Push(stack, ref sp, Val.FromInt(ReadI32(code, ref ip)));
+				{
+					if (ip + 4 > end || sp >= stack.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var value = code[ip] | (code[ip + 1] << 8) | (code[ip + 2] << 16) | (code[ip + 3] << 24);
+					ip += 4;
+					stack[sp++] = Val.FromInt(value);
 					break;
+				}
 				case VmLitD:
 					Push(stack, ref sp, Val.FromDouble(ReadF64(code, ref ip)));
 					break;
@@ -116,8 +131,16 @@ public static partial class RecordProgram
 					Push(stack, ref sp, Val.FromStr(bag.ReadString(strings[RequireString(TakeU16(code, ref ip, end), strings)])));
 					break;
 				case VmLoadLocal:
-					Push(stack, ref sp, LoadLocal(frame, ReadKind(code, ref ip), ReadSlot(code, ref ip)));
+				{
+					if (ip + 2 > end || sp >= stack.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var kind = code[ip++];
+					var slot = code[ip++];
+					if (slot > 7)
+						throw new InvalidOperationException("Rejected record program.");
+					stack[sp++] = kind == VmKindInt ? Val.FromInt(frame.Ints[slot]) : LoadLocal(frame, kind, slot);
 					break;
+				}
 				case VmStoreI:
 					bag.WriteInt(strings[RequireString(TakeU16(code, ref ip, end), strings)], AsInt(Pop(stack, ref sp)));
 					break;
@@ -131,7 +154,9 @@ public static partial class RecordProgram
 					StoreLocal(frame, ReadKind(code, ref ip), ReadSlot(code, ref ip), Pop(stack, ref sp));
 					break;
 				case VmPop:
-					Pop(stack, ref sp);
+					if (sp == 0)
+						throw new InvalidOperationException("Rejected record program.");
+					sp--;
 					break;
 				case VmDup:
 				{
@@ -164,9 +189,12 @@ public static partial class RecordProgram
 				case VmGt:
 				case VmGe:
 				{
-					var right = Pop(stack, ref sp);
-					var left = Pop(stack, ref sp);
-					Push(stack, ref sp, Val.FromBool(Compare(op, left, right)));
+					var right = stack[--sp];
+					var left = stack[--sp];
+					var result = op == VmLt && left.Kind == ValInt && right.Kind == ValInt
+						? left.Int < right.Int
+						: Compare(op, left, right);
+					stack[sp++] = Val.FromBool(result);
 					break;
 				}
 				case VmText:
@@ -180,15 +208,30 @@ public static partial class RecordProgram
 					break;
 				case VmJump:
 				{
-					var rel = ReadI16(code, ref ip);
-					ip = Jump(ip, end, rel);
+					if (ip + 2 > end)
+						throw new InvalidOperationException("Rejected record program.");
+					var rel = (short)(code[ip] | (code[ip + 1] << 8));
+					ip += 2 + rel;
+					if ((uint)ip > (uint)end)
+						throw new InvalidOperationException("Rejected record program.");
 					break;
 				}
 				case VmJumpIfFalse:
 				{
-					var rel = ReadI16(code, ref ip);
-					if (!AsBool(Pop(stack, ref sp)))
-						ip = Jump(ip, end, rel);
+					if (ip + 2 > end || sp == 0)
+						throw new InvalidOperationException("Rejected record program.");
+					var rel = (short)(code[ip] | (code[ip + 1] << 8));
+					ip += 2;
+					var flagBit = stack[--sp];
+					if (flagBit.Kind != ValBool)
+						throw new ActionStoppedException("action stopped: the value is not a bool");
+					if (!flagBit.Flag)
+					{
+						ip += rel;
+						if ((uint)ip > (uint)end)
+							throw new InvalidOperationException("Rejected record program.");
+					}
+
 					break;
 				}
 				case VmJumpIfNotNull:
@@ -229,11 +272,23 @@ public static partial class RecordProgram
 				}
 				case VmIncLocal:
 				{
-					var slot = ReadSlot(code, ref ip);
+					if (ip + 2 > end || sp >= stack.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var slot = code[ip++];
 					var mode = code[ip++];
+					if (slot > 7)
+						throw new InvalidOperationException("Rejected record program.");
+					if (mode == VmIncPost)
+					{
+						var current = frame.Ints[slot];
+						frame.Ints[slot] = current + 1;
+						stack[sp++] = Val.FromInt(current);
+						break;
+					}
+
 					var updated = StepInt(frame.Ints[slot], mode, out var stored);
 					frame.Ints[slot] = stored;
-					Push(stack, ref sp, Val.FromInt(updated));
+					stack[sp++] = Val.FromInt(updated);
 					break;
 				}
 				case VmLoadCount:
@@ -245,6 +300,17 @@ public static partial class RecordProgram
 					var slot = ReadSlot(code, ref ip);
 					var field = TakeU16(code, ref ip, end);
 					Push(stack, ref sp, Val.FromStr(bag.CellAt(list, frame.Ints[slot], field)));
+					break;
+				}
+				case VmWatch:
+				{
+					var watched = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+					var stamp = bag.ListStamp(watched);
+					if (frame.Watching && frame.WatchList == watched && frame.WatchStamp != stamp)
+						throw new ActionStoppedException(CollectionModified);
+					frame.Watching = true;
+					frame.WatchList = watched;
+					frame.WatchStamp = stamp;
 					break;
 				}
 				case VmRowRemove:
@@ -268,10 +334,33 @@ public static partial class RecordProgram
 					var nested = TakeU16(code, ref ip, end);
 					if (ip + nested > end)
 						throw new InvalidOperationException("Rejected record program.");
-					var slice = new byte[nested];
-					Buffer.BlockCopy(code, ip, slice, 0, nested);
+					var start = ip;
 					ip += nested;
-					RunSteps(slice, strings, bag, platform, text, flag, rowId, frame, depth + 1);
+					RunSteps(code, strings, bag, platform, text, flag, rowId, frame, depth + 1, start, nested);
+					break;
+				}
+				case VmUser:
+				{
+					var routine = bag.RoutineAt(TakeU16(code, ref ip, end));
+					if (routine.Element || routine.Argc > 8)
+						throw new InvalidOperationException("Rejected record program.");
+					var args = new Val[routine.Argc];
+					for (var index = routine.Argc - 1; index >= 0; index--)
+						args[index] = Pop(stack, ref sp);
+					frame.EnterCall();
+					try
+					{
+						for (var index = 0; index < routine.Argc; index++)
+							StoreLocal(frame, routine.ArgKinds[index], index, args[index]);
+						var result = RunVm(routine.Code, 0, routine.Code.Length, strings, bag, platform, text, flag, rowId, frame, depth + 1);
+						if (routine.ReturnKind != 0)
+							Push(stack, ref sp, result);
+					}
+					finally
+					{
+						frame.LeaveCall();
+					}
+
 					break;
 				}
 				case VmTryParse:
@@ -289,6 +378,7 @@ public static partial class RecordProgram
 
 		if (ip != end)
 			throw new InvalidOperationException("Rejected record program.");
+		return sp == 0 ? default : stack[sp - 1];
 	}
 
 	static int StepInt(int current, byte mode, out int stored)
@@ -330,10 +420,14 @@ public static partial class RecordProgram
 			{
 				var source = RequireText(args, args.Length);
 				var start = AsInt(args[1]);
-				var length = args.Length == 3 ? AsInt(args[2]) : source.Length - start;
-				if (start < 0 || length < 0 || start + length > source.Length)
-					throw new ActionStoppedException("action stopped: Substring is outside the string");
-				return Val.FromStr(source.Substring(start, length));
+				try
+				{
+					return Val.FromStr(args.Length == 3 ? source.Substring(start, AsInt(args[2])) : source.Substring(start));
+				}
+				catch (ArgumentOutOfRangeException ex)
+				{
+					throw new ActionStoppedException(ex.Message);
+				}
 			}
 			case VmLength:
 				return Val.FromInt(RequireText(args, 1).Length);
@@ -345,9 +439,14 @@ public static partial class RecordProgram
 			case VmRound:
 				return Val.FromDouble(Math.Round(AsDouble(RequireNumber(args, 1)), MidpointRounding.ToEven));
 			case VmParse:
-				if (!int.TryParse(RequireText(args, 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
-					throw new ActionStoppedException("action stopped: int.Parse failed");
-				return Val.FromInt(parsed);
+				try
+				{
+					return Val.FromInt(int.Parse(RequireText(args, 1), NumberStyles.Integer, CultureInfo.InvariantCulture));
+				}
+				catch (Exception ex) when (ex is FormatException or OverflowException)
+				{
+					throw new ActionStoppedException(ex.Message);
+				}
 			default:
 				throw new InvalidOperationException("Rejected record program.");
 		}
@@ -373,10 +472,14 @@ public static partial class RecordProgram
 	{
 		if (value.Kind == ValDouble)
 			return Val.FromDouble(Math.Abs(value.Double));
-		var number = AsInt(value);
-		if (number == int.MinValue)
-			throw new ActionStoppedException("action stopped: Math.Abs overflow");
-		return Val.FromInt(Math.Abs(number));
+		try
+		{
+			return Val.FromInt(Math.Abs(AsInt(value)));
+		}
+		catch (OverflowException ex)
+		{
+			throw new ActionStoppedException(ex.Message);
+		}
 	}
 
 	static string RequireText(Val[] args, int count)
@@ -384,7 +487,7 @@ public static partial class RecordProgram
 		if (args.Length != count)
 			throw new InvalidOperationException("Rejected record program.");
 		if (IsNull(args[0]))
-			throw new ActionStoppedException("action stopped: the value is null");
+			throw new ActionStoppedException(NullMessage);
 		return AsText(args[0]);
 	}
 
@@ -429,32 +532,24 @@ public static partial class RecordProgram
 		return Val.FromInt(whole);
 	}
 
-	static double Divide(double left, double right)
-	{
-		if (right == 0)
-			throw new ActionStoppedException("action stopped: divide by zero");
-		return left / right;
-	}
+	static double Divide(double left, double right) => left / right;
 
-	static int Divide(int left, int right)
-	{
-		if (right == 0)
-			throw new ActionStoppedException("action stopped: divide by zero");
-		return left / right;
-	}
+	static int Divide(int left, int right) => Whole(left, right, true);
 
-	static double Remainder(double left, double right)
-	{
-		if (right == 0)
-			throw new ActionStoppedException("action stopped: divide by zero");
-		return left % right;
-	}
+	static double Remainder(double left, double right) => left % right;
 
-	static int Remainder(int left, int right)
+	static int Remainder(int left, int right) => Whole(left, right, false);
+
+	static int Whole(int left, int right, bool divide)
 	{
-		if (right == 0)
-			throw new ActionStoppedException("action stopped: divide by zero");
-		return left % right;
+		try
+		{
+			return divide ? left / right : left % right;
+		}
+		catch (Exception ex) when (ex is DivideByZeroException or OverflowException)
+		{
+			throw new ActionStoppedException(ex.Message);
+		}
 	}
 
 	static bool Compare(byte op, Val left, Val right)
@@ -562,11 +657,7 @@ public static partial class RecordProgram
 		if (value.Kind == ValInt)
 			return value.Int;
 		if (value.Kind == ValDouble)
-		{
-			if (double.IsNaN(value.Double) || double.IsInfinity(value.Double))
-				throw new ActionStoppedException("action stopped: number is not finite");
 			return (int)value.Double;
-		}
 
 		if (value.Kind == ValBool)
 			return value.Flag ? 1 : 0;

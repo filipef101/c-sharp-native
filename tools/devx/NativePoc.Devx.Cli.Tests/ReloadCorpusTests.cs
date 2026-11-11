@@ -206,6 +206,7 @@ public sealed class ReloadCorpusTests
 		Assert.Equal(6, summed.Bag.ReadInt("Count"));
 		var removed = Open(ListScreen("state.Items.Add(new Note { Name = \"Lantern\" }); state.Items.Add(new Note { Name = \"Rope\" }); foreach (var item in state.Items) if (item.Name == \"Lantern\") state.Items.Remove(item);"));
 		removed.Tap("notes/add");
+		Assert.Equal(RecordProgram.CollectionModified, ActionLog.LastStop);
 		Assert.Equal("Rope", Assert.Single(removed.Bag.Rows("Items"))[0]);
 		var found = Open(ListScreen("state.Items.Add(new Note { Name = \"Lantern\" }); var seen = false; var at = -1; foreach (var item in state.Items) { if (state.Items.Contains(item)) seen = true; at = state.Items.IndexOf(item); } state.Count = state.Items.Count; state.Open = seen; state.Added = at;"));
 		found.Tap("notes/add");
@@ -225,7 +226,7 @@ public sealed class ReloadCorpusTests
 		Assert.True(stopped.Bag.ReadInt("Count") > 0);
 		var divided = Open(hello.Replace("state.Count++;", "state.Count = 1 / 0;", StringComparison.Ordinal));
 		divided.Tap("hello/add");
-		Assert.Equal("action stopped: divide by zero", ActionLog.LastStop);
+		Assert.Equal("Attempted to divide by zero.", ActionLog.LastStop);
 	}
 
 	[Fact]

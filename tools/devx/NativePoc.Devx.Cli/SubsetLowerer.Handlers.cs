@@ -141,7 +141,7 @@ public static partial class SubsetLowerer
 				var parts = new List<byte> { RecordProgram.StrProp };
 				U16(parts, _code.Intern(field.Name));
 				var count = 1;
-				if (!WriteStrParts(Bare(assignment.Right), parts, ref count))
+				if (!WriteStrParts(Bare(assignment.Right), parts, ref count, true))
 					return false;
 				script.Add(RecordProgram.ActSetStrCat);
 				U16(script, _code.Intern(field.Name));
@@ -346,7 +346,7 @@ public static partial class SubsetLowerer
 		{
 			bytes = new List<byte>();
 			var parts = 0;
-			if (!WriteStrParts(Bare(expression), bytes, ref parts) || parts is < 1 or > 255)
+			if (!WriteStrParts(Bare(expression), bytes, ref parts, false) || parts is < 1 or > 255)
 			{
 				count = 0;
 				return false;
@@ -356,7 +356,7 @@ public static partial class SubsetLowerer
 			return true;
 		}
 
-		bool WriteStrParts(ExpressionSyntax expression, List<byte> parts, ref int count)
+		bool WriteStrParts(ExpressionSyntax expression, List<byte> parts, ref int count, bool nested)
 		{
 			expression = Bare(expression);
 			if (expression is BinaryExpressionSyntax add && add.IsKind(SyntaxKind.AddExpression))
@@ -365,7 +365,7 @@ public static partial class SubsetLowerer
 				var right = new List<byte>();
 				if (WriteIntExprInto(Bare(add.Left), left) && WriteIntExprInto(Bare(add.Right), right))
 					return false;
-				return WriteStrParts(add.Left, parts, ref count) && WriteStrParts(add.Right, parts, ref count);
+				return WriteStrParts(add.Left, parts, ref count, true) && WriteStrParts(add.Right, parts, ref count, true);
 			}
 
 			if (expression is InterpolatedStringExpressionSyntax interpolated)
@@ -381,7 +381,7 @@ public static partial class SubsetLowerer
 
 					if (content is InterpolationSyntax hole)
 					{
-						if (!WriteStrParts(hole.Expression, parts, ref count))
+						if (!WriteStrParts(hole.Expression, parts, ref count, true))
 							return false;
 						continue;
 					}
@@ -394,7 +394,7 @@ public static partial class SubsetLowerer
 
 			if (expression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
 				return AddPart(parts, ref count, RecordProgram.StrLit, _code.Intern(literal.Token.ValueText));
-			if (expression is LiteralExpressionSyntax number && number.IsKind(SyntaxKind.NumericLiteralExpression))
+			if (nested && expression is LiteralExpressionSyntax number && number.IsKind(SyntaxKind.NumericLiteralExpression))
 				return AddPart(parts, ref count, RecordProgram.StrLit, _code.Intern(number.Token.ValueText));
 			if (expression is MemberAccessExpressionSyntax member && Member(member, out var field))
 			{

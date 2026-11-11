@@ -29,29 +29,30 @@ A `TextField` may also set `Keyboard` (`Keyboard.Text`, `Keyboard.Email`, `Keybo
 
 The render body may start with `platform.Effect("Property", "resource")` and `platform.Every("Property")`. `Effect` names a string property and a local asset (`resource` + `.txt`). The host starts one task for that pair. A reload while the task is pending does not start a second task, and the task writes the property once. `Every` names an int property. It does not run a timer. `cnative agent clock` adds one to each armed property.
 
-Expressions are string literals, `+`, `$"..."` with holes of the same expressions, `condition ? a : b`, and parentheses. A condition is a bool property, `true` / `false`, `property.Length == 0`, or string equality. An int property interpolates as a decimal. `foreach` reads item string fields and item bools.
+Expressions are string literals, `+`, `$"..."` with holes of the same expressions, `condition ? a : b` of texts or of elements, and parentheses. A condition is a bool property, `true` / `false`, `property.Length == 0`, string equality, or any bool expression the action VM can evaluate, including `state.Count > 0`. An `if` / `else` whose branches each return an element is the same jump. An `if` without an `else` may return early. An int property interpolates as a decimal. `foreach` reads item string fields and item bools. A method in the same file that returns an `Element` can be the element a row adds, as in `rows.Add(Row(item))`.
 
-An action is a lambda. The running process interprets it with a switch in `RecordProgram.RunSteps`. That switch is compiled into the NativeAOT binary. An action does not call `Assembly.Load` and does not generate code. The forms opcodes 1–33 already name stay in that encoding. Anything else is one `ActVm` program, a stack machine in [architecture.md](architecture.md). One tap stops after 100000 steps. The log line is `action stopped after 100000 steps`, or `action stopped:` and the reason. The writes so far stay, and the host asks for a render. The process stays up.
+An action is a lambda. The running process interprets it with a switch in `RecordProgram.RunSteps`. That switch is compiled into the NativeAOT binary. An action does not call `Assembly.Load` and does not generate code. The forms opcodes 1–33 already name stay in that encoding. Anything else is one `ActVm` program, a stack machine in [architecture.md](architecture.md). One tap stops after 100000 steps. The log line is `action stopped after 100000 steps`. Where the same C# would throw, the action stops with that exception's message. The writes so far stay, and the host asks for a render. The process stays up.
 
 An action may:
 
 - assign a property from the lambda argument, a literal, a property of the same kind, or an item field
-- use `+`, `-`, `*`, `/`, `%`, and unary minus on int and double. Integer `/` and `%` match C#. Divide by zero stops the action
+- use `+`, `-`, `*`, `/`, `%`, and unary minus on int and double. Integer `/` and `%` match C#, including the overflow of `int.MinValue / -1`. Integer divide by zero stops with `Attempted to divide by zero.` Double `/` and `%` do not stop: `1.0 / 0.0` is infinity
 - use `<`, `>`, `<=`, `>=`, `==`, `!=`, `!`, `&&`, and `||`. `&&` and `||` skip the side that must not run
 - use `property++`, `++property`, `property--`, and `--property` on an int, as a statement or as a value (`var n = ++state.Count`)
 - use `+=`, `-=`, `*=`, `/=`, and `%=` on an int, and `+=` on a string
 - use `flag = !flag`, `flag = !other`, and `flag = other` on bools
 - concatenate strings with `+`, `+=`, and `$"..."`. A hole may be any expression the VM can evaluate, including arithmetic
 - use `value = condition ? a : b`, and `if` / `else`. An `if` that the older condition opcodes can name stays those opcodes and nests at most eight deep. Any other condition is a jump in the VM
-- use `for`, `while`, and `foreach` over a state list. `foreach` walks by index. The body may read `item.Field`. Removing the current row does not rewind the index
+- use `for`, `while`, and `foreach` over a state list. `foreach` walks by index. The body may read `item.Field`. Removing or adding during the walk stops the action with `Collection was modified; enumeration operation may not execute.` The removal itself has already happened, as it does in C#
 - use `?.` and `??`. `?.` does not call when the receiver is null. `??` replaces that null
 - declare one local at a time, `var` or a typed name, of int, double, string, or bool. An action has eight slots. A local stays visible for the rest of that action. A second `var` of the same name is refused. `string label = null` stores null
 - call `list.Add(new T { Field = cell })`, `list.Clear()`, `list.RemoveAt(index)`, and, on the row a `foreach` is visiting, `list.Remove(item)`, `list.Contains(item)`, and `list.IndexOf(item)`. `list.Count` is the row count. A cell is a string literal, a string property, a string local, or a bool literal. A missing cell is `""` or `false`. `RemoveAt` past the end does nothing
-- call `Trim`, `ToUpper`, `ToLower`, `Contains`, `StartsWith`, `Substring`, and `Length` on a string. `ToUpper` and `ToLower` use the invariant culture. `Substring` past the end stops the action
+- call `Trim`, `ToUpper`, `ToLower`, `Contains`, `StartsWith`, `Substring`, and `Length` on a string. `ToUpper` and `ToLower` use the invariant culture. `Substring` past the end stops with the `ArgumentOutOfRangeException` message. A null receiver stops with the `NullReferenceException` message
 - call `Math.Min`, `Math.Max`, `Math.Abs`, and `Math.Round`. `Round` uses midpoint-to-even and returns a double. Storing a double in an int needs `(int)`
-- call `int.Parse` and `int.TryParse(text, out var name)`. Parse failure stops the action. `TryParse` is the one `out` the VM accepts
+- call `int.Parse` and `int.TryParse(text, out var name)`. A bad or overflowing parse stops with the `FormatException` or `OverflowException` message. `TryParse` is the one `out` the VM accepts. `(int)` of a double matches the C# cast, including NaN and values past `int.MaxValue`
 - call `platform.RequestRender()`, `platform.Pulse()`, `platform.CopyNonce` with a string literal, a string property, or `"poc-" + state.Count`, `platform.CopyText` with a literal label and the list text, `platform.Push("screen-id")`, `platform.Pop()`, and `platform.Effect`
 - call `state.Commit()` and, inside a foreach, `state.Drop(item)`
+- call a private static method or an instance method declared in the same file, with int, double, bool, or string parameters. The methods may call each other, and a method may call itself. Recursion stops after 64 calls with `action stopped after 64 calls`. A method that returns an `Element` is a render helper, not an action call
 - call `Haptics.Confirm`, `Share.Text`, `Clipboard.Copy`, `Storage.Set`, and `Theme.Mode` as in [platform-modules.md](platform-modules.md)
 
 These stay refused. The VM has no arm for them, and a reload cannot invent one:
