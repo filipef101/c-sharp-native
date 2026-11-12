@@ -98,6 +98,7 @@ internal static partial class RecordProgram
 	public const byte ActPushIndex = 43;
 	public const byte ActNotRowBool = 44;
 	public const byte ActFillRows = 45;
+	public const byte ActAwaitLocal = 46;
 
 	public const int ActionStepBudget = 100_000;
 
@@ -126,6 +127,11 @@ internal static partial class RecordProgram
 	public const byte CondLocalIntEq = 10;
 	public const byte CondLit = 11;
 	public const byte CondPrefix = 12;
+	public const byte CondAnd = 13;
+	public const byte CondLocalStrEq = 14;
+	public const byte CondLocalStrNe = 15;
+	public const byte CondLocalEmpty = 16;
+	public const byte CondLocalPresent = 17;
 
 	public const byte LocalInt = 1;
 	public const byte LocalStr = 2;
@@ -1431,7 +1437,10 @@ internal static partial class RecordProgram
 	{
 		platform.Continue(suspended.Task, result =>
 		{
-			bag.WriteString(suspended.Dest, result);
+			if (suspended.LocalSlot >= 0)
+				frame.Strings[suspended.LocalSlot] = result;
+			else
+				bag.WriteString(suspended.Dest, result);
 			Drive(suspended, platform, bag, frame, source);
 		});
 	}
@@ -1691,6 +1700,24 @@ internal static partial class RecordProgram
 					}
 
 					throw new ActionSuspendException(task, dest, script, strings, ip, end, follow, text, flag, rowId, depth);
+				}
+				case ActAwaitLocal:
+				{
+					var module = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var method = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					if (ip >= script.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var count = script[ip++];
+					var moduleArgs = ReadModuleArgs(script, strings, bag, ref ip, count);
+					var slot = ReadSlot(script, ref ip);
+					var task = platform.ModuleAsync(module, method, moduleArgs);
+					if (task.IsCompleted)
+					{
+						frame.Strings[slot] = AwaitText(task);
+						break;
+					}
+
+					throw new ActionSuspendException(task, "", script, strings, ip, end, follow, text, flag, rowId, depth, slot);
 				}
 				case ActDropRow:
 				{
@@ -2014,6 +2041,24 @@ internal static partial class RecordProgram
 				var prefix = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
 				return bag.ReadString(name).StartsWith(prefix, StringComparison.Ordinal);
 			}
+			case CondAnd:
+			{
+				var left = ReadCond(script, ref ip, strings, bag, frame);
+				var right = ReadCond(script, ref ip, strings, bag, frame);
+				return left && right;
+			}
+			case CondLocalStrEq:
+			case CondLocalStrNe:
+			{
+				var slot = ReadSlot(script, ref ip);
+				var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+				var same = (frame.Strings[slot] ?? "") == bag.ReadString(name);
+				return tag == CondLocalStrEq ? same : !same;
+			}
+			case CondLocalEmpty:
+				return (frame.Strings[ReadSlot(script, ref ip)] ?? "").Length == 0;
+			case CondLocalPresent:
+				return (frame.Strings[ReadSlot(script, ref ip)] ?? "").Length != 0;
 			default:
 				throw new InvalidOperationException("Rejected record program.");
 		}
@@ -2077,7 +2122,7 @@ internal static partial class RecordProgram
 
 	sealed class ActionSuspendException : Exception
 	{
-		public ActionSuspendException(Task<string> task, string dest, byte[] script, string[] strings, int ip, int end, Follow? follow, string? text, bool flag, string? rowId, int depth)
+		public ActionSuspendException(Task<string> task, string dest, byte[] script, string[] strings, int ip, int end, Follow? follow, string? text, bool flag, string? rowId, int depth, int localSlot = -1)
 		{
 			Task = task;
 			Dest = dest;
@@ -2090,6 +2135,7 @@ internal static partial class RecordProgram
 			Flag = flag;
 			RowId = rowId;
 			Depth = depth;
+			LocalSlot = localSlot;
 		}
 
 		public Task<string> Task { get; }
@@ -2113,6 +2159,8 @@ internal static partial class RecordProgram
 		public string? RowId { get; }
 
 		public int Depth { get; }
+
+		public int LocalSlot { get; }
 	}
 
 	static int ReadI32(byte[] script, ref int ip)

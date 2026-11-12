@@ -36,13 +36,16 @@ public sealed class JniBindingGenerator : IIncrementalGenerator
 				if (jni is null)
 					continue;
 				var methods = new List<string>();
+				var registers = new List<string>();
 				foreach (var method in type.Members.OfType<MethodDeclarationSyntax>())
 				{
 					if (model.GetDeclaredSymbol(method) is not IMethodSymbol member)
 						continue;
-					var body = Method(symbol, member, jni);
-					if (body is not null)
-						methods.Add(body);
+					var body = Method(symbol, member, jni, out var register);
+					if (body is null)
+						continue;
+					methods.Add(body);
+					registers.Add(register);
 				}
 
 				if (methods.Count == 0)
@@ -62,6 +65,12 @@ public sealed class JniBindingGenerator : IIncrementalGenerator
 				builder.AppendLine("{");
 				foreach (var method in methods)
 					builder.Append(method);
+				builder.AppendLine("\t[System.Runtime.CompilerServices.ModuleInitializer]");
+				builder.AppendLine("\tinternal static void RegisterJni()");
+				builder.AppendLine("\t{");
+				foreach (var register in registers)
+					builder.Append(register);
+				builder.AppendLine("\t}");
 				builder.AppendLine("}");
 			}
 		}
@@ -82,8 +91,9 @@ public sealed class JniBindingGenerator : IIncrementalGenerator
 		return null;
 	}
 
-	static string? Method(INamedTypeSymbol type, IMethodSymbol method, string jniClass)
+	static string? Method(INamedTypeSymbol type, IMethodSymbol method, string jniClass, out string register)
 	{
+		register = "";
 		if (!method.IsPartialDefinition)
 			return null;
 		string? name = null;
@@ -174,8 +184,30 @@ public sealed class JniBindingGenerator : IIncrementalGenerator
 
 		builder.AppendLine("\t}");
 		builder.AppendLine();
-		_ = type;
+		var registration = new StringBuilder();
+		registration.Append("\t\tNativePoc.JniRegistry.Add(\"").Append(type.Name).Append('.').Append(method.Name).Append("\", args => ").Append(method.Name).Append('(');
+		for (var index = 0; index < parameters.Count; index++)
+		{
+			if (index > 0)
+				registration.Append(", ");
+			registration.Append(RegistryArg(parameters[index].Type, index));
+		}
+
+		registration.AppendLine("));");
+		register = registration.ToString();
 		return builder.ToString();
+	}
+
+	static string RegistryArg(string type, int index)
+	{
+		var cell = "args[" + index.ToString(CultureInfo.InvariantCulture) + "]";
+		if (type == "long")
+			return "long.Parse(" + cell + ", CultureInfo.InvariantCulture)";
+		if (type == "int")
+			return "int.Parse(" + cell + ", CultureInfo.InvariantCulture)";
+		if (type == "bool")
+			return cell + " == \"true\"";
+		return cell;
 	}
 
 	static void AppendArgs(StringBuilder builder, List<string> names)

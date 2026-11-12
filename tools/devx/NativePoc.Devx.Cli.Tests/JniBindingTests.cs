@@ -53,6 +53,7 @@ public sealed class JniBindingTests
 		Assert.Contains("JNIEnv.GetMethodID(jniClass, \"vibrate\", \"(J)V\")", generated, StringComparison.Ordinal);
 		Assert.Contains("JNIEnv.CallVoidMethod(service.Handle, jniMethod", generated, StringComparison.Ordinal);
 		Assert.Contains("jni-bind class=android/os/Vibrator method=vibrate", generated, StringComparison.Ordinal);
+		Assert.Contains("JniRegistry.Add(\"DeviceVibrator.Vibrate\", args => Vibrate(long.Parse(args[0], CultureInfo.InvariantCulture)));", generated, StringComparison.Ordinal);
 		Assert.DoesNotContain("GetMethod(", generated, StringComparison.Ordinal);
 		Assert.DoesNotContain("Type.GetType", generated, StringComparison.Ordinal);
 		Assert.DoesNotContain("Assembly.Load", generated, StringComparison.Ordinal);

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Android.Content;
+using NativePoc.Packing;
 
 namespace NativePoc;
 
@@ -53,6 +54,15 @@ static class PlatformModules
 					navPop.GoBack();
 				return;
 #endif
+			case ("jni", _, _):
+				JniRegistry.Call(method, args);
+				return;
+			case ("telemetry", "FieldDeliveries", 0):
+				PackingTelemetry.FieldDeliveries++;
+				return;
+			case ("telemetry", "SwitchDeliveries", 0):
+				PackingTelemetry.SwitchDeliveries++;
+				return;
 			default:
 				throw new InvalidOperationException("Unknown platform module " + module + "." + method + ".");
 		}

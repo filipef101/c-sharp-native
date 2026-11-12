@@ -15,8 +15,6 @@ static class ScreenInspect
 			: [];
 		var source = File.ReadAllText(full);
 		var lowered = SubsetLowerer.TryLower(source, companions, originFile: full);
-		if (!lowered.Ok)
-			lowered = SubsetLowerer.TryLower(source, originFile: full);
 		if (!lowered.Ok || lowered.Program is null)
 			throw new InvalidOperationException(lowered.Diagnostics.Count == 0 ? "The screen did not lower." : lowered.Diagnostics[0].Id + ": " + lowered.Diagnostics[0].Message);
 		var host = new HeadlessHost();

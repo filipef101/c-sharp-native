@@ -140,14 +140,39 @@ public static partial class SubsetLowerer
 		bool Branch(StatementSyntax statement, string parameter, List<byte> script)
 		{
 			if (statement is not BlockSyntax block)
-				return Statement(statement, parameter, script);
+				return Keep(statement, parameter, script);
 			foreach (var item in block.Statements)
 			{
-				if (!Statement(item, parameter, script))
+				if (!Keep(item, parameter, script))
 					return false;
 			}
 
 			return true;
+		}
+
+		bool Keep(StatementSyntax statement, string parameter, List<byte> script)
+		{
+			var before = script.Count;
+			if (!Statement(statement, parameter, script))
+				return false;
+			if (script.Count == before && Works(statement))
+				return Fail(BadLambda, "The reload program does not skip this statement.", statement);
+			return true;
+		}
+
+		static bool Works(StatementSyntax statement) => statement switch
+		{
+			EmptyStatementSyntax => false,
+			BlockSyntax block => block.Statements.Any(Works),
+			LocalFunctionStatementSyntax => false,
+			_ => true,
+		};
+
+		static bool LambdaWorks(LambdaExpressionSyntax lambda)
+		{
+			if (lambda.Body is BlockSyntax block)
+				return block.Statements.Any(Works);
+			return lambda.Body is ExpressionSyntax;
 		}
 
 		bool LocalDecl(LocalDeclarationStatementSyntax local, List<byte> script)
@@ -159,6 +184,14 @@ public static partial class SubsetLowerer
 				return Fail(BadLambda, ActionLimit, variable);
 			var slot = _localSlots;
 			var init = variable.Initializer.Value;
+			if (Bare(init) is AwaitExpressionSyntax awaited)
+			{
+				if (!AwaitLocal(slot, awaited, script))
+					return false;
+				_locals[variable.Identifier.ValueText] = (slot, ValueKind.Str);
+				_localSlots++;
+				return true;
+			}
 			if (WriteIntExpr(init, out var intExpr))
 			{
 				script.Add(RecordProgram.ActLocal);
@@ -579,8 +612,26 @@ public static partial class SubsetLowerer
 				return true;
 			}
 
+			if (expression is BinaryExpressionSyntax joined && joined.IsKind(SyntaxKind.LogicalAndExpression))
+			{
+				var left = new List<byte>();
+				var right = new List<byte>();
+				if (!WriteCond(joined.Left, left) || !WriteCond(joined.Right, right))
+					return false;
+				script.Add(RecordProgram.CondAnd);
+				script.AddRange(left);
+				script.AddRange(right);
+				return true;
+			}
+
 			if (expression is not BinaryExpressionSyntax binary)
 				return false;
+			if (LocalLength(binary, out var lengthSlot))
+			{
+				script.Add(binary.IsKind(SyntaxKind.EqualsExpression) ? RecordProgram.CondLocalEmpty : RecordProgram.CondLocalPresent);
+				script.Add(lengthSlot);
+				return true;
+			}
 			if (binary.IsKind(SyntaxKind.EqualsExpression) && LengthOf(binary, out var empty))
 			{
 				script.Add(RecordProgram.CondEmpty);
@@ -622,6 +673,18 @@ public static partial class SubsetLowerer
 					script.Add(RecordProgram.CondLocalIntEq);
 					script.Add(slot);
 					WriteI32(script, compared);
+					return true;
+				}
+
+				if (Bare(binary.Left) is IdentifierNameSyntax localText
+					&& Local(localText.Identifier.ValueText, ValueKind.Str, out var textSlot)
+					&& Bare(binary.Right) is MemberAccessExpressionSyntax fieldAccess
+					&& Member(fieldAccess, out var comparedField)
+					&& comparedField.Kind == ValueKind.Str)
+				{
+					script.Add(equal ? RecordProgram.CondLocalStrEq : RecordProgram.CondLocalStrNe);
+					script.Add(textSlot);
+					U16(script, _code.Intern(comparedField.Name));
 					return true;
 				}
 			}

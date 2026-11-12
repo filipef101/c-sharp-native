@@ -13,7 +13,10 @@ public sealed record SubsetResult(byte[]? Program, IReadOnlyList<SubsetDiagnosti
 {
 	public bool Ok => Program is not null && Diagnostics.Count == 0;
 
-	public static SubsetResult Ready(byte[] program) => new(program, Array.Empty<SubsetDiagnostic>());
+	public IReadOnlyList<(bool Works, int Length)> Actions { get; init; } = [];
+
+	public static SubsetResult Ready(byte[] program, IReadOnlyList<(bool Works, int Length)>? actions = null) =>
+		new(program, Array.Empty<SubsetDiagnostic>()) { Actions = actions ?? [] };
 
 	public static SubsetResult Refuse(SubsetDiagnostic diagnostic) => new(null, [diagnostic]);
 }
@@ -71,8 +74,6 @@ public static partial class SubsetLowerer
 
 		if (screen is null)
 			return SubsetResult.Refuse(At(NotAScreen, "A subset screen is a static class with Render(state, IPlatform).", root, source));
-		if (!CompanionRecords(companions, records, methods, out var companionError))
-			return SubsetResult.Refuse(companionError!);
 		MethodDeclarationSyntax? render = null;
 		var consts = new Dictionary<string, string>(StringComparer.Ordinal);
 		foreach (var member in screen.Members)
@@ -104,6 +105,8 @@ public static partial class SubsetLowerer
 
 		if (render is null || !IsRender(render, out var stateName, out var stateType, out var platformName))
 			return SubsetResult.Refuse(At(NotAScreen, "A subset screen is a static class with Render(state, IPlatform).", render ?? (SyntaxNode)screen, source));
+		if (!CompanionRecords(companions, records, methods, stateType, out var companionError))
+			return SubsetResult.Refuse(companionError!);
 		if (!records.TryGetValue(stateType, out var fields))
 		{
 			if (!Infer(render, stateName, source, out fields, out var inferred))
@@ -122,7 +125,7 @@ public static partial class SubsetLowerer
 		{
 			if (!lower.Body(render))
 				return new SubsetResult(null, lower.Errors);
-			return SubsetResult.Ready(lower.Finish());
+			return SubsetResult.Ready(lower.Finish(), lower.Actions);
 		}
 		catch (InvalidOperationException ex)
 		{
@@ -341,6 +344,7 @@ public static partial class SubsetLowerer
 		IReadOnlyList<string>? companions,
 		Dictionary<string, List<Field>> records,
 		Dictionary<string, MethodDeclarationSyntax> methods,
+		string stateType,
 		out SubsetDiagnostic? error)
 	{
 		error = null;
@@ -355,7 +359,15 @@ public static partial class SubsetLowerer
 				if (member is not ClassDeclarationSyntax type || type.Modifiers.Any(SyntaxKind.StaticKeyword))
 					continue;
 				if (!RecordFields(type, records, methods, companion, out error))
-					return false;
+				{
+					var prefix = type.Identifier.ValueText + ".";
+					foreach (var key in methods.Keys.Where(key => key.StartsWith(prefix, StringComparison.Ordinal)).ToArray())
+						methods.Remove(key);
+					records.Remove(type.Identifier.ValueText);
+					if (type.Identifier.ValueText == stateType)
+						return false;
+					error = null;
+				}
 			}
 		}
 
@@ -373,6 +385,9 @@ public static partial class SubsetLowerer
 				methods[type.Identifier.ValueText + "." + method.Identifier.ValueText] = method;
 				continue;
 			}
+
+			if (member is ConstructorDeclarationSyntax)
+				continue;
 
 			if (member is FieldDeclarationSyntax stored && !stored.Modifiers.Any(SyntaxKind.PublicKeyword))
 				continue;
@@ -643,7 +658,7 @@ public static partial class SubsetLowerer
 	static ValueKind? KindOf(TypeSyntax type) =>
 		type.ToString() switch
 		{
-			"string" => ValueKind.Str,
+			"string" or "string?" => ValueKind.Str,
 			"bool" => ValueKind.Bool,
 			"int" => ValueKind.Int,
 			_ => null,
@@ -773,6 +788,7 @@ public static partial class SubsetLowerer
 		string _listName = "";
 		readonly Dictionary<string, BlockSyntax> _localFns = new(StringComparer.Ordinal);
 		readonly HashSet<string> _bindings = new(StringComparer.Ordinal);
+		readonly List<(bool Works, int Length)> _actions = new();
 		string _originFile = "src/NativePoc.Screen/Screen.cs";
 		Dictionary<string, (byte Slot, ValueKind Kind)>? _locals;
 		byte _localSlots;
@@ -802,6 +818,16 @@ public static partial class SubsetLowerer
 			_callTypes = new HashSet<string>(StringComparer.Ordinal);
 			foreach (var call in _calls.Values)
 				_callTypes.Add(call.Type);
+		}
+
+		public IReadOnlyList<(bool Works, int Length)> Actions => _actions;
+
+		void EnsureLocals()
+		{
+			if (_locals is not null)
+				return;
+			_locals = new Dictionary<string, (byte Slot, ValueKind Kind)>(StringComparer.Ordinal);
+			_localSlots = 0;
 		}
 
 		public void SetOrigin(string? path)
@@ -895,16 +921,31 @@ public static partial class SubsetLowerer
 
 		bool Block(BlockSyntax block)
 		{
-			var statements = block.Statements;
-			var index = 0;
-			while (index < statements.Count && statements[index] is LocalFunctionStatementSyntax localFn)
+			var statements = new List<StatementSyntax>();
+			foreach (var statement in block.Statements)
 			{
-				if (localFn.Body is null)
-					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", localFn);
-				_localFns[localFn.Identifier.ValueText] = localFn.Body;
-				index++;
+				if (statement is LocalFunctionStatementSyntax localFn)
+				{
+					if (localFn.Body is null)
+						return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", localFn);
+					_localFns[localFn.Identifier.ValueText] = localFn.Body;
+					continue;
+				}
+
+				statements.Add(statement);
 			}
 
+			var rest = new List<StatementSyntax>();
+			foreach (var statement in statements)
+			{
+				if (!TryOpen(statement, out var opened))
+					return false;
+				if (!opened)
+					rest.Add(statement);
+			}
+
+			statements = rest;
+			var index = 0;
 			while (index < statements.Count)
 			{
 				if (!TryBinding(statements[index], out var consumed))
@@ -912,8 +953,6 @@ public static partial class SubsetLowerer
 				if (!consumed && !TryEffect(statements[index], out consumed))
 					return false;
 				if (!consumed && !TrySeed(statements[index], out consumed))
-					return false;
-				if (!consumed && !TryOpen(statements[index], out consumed))
 					return false;
 				if (!consumed && !TryLocalCall(statements[index], out consumed))
 					return false;
@@ -1078,9 +1117,10 @@ public static partial class SubsetLowerer
 			if (args[1].Expression is not IdentifierNameSyntax called || !_localFns.TryGetValue(called.Identifier.ValueText, out var body))
 				return Fail(BadLambda, "OnOpen takes the screen id and a local function.", args[1]);
 			var script = new List<byte>();
+			EnsureLocals();
 			foreach (var line in body.Statements)
 			{
-				if (!Statement(line, "", script))
+				if (!Keep(line, "", script))
 					return false;
 			}
 
@@ -1106,9 +1146,10 @@ public static partial class SubsetLowerer
 			if (invocation.ArgumentList.Arguments.Count != 0)
 				return Fail(BadLambda, "The call " + name + "() takes arguments the screen subset cannot pass.", invocation);
 			var script = new List<byte>();
+			EnsureLocals();
 			foreach (var line in body.Statements)
 			{
-				if (!Statement(line, "", script))
+				if (!Keep(line, "", script))
 					return false;
 			}
 
@@ -1122,7 +1163,7 @@ public static partial class SubsetLowerer
 			return true;
 		}
 
-		bool ListBlock(SyntaxList<StatementSyntax> statements, int index)
+		bool ListBlock(IReadOnlyList<StatementSyntax> statements, int index)
 		{
 			if (statements[index] is not LocalDeclarationStatementSyntax local)
 				return Fail(BadForeach, "A foreach walks a list property and adds one element.", statements[index]);
@@ -2469,13 +2510,14 @@ public static partial class SubsetLowerer
 			{
 				if (!EmitReturning(block, parameter, out script))
 					return false;
+				_actions.Add((true, script.Length));
 				return true;
 			}
 			else if (lambda.Body is BlockSyntax statements)
 			{
 				foreach (var statement in statements.Statements)
 				{
-					if (!Statement(statement, parameter, bytes))
+					if (!Keep(statement, parameter, bytes))
 						return false;
 				}
 			}
@@ -2483,6 +2525,10 @@ public static partial class SubsetLowerer
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", lambda);
 
 			script = bytes.ToArray();
+			var works = LambdaWorks(lambda);
+			_actions.Add((works, script.Length));
+			if (works && script.Length == 0)
+				return Fail(BadLambda, "The reload program does not skip this statement.", lambda);
 			return true;
 			}
 			finally
@@ -2504,7 +2550,7 @@ public static partial class SubsetLowerer
 				case PostfixUnaryExpressionSyntax postfix when postfix.Operand is MemberAccessExpressionSyntax telemetry
 					&& telemetry.Expression is IdentifierNameSyntax telemetryOwner
 					&& telemetryOwner.Identifier.ValueText == "PackingTelemetry":
-					return true;
+					return Telemetry(telemetry.Name.Identifier.ValueText, script);
 				case AssignmentExpressionSyntax compound when compound.IsKind(SyntaxKind.AddAssignmentExpression) || compound.IsKind(SyntaxKind.SubtractAssignmentExpression):
 					return Compound(compound, script) || VmExprStatement(compound, parameter, script);
 				case PostfixUnaryExpressionSyntax postfix when postfix.IsKind(SyntaxKind.PostIncrementExpression):
@@ -2674,6 +2720,21 @@ public static partial class SubsetLowerer
 			return VmStore(field, assignment.Right, script);
 		}
 
+		bool LocalLength(BinaryExpressionSyntax binary, out byte slot)
+		{
+			slot = 0;
+			if (!binary.IsKind(SyntaxKind.EqualsExpression) && !binary.IsKind(SyntaxKind.NotEqualsExpression))
+				return false;
+			if (binary.Left is not MemberAccessExpressionSyntax length
+				|| length.Name.Identifier.ValueText != "Length"
+				|| binary.Right is not LiteralExpressionSyntax zero
+				|| !zero.IsKind(SyntaxKind.NumericLiteralExpression)
+				|| zero.Token.ValueText != "0"
+				|| length.Expression is not IdentifierNameSyntax name)
+				return false;
+			return Local(name.Identifier.ValueText, ValueKind.Str, out slot);
+		}
+
 		bool LengthOf(BinaryExpressionSyntax binary, out string source)
 		{
 			source = "";
@@ -2704,9 +2765,10 @@ public static partial class SubsetLowerer
 				&& invocation.ArgumentList.Arguments.Count == 0
 				&& _localFns.TryGetValue(localCall.Identifier.ValueText, out var localBody))
 			{
+				EnsureLocals();
 				foreach (var statement in localBody.Statements)
 				{
-					if (!Statement(statement, "", script))
+					if (!Keep(statement, "", script))
 						return false;
 				}
 
@@ -2724,13 +2786,13 @@ public static partial class SubsetLowerer
 			if (invocation.Expression is not MemberAccessExpressionSyntax member || member.Expression is not IdentifierNameSyntax owner)
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			if (_bindings.Contains(owner.Identifier.ValueText + "." + member.Name.Identifier.ValueText))
-				return true;
+				return JniCall(owner.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, script);
 			if (owner.Identifier.ValueText == _state && member.Name.Identifier.ValueText == "Drop")
 				return DropRow(invocation, script);
 			if (owner.Identifier.ValueText == _state && _methods.ContainsKey(_stateType + "." + member.Name.Identifier.ValueText))
 				return StateCall(member.Name.Identifier.ValueText, script, invocation);
 			if (owner.Identifier.ValueText == "PackingTelemetry")
-				return true;
+				return Telemetry(member.Name.Identifier.ValueText, script);
 			if (owner.Identifier.ValueText == "PersistRows" && member.Name.Identifier.ValueText == "Fill")
 				return FillRows(invocation, script);
 			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme" or "FeedModule" or "Animate" or "Animated" or "Location" or "Nav")
@@ -3230,6 +3292,90 @@ public static partial class SubsetLowerer
 			}
 
 			return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", expression);
+		}
+
+		bool Telemetry(string name, List<byte> script)
+		{
+			script.Add(RecordProgram.ActModule);
+			U16(script, _code.Intern("telemetry"));
+			U16(script, _code.Intern(name));
+			script.Add(0);
+			return true;
+		}
+
+		bool JniCall(string owner, string method, InvocationExpressionSyntax invocation, List<byte> script)
+		{
+			var call = owner + "." + method;
+			var encoded = new List<(byte Kind, int Index)>();
+			foreach (var argument in invocation.ArgumentList.Arguments)
+			{
+				if (!JniArg(argument.Expression, encoded, call))
+					return false;
+			}
+
+			script.Add(RecordProgram.ActModule);
+			U16(script, _code.Intern("jni"));
+			U16(script, _code.Intern(call));
+			script.Add((byte)encoded.Count);
+			foreach (var (kind, index) in encoded)
+			{
+				script.Add(kind);
+				U16(script, index);
+			}
+
+			return true;
+		}
+
+		bool JniArg(ExpressionSyntax expression, List<(byte Kind, int Index)> encoded, string call)
+		{
+			if (expression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
+			{
+				encoded.Add((0, _code.Intern(literal.Token.ValueText)));
+				return true;
+			}
+
+			if (expression is LiteralExpressionSyntax number && number.IsKind(SyntaxKind.NumericLiteralExpression) && number.Token.Value is int value && value >= 0)
+			{
+				encoded.Add((0, _code.Intern(value.ToString(CultureInfo.InvariantCulture))));
+				return true;
+			}
+
+			if (expression is MemberAccessExpressionSyntax member && Member(member, out var field) && field.Kind == ValueKind.Str)
+			{
+				encoded.Add((1, _code.Intern(field.Name)));
+				return true;
+			}
+
+			if (expression is MemberAccessExpressionSyntax flag && Member(flag, out var boolean) && boolean.Kind == ValueKind.Bool)
+			{
+				encoded.Add((2, _code.Intern(boolean.Name)));
+				return true;
+			}
+
+			return Fail(BadLambda, "Not in the subset: " + call + "(). Pass a string, a number, or a state property.", expression);
+		}
+
+		bool AwaitLocal(byte slot, AwaitExpressionSyntax awaited, List<byte> script)
+		{
+			if (awaited.Expression is not InvocationExpressionSyntax invocation
+				|| invocation.Expression is not MemberAccessExpressionSyntax member
+				|| member.Expression is not IdentifierNameSyntax owner)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", awaited);
+			var encoded = new List<(byte Kind, int Index)>();
+			if (!AwaitArgs(owner.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, encoded))
+				return false;
+			script.Add(RecordProgram.ActAwaitLocal);
+			U16(script, _code.Intern(owner.Identifier.ValueText.ToLowerInvariant()));
+			U16(script, _code.Intern(member.Name.Identifier.ValueText));
+			script.Add((byte)encoded.Count);
+			foreach (var (kind, index) in encoded)
+			{
+				script.Add(kind);
+				U16(script, index);
+			}
+
+			script.Add(slot);
+			return true;
 		}
 
 		bool AwaitStore(string dest, AwaitExpressionSyntax awaited, List<byte> script)

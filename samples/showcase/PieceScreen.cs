@@ -18,8 +18,6 @@ public sealed class PieceState
 
 	public string DraftFor { get; set; } = "";
 
-	public string Hold { get; set; } = "";
-
 	public bool Dark { get; set; }
 }
 
@@ -41,13 +39,13 @@ public static class PieceScreen
 
 		async void Fill()
 		{
-			state.Hold = await Persist.Get(platform, "northroom.note.id");
-			if (state.Hold == state.Id && state.Draft.Length == 0)
+			var savedId = await Persist.Get(platform, "northroom.note.id");
+			if (savedId == state.Id && state.Draft.Length == 0)
 			{
-				state.Hold = await Persist.Get(platform, "northroom.note");
-				if (state.Hold.Length != 0)
+				var saved = await Persist.Get(platform, "northroom.note");
+				if (saved.Length != 0)
 				{
-					state.Draft = state.Hold;
+					state.Draft = saved;
 					platform.RequestRender();
 				}
 			}
