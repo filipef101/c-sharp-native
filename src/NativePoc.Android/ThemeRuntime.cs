@@ -81,15 +81,34 @@ static class ThemeRuntime
 		}
 
 		CompiledScreens.ApplyTheme(dark, large);
+		Bars(activity);
 	}
 
 	public static void ApplyWindow(Activity activity)
 	{
+		StartupMarks.Phase("theme");
 		var page = new Color(unchecked((int)ThemeTokens.Page(IsDark(activity))));
 		if (activity.Window is not { } window)
 			return;
 		window.SetBackgroundDrawable(new ColorDrawable(page));
 		window.DecorView?.SetBackgroundColor(page);
+#pragma warning disable CA1416, CA1422
+		window.SetStatusBarColor(page);
+		window.SetNavigationBarColor(page);
+#pragma warning restore CA1416, CA1422
+		Bars(activity);
+	}
+
+	public static void Bars(Activity activity)
+	{
+#pragma warning disable CA1416
+		if ((int)Android.OS.Build.VERSION.SdkInt < 30 || activity.Window?.InsetsController is not { } controller)
+			return;
+		var light = (int)WindowInsetsControllerAppearance.LightStatusBars
+			| (int)WindowInsetsControllerAppearance.LightNavigationBars;
+		var appearance = IsDark(activity) ? 0 : light;
+		controller.SetSystemBarsAppearance(appearance, light);
+#pragma warning restore CA1416
 	}
 
 	public static string FontScale(Activity activity)
@@ -127,6 +146,13 @@ static class ThemeRuntime
 		var decor = activity.Window?.DecorView;
 		if (decor is not null && (decor.Background is not ColorDrawable painted || painted.Color.ToArgb() != page.ToArgb()))
 			decor.SetBackgroundColor(page);
+		if (activity.Window is { } window)
+		{
+#pragma warning disable CA1416, CA1422
+			window.SetStatusBarColor(page);
+			window.SetNavigationBarColor(page);
+#pragma warning restore CA1416, CA1422
+		}
 		if (root is not null)
 			Walk(root, ink);
 	}

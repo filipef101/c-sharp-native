@@ -23,10 +23,20 @@ static class ScreenInspect
 		return Format(root);
 	}
 
+	public const int SystemBarDp = 24;
+
 	public static string Format(Element root)
 	{
 		ArgumentNullException.ThrowIfNull(root);
-		return Format(root, HeadlessLayout.Measure(root), HeadlessLayout.Measure(root, 2f));
+		return Format(root, BelowBars(HeadlessLayout.Measure(root)), BelowBars(HeadlessLayout.Measure(root, 2f)));
+	}
+
+	static List<HeadlessLayout.Box> BelowBars(List<HeadlessLayout.Box> boxes)
+	{
+		var shifted = new List<HeadlessLayout.Box>(boxes.Count);
+		foreach (var box in boxes)
+			shifted.Add(box with { Top = box.Top + SystemBarDp });
+		return shifted;
 	}
 
 	public static string Format(Element root, IReadOnlyList<HeadlessLayout.Box> boxes) =>
@@ -164,6 +174,10 @@ static class ScreenInspect
 					findings.Add(overflow);
 				else if (scaled is not null && Overflow(node.Id, parent.Id, scaled, scaled: true) is { } grown)
 					findings.Add(grown);
+				if (UnderBars(node.Id, boxes, scaled: false) is { } under)
+					findings.Add(under);
+				else if (scaled is not null && UnderBars(node.Id, scaled, scaled: true) is { } grownUnder)
+					findings.Add(grownUnder);
 			}
 			if (IsTouch(node.Element))
 			{
@@ -214,6 +228,17 @@ static class ScreenInspect
 			"fixed-height",
 			id,
 			"Text in " + id + " stays " + box.Height.ToString(CultureInfo.InvariantCulture) + " dp at font scale 2.");
+	}
+
+	static Finding? UnderBars(string id, Dictionary<string, HeadlessLayout.Box> boxes, bool scaled)
+	{
+		if (!boxes.TryGetValue(id, out var box) || box.Top >= SystemBarDp)
+			return null;
+		var where = scaled ? " at font scale 2" : "";
+		return new Finding(
+			"system-bar",
+			id,
+			"Child " + id + " sits under the system bars" + where + ".");
 	}
 
 	static Finding? Overflow(string id, string parentId, Dictionary<string, HeadlessLayout.Box> boxes, bool scaled)

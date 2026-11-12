@@ -185,6 +185,7 @@ sealed class RefreshScroll : AndroidWidget
 	protected override void OnLayout(bool changed, int left, int top, int right, int bottom)
 	{
 		base.OnLayout(changed, left, top, right, bottom);
+		StartupMarks.Phase("layout");
 		if (_revealPosted)
 			return;
 		_revealPosted = true;
@@ -204,6 +205,9 @@ sealed class RefreshScroll : AndroidWidget
 			return;
 		var need = 0;
 		MeasureClip(this, min, ref need);
+		var slack = HeadingSlack(viewport);
+		if (need > slack)
+			need = slack;
 		if (need > 0)
 			ScrollBy(0, need);
 		Android.Util.Log.Info(MainActivity.Tag, "a11y-reveal need=" + need.ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -231,6 +235,43 @@ sealed class RefreshScroll : AndroidWidget
 			if (child is not null)
 				MeasureClip(child, min, ref need);
 		}
+	}
+
+	int HeadingSlack(Rect viewport)
+	{
+		var heading = FindHeading(this);
+		if (heading is null)
+			return int.MaxValue;
+		var rect = new Rect();
+		if (!heading.GetGlobalVisibleRect(rect) || rect.Height() <= 0)
+			return 0;
+		var contentTop = viewport.Top + PaddingTop;
+		return Math.Max(0, rect.Top - contentTop);
+	}
+
+	static View? FindHeading(View view)
+	{
+		if (view is Android.Widget.TextView text && (int)Android.OS.Build.VERSION.SdkInt >= 28)
+		{
+#pragma warning disable CA1416
+			if (text.AccessibilityHeading)
+				return text;
+#pragma warning restore CA1416
+		}
+
+		if (view is not ViewGroup group)
+			return null;
+		for (var index = 0; index < group.ChildCount; index++)
+		{
+			var child = group.GetChildAt(index);
+			if (child is null)
+				continue;
+			var found = FindHeading(child);
+			if (found is not null)
+				return found;
+		}
+
+		return null;
 	}
 
 	static bool ClippedTarget(View view) =>

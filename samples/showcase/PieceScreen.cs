@@ -25,8 +25,9 @@ public static class PieceScreen
 	{
 		async void Keep()
 		{
-			state.Kept = state.Id;
-			state.Status = await Persist.Put(platform, "northroom.keep", state.Id);
+			var kept = state.Kept.Length == 0;
+			state.Kept = kept ? state.Id : "";
+			state.Status = await Persist.Put(platform, "northroom.keep", state.Kept);
 			platform.RequestRender();
 		}
 
@@ -68,29 +69,17 @@ public static class PieceScreen
 										: new Text(state.Tone) { Key = "swatch", Style = new Style { Background = 0xFF8C4A34, Wash = 0xFFD4A090, Color = 0xFFF7F4EF, Radius = 16, Padding = 48, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center } },
 			new Text(state.Title) { Key = "title", Style = new Style { FontSize = 28, Weight = FontWeight.Bold } },
 			new Text(state.Note) { Key = "note", Style = new Style { FontSize = 16 } },
-			new Column(
-			[
-				new Text(state.Kept.Length == 0 ? "" : "Kept")
+			state.Kept.Length == 0
+				? new Button("Keep", () => Keep(), "Keep")
 				{
-					Key = "kept",
-					Style = new Style { Background = 0xFFE4F0EB, Color = 0xFF143028, Radius = 12, Padding = 8, FontSize = 13, Weight = FontWeight.Bold, Align = Align.Center },
+					Key = "keep",
+					Style = new Style { Background = 0xFFFFFFFF, Stroke = 0xFF0F6E56, Color = 0xFF0F6E56, Radius = 24, Padding = 14, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center },
+				}
+				: new Button("Kept", () => Keep(), "Unkeep")
+				{
+					Key = "keep",
+					Style = new Style { Background = 0xFF0F6E56, Color = 0xFFF7F4EF, Radius = 24, Padding = 14, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center },
 				},
-				state.Kept.Length == 0
-					? new Button("Keep", () => Keep(), "Keep")
-					{
-						Key = "keep",
-						Style = new Style { Background = 0xFFFFFFFF, Stroke = 0xFF0F6E56, Color = 0xFF0F6E56, Radius = 24, Padding = 14, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center, Grow = 1 },
-					}
-					: new Button("Keep", () => Keep(), "Keep")
-					{
-						Key = "keep",
-						Style = new Style { Background = 0xFF0F6E56, Color = 0xFFF7F4EF, Radius = 24, Padding = 14, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center, Grow = 1 },
-					},
-			])
-			{
-				Key = "actions",
-				Style = new Style { Across = 1, Gap = 8, Align = Align.Center },
-			},
 		])
 		{
 			Key = "page",

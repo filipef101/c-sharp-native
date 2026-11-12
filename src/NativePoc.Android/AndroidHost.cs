@@ -48,11 +48,14 @@ sealed class AndroidHost : IElementHost<View>
 			case ElementKind.Switch:
 				return new AndroidSwitch(_activity);
 			case ElementKind.Scroll:
-				return new RefreshScroll(_activity)
+				var scroll = new RefreshScroll(_activity)
 				{
 					FillViewport = true,
 					ScrollBarStyle = ScrollbarStyles.OutsideOverlay,
 				};
+				scroll.SetClipChildren(false);
+				scroll.SetClipToPadding(false);
+				return scroll;
 			case ElementKind.List:
 #if NATIVEPOC_RECYCLER
 				return KeyedList.Create(_activity);
@@ -235,6 +238,8 @@ sealed class AndroidHost : IElementHost<View>
 
 	public void SetStyle(View view, Style style)
 	{
+		if (view is ViewGroup styledGroup)
+			styledGroup.SetClipChildren(false);
 		var density = _activity.Resources?.DisplayMetrics?.Density ?? 1f;
 		int Px(int dp) => (int)(dp * density);
 		if (style.Padding != 0)
@@ -333,6 +338,8 @@ sealed class AndroidHost : IElementHost<View>
 
 		if (style.Background != 0 || style.Wash != 0 || style.Radius > 0 || style.Stroke != 0)
 		{
+			if (style.Wash != 0 && style.Background != 0)
+				StartupMarks.Phase("gradient");
 			var drawable = new GradientDrawable();
 			drawable.SetCornerRadius(Px(style.Radius));
 			if (style.Background != 0 && style.Wash != 0)
@@ -362,7 +369,17 @@ sealed class AndroidHost : IElementHost<View>
 				view.ClipToOutline = true;
 			}
 
-			view.Elevation = style.Background != 0 && style.Radius > 0 ? Px(3) : 0;
+			var shadow = style.Background != 0 && style.Radius > 0;
+			view.Elevation = shadow ? Px(3) : 0;
+			if (shadow)
+			{
+				StartupMarks.Phase("shadow");
+				view.Post(() =>
+				{
+					for (var parent = view.Parent; parent is ViewGroup group; parent = group.Parent)
+						group.SetClipChildren(false);
+				});
+			}
 		}
 	}
 
@@ -521,6 +538,11 @@ sealed class AndroidHost : IElementHost<View>
 		{
 			var pad = (int)(16 * (_activity.Resources?.DisplayMetrics?.Density ?? 1f));
 			view.SetPadding(pad, pad, pad, pad);
+			if (view is ViewGroup rootGroup)
+			{
+				rootGroup.SetClipToPadding(false);
+				rootGroup.SetClipChildren(false);
+			}
 			view.LayoutParameters = new ViewGroup.LayoutParams(
 				ViewGroup.LayoutParams.MatchParent,
 				ViewGroup.LayoutParams.MatchParent);

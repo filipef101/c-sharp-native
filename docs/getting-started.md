@@ -80,6 +80,16 @@ The process had already written the title, so the bag kept Hello. `cnative reset
 
 Exit 0 in 0.096 s. `lint` was empty. The heading row was `home/title`, role `text`, text `Howdy`. The generated title style is `FontSize` 22, which is the shared heading floor.
 
+## Nav, transitions, theme, and font scale
+
+This section is not another timed run of the empty folder above. The template flags are the ones already measured there. `dotnet new cnative-app --nav` sets `NativePocNav` and compiles `NavFocus.cs`, which logs `nav-focus`. `Push` stacks a screen and `Pop` removes it. Android back calls the same pop. A cold launch of one screen is depth 1.
+
+`NativePocTransition` compiles `NavTransition`, an Android `Slide`. The duration passed in is 180 ms, and the system animator scale shortens it. `animator_duration_scale` or `transition_animation_scale` at 0 skips it. That measurement is the motion package in the README, not a new launch on this page.
+
+`Theme.Mode` takes `dark`, `light`, or `system`. `system` follows `uiMode`. The call stores the mode and repaints. It does not recreate the activity. Text is `sp`, so the system font scale grows a line instead of clipping it. `cnative inspect` flags `fixed-height` when a vertical text container uses `Grow` or when the measured height does not grow at font scale 2, `overflow` when a child extends outside its parent, and `system-bar` when a child sits in the top 24 dp.
+
+The notes and visit stills for light, dark, and font scale 2.0 are artifacts, not files in this repo: `/opt/cursor/artifacts/progress45/notes-light.png`, `notes-dark.png`, `notes-font2.png`, `visit-light.png`, `visit-dark.png`, and `visit-font2.png`. Northroom, the showcase, uses the same nav, transition, theme, and font scale. Its stills and clip are `/opt/cursor/artifacts/progress49/showcase/`. The README records the emulator-run sizes and the cold start. This page does not add a timing.
+
 ## tools/check.sh
 
 Stop the watcher before another publish. This run stopped it, then started the check with the working directory `/tmp/p44/clean`:

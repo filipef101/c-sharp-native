@@ -14,6 +14,25 @@ public static class RoomScreen
 	public static Element Render(RoomState state, IPlatform platform) =>
 		new ScrollView(new Column(
 		[
+			new Column(
+			[
+				new Button(
+					"←",
+					() =>
+					{
+						platform.Pop();
+						platform.RequestRender();
+					},
+					"Back")
+				{
+					Key = "back",
+					Style = new Style { FontSize = 22, Align = Align.Center, Padding = 8 },
+				},
+			])
+			{
+				Key = "back-row",
+				Style = new Style { Across = 1, Align = Align.Start },
+			},
 			new Text("The room")
 			{
 				Key = "heading",
@@ -66,18 +85,6 @@ public static class RoomScreen
 			{
 				Key = "card",
 				Style = new Style { Background = 0xFFFFFFFF, Radius = 16, Padding = 16, Gap = 12 },
-			},
-			new Button(
-				"Back",
-				() =>
-				{
-					platform.Pop();
-					platform.RequestRender();
-				},
-				"Back")
-			{
-				Key = "back",
-				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
 			},
 		])
 		{

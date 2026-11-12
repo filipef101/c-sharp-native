@@ -58,6 +58,13 @@ public sealed class MainActivity : Activity
 	{
 		StartupMarks.Phase("activity-enter");
 		base.OnCreate(savedInstanceState);
+		if ((int)Build.VERSION.SdkInt >= 30 && Window is { } window)
+		{
+#pragma warning disable CA1416, CA1422
+			window.SetDecorFitsSystemWindows(false);
+#pragma warning restore CA1416, CA1422
+		}
+
 		StartupMarks.Phase("activity-base");
 		ReloadDispatch.Install();
 		ActionLog.OnScript = (micros, steps, stop) =>

@@ -69,7 +69,9 @@ public sealed class InspectTests
 		Assert.Contains("\"code\":\"touch-target\",\"id\":\"later\"", json, StringComparison.Ordinal);
 		Assert.Contains("under 48 dp.", json, StringComparison.Ordinal);
 		Assert.Contains("\"code\":\"focus-order\",\"id\":\"title\",\"message\":\"Focus reaches title above later.\"", json, StringComparison.Ordinal);
-		Assert.Equal(3, ScreenInspect.Violations(json));
+		Assert.Contains("\"code\":\"system-bar\",\"id\":\"save\"", json, StringComparison.Ordinal);
+		Assert.Contains("\"code\":\"system-bar\",\"id\":\"title\"", json, StringComparison.Ordinal);
+		Assert.Equal(5, ScreenInspect.Violations(json));
 	}
 
 	[Fact]
@@ -104,9 +106,9 @@ public sealed class InspectTests
 			new Text("Wide") { Key = "wide" },
 		]);
 		var json = ScreenInspect.Format(screen, [
-			new HeadlessLayout.Box("root", 0, 0, 360, 80),
-			new HeadlessLayout.Box("title", 0, 0, 360, 30),
-			new HeadlessLayout.Box("wide", 40, 30, 400, 24),
+			new HeadlessLayout.Box("root", 0, 0, 360, 120),
+			new HeadlessLayout.Box("title", 0, 24, 360, 30),
+			new HeadlessLayout.Box("wide", 40, 54, 400, 24),
 		]);
 		Assert.Contains("\"code\":\"overflow\",\"id\":\"wide\",\"message\":\"Child wide extends outside root and is clipped.\"", json, StringComparison.Ordinal);
 		Assert.DoesNotContain("\"id\":\"title\",\"message\":\"Child title", json, StringComparison.Ordinal);
@@ -125,6 +127,31 @@ public sealed class InspectTests
 			},
 		]));
 		Assert.DoesNotContain("overflow", held, StringComparison.Ordinal);
+		Assert.DoesNotContain("system-bar", held, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void Inspect_flags_content_under_the_system_bars()
+	{
+		var screen = new Column(
+		[
+			new Text("Title") { Key = "title", Style = new Style { FontSize = 22 } },
+			new Text("Body") { Key = "body" },
+		]);
+		var json = ScreenInspect.Format(screen, [
+			new HeadlessLayout.Box("root", 0, 0, 360, 200),
+			new HeadlessLayout.Box("title", 16, 8, 328, 40),
+			new HeadlessLayout.Box("body", 16, 64, 328, 24),
+		]);
+		Assert.Contains("\"code\":\"system-bar\",\"id\":\"title\",\"message\":\"Child title sits under the system bars.\"", json, StringComparison.Ordinal);
+		Assert.DoesNotContain("\"code\":\"system-bar\",\"id\":\"body\"", json, StringComparison.Ordinal);
+
+		var held = ScreenInspect.Format(new Column(
+		[
+			new Text("Title") { Key = "title", Style = new Style { FontSize = 22 } },
+			new Text("Body") { Key = "body" },
+		]));
+		Assert.DoesNotContain("system-bar", held, StringComparison.Ordinal);
 	}
 
 	[Fact]

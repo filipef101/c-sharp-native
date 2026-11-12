@@ -37,6 +37,25 @@ public static class ShelfScreen
 		[
 			new Column(
 			[
+				new Button(
+					"←",
+					() =>
+					{
+						platform.Pop();
+						platform.RequestRender();
+					},
+					"Back")
+				{
+					Key = "back",
+					Style = new Style { FontSize = 22, Align = Align.Center, Padding = 8 },
+				},
+			])
+			{
+				Key = "back-row",
+				Style = new Style { Across = 1, Align = Align.Start },
+			},
+			new Column(
+			[
 				new Text("The shelf")
 				{
 					Key = "heading",
@@ -239,18 +258,6 @@ public static class ShelfScreen
 			{
 				Key = "row-3",
 				Style = new Style { Across = 1, Gap = 16 },
-			},
-			new Button(
-				"Back",
-				() =>
-				{
-					platform.Pop();
-					platform.RequestRender();
-				},
-				"Back")
-			{
-				Key = "back",
-				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
 			},
 		])
 		{

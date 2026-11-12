@@ -37,7 +37,11 @@ static class NavMotion
 		if (_stage is null || _stage.Handle == IntPtr.Zero)
 		{
 			_stage = new FrameLayout(activity);
+			_stage.SetClipChildren(false);
+			_stage.SetClipToPadding(false);
+			_stage.SetOnApplyWindowInsetsListener(new SystemBarInset());
 			activity.SetContentView(_stage);
+			_stage.RequestApplyInsets();
 			_stage.AddView(mounted, Fill());
 			_current = mounted;
 			Android.Util.Log.Info(MainActivity.Tag, "set-content-view");
@@ -122,6 +126,19 @@ static class NavMotion
 
 	static FrameLayout.LayoutParams Fill() =>
 		new(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent);
+
+	sealed class SystemBarInset : Java.Lang.Object, View.IOnApplyWindowInsetsListener
+	{
+		public WindowInsets OnApplyWindowInsets(View v, WindowInsets insets)
+		{
+#pragma warning disable CA1416
+			var bars = insets.GetInsets(WindowInsets.Type.SystemBars());
+			v.SetPadding(bars.Left, bars.Top, bars.Right, bars.Bottom);
+			StartupMarks.Phase("insets");
+			return WindowInsets.Consumed;
+#pragma warning restore CA1416
+		}
+	}
 
 	sealed class End : Java.Lang.Object, Java.Lang.IRunnable
 	{
