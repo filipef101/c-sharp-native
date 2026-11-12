@@ -15,6 +15,7 @@ public sealed class ArgParserTests
 		Assert.Null(options.Abi);
 		Assert.Equal(40, options.DebounceMs);
 		Assert.False(options.RestartOnRude);
+		Assert.Equal(RestartChoice.Ask, options.Choice);
 	}
 
 	[Fact]
@@ -39,7 +40,21 @@ public sealed class ArgParserTests
 		Assert.Equal("android-arm64", options.Abi);
 		Assert.Equal(400, options.DebounceMs);
 		Assert.True(options.RestartOnRude);
+		Assert.Equal(RestartChoice.Yes, options.Choice);
 		Assert.False(options.Listener);
+	}
+
+	[Fact]
+	public void Yes_and_no_choose_the_restart()
+	{
+		var yes = ArgParser.Parse(["run", "android", "--yes"]);
+		Assert.Equal(RestartChoice.Yes, yes.Choice);
+		Assert.True(yes.RestartOnRude);
+		var no = ArgParser.Parse(["run", "android", "--no"]);
+		Assert.Equal(RestartChoice.No, no.Choice);
+		Assert.False(no.RestartOnRude);
+		Assert.Throws<UsageException>(() => ArgParser.Parse(["run", "android", "--yes", "--no"]));
+		Assert.Throws<UsageException>(() => ArgParser.Parse(["run", "android", "--no", "--restart-on-rude"]));
 	}
 
 	[Fact]

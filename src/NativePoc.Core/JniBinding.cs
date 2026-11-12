@@ -30,4 +30,6 @@ public sealed class JniMethodAttribute : Attribute
 	public bool Instance { get; set; }
 
 	public string Service { get; set; } = "";
+
+	public bool Blocking { get; set; }
 }

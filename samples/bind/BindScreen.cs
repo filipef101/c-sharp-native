@@ -66,5 +66,29 @@ public static class BindScreen
 				Key = "toast",
 				Style = new Style { Padding = 14, FontSize = 16 },
 			},
+			new Button(
+				"Battery",
+				() => DeviceBattery.Read("bind", "Note"),
+				"Battery")
+			{
+				Key = "battery",
+				Style = new Style { Padding = 14, FontSize = 16 },
+			},
+			new Button(
+				"Watch",
+				() => DeviceClipboard.Listen("bind", "Note"),
+				"Watch")
+			{
+				Key = "watch",
+				Style = new Style { Padding = 14, FontSize = 16 },
+			},
+			new Button(
+				"Bench",
+				() => DeviceBench.Measure(),
+				"Bench")
+			{
+				Key = "bench",
+				Style = new Style { Padding = 14, FontSize = 16 },
+			},
 		]);
 }

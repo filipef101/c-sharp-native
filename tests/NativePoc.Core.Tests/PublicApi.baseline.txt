@@ -141,6 +141,7 @@ experimental|P:NativePoc.HeadlessLayout.Box.Id
 experimental|P:NativePoc.HeadlessLayout.Box.Left
 experimental|P:NativePoc.HeadlessLayout.Box.Top
 experimental|P:NativePoc.HeadlessLayout.Box.Width
+experimental|P:NativePoc.JniMethodAttribute.Blocking
 experimental|P:NativePoc.JniMethodAttribute.Instance
 experimental|P:NativePoc.JniMethodAttribute.Name
 experimental|P:NativePoc.JniMethodAttribute.Service

@@ -5,7 +5,9 @@ readonly record struct DoctorFacts(
 	string? WorkloadText,
 	string? AdbPath,
 	string? DevicesText,
-	string? IlcPath);
+	string? IlcPath,
+	bool? ListenerProvider = null,
+	bool StaleDebugPublish = false);
 
 static class Doctor
 {
@@ -62,6 +64,17 @@ static class Doctor
 		else
 			lines.Add("OK NativeAOT: " + facts.IlcPath);
 
+		if (facts.ListenerProvider is null)
+			lines.Add("OK listener apk: no bin/listener publish yet.");
+		else if (facts.ListenerProvider == false)
+			lines.Add("FAIL listener apk: classes.dex has no NativeAotRuntimeProvider. Delete bin/listener and publish the listener again.");
+		else
+			lines.Add("OK listener apk: NativeAotRuntimeProvider is in classes.dex.");
+		if (facts.StaleDebugPublish)
+			lines.Add("FAIL stale publish: bin/Debug still has a pre-split publish apk. cnative run android --listener removes it and installs bin/listener.");
+		else
+			lines.Add("OK stale publish: no pre-split bin/Debug publish apk.");
+
 		return string.Join('\n', lines) + "\n";
 	}
 
@@ -78,12 +91,31 @@ static class Doctor
 				devices = listed.Text;
 		}
 
+		bool? provider = null;
+		var stale = false;
+		var repo = TryRepo();
+		if (repo is not null)
+			(provider, stale) = AndroidBuild.ListenerDex(repo);
 		return new DoctorFacts(
 			version.Ok ? version.Text.Trim() : null,
 			workloads.Ok ? workloads.Text : null,
 			adb,
 			devices,
-			FindIlc());
+			FindIlc(),
+			provider,
+			stale);
+	}
+
+	static string? TryRepo()
+	{
+		try
+		{
+			return RepoRoot.Find(Directory.GetCurrentDirectory());
+		}
+		catch (InvalidOperationException)
+		{
+			return null;
+		}
 	}
 
 	static bool HasAndroidWorkload(string text)

@@ -204,12 +204,19 @@ public sealed class LoopRuleTests
 	[Fact]
 	public void Restart_follows_the_flag_or_a_yes_answer()
 	{
-		Assert.False(RestartPolicy.ShouldRestart(false, true, true, () => "y"));
-		Assert.True(RestartPolicy.ShouldRestart(true, true, false, Boom));
-		Assert.False(RestartPolicy.ShouldRestart(true, false, false, Boom));
-		Assert.True(RestartPolicy.ShouldRestart(true, false, true, () => "y"));
-		Assert.False(RestartPolicy.ShouldRestart(true, false, true, () => "n"));
-		Assert.False(RestartPolicy.ShouldRestart(true, false, true, () => ""));
+		Assert.False(RestartPolicy.ShouldRestart(false, RestartChoice.Yes, true, () => "y"));
+		Assert.True(RestartPolicy.ShouldRestart(true, RestartChoice.Yes, false, Boom));
+		Assert.False(RestartPolicy.ShouldRestart(true, RestartChoice.No, true, Boom));
+		Assert.False(RestartPolicy.ShouldRestart(true, RestartChoice.Ask, false, Boom));
+		Assert.True(RestartPolicy.ShouldRestart(true, RestartChoice.Ask, true, () => "y"));
+		Assert.False(RestartPolicy.ShouldRestart(true, RestartChoice.Ask, true, () => "n"));
+		Assert.False(RestartPolicy.ShouldRestart(true, RestartChoice.Ask, true, () => ""));
+		Assert.Equal("cnative: --no leaves the app running.", RestartPolicy.Follow(false, RestartChoice.No, true, false));
+		Assert.Equal(
+			"cnative: not a terminal, so the restart stays off. Pass --yes to relaunch, or --no to keep this choice.",
+			RestartPolicy.Follow(false, RestartChoice.Ask, false, false));
+		Assert.Equal("pass --yes to relaunch. The default is no.", RestartPolicy.Follow(false, RestartChoice.Ask, true, false));
+		Assert.Equal("restarting", RestartPolicy.Follow(true, RestartChoice.Yes, false, false));
 	}
 
 	[Fact]
@@ -334,6 +341,48 @@ public sealed class LoopRuleTests
 		finally
 		{
 			root.Delete(true);
+		}
+	}
+
+	[Fact]
+	public void Stale_debug_publish_is_removed_and_watch_refuses_it()
+	{
+		var repo = Directory.CreateTempSubdirectory("cnative-stale-").FullName;
+		try
+		{
+			var stale = Path.Combine(repo, "src", "NativePoc.Android", "bin", "Debug", "net10.0-android", "android-x64", "publish");
+			Directory.CreateDirectory(stale);
+			var staleApk = Path.Combine(stale, "app-Signed.apk");
+			WriteDex(staleApk, "NativeAotRuntimeProvider");
+			var kept = Path.Combine(repo, "src", "NativePoc.Android", "bin", "Debug", "net10.0-android", "android-x64", "kept-Signed.apk");
+			File.WriteAllBytes(kept, [4]);
+			var note = Path.Combine(repo, "src", "NativePoc.Android", "bin", "Debug", "net10.0-android", "android-arm64", "publish");
+			Directory.CreateDirectory(note);
+			File.WriteAllText(Path.Combine(note, "note.txt"), "keep");
+			var listener = AndroidBuild.ListenerOutput(repo, "android-x64");
+			Directory.CreateDirectory(listener);
+			var listenerApk = Path.Combine(listener, "app-Signed.apk");
+			WriteDex(listenerApk, "other");
+			var before = AndroidBuild.ListenerDex(repo);
+			Assert.False(before.Provider);
+			Assert.True(before.Stale);
+
+			var removed = AndroidBuild.RemoveStaleDebugPublish(repo);
+			Assert.Single(removed);
+			Assert.False(Directory.Exists(stale));
+			Assert.True(File.Exists(kept));
+			Assert.True(File.Exists(Path.Combine(note, "note.txt")));
+			Assert.True(File.Exists(listenerApk));
+			var after = AndroidBuild.ListenerDex(repo);
+			Assert.False(after.Provider);
+			Assert.False(after.Stale);
+			AndroidBuild.RequireListenerInstall(repo, "android-x64", listenerApk);
+			var refused = Assert.Throws<InvalidOperationException>(() => AndroidBuild.RequireListenerInstall(repo, "android-x64", kept));
+			Assert.Contains("watch installs only bin/listener", refused.Message, StringComparison.Ordinal);
+		}
+		finally
+		{
+			Directory.Delete(repo, true);
 		}
 	}
 

@@ -228,9 +228,7 @@ static class AndroidLoop
 					}
 					else
 						ReportFileRude(batch.Paths);
-					var interactive = Interactive();
-					var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
-					var follow = ReloadConsole.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude));
+					var restarting = ChooseRestart(options, subset: false, out var follow);
 					if (follow is not null)
 						Console.WriteLine(follow);
 					if (restarting)
@@ -445,9 +443,7 @@ static class AndroidLoop
 			else
 				Console.WriteLine(DeveloperRefusal.Line(host, lowered.Diagnostics[0]));
 			Console.WriteLine(DeveloperRefusal.Stays);
-			var interactive = Interactive();
-			var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
-			var follow = DeveloperRefusal.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude));
+			var restarting = ChooseRestart(options, subset: true, out var follow);
 			if (follow is not null)
 				Console.WriteLine(follow);
 			return new PushOutcome(ReloadStatus.Failed, restarting, true);
@@ -472,9 +468,7 @@ static class AndroidLoop
 			{
 				Console.WriteLine("rude edit -> restart required");
 				Console.WriteLine(applied.Text);
-				var interactive = Interactive();
-				var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
-				var follow = ReloadConsole.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude));
+				var restarting = ChooseRestart(options, subset: false, out var follow);
 				if (follow is not null)
 					Console.WriteLine(follow);
 				return new PushOutcome(ReloadStatus.RudeEdit, restarting);
@@ -757,14 +751,19 @@ static class AndroidLoop
 
 	static void OfferRestart(ReloadSession session, string repo, string rid, string serial, CliOptions options, KeptPrograms kept, bool subset)
 	{
-		var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, Interactive(), ReadAnswer);
-		var follow = subset
-			? DeveloperRefusal.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude))
-			: ReloadConsole.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude));
+		var restarting = ChooseRestart(options, subset, out var follow);
 		if (follow is not null)
 			Console.WriteLine(follow);
 		if (restarting)
 			Restart(session, repo, rid, serial, options, kept, subset);
+	}
+
+	static bool ChooseRestart(CliOptions options, bool subset, out string? follow)
+	{
+		var interactive = Interactive();
+		var restarting = RestartPolicy.ShouldRestart(true, options.Choice, interactive, ReadAnswer);
+		follow = RestartPolicy.Follow(restarting, options.Choice, interactive, subset);
+		return restarting;
 	}
 
 	static void Restart(ReloadSession session, string repo, string rid, string serial, CliOptions options, KeptPrograms kept, bool subset)
@@ -967,9 +966,7 @@ static class AndroidLoop
 
 	static void OfferBindingRepublish(ReloadSession session, string repo, string rid, string serial, CliOptions options, KeptPrograms kept)
 	{
-		var interactive = Interactive();
-		var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
-		var follow = ReloadConsole.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude));
+		var restarting = ChooseRestart(options, subset: false, out var follow);
 		if (follow is not null)
 			Console.WriteLine(follow);
 		if (restarting)
@@ -1006,6 +1003,8 @@ static class AndroidLoop
 		var project = Path.Combine(repo, "src", "NativePoc.Android", "NativePoc.Android.csproj");
 		if (listener)
 		{
+			foreach (var stale in AndroidBuild.RemoveStaleDebugPublish(repo))
+				Console.WriteLine("cnative: removed stale pre-split publish " + stale);
 			Console.WriteLine("cnative: publishing NativeAOT listener " + rid + " for " + serial);
 			var published = ProcessRunner.Run(
 				"dotnet",
@@ -1016,6 +1015,7 @@ static class AndroidLoop
 			if (published.Code != 0)
 				throw new InvalidOperationException("Listener publish exited " + published.Code + ".");
 			var apk = RequireListenerApk(repo, rid);
+			AndroidBuild.RequireListenerInstall(repo, rid, apk);
 			if (!reuseRunning)
 			{
 				InstallApk(serial, apk);

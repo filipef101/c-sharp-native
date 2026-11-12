@@ -111,6 +111,16 @@ public sealed class MainActivity : Activity
 		StartupMarks.Took("theme-resolve", themeStarted);
 #endif
 		Current = this;
+		JniSink.Deliver = (screen, field, value) =>
+		{
+			RunOnUiThread(() =>
+			{
+				ScreenNav.Shared.Bag(screen).WriteString(field, value);
+				CompiledScreens.SetString(screen, field, value);
+				Log.Info(Tag, "jni-sink screen=" + screen + " field=" + field + " text=" + value);
+				RequestRender();
+			});
+		};
 		Log.Info(Tag, "activity-start tick=" + System.Environment.TickCount64);
 		Log.Info(
 			Tag,

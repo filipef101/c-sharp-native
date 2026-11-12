@@ -49,3 +49,33 @@ DeviceToast.Show("pier");
 ```
 
 The log line is `jni-bind class=android/widget/Toast method=makeText text=pier`. Saving a new `Device*.cs` binding does not hot-reload it. `cnative` prints `a new binding needs a republish`.
+
+## Battery
+
+`samples/bind/DeviceBattery.cs` reads the capacity without a permission. `Read` runs off the UI thread and posts the number into the screen field. `Plugged` reads the sticky `ACTION_BATTERY_CHANGED` intent the same way. The log lines are `method=getIntProperty` and `method=EXTRA_PLUGGED`. A hot reload that changes the button from `DeviceBattery.Read` to `DeviceBattery.Plugged` rebinds the registered method. A new `Device*.cs` file still needs a republish.
+
+```csharp
+DeviceBattery.Read("bind", "Note");
+```
+
+`Level` is the same reading with `Blocking = true`. Calling it from a button or from `Render` is NP265. `Read` calls it inside `Task.Run`, which is the off-thread entry.
+
+## Clipboard listener
+
+`DeviceClipboard.Listen` replaces any previous `PrimaryClipChanged` handler and posts the clip text into the named field. The arming log is `method=addPrimaryClipChangedListener armed=1`. A later clip change logs `text=` and the screen field updates. `dumpsys clipboard` on the API 34 image prints nothing; the log line is the proof.
+
+```csharp
+DeviceClipboard.Listen("bind", "Note");
+```
+
+## Bench
+
+`samples/bind/DeviceBench.cs` calls `DeviceBattery.Sample` a thousand times. `Direct` is the compiled call. `Registry` is `JniRegistry.Call`, the hop a reloaded screen uses. Both log `jni-bench n=1000` and `note=swiftshader-irrelevant`. The loops do not log each call. This is JNI, not frames, so the emulator's SwiftShader does not apply.
+
+A result-returning `jni` call runs on `Task.Run`. A void call marked `Blocking` does too. Toast, share, and vibrate stay on the UI thread because they start an activity or a system service that expects it.
+
+## Doctor and the restart prompt
+
+`cnative doctor` fails when a `bin/listener` apk's `classes.dex` has no `NativeAotRuntimeProvider`, and when `bin/Debug/.../publish` still holds a pre-split apk. It does not delete that apk. `cnative run android --listener` deletes only that publish directory and refuses to install anything that is not under `bin/listener`.
+
+`Restart the app? [y/N]` follows `--yes` and `--no`. `--yes` is the same choice as `--restart-on-rude`. `--no`, and a shell that is not a terminal, leave the app running and print that the default is no. They do not read a line.

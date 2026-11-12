@@ -61,6 +61,7 @@ public sealed class PublicApiTests
 
 		var expected = new[]
 		{
+			"BindingThreadAnalyzer",
 			"CompiledScreenGenerator",
 			"FeedModule",
 			"ForeachSnapshotAnalyzer",

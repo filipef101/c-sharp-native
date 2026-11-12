@@ -67,6 +67,76 @@ static class AndroidBuild
 		}
 	}
 
+	public static IReadOnlyList<string> RemoveStaleDebugPublish(string repo)
+	{
+		var debug = Path.Combine(repo, "src", "NativePoc.Android", "bin", "Debug", "net10.0-android");
+		var removed = new List<string>();
+		if (!Directory.Exists(debug))
+			return removed;
+		foreach (var rid in Directory.EnumerateDirectories(debug))
+		{
+			var publish = Path.Combine(rid, "publish");
+			if (!Directory.Exists(publish))
+				continue;
+			if (Directory.GetFiles(publish, "*-Signed.apk").Length == 0)
+				continue;
+			Directory.Delete(publish, recursive: true);
+			removed.Add(publish);
+		}
+
+		return removed;
+	}
+
+	public static bool IsListenerApk(string repo, string rid, string apk)
+	{
+		var root = Path.GetFullPath(ListenerOutput(repo, rid)).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+		var full = Path.GetFullPath(apk);
+		return full.StartsWith(root, StringComparison.Ordinal);
+	}
+
+	public static void RequireListenerInstall(string repo, string rid, string apk)
+	{
+		if (!IsListenerApk(repo, rid, apk))
+			throw new InvalidOperationException("cnative: watch installs only bin/listener. Refusing " + apk);
+	}
+
+	public static (bool? Provider, bool Stale) ListenerDex(string repo)
+	{
+		bool? provider = null;
+		var listener = Path.Combine(repo, "src", "NativePoc.Android", "bin", "listener");
+		if (Directory.Exists(listener))
+		{
+			foreach (var apk in Directory.EnumerateFiles(listener, "*-Signed.apk", SearchOption.AllDirectories))
+			{
+				if (!apk.Replace('\\', '/').Contains("/publish/", StringComparison.Ordinal))
+					continue;
+				if (!DexHasRuntimeProvider(apk))
+				{
+					provider = false;
+					break;
+				}
+
+				provider = true;
+			}
+		}
+
+		var stale = false;
+		var debug = Path.Combine(repo, "src", "NativePoc.Android", "bin", "Debug");
+		if (Directory.Exists(debug))
+		{
+			foreach (var apk in Directory.EnumerateFiles(debug, "*-Signed.apk", SearchOption.AllDirectories))
+			{
+				if (apk.Replace('\\', '/').Contains("/publish/", StringComparison.Ordinal))
+				{
+					stale = true;
+					break;
+				}
+			}
+		}
+
+		return (provider, stale);
+	}
+
 	public static bool DexHasRuntimeProvider(string apk)
 	{
 		using var zip = ZipFile.OpenRead(apk);

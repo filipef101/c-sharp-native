@@ -99,6 +99,35 @@ public sealed class CompiledScreenGenerator : IIncrementalGenerator
 		builder.AppendLine("\t\t}");
 		builder.AppendLine("\t}");
 		builder.AppendLine();
+		builder.AppendLine("\tpublic static bool SetString(string screen, string field, string value)");
+		builder.AppendLine("\t{");
+		builder.AppendLine("\t\tswitch (screen)");
+		builder.AppendLine("\t\t{");
+		foreach (var screen in screens)
+		{
+			var strings = Scalars(screen.StateSymbol).Where(property => property.Type.SpecialType == SpecialType.System_String).ToList();
+			if (strings.Count == 0)
+				continue;
+			builder.Append("\t\t\tcase \"").Append(Escape(screen.Id)).Append("\":\n");
+			builder.AppendLine("\t\t\t\tswitch (field)");
+			builder.AppendLine("\t\t\t\t{");
+			foreach (var property in strings)
+			{
+				builder.Append("\t\t\t\t\tcase \"").Append(Escape(property.Name)).Append("\":\n");
+				builder.Append("\t\t\t\t\t\t").Append(Hold(screen.Holder)).Append('.').Append(property.Name).Append(" = value;\n");
+				builder.AppendLine("\t\t\t\t\t\treturn true;");
+			}
+
+			builder.AppendLine("\t\t\t\t\tdefault:");
+			builder.AppendLine("\t\t\t\t\t\treturn false;");
+			builder.AppendLine("\t\t\t\t}");
+		}
+
+		builder.AppendLine("\t\t\tdefault:");
+		builder.AppendLine("\t\t\t\treturn false;");
+		builder.AppendLine("\t\t}");
+		builder.AppendLine("\t}");
+		builder.AppendLine();
 		builder.AppendLine("\tpublic static void Deliver(string screen, object row)");
 		builder.AppendLine("\t{");
 		var delivered = false;

@@ -108,4 +108,51 @@ public sealed class JniBindingTests
 		Assert.DoesNotContain("JNIEnv.FindClass", generated, StringComparison.Ordinal);
 		Assert.DoesNotContain("public static void Show", generated, StringComparison.Ordinal);
 	}
+
+	[Fact]
+	public void A_blocking_body_is_marked_and_not_a_jni_env_call()
+	{
+		const string source = """
+			using System;
+			namespace NativePoc
+			{
+				[AttributeUsage(AttributeTargets.Class)]
+				public sealed class JniTypeAttribute : Attribute
+				{
+					public JniTypeAttribute(string className) => ClassName = className;
+					public string ClassName { get; }
+				}
+
+				[AttributeUsage(AttributeTargets.Method)]
+				public sealed class JniMethodAttribute : Attribute
+				{
+					public JniMethodAttribute(string name, string signature)
+					{
+						Name = name;
+						Signature = signature;
+					}
+					public string Name { get; }
+					public string Signature { get; }
+					public bool Blocking { get; set; }
+				}
+
+				[JniType("android/os/BatteryManager")]
+				static partial class DeviceBattery
+				{
+					[JniMethod("getIntProperty", "(I)I", Blocking = true)]
+					public static string Level() => "1";
+				}
+			}
+			""";
+		var tree = CSharpSyntaxTree.ParseText(source);
+		var compilation = CSharpCompilation.Create(
+			"battery-test",
+			[tree],
+			[MetadataReference.CreateFromFile(typeof(object).Assembly.Location), MetadataReference.CreateFromFile(typeof(Attribute).Assembly.Location)],
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+		var generated = JniBindingGenerator.Emit(compilation);
+		Assert.Contains("JniRegistry.Add(\"DeviceBattery.Level\", args => Level());", generated, StringComparison.Ordinal);
+		Assert.Contains("JniRegistry.MarkBlocking(\"DeviceBattery.Level\");", generated, StringComparison.Ordinal);
+		Assert.DoesNotContain("JNIEnv.FindClass", generated, StringComparison.Ordinal);
+	}
 }

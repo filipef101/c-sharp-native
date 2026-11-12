@@ -214,6 +214,8 @@ public sealed class JniBindingGenerator : IIncrementalGenerator
 		}
 
 		registration.AppendLine("));");
+		if (IsBlocking(method))
+			registration.Append("\t\tNativePoc.JniRegistry.MarkBlocking(\"").Append(type.Name).Append('.').Append(method.Name).AppendLine("\");");
 		register = registration.ToString();
 		return builder.ToString();
 	}
@@ -244,7 +246,26 @@ public sealed class JniBindingGenerator : IIncrementalGenerator
 			args.Append(cell);
 		}
 
-		return "\t\tNativePoc.JniRegistry.Add(\"" + type.Name + "." + method.Name + "\", args => " + method.Name + "(" + args + "));\n";
+		var line = "\t\tNativePoc.JniRegistry.Add(\"" + type.Name + "." + method.Name + "\", args => " + method.Name + "(" + args + "));\n";
+		if (IsBlocking(method))
+			line += "\t\tNativePoc.JniRegistry.MarkBlocking(\"" + type.Name + "." + method.Name + "\");\n";
+		return line;
+	}
+
+	static bool IsBlocking(IMethodSymbol method)
+	{
+		foreach (var attribute in method.GetAttributes())
+		{
+			if (attribute.AttributeClass?.Name is not ("JniMethodAttribute" or "JniMethod"))
+				continue;
+			foreach (var argument in attribute.NamedArguments)
+			{
+				if (argument.Key == "Blocking" && argument.Value.Value is true)
+					return true;
+			}
+		}
+
+		return false;
 	}
 
 	static string? ArgCell(ITypeSymbol type, int index)

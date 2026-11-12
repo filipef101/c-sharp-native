@@ -22,6 +22,27 @@ static partial class DeviceClipboard
 		return text;
 	}
 
+	static EventHandler? _clipChanged;
+
+	[JniMethod("addPrimaryClipChangedListener", "(Ljava/lang/String;Ljava/lang/String;)V")]
+	public static void Listen(string screen, string field)
+	{
+		var clipboard = Manager();
+		if (_clipChanged is not null)
+			clipboard.PrimaryClipChanged -= _clipChanged;
+		var targetScreen = screen;
+		var targetField = field;
+		EventHandler handler = (_, _) =>
+		{
+			var text = Read(clipboard);
+			Log.Info("NativePoc", "jni-bind class=android/content/ClipboardManager method=addPrimaryClipChangedListener text=" + text);
+			JniSink.Post(targetScreen, targetField, text);
+		};
+		_clipChanged = handler;
+		clipboard.PrimaryClipChanged += handler;
+		Log.Info("NativePoc", "jni-bind class=android/content/ClipboardManager method=addPrimaryClipChangedListener armed=1");
+	}
+
 	static ClipboardManager Manager()
 	{
 		var context = MainActivity.Current is { } activity

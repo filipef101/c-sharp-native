@@ -452,6 +452,61 @@ public sealed class SampleLowerTests
 	}
 
 	[Fact]
+	public void Battery_and_clipboard_listen_lower_through_the_binding_registry()
+	{
+		const string bindings = """
+			namespace NativePoc;
+			[JniType("android/os/BatteryManager")]
+			static class DeviceBattery
+			{
+				[JniMethod("getIntProperty", "(I)I")]
+				public static void Read(string screen, string field) { }
+				[JniMethod("getIntProperty", "(I)I")]
+				public static string Sample() => "";
+			}
+			[JniType("android/content/ClipboardManager")]
+			static class DeviceClipboard
+			{
+				[JniMethod("addPrimaryClipChangedListener", "(Ljava/lang/String;Ljava/lang/String;)V")]
+				public static void Listen(string screen, string field) { }
+			}
+			""";
+		const string source = """
+			namespace NativePoc.Bind;
+			public sealed class BindState
+			{
+				public string Note { get; set; } = "ready";
+			}
+			public static class BindScreen
+			{
+				public static Element Render(BindState state, IPlatform platform)
+				{
+					return new Column(
+					[
+						new Text(state.Note) { Key = "note" },
+						new Button("Battery", () => { DeviceBattery.Read("bind", "Note"); }, "Battery") { Key = "battery" },
+						new Button("Watch", () => { DeviceClipboard.Listen("bind", "Note"); }, "Watch") { Key = "watch" },
+						new Button("Level", () => { state.Note = DeviceBattery.Sample(); platform.RequestRender(); }, "Level") { Key = "level" },
+					]);
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source, [bindings]);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var session = ScreenSession.Open(lowered.Program!, (module, method, args) =>
+		{
+			Assert.Equal("jni", module);
+			return method == "DeviceBattery.Sample" ? "80" : "ok";
+		});
+		session.Tap("battery");
+		Assert.Contains(session.Modules, line => line.StartsWith("jni.DeviceBattery.Read", StringComparison.Ordinal));
+		session.Tap("watch");
+		Assert.Contains(session.Modules, line => line.StartsWith("jni.DeviceClipboard.Listen", StringComparison.Ordinal));
+		session.Tap("level");
+		Assert.Equal("80", session.Bag.ReadString("Note"));
+	}
+
+	[Fact]
 	public void Every_referenced_type_is_in_the_program_or_reported()
 	{
 		var root = Repo();

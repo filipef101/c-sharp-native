@@ -4,6 +4,8 @@ internal static class JniRegistry
 {
 	static readonly Dictionary<string, Func<string[], string>> Calls = new(StringComparer.Ordinal);
 
+	static readonly HashSet<string> Blocking = new(StringComparer.Ordinal);
+
 	public static void Add(string name, Action<string[]> call)
 	{
 		ArgumentException.ThrowIfNullOrEmpty(name);
@@ -21,6 +23,14 @@ internal static class JniRegistry
 		ArgumentNullException.ThrowIfNull(call);
 		Calls[name] = call;
 	}
+
+	public static void MarkBlocking(string name)
+	{
+		ArgumentException.ThrowIfNullOrEmpty(name);
+		Blocking.Add(name);
+	}
+
+	public static bool IsBlocking(string name) => Blocking.Contains(name);
 
 	public static string Call(string name, string[] args)
 	{

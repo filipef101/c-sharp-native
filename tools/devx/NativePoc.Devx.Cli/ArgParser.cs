@@ -15,7 +15,8 @@ sealed record CliOptions(
 	int DebounceMs,
 	bool RestartOnRude,
 	bool Listener,
-	string? Root = null)
+	string? Root = null,
+	RestartChoice Choice = RestartChoice.Ask)
 {
 	public const int DefaultDebounceMs = 40;
 }
@@ -31,7 +32,9 @@ static class ArgParser
 
 		  cnative doctor checks this machine. It prints OK or FAIL for the
 		  .NET 10 SDK, the android workload, adb, an online emulator or
-		  device, and the NativeAOT toolchain. A FAIL line names the next
+		  device, and the NativeAOT toolchain. It also flags a listener apk
+		  whose classes.dex has no NativeAotRuntimeProvider, and a pre-split
+		  apk still under bin/Debug/.../publish. A FAIL line names the next
 		  command. It does not build or install the app.
 
 		  Build Debug, install it on the running emulator or device, launch it,
@@ -95,6 +98,8 @@ static class ArgParser
 		  --debounce <ms>       quiet period before a reload. Default: 40.
 		  --restart-on-rude     relaunch when an edit cannot be applied.
 		                        A Core, Android, or call-table edit is rebuilt first.
+		  --yes                 relaunch without asking. Same as --restart-on-rude.
+		  --no                  leave the app running. A non-terminal also leaves it running.
 		  --once                push the current screens once and exit.
 		                    A samples/<name> screen from cnative new is shown too.
 		  --root <name>         show that samples/<name> screen last, so it is the top frame.
@@ -118,6 +123,7 @@ static class ArgParser
 		var restart = false;
 		var listener = false;
 		string? root = null;
+		var choice = RestartChoice.Ask;
 		for (var i = 2; i < args.Count; i++)
 		{
 			var arg = args[i];
@@ -133,7 +139,16 @@ static class ArgParser
 					once = true;
 					break;
 				case "--restart-on-rude":
+				case "--yes":
+					if (choice == RestartChoice.No)
+						throw new UsageException("--yes and --no cannot be combined.");
 					restart = true;
+					choice = RestartChoice.Yes;
+					break;
+				case "--no":
+					if (choice == RestartChoice.Yes)
+						throw new UsageException("--yes and --no cannot be combined.");
+					choice = RestartChoice.No;
 					break;
 				case "--device":
 					serial = Take(args, ref i, "--device");
@@ -161,7 +176,7 @@ static class ArgParser
 			}
 		}
 
-		return new CliOptions(help, once, serial, abi, debounce, restart, listener, root);
+		return new CliOptions(help, once, serial, abi, debounce, restart, listener, root, choice);
 	}
 
 	static bool IsHelp(string arg) => arg is "--help" or "-h" or "help";

@@ -55,7 +55,10 @@ static class PlatformModules
 				return;
 #endif
 			case ("jni", _, _):
-				JniRegistry.Call(method, args);
+				if (JniRegistry.IsBlocking(method))
+					_ = Task.Run(() => JniRegistry.Call(method, args));
+				else
+					JniRegistry.Call(method, args);
 				return;
 			case ("telemetry", "FieldDeliveries", 0):
 				PackingTelemetry.FieldDeliveries++;
@@ -88,7 +91,7 @@ static class PlatformModules
 			switch (module, method, args.Length)
 			{
 				case ("jni", _, _):
-					return JniRegistry.Call(method, args);
+					return await Task.Run(() => JniRegistry.Call(method, args), cancel);
 #if NATIVEPOC_HTTP
 				case ("http", "GetJson", 1):
 					return await Task.Run(() => HttpTransport.Send("GET", args[0], null, cancel), cancel);

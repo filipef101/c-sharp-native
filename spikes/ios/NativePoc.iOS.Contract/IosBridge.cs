@@ -82,7 +82,10 @@ public static class IosBridge
 		switch (module, method, args.Length)
 		{
 			case ("jni", _, _):
-				JniRegistry.Call(method, args);
+				if (JniRegistry.IsBlocking(method))
+					_ = Task.Run(() => JniRegistry.Call(method, args));
+				else
+					JniRegistry.Call(method, args);
 				return;
 			case ("telemetry", "FieldDeliveries", 0):
 				ModuleTelemetry.FieldDeliveries++;
@@ -121,7 +124,7 @@ public static class IosBridge
 	public static Task<string> ModuleAsync(IIosServices services, string module, string method, string[] args)
 	{
 		if (module == "jni")
-			return Task.FromResult(JniRegistry.Call(method, args));
+			return Task.Run(() => JniRegistry.Call(method, args));
 		ArgumentNullException.ThrowIfNull(services);
 		switch (module, method)
 		{
