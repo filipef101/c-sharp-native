@@ -99,11 +99,11 @@
 	<ItemGroup Condition="'$(NativePocLocation)' == 'true'">
 		<AndroidManifestOverlay Include="Properties/LocationPermission.xml" />
 	</ItemGroup>
-	<PropertyGroup Condition="'$(NativePocRecycler)' == 'true' And '$(Configuration)' == 'Release'">
-		<AndroidLinkTool>r8</AndroidLinkTool>
-	</PropertyGroup>
 	<ItemGroup Condition="'$(NativePocRecycler)' != 'true'">
 		<AndroidJavaSource Remove="Java\nativepoc\KeyedList.java" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProguardConfiguration Include="proguard-jni.cfg" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(NativePocRecycler)' == 'true'">
 		<AndroidJavaSource Remove="Java\nativepoc\KeyedList.java" />
@@ -112,7 +112,7 @@
 		</AndroidJavaSource>
 		<ProguardConfiguration Include="proguard-list.cfg" />
 	</ItemGroup>
-	<Target Name="FetchAndroidxList" BeforeTargets="_CategorizeAndroidLibraries" Condition="'$(NativePocRecycler)' == 'true'">
+	<Target Name="FetchAndroidxList" BeforeTargets="_CategorizeAndroidLibraries;_ResolveLibraryProjectImports" Condition="'$(NativePocRecycler)' == 'true'">
 		<PropertyGroup>
 			<_AndroidxCache>$(MSBuildThisFileDirectory)..\..\tools\bench\list-floor\.cache</_AndroidxCache>
 		</PropertyGroup>
@@ -125,7 +125,7 @@
 			<AndroidJavaLibrary Include="$(_AndroidxCache)/annotation-1.1.0.jar" />
 		</ItemGroup>
 	</Target>
-	<Target Name="DropProfileInstaller" BeforeTargets="_CategorizeAndroidLibraries" Condition="'$(NativePocRecycler)' == 'true'">
+	<Target Name="DropProfileInstaller" BeforeTargets="_CategorizeAndroidLibraries;_ResolveLibraryProjectImports" Condition="'$(NativePocRecycler)' == 'true'">
 		<ItemGroup>
 			<AndroidAarLibrary Remove="@(AndroidAarLibrary)" Condition="$([System.String]::Copy('%(Identity)').Contains('profileinstaller')) Or $([System.String]::Copy('%(Identity)').Contains('coroutines')) Or $([System.String]::Copy('%(Identity)').Contains('tracing')) Or $([System.String]::Copy('%(Identity)').Contains('startup')) Or $([System.String]::Copy('%(Identity)').Contains('kotlin'))" />
 		</ItemGroup>
@@ -136,6 +136,18 @@
 				<Bind>false</Bind>
 			</AndroidAarLibrary>
 		</ItemGroup>
+	</Target>
+	<Target Name="RecyclerIsOptIn" BeforeTargets="_CategorizeAndroidLibraries;_ResolveLibraryProjectImports" Condition="'$(NativePocRecycler)' != 'true'">
+		<ItemGroup>
+			<AndroidAarLibrary Remove="@(AndroidAarLibrary)" Condition="$([System.String]::Copy('%(Identity)').Contains('recyclerview')) Or $([System.String]::Copy('%(Identity)').Contains('core-1.3.2')) Or $([System.String]::Copy('%(Identity)').Contains('customview-1.0.0'))" />
+			<AndroidJavaLibrary Remove="@(AndroidJavaLibrary)" Condition="$([System.String]::Copy('%(Identity)').Contains('collection-1.0.0')) Or $([System.String]::Copy('%(Identity)').Contains('annotation-1.1.0'))" />
+		</ItemGroup>
+	</Target>
+	<Target Name="NarrowRecyclerRules" BeforeTargets="_CompileToDalvik" Condition="'$(NativePocRecycler)' == 'true'">
+		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)..\..\tools\bench\narrow-recycler-rules.py&quot; &quot;$(IntermediateOutputPath)&quot;" />
+	</Target>
+	<Target Name="FloorSkipsList" BeforeTargets="Build;Publish" Condition="'$(NativePocWidgetFloor)' == 'true' And '$(NativePocRecycler)' == 'true'">
+		<Error Text="The widget floor does not carry RecyclerView." />
 	</Target>
 	<Target Name="RefuseRecyclerBinding" AfterTargets="ResolveAssemblyReferences" Condition="'$(NativePocRecycler)' == 'true'">
 		<ItemGroup>
@@ -170,9 +182,6 @@
 		<NativePocRecycler>true</NativePocRecycler>
 		<DefineConstants>$(DefineConstants);NATIVEPOC_ROOT_HOME;NATIVEPOC_IMAGE;NATIVEPOC_RECYCLER</DefineConstants>
 	</PropertyGroup>
-	<PropertyGroup Condition="'$(NativePocShowcase)' == 'true' And '$(NativePocWidgetFloor)' != 'true' And '$(Configuration)' == 'Release'">
-		<AndroidLinkTool>r8</AndroidLinkTool>
-	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocStress)' == 'true'">
 		<ApplicationId>com.scratch.nativepoc.stress</ApplicationId>
 	</PropertyGroup>
@@ -205,6 +214,8 @@
 	     bench can install it beside Northroom. -->
 	<PropertyGroup Condition="'$(NativePocWidgetFloor)' == 'true'">
 		<ApplicationId>com.scratch.nativepoc.widgetfloor</ApplicationId>
+		<NativePocRecycler>false</NativePocRecycler>
+		<NativePocImage>false</NativePocImage>
 		<DefineConstants>$(DefineConstants);NATIVEPOC_WIDGET_FLOOR</DefineConstants>
 	</PropertyGroup>
 	<!-- Same Northroom screens with chrome on the first frame, and a third
@@ -244,6 +255,7 @@
 		<StackTraceSupport>true</StackTraceSupport>
 		<!-- The interleaved n=12 repeat=4 pair put dehydration back on.
 		     Evidence is in scroll-floor.txt. -->
+		<AndroidLinkTool>r8</AndroidLinkTool>
 		<IlcDehydrate>true</IlcDehydrate>
 		<IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
 		<MetricsSupport>false</MetricsSupport>
