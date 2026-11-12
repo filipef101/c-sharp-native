@@ -262,6 +262,7 @@ static class KeyedList
 
 		void Hold(int saved)
 		{
+			StartupMarks.Phase("hold");
 			var seen = JNIEnv.CallIntMethod(View.Handle, _first);
 			if (seen < 0)
 				seen = 0;
@@ -332,7 +333,9 @@ static class KeyedList
 			if (_flushed)
 				return;
 			_flushed = true;
+#if NATIVEPOC_STARTUP_MARKS
 			var mark = System.Diagnostics.Stopwatch.GetTimestamp();
+#endif
 			foreach (var pending in _images)
 			{
 				if (pending.Image.Handle == IntPtr.Zero)
@@ -343,13 +346,9 @@ static class KeyedList
 				PictureBinder.Show(pending.Image, pending.Source, context);
 			}
 
-			var imageUs = BindTimes.Micros(mark);
-			StartupMarks.Phase("flush");
-			Android.Util.Log.Info(
-				MainActivity.Tag,
-				"startup frame binds=" + _binds.ToString(CultureInfo.InvariantCulture)
-				+ " text-us=" + _textUs.ToString(CultureInfo.InvariantCulture)
-				+ " image-us=" + imageUs.ToString(CultureInfo.InvariantCulture));
+#if NATIVEPOC_STARTUP_MARKS
+			StartupMarks.Frame(_binds, _textUs, BindTimes.Micros(mark));
+#endif
 			_images.Clear();
 		}
 	}

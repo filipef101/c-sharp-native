@@ -230,3 +230,66 @@ Counts: apply 139, swap 8, overlay 8, restart 2, crash 0. Reload time from `relo
 The throw is the intent extra `nativepoc_crash=throw`. Without that extra the process does not throw. The throw is on a background Java thread. A throw on the main looper unwinds it, the crash text never draws, and the process sits as an ANR because the replaced uncaught handler does not kill it. The handler logs `crash-java` and the exception text, then `RunOnUiThread` sets a `TextView` whose text starts `The app hit an error` and whose content description is `crash-screen`. A later thread sleeps 1200 ms, finishes the activity, and `KillProcess`.
 
 Emulator-run on the shipped feed x64 APK above. No extra: cold start, TotalTime 713, no `crash`, `FATAL`, or `ThrowNow` line. With the extra: `FATAL EXCEPTION: Thread-3`, `at NativePoc.CrashReport.ThrowNow() + 0x27`, `at NativePoc.CrashReport.ThrowSoon.Run() + 0x6`, `crash-java`, `crash-screen`. No `.cs:` line. The screenshot shows that text and no ANR dialog. `pidof` was empty after the sleep. Not a phone. Not iOS.
+
+## Mac cold start after ca86b87
+
+Maintainer-measured, not measured in this workspace. arm64 pixel_8 emulator, host GPU, host load 8.3-10.1 so the machine was contended, n=20 interleaved, Hyndman-Fan type 7. Feed APK sha256 `c8fb3a7e3d1e4ba7a668717b2e20205c0c927974b90e2ad852537d2a1b0c40b5`. List floor sha256 `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1`.
+
+TotalTime p50/p90: counter 413.0/625.5, feed 446.5/629.0, floor 397.0/627.6. Feed minus floor is 49.5 ms. At `2adfdc0` that gap was 73.5 ms.
+
+Since-process p50, counter: before 33.0, managed 46.0, after 52.0, runtime 105.5, render 158.5, draw 223.0. Feed: before 33.5, managed 48.0, after 51.5, runtime 102.0, render 142.5, bind 230.5, layout 249.0, draw 249.5, idle 438.0, flush 438.5. Floor: onCreate 75.0, layout 233.0, draw 233.5, idle 298.0. Scroll, 8 swipes by 5 rounds, work p50/p90: feed 16.4/25.1, floor 16.8/33.5 ms.
+
+`since-process-ms` is `SystemClock.elapsedRealtime` minus process start. `am start -W` TotalTime includes the time before the process exists. On that Mac the flush at 438.5 and TotalTime at 446.5 are about 8 ms apart, so the flush was still inside the launch the `am` command records. The image work itself was 0.5 ms (idle 438.0 to flush 438.5). The open stretch is draw 249.5 to idle 438.0.
+
+## After the launch report
+
+The draw-to-idle stretch was the main thread staying busy after `OnPreDraw`. `LocaleRuntime.WarmAfterFirstFrame` posted a Choreographer callback during `OnCreate`. That callback posted `Resolve`, and `Resolve` measured the attached root again and posted another frame whose `Finish` called `RequestRender`. The counter also posted `NavCatalog.InstallRest` from `OnCreate`. Those messages ran before the queue went idle, so ActivityThread's launch Idler waited. The feed's `View.Post` of the image flush from that same idle then ran in the same beat as the report.
+
+`Resolve` no longer measures the attached root. The first frame already laid it out. A single off-tree `TextView` still warms text layout. `WarmAfterFirstFrame` only stores the activity. The catalog install and the direction warm are `WhenWarmed` callbacks, so they run with `Finish`, not on the first frame. The idle handler added from `OnPreDraw` does not run the flush. It schedules a Choreographer frame, that frame schedules one more, and the second frame runs the warm and then the flush. One frame was not enough: the system server can still be writing `Displayed` while the client has already started the next frame. Images stay on the gray `0xFFE6E6E6` cell background until that second frame. `PictureBinder` still decodes off the main thread.
+
+Emulator-run, emulator-5554, API 34, swiftshader, font scale 1.0. n=10 interleaved, one warmup discarded, Hyndman-Fan type 7. Not a phone. Not iOS. This is not the Mac 49.5 ms gap. Host load on the rounds was 3.38, 3.35, 3.40, 3.69, 4.04, 4.11, 3.94, 4.11, 4.18, 4.81. Counter and feed are the feed x64 APK below. Floor is the unchanged list floor.
+
+TotalTime p50/p90: counter 850.0/914.2, feed 671.0/722.3, floor 716.5/790.5. present_p50 172.0/128.5/-. ui_p50 124.9/119.0/120.8. draw_p50 308.0/221.9/167.4. On this software GPU the feed is faster than the floor. The Mac gap is not reproduced.
+
+Feed since-process p50: before 13.0, managed 26.0, after 27.0, java-oncreate 31.5, java-oncreate-end 31.5, jni-activity 44.0, activity-enter 47.0, activity-base 47.5, runtime 48.0, render 74.5, attach 72.5, bind 124.5, layout 128.0, draw 128.5, list 128.0, hold 555.0, idle 571.0, direction 628.0, warm 633.0, flush 640.0. Counter: before 28.0, managed 45.0, after 46.0, java 46.5, java-end 46.5, jni 61.5, enter 71.0, base 71.0, runtime 71.0, render 118.0, draw 172.0, idle 662.5, direction 702.0, warm 704.5. Floor: onCreate 73.0, runtime 72.5, render 115.5, layout 187.5, draw 187.5, list 187.5, idle 560.0. Phase p50s use the rounds whose logcat still held the line when `am start` returned. Later marks are missing on some rounds.
+
+Epoch comparison of the lines that were captured. Feed round 2: `Displayed` +615 ms, then idle 16 ms later, direction 20 ms, warm 36 ms, flush 96 ms. Feed round 8: idle 52 ms before `Displayed`, flush 17 ms before `Displayed`. The second frame clears the short races and does not clear a swiftshader `Displayed` that lands more than a frame after the client went idle. The draw-to-`Displayed` gap on these rounds is about 410-540 ms and has no app log inside it. That is the frame finishing after `OnPreDraw`, not the image flush.
+
+## Between after-runtime and runtime
+
+New marks, same clock. `StartupApp.attachBaseContext` logs `phase=java-attach`. `StartupApp.onCreate` logs `phase=java-oncreate` and `phase=java-oncreate-end`. `MainActivity`'s static constructor logs `phase=jni-activity`. The first line of `OnCreate` logs `phase=activity-enter`, and the line after `base.OnCreate` logs `phase=activity-base`. `phase=runtime` is unchanged.
+
+On the feed series above, `after-runtime` is 27.0, `java-oncreate` is 31.5, `java-oncreate-end` is 31.5, `jni-activity` is 44.0, `activity-enter` is 47.0, `activity-base` is 47.5, and `runtime` is 48.0. Application `onCreate` and `base.OnCreate` are under a millisecond. The open part is from the end of Application `onCreate` to the activity type initializer, which is the framework creating the activity and the JNI peer. There is no app call in that span to remove. The Mac's ~53 ms sits in the same place; this emulator did not show a 53 ms app slice, and this run does not claim that Mac number moved.
+
+`mac-bench.sh` prints `startup_split_p50` with java_attach, java, java_end, jni, enter, base, direction, warm, and hold.
+
+## Counter .so size
+
+The counter x64 `.so` at `2adfdc0` was 6,796,336 bytes, sha256 `2a621a0fa02af7af856bacdc75bef6ef90f7815c57325f27d9d74bfe7fec4883`. The shipped ca86b87 default was 7,316,336 bytes, sha256 `526b9bb3edc9e9173b8ea68e175d1580e1136a9d95922a5a6725ce1f0a95dbaf`. Three counter x64 publishes attribute that, probes off, before the extra launch frame:
+
+| build | .so bytes | .so sha256 | crash frame |
+| --- | --- | --- | --- |
+| stack traces on, method-body folding `generic` | 7,311,184 | `5645bca73d0b338043b2719ec747640b93b76363a6f38bf00415dc350453c4ba` | not crashed |
+| `StackTraceSupport=false`, folding `all` | 6,811,056 | `308a9c6a64015b7c40efdf92b02bd6c29d395f23230d045d6779fd2ac69d3bc6` | `libNativePoc.Android!<BaseAddress>+0x4afe97` |
+| stack traces on, `IlcFoldIdenticalMethodBodies=true` | 7,005,040 | `ea76b9a1b80908e4392d1b1e36af184327826b8c9244fc331e95e22ed17d3cc4` | `at NativePoc.CrashReport.ThrowNow() + 0x27` |
+
+Turning stack traces off returns the library to 6,811,056, 14,720 bytes above the `2adfdc0` binary. That is the growth. `.eh_frame` is 837,620 bytes with folding `generic` and 736,668 with folding `all`. `.rodata` is 2,015,004 with stack data and 1,826,236 without it. Folding keeps `--stacktracedata` and drops the extra unwind tables. `ThrowNow` still has its own body, so the frame still names it. The names are what we keep. The default Release now sets `IlcFoldIdenticalMethodBodies` true. `OptimizationPreference=Size` and `NativePocStartupTune` stay off.
+
+Startup probes are off unless `-p:NativePocStartupMarks=true`. The Java providers and `StartupApp` are an overlay, not in the default manifest. The C# logs are `Conditional("NATIVEPOC_STARTUP_MARKS")`, so the call sites and the format strings are absent. The shipped counter x64 `.so` does not contain `startup clock=elapsed` or `StartupProbe`. Its dex does not contain `StartupProbe`. The feed APK is built with the property on, so the Mac run can see the new phases. That feed `.so` does contain `startup clock=elapsed`.
+
+Shipped counter x64, folding on, probes off, the extra launch frame included. APK 3,040,117 sha256 `798917af23f2e174eba3c8801f69ec293c23a09dc44ee35ec11a5fa2c9437599`. `.so` 7,005,296 sha256 `1c6c0f13953e3b5be083b981558c4d8c8a42f4f0d1b2fce525d49a829242d811`. Dex 49,132 sha256 `9dfcb4050caa2180e13dfdfd8ec09df6b4c729e318d507d1fa34f4ceab421cf7`. Emulator-run crash on that APK: `at NativePoc.CrashReport.ThrowNow() + 0x27` and `crash-screen`. Counter arm64, built, not run. APK 2,884,472 sha256 `6566bddf34314e2cb1ccf03a9f7306b77a37e4494ab5ba7abc34106db1b670c0`. `.so` 7,226,688 sha256 `155a953d6596eeae73a5d4bd52c0534001d177cd520c6a58a9b76acf649a2a37`. Dex 49,132, same hash.
+
+Feed x64, marks on, the bench binary. APK 3,272,428 sha256 `a5d8aa6de3d4be28d035d43df8f9ab13039b66510aeda22b1a3a2cc699ea088d`. `.so` 7,160,208 sha256 `1d7f770a5d7bee0817b42bb39195cfcaaad88f67ffcee979622c20e0c890a02a`. Dex 324,696 sha256 `f6871145b29abd2bd6fcbee42647472fc20b370c00ca0a859af3aec90524b150`. Feed arm64, built, not run, for the Mac. APK 3,108,591 sha256 `998a2cfa6ee6bb6f7e9064ca473fd0604338219aea06031b2dc8f344ff49de1c`. `.so` 7,390,168 sha256 `da9ad395f20af7dab792e5787700335667cb36b05d0da4f5380279ff22199a53`. Dex 324,696, same hash. List floor unchanged, both ABIs, 531,381 sha256 `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1`.
+
+```
+tools/bench/mac-bench.sh --device <pixel_8> --n 10 --out /tmp/feed-cold \
+  --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+Counter and feed in that command are the feed APK, which has the phase logs. The smaller counter APK has the probes compiled out.
+
+## Action log race
+
+`Recursion_stops_at_the_call_depth` reads `ActionLog.LastStop` after the tap. `LastStop`, `LastSteps`, and `LastMicros` were process-global. xUnit runs test classes in parallel, and another test's `Note` replaced them before the assert. The callbacks stay process-global, because the activity sets them on the UI thread and a later Java callback does not keep an `AsyncLocal` from `OnCreate`. The three result fields are an `AsyncLocal`. `Parallel_notes_keep_their_own_stop` writes two stops on two threads, waits until both writes have happened, and checks each thread still sees its own. Core tests: 75 passed. Packing tests: 14 passed. Devx tests: 139 passed, including `Recursion_stops_at_the_call_depth`. `mac-bench.sh --self-test` passed.

@@ -16,6 +16,8 @@
 		<NativePocHttp Condition="'$(NativePocHttp)' == ''">false</NativePocHttp>
 		<NativePocRecycler Condition="'$(NativePocRecycler)' == ''">false</NativePocRecycler>
 		<NativePocLocation Condition="'$(NativePocLocation)' == ''">false</NativePocLocation>
+		<NativePocStartupMarks Condition="'$(NativePocStartupMarks)' == ''">false</NativePocStartupMarks>
+		<AndroidManifestPlaceholders>nativepocMarks=$(NativePocStartupMarks)</AndroidManifestPlaceholders>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
@@ -58,7 +60,7 @@
 		<!-- The manifest merger skips when its inputs are unchanged, and an overlay
 		     is not one of those inputs. A placeholder is written into build.props,
 		     which is an input, so turning the module on or off remerges the manifest. -->
-		<AndroidManifestPlaceholders>nativepocLocation=1</AndroidManifestPlaceholders>
+		<AndroidManifestPlaceholders>$(AndroidManifestPlaceholders);nativepocLocation=1</AndroidManifestPlaceholders>
 	</PropertyGroup>
 	<ItemGroup Condition="'$(NativePocLocation)' == 'true'">
 		<AndroidManifestOverlay Include="Properties/LocationPermission.xml" />
@@ -132,6 +134,7 @@
 		<UseSystemResourceKeys>true</UseSystemResourceKeys>
 		<IlcGenerateDebugInfo>false</IlcGenerateDebugInfo>
 		<StackTraceSupport>true</StackTraceSupport>
+		<IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
 		<MetricsSupport>false</MetricsSupport>
 		<StartupHookSupport>false</StartupHookSupport>
 	</PropertyGroup>
@@ -152,11 +155,23 @@
 		<ProjectReference Include="..\..\samples\NativePoc.Library\NativePoc.Library.csproj" />
 		<ProjectReference Include="..\NativePoc.ReloadGen\NativePoc.ReloadGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
-	<ItemGroup>
+	<PropertyGroup Condition="'$(NativePocStartupMarks)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_STARTUP_MARKS</DefineConstants>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(NativePocStartupMarks)' != 'true'">
+		<AndroidJavaSource Remove="Java\nativepoc\StartupProbe.java" />
+		<AndroidJavaSource Remove="Java\nativepoc\StartupApp.java" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(NativePocStartupMarks)' == 'true'">
 		<AndroidJavaSource Remove="Java\nativepoc\StartupProbe.java" />
 		<AndroidJavaSource Include="Java\nativepoc\StartupProbe.java">
 			<Bind>false</Bind>
 		</AndroidJavaSource>
+		<AndroidJavaSource Remove="Java\nativepoc\StartupApp.java" />
+		<AndroidJavaSource Include="Java\nativepoc\StartupApp.java">
+			<Bind>false</Bind>
+		</AndroidJavaSource>
+		<AndroidManifestOverlay Include="Properties\StartupMarks.xml" />
 	</ItemGroup>
 	<PropertyGroup Condition="'$(NativePocStartupTune)' == 'true' And '$(Configuration)' == 'Release'">
 		<OptimizationPreference>Speed</OptimizationPreference>

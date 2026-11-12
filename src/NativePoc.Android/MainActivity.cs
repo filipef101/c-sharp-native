@@ -15,6 +15,20 @@ public sealed class MainActivity : Activity
 {
 	public const string Tag = "NativePoc";
 
+#if NATIVEPOC_STARTUP_MARKS
+	static MainActivity()
+	{
+		try
+		{
+			StartupMarks.Phase("jni-activity");
+		}
+		catch (Exception)
+		{
+			// The type initializer must not stay failed if this runs before the clock is ready.
+		}
+	}
+#endif
+
 	public static MainActivity? Current { get; private set; }
 
 	Func<AppState, IPlatform, Element> _render = Screen.Render;
@@ -36,7 +50,9 @@ public sealed class MainActivity : Activity
 
 	protected override void OnCreate(Bundle? savedInstanceState)
 	{
+		StartupMarks.Phase("activity-enter");
 		base.OnCreate(savedInstanceState);
+		StartupMarks.Phase("activity-base");
 		ReloadDispatch.Install();
 		ActionLog.OnScript = (micros, steps, stop) =>
 		{
@@ -144,11 +160,15 @@ public sealed class MainActivity : Activity
 #endif
 		if (!Bench && !wantsRoot)
 		{
-			_reconciler?.Root?.Post(() =>
+			LocaleRuntime.WhenWarmed(() =>
 			{
+#if NATIVEPOC_STARTUP_MARKS
 				var started = SystemClock.ElapsedRealtime();
+#endif
 				NavCatalog.InstallRest();
+#if NATIVEPOC_STARTUP_MARKS
 				StartupMarks.Note("catalog", SystemClock.ElapsedRealtime() - started);
+#endif
 #if DEBUG
 				StateStore.Save(this);
 #endif

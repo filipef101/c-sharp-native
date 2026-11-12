@@ -9,6 +9,9 @@ static class LocaleRuntime
 	static int _applied = -1;
 	static bool _warmed;
 	static bool _arming;
+	static bool _deferred;
+	static Activity? _deferredActivity;
+	static View? _deferredRoot;
 	static Action? _pending;
 
 	public static void Apply(Activity activity)
@@ -49,30 +52,49 @@ static class LocaleRuntime
 
 	public static void WarmAfterFirstFrame(Activity activity, View? root)
 	{
-		if (_arming)
+		if (_arming || _deferred)
+			return;
+		_deferred = true;
+		_deferredActivity = activity;
+		_deferredRoot = root;
+	}
+
+	public static void AfterLaunch()
+	{
+		if (_arming || !_deferred)
 			return;
 		_arming = true;
-		_ = Looper.MainLooper?.IsCurrentThread;
-		var choreographer = Choreographer.Instance;
-		if (root is null || choreographer is null)
+		_deferred = false;
+		var activity = _deferredActivity;
+		var root = _deferredRoot;
+		_deferredActivity = null;
+		_deferredRoot = null;
+		if (activity is null)
 		{
-			Resolve(activity, root);
+			Finish();
 			return;
 		}
 
-		choreographer.PostFrameCallback(new DirectionWarm(activity, root));
+		Resolve(activity, root);
 	}
 
 	static void Resolve(Activity activity, View? root)
 	{
+		StartupMarks.Phase("direction");
+#if NATIVEPOC_STARTUP_MARKS
 		var clock = System.Diagnostics.Stopwatch.StartNew();
+#endif
 		var generation = Generation();
 		if (activity.Window?.DecorView is View decor)
 			Commit(decor, generation);
+#if NATIVEPOC_STARTUP_MARKS
 		var decorUs = TakeUs(clock);
+#endif
 		if (root is not null)
 			Commit(root, generation);
+#if NATIVEPOC_STARTUP_MARKS
 		var rootUs = TakeUs(clock);
+#endif
 		var probe = new TextView(activity)
 		{
 			Text = "Warm",
@@ -81,41 +103,39 @@ static class LocaleRuntime
 		var width = View.MeasureSpec.MakeMeasureSpec(1080, MeasureSpecMode.AtMost);
 		var height = View.MeasureSpec.MakeMeasureSpec(200, MeasureSpecMode.AtMost);
 		probe.Measure(width, height);
+#if NATIVEPOC_STARTUP_MARKS
 		var textUs = TakeUs(clock);
-		if (root is { Width: > 0, Height: > 0 })
-		{
-			root.Measure(
-				View.MeasureSpec.MakeMeasureSpec(root.Width, MeasureSpecMode.Exactly),
-				View.MeasureSpec.MakeMeasureSpec(root.Height, MeasureSpecMode.Exactly));
-			root.Layout(root.Left, root.Top, root.Left + root.Width, root.Top + root.Height);
-		}
-
-		var layoutUs = TakeUs(clock);
+		// The first frame already laid the attached root out. Measuring it again
+		// walked the feed list on the main thread and held the launch Idler.
+		LogDirection(decorUs, rootUs, textUs, 0);
+#endif
 		_applied = generation;
-		Android.Util.Log.Info(
-			MainActivity.Tag,
-			"startup direction decor=" + decorUs.ToString(System.Globalization.CultureInfo.InvariantCulture)
-			+ " root=" + rootUs.ToString(System.Globalization.CultureInfo.InvariantCulture)
-			+ " text=" + textUs.ToString(System.Globalization.CultureInfo.InvariantCulture)
-			+ " layout=" + layoutUs.ToString(System.Globalization.CultureInfo.InvariantCulture));
-		var choreographer = Choreographer.Instance;
-		if (root is null || choreographer is null)
-		{
-			Finish();
-			return;
-		}
-
-		choreographer.PostFrameCallback(new AfterDirection(root));
+		StartupMarks.Phase("direction-done");
+		Finish();
 	}
 
 	static void Finish()
 	{
 		if (_warmed)
 			return;
+		StartupMarks.Phase("warm");
 		_warmed = true;
 		var pending = _pending;
 		_pending = null;
 		pending?.Invoke();
+	}
+
+	[System.Diagnostics.Conditional("NATIVEPOC_STARTUP_MARKS")]
+	static void LogDirection(long decorUs, long rootUs, long textUs, long layoutUs)
+	{
+#if NATIVEPOC_STARTUP_MARKS
+		Android.Util.Log.Info(
+			MainActivity.Tag,
+			"startup direction decor=" + decorUs.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ " root=" + rootUs.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ " text=" + textUs.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ " layout=" + layoutUs.ToString(System.Globalization.CultureInfo.InvariantCulture));
+#endif
 	}
 
 	static void Commit(View view, int generation)
@@ -150,32 +170,4 @@ static class LocaleRuntime
 		return "en";
 	}
 
-	sealed class DirectionWarm : Java.Lang.Object, Choreographer.IFrameCallback
-	{
-		readonly Activity _activity;
-		readonly View _root;
-
-		public DirectionWarm(Activity activity, View root)
-		{
-			_activity = activity;
-			_root = root;
-		}
-
-		public void DoFrame(long frameTimeNanos)
-		{
-			_root.Post(() => Resolve(_activity, _root));
-		}
-	}
-
-	sealed class AfterDirection : Java.Lang.Object, Choreographer.IFrameCallback
-	{
-		readonly View _root;
-
-		public AfterDirection(View root) => _root = root;
-
-		public void DoFrame(long frameTimeNanos)
-		{
-			_root.Post(Finish);
-		}
-	}
 }
