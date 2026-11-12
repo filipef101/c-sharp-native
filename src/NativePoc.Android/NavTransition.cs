@@ -14,7 +14,7 @@ static class NavTransition
 		var animator = Read(stage.Context, Settings.Global.AnimatorDurationScale);
 		var motion = Read(stage.Context, Settings.Global.TransitionAnimationScale);
 		var instant = MotionScale.Instant(animator, motion);
-		var ms = instant ? 0 : MotionScale.BasisMs;
+		var ms = instant ? 0 : MotionScale.DurationMs(animator, motion);
 		Log.Info(
 			MainActivity.Tag,
 			"nav-transition instant=" + (instant ? "1" : "0")

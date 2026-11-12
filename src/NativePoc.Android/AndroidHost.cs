@@ -37,6 +37,8 @@ sealed class AndroidHost : IElementHost<View>
 		_current = current;
 	}
 
+	internal void PaintReady() => _chromeReady = true;
+
 	public View Create(ElementKind kind)
 	{
 		switch (kind)

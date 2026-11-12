@@ -536,6 +536,26 @@ public sealed class ScreenNav
 		}
 	}
 
+	internal string UnderId()
+	{
+		lock (_gate)
+			return _stack.Count < 2 ? "" : _stack[^2];
+	}
+
+	internal RecordProgram.Bound? Below()
+	{
+		lock (_gate)
+		{
+			if (_stack.Count < 2)
+				return null;
+			var id = _stack[^2];
+			Ensure(id);
+			if (!_programs.TryGetValue(id, out var program))
+				return null;
+			return RecordProgram.Bind(program, BagLocked(id));
+		}
+	}
+
 	public bool DropUnresolved()
 	{
 		lock (_gate)

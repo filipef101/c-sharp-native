@@ -99,7 +99,13 @@ static class ImageModule
 				var density = image.Resources?.DisplayMetrics?.Density ?? 1f;
 				if (density <= 0)
 					density = 1f;
-				image.SetImageDrawable(new RoundBitmapDrawable(drawn, radiusDp * density));
+				var baked = Bake(drawn, width, height, radiusDp * density);
+				image.SetScaleType(ImageView.ScaleType.FitXy);
+				image.SetImageBitmap(baked);
+				Android.Util.Log.Info(
+					MainActivity.Tag,
+					"image-bitmap baked=" + baked.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+					+ "x" + baked.Height.ToString(System.Globalization.CultureInfo.InvariantCulture));
 			}
 			else
 				image.SetImageBitmap(drawn);
@@ -114,6 +120,24 @@ static class ImageModule
 		}
 
 		image.Post(Draw);
+	}
+
+	static Bitmap Bake(Bitmap source, int width, int height, float radius)
+	{
+		var bitmap = Bitmap.CreateBitmap(width, height, Bitmap.Config.Argb8888!) ?? source;
+		var canvas = new Canvas(bitmap);
+		var paint = new Paint(PaintFlags.AntiAlias | PaintFlags.FilterBitmap);
+		var shader = new BitmapShader(source, Shader.TileMode.Clamp!, Shader.TileMode.Clamp!);
+		if (source.Width != width || source.Height != height)
+		{
+			var matrix = new Matrix();
+			matrix.SetScale(width / (float)Math.Max(1, source.Width), height / (float)Math.Max(1, source.Height));
+			shader.SetLocalMatrix(matrix);
+		}
+
+		paint.SetShader(shader);
+		canvas.DrawRoundRect(0, 0, width, height, radius, radius, paint);
+		return bitmap;
 	}
 
 	static Bitmap Fit(Bitmap bitmap, int width, int height)
@@ -229,39 +253,5 @@ static class ImageModule
 		}
 	}
 
-	sealed class RoundBitmapDrawable : Drawable
-	{
-		readonly Bitmap _bitmap;
-		readonly float _radius;
-		readonly Paint _paint;
-		readonly BitmapShader _shader;
-
-		public RoundBitmapDrawable(Bitmap bitmap, float radius)
-		{
-			_bitmap = bitmap;
-			_radius = radius;
-			_shader = new BitmapShader(bitmap, Shader.TileMode.Clamp!, Shader.TileMode.Clamp!);
-			_paint = new Paint(PaintFlags.AntiAlias);
-			_paint.SetShader(_shader);
-		}
-
-		public override void Draw(Canvas canvas)
-		{
-			var bounds = Bounds;
-			if (bounds is null || bounds.Width() < 1 || bounds.Height() < 1 || _bitmap.Width < 1 || _bitmap.Height < 1)
-				return;
-			var matrix = new Matrix();
-			matrix.SetScale(bounds.Width() / (float)_bitmap.Width, bounds.Height() / (float)_bitmap.Height);
-			matrix.PostTranslate(bounds.Left, bounds.Top);
-			_shader.SetLocalMatrix(matrix);
-			canvas.DrawRoundRect(bounds.Left, bounds.Top, bounds.Right, bounds.Bottom, _radius, _radius, _paint);
-		}
-
-		public override void SetAlpha(int alpha) => _paint.Alpha = alpha;
-
-		public override void SetColorFilter(ColorFilter? colorFilter) => _paint.SetColorFilter(colorFilter);
-
-		public override int Opacity => (int)Format.Translucent;
-	}
 }
 #endif

@@ -1,3 +1,5 @@
+using System.Globalization;
+using Android.Provider;
 using Android.Views;
 using Android.Widget;
 
@@ -17,6 +19,11 @@ static class NavMotion
 	static Dir _pending;
 	static FrameLayout? _stage;
 	static View? _current;
+	static View? _under;
+	static bool _drag;
+	static bool _skip;
+	static bool _ending;
+	static float _fraction;
 
 	internal static void Arm(Dir dir) => _pending = dir;
 
@@ -36,7 +43,7 @@ static class NavMotion
 		_pending = Dir.None;
 		if (_stage is null || _stage.Handle == IntPtr.Zero)
 		{
-			_stage = new FrameLayout(activity);
+			_stage = new NavStage(activity);
 			_stage.SetClipChildren(false);
 			_stage.SetClipToPadding(false);
 			_stage.SetOnApplyWindowInsetsListener(new SystemBarInset());
@@ -51,6 +58,19 @@ static class NavMotion
 
 		if (ReferenceEquals(_current, mounted))
 			return;
+		if (_skip)
+		{
+			_skip = false;
+			_drag = false;
+			DropUnder();
+			if (_current is not null && _current.Parent is ViewGroup held)
+				held.RemoveView(_current);
+			mounted.TranslationX = 0;
+			_stage.AddView(mounted, Fill());
+			_current = mounted;
+			return;
+		}
+
 		if (leaving is null || dir == Dir.None || _current is null)
 		{
 			if (_current is not null && _current.Parent is ViewGroup parent)
@@ -72,20 +92,158 @@ static class NavMotion
 		_current = mounted;
 	}
 
-	public static void Nudge(float fraction)
+	public static void Nudge(float fraction) => Track(fraction);
+
+	public static void Settle() => TrackEnd(false);
+
+	internal static bool Dragging => _drag;
+
+	internal static void TrackStart()
 	{
-		if (_current is null || _current.Handle == IntPtr.Zero)
+		if (_drag || _stage is null || _stage.Handle == IntPtr.Zero || _stage.Context is not MainActivity activity)
 			return;
-		_current.Animate()?.Cancel();
-		var width = Width(_current);
-		_current.TranslationX = Math.Clamp(fraction, 0f, 1f) * width;
+		_drag = true;
+		_fraction = 0;
+		try
+		{
+			_under = activity.PaintBelow();
+		}
+		catch (Exception ex)
+		{
+			_under = null;
+			Android.Util.Log.Info(MainActivity.Tag, "nav-swipe under-fail " + ex.GetType().Name);
+		}
+
+		if (_under is not null)
+		{
+			var width = Width(_stage);
+			_under.TranslationX = width > 0 ? -width * 0.28f : 0;
+			_stage.AddView(_under, 0, Fill());
+		}
+
+		Android.Util.Log.Info(
+			MainActivity.Tag,
+			"nav-swipe start under=" + (_under is null ? "0" : "1")
+			+ " id=" + ScreenNav.Shared.UnderId());
 	}
 
-	public static void Settle()
+	internal static void Track(float fraction)
 	{
-		if (_current is null || _current.Handle == IntPtr.Zero)
+		if (!_drag || _current is null || _current.Handle == IntPtr.Zero)
 			return;
-		_current.Animate()?.TranslationX(0)?.SetDuration(120)?.Start();
+		_current.Animate()?.Cancel();
+		_fraction = Math.Clamp(fraction, 0f, 1f);
+		var width = Width(_current);
+		_current.TranslationX = _fraction * width;
+		if (_under is not null && _under.Handle != IntPtr.Zero)
+			_under.TranslationX = (_fraction - 1f) * width * 0.28f;
+	}
+
+	internal static void TrackEnd(bool commit)
+	{
+		if (_ending)
+			return;
+		if (!_drag)
+		{
+			if (commit && _stage?.Context is MainActivity activity)
+				activity.GoBack();
+			return;
+		}
+
+		_ending = true;
+
+		var pace = Pace();
+		var span = commit ? 1f - _fraction : _fraction;
+		var ms = pace.Instant ? 0 : (int)Math.Round(pace.Ms * Math.Max(span, 0.2));
+		Android.Util.Log.Info(
+			MainActivity.Tag,
+			"nav-swipe " + (commit ? "commit" : "cancel")
+			+ " progress=" + _fraction.ToString("0.00", CultureInfo.InvariantCulture)
+			+ " scale=" + pace.Animator.ToString("0.0##", CultureInfo.InvariantCulture)
+			+ " motion=" + pace.Motion.ToString("0.0##", CultureInfo.InvariantCulture)
+			+ " ms=" + ms.ToString(CultureInfo.InvariantCulture)
+			+ " instant=" + (pace.Instant ? "1" : "0"));
+		var current = _current;
+		var under = _under;
+		var width = current is null ? 0 : Width(current);
+		void Finish()
+		{
+			try
+			{
+				if (commit && _stage?.Context is MainActivity activity && ScreenNav.Shared.Depth > 1)
+				{
+					_skip = true;
+					activity.GoBack();
+				}
+
+				if (_drag)
+				{
+					_skip = false;
+					ReleaseDrag();
+				}
+			}
+			finally
+			{
+				_ending = false;
+			}
+		}
+
+		if (ms <= 0 || current is null || current.Handle == IntPtr.Zero)
+		{
+			if (current is not null && current.Handle != IntPtr.Zero)
+				current.TranslationX = commit ? width : 0;
+			Finish();
+			return;
+		}
+
+		current.Animate()?.TranslationX(commit ? width : 0)?.SetDuration(ms)?.WithEndAction(new End(Finish))?.Start();
+		if (under is not null && under.Handle != IntPtr.Zero)
+			under.Animate()?.TranslationX(commit ? 0 : -width * 0.28f)?.SetDuration(ms)?.Start();
+	}
+
+	static void ReleaseDrag()
+	{
+		_drag = false;
+		_fraction = 0;
+		if (_current is not null && _current.Handle != IntPtr.Zero)
+			_current.TranslationX = 0;
+		DropUnder();
+	}
+
+	static void DropUnder()
+	{
+		var under = _under;
+		_under = null;
+		if (under is not null && under.Handle != IntPtr.Zero && under.Parent is ViewGroup parent)
+			parent.RemoveView(under);
+	}
+
+	readonly struct PaceResult
+	{
+		public float Animator { get; init; }
+		public float Motion { get; init; }
+		public bool Instant { get; init; }
+		public int Ms { get; init; }
+	}
+
+	static PaceResult Pace()
+	{
+		var animator = 1f;
+		var motion = 1f;
+		if (OperatingSystem.IsAndroidVersionAtLeast(17) && _stage?.Context?.ContentResolver is { } resolver)
+		{
+			animator = Settings.Global.GetFloat(resolver, Settings.Global.AnimatorDurationScale, 1f);
+			motion = Settings.Global.GetFloat(resolver, Settings.Global.TransitionAnimationScale, 1f);
+		}
+
+		var instant = MotionScale.Instant(animator, motion);
+		return new PaceResult
+		{
+			Animator = animator,
+			Motion = motion,
+			Instant = instant,
+			Ms = instant ? 0 : MotionScale.DurationMs(animator, motion),
+		};
 	}
 
 	static void Slide(FrameLayout stage, View leaving, View arriving, bool push)
@@ -126,6 +284,77 @@ static class NavMotion
 
 	static FrameLayout.LayoutParams Fill() =>
 		new(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent);
+
+	sealed class NavStage : FrameLayout
+	{
+		float _x0;
+		float _y0;
+		long _t0;
+		bool _mine;
+
+		public NavStage(Android.Content.Context context) : base(context)
+		{
+		}
+
+		public override bool OnInterceptTouchEvent(MotionEvent? ev)
+		{
+			if (ev is null || ScreenNav.Shared.Depth <= 1 || Dragging)
+				return base.OnInterceptTouchEvent(ev);
+			if (ev.ActionMasked == MotionEventActions.Down)
+			{
+				_x0 = ev.GetX();
+				_y0 = ev.GetY();
+				_t0 = Environment.TickCount64;
+				_mine = false;
+				return false;
+			}
+
+			if (ev.ActionMasked == MotionEventActions.Move && !_mine && _x0 <= EdgePx())
+			{
+				var dx = ev.GetX() - _x0;
+				var dy = ev.GetY() - _y0;
+				if (dx > EdgePx() && dx > Math.Abs(dy) * 1.2f)
+				{
+					_mine = true;
+					TrackStart();
+					Track(dx / Math.Max(1, Width));
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		public override bool OnTouchEvent(MotionEvent? ev)
+		{
+			if (!_mine || ev is null)
+				return base.OnTouchEvent(ev);
+			var dx = Math.Max(0f, ev.GetX() - _x0);
+			var fraction = dx / Math.Max(1, Width);
+			var action = ev.ActionMasked;
+			if (action is MotionEventActions.Up or MotionEventActions.Cancel)
+			{
+				var dt = Math.Max(1, Environment.TickCount64 - _t0);
+				var vx = dx / dt * 1000f;
+				_mine = false;
+				Track(fraction);
+				var commit = action != MotionEventActions.Cancel && (fraction >= 0.33f || (fraction >= 0.12f && vx > 900f));
+				TrackEnd(commit);
+				return true;
+			}
+
+			Track(fraction);
+			return true;
+		}
+
+		int EdgePx()
+		{
+			var density = Resources?.DisplayMetrics?.Density ?? 1f;
+			if (density <= 0)
+				density = 1f;
+			return (int)(24 * density);
+		}
+	}
 
 	sealed class SystemBarInset : Java.Lang.Object, View.IOnApplyWindowInsetsListener
 	{

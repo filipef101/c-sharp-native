@@ -166,8 +166,8 @@
 		<DefineConstants>$(DefineConstants);NATIVEPOC_ROOT_HOME;NATIVEPOC_IMAGE</DefineConstants>
 	</PropertyGroup>
 	<Target Name="WriteShelfGlazes" Condition="'$(NativePocImage)' == 'true'"
-		Inputs="$(MSBuildThisFileDirectory)..\..\tools\glaze\GlazeWrite.cs;$(MSBuildThisFileDirectory)..\..\tools\glaze\GlazeWrite.csproj"
-		Outputs="$(IntermediateOutputPath)shelf-glaze\Resources\drawable\shelf_harbor.png">
+		Inputs="$(MSBuildThisFileDirectory)..\..\tools\glaze\GlazeWrite.cs;$(MSBuildThisFileDirectory)..\..\tools\glaze\JpegEncode.cs;$(MSBuildThisFileDirectory)..\..\tools\glaze\GlazeWrite.csproj"
+		Outputs="$(IntermediateOutputPath)shelf-glaze\Resources\drawable\shelf_harbor.jpg">
 		<PropertyGroup>
 			<_GlazeDir>$(IntermediateOutputPath)shelf-glaze\Resources\drawable\</_GlazeDir>
 			<_GlazeProject>$(MSBuildThisFileDirectory)..\..\tools\glaze\GlazeWrite.csproj</_GlazeProject>
@@ -179,7 +179,7 @@
 	</Target>
 	<Target Name="IncludeShelfGlazes" BeforeTargets="_ComputeAndroidResourcePaths" DependsOnTargets="WriteShelfGlazes" Condition="'$(NativePocImage)' == 'true'">
 		<ItemGroup>
-			<AndroidResource Include="$(IntermediateOutputPath)shelf-glaze\Resources\drawable\shelf_*.png" />
+			<AndroidResource Include="$(IntermediateOutputPath)shelf-glaze\Resources\drawable\shelf_*.jpg" />
 		</ItemGroup>
 	</Target>
 	<!-- Same showcase compile, an empty column, and a second package so the

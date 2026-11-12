@@ -80,12 +80,13 @@ static class ActivityBack
 		public void OnBackStarted(Android.Window.BackEvent backEvent)
 		{
 			_ = backEvent;
+			NavMotion.TrackStart();
 			Android.Util.Log.Info(MainActivity.Tag, "nav-back started");
 		}
 
 		public void OnBackProgressed(Android.Window.BackEvent backEvent)
 		{
-			NavMotion.Nudge(backEvent.Progress);
+			NavMotion.Track(backEvent.Progress);
 			Android.Util.Log.Info(
 				MainActivity.Tag,
 				"nav-back progress=" + backEvent.Progress.ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -93,14 +94,14 @@ static class ActivityBack
 
 		public void OnBackCancelled()
 		{
-			NavMotion.Settle();
+			NavMotion.TrackEnd(false);
 			Android.Util.Log.Info(MainActivity.Tag, "nav-back cancel");
 		}
 
 		public void OnBackInvoked()
 		{
 			Android.Util.Log.Info(MainActivity.Tag, "nav-back invoked");
-			_activity.GoBack();
+			NavMotion.TrackEnd(true);
 		}
 	}
 }

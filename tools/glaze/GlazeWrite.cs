@@ -1,198 +1,150 @@
-using System.Buffers.Binary;
-using System.IO.Compression;
-using System.Text;
+namespace NativePoc.Glaze;
 
-var dir = args.Length > 0 ? args[0] : ".";
-Directory.CreateDirectory(dir);
-(string Name, uint Background, uint Ring)[] tiles =
-[
-	("shelf_harbor", 0x6E97A0, 0xD5E6EA),
-	("shelf_kiln", 0x4A4038, 0x8A7B6E),
-	("shelf_cedar", 0xA89886, 0xE4D9CC),
-	("shelf_night", 0x163A5C, 0x3E78B0),
-	("shelf_field", 0xC4923A, 0xF0D48A),
-	("shelf_rain", 0x3E4850, 0x8A969E),
-	("shelf_linen", 0xC9C0B0, 0xF3EFE6),
-	("shelf_moss", 0x8C4A34, 0xD4A090),
-];
-foreach (var tile in tiles)
-	WritePng(Path.Combine(dir, tile.Name + ".png"), 1024, tile.Background, tile.Ring);
-
-static void WritePng(string path, int size, uint background, uint ring)
+static class GlazeWrite
 {
-	var pixels = new byte[size * size * 3];
-	var bgR = (byte)((background >> 16) & 0xFF);
-	var bgG = (byte)((background >> 8) & 0xFF);
-	var bgB = (byte)(background & 0xFF);
-	var ringR = (byte)((ring >> 16) & 0xFF);
-	var ringG = (byte)((ring >> 8) & 0xFF);
-	var ringB = (byte)(ring & 0xFF);
-	var index = 0;
-	var cx = size / 2;
-	var cy = size * 46 / 100;
-	var radius = size * 58L / 100;
-	var radius2 = radius * radius;
-	for (var y = 0; y < size; y++)
+	const int Size = 512;
+	const int Quality = 42;
+
+	static readonly (string Name, uint Body, uint Wash)[] Tiles =
+	[
+		("shelf_harbor", 0x6E97A0, 0xD5E6EA),
+		("shelf_kiln", 0x4A4038, 0x8A7B6E),
+		("shelf_cedar", 0xA89886, 0xE4D9CC),
+		("shelf_night", 0x163A5C, 0x3E78B0),
+		("shelf_field", 0xC4923A, 0xF0D48A),
+		("shelf_rain", 0x3E4850, 0x8A969E),
+		("shelf_linen", 0xC9C0B0, 0xF3EFE6),
+		("shelf_moss", 0x8C4A34, 0xD4A090),
+	];
+
+	public static int Main(string[] args)
 	{
-		for (var x = 0; x < size; x++)
+		var dir = args.Length > 0 ? args[0] : ".";
+		Directory.CreateDirectory(dir);
+		foreach (var stale in Directory.EnumerateFiles(dir, "shelf_*.png"))
+			File.Delete(stale);
+		foreach (var (name, body, wash) in Tiles)
 		{
-			var dx = x - cx;
-			var dy = y - cy;
-			var dist2 = dx * (long)dx + dy * (long)dy;
-			var fall = dist2 >= radius2 ? 255 : (int)(dist2 * 255 / radius2);
-			fall = fall * fall / 255;
-			var r = Mix(ringR, bgR, fall);
-			var g = Mix(ringG, bgG, fall);
-			var b = Mix(ringB, bgB, fall);
-			var drip = Drip(x, y, size);
-			r = Mix(r, bgR, drip);
-			g = Mix(g, bgG, drip);
-			b = Mix(b, bgB, drip);
-			var highlight = Highlight(x, y, size);
-			r = Mix(r, 255, highlight);
-			g = Mix(g, 255, highlight);
-			b = Mix(b, 255, highlight);
-			var speck = Speck(x, y);
-			pixels[index++] = Clamp(r + speck);
-			pixels[index++] = Clamp(g + speck);
-			pixels[index++] = Clamp(b + speck);
+			var path = Path.Combine(dir, name + ".jpg");
+			JpegEncode.Write(path, Paint(body, wash), Size, Size, Quality);
+			Console.WriteLine(name + " " + new FileInfo(path).Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
 		}
+
+		return 0;
 	}
 
-	using var raw = new MemoryStream();
-	using (var zlib = new ZLibStream(raw, CompressionLevel.SmallestSize, leaveOpen: true))
+	static byte[] Paint(uint body, uint wash)
 	{
-		var row = new byte[1 + size * 3];
-		for (var y = 0; y < size; y++)
+		var rgb = new byte[Size * Size * 3];
+		var seed = (int)((body >> 16) ^ (body >> 8) ^ body) & 7;
+		for (var y = 0; y < Size; y++)
 		{
-			row[0] = 0;
-			pixels.AsSpan(y * size * 3, size * 3).CopyTo(row.AsSpan(1));
-			zlib.Write(row);
+			for (var x = 0; x < Size; x++)
+			{
+				var fx = x / (double)(Size - 1);
+				var fy = y / (double)(Size - 1);
+				var dx = fx - 0.46;
+				var dy = fy - 0.42;
+				var dist = Math.Sqrt(dx * dx + dy * dy) / 0.72;
+				if (dist > 1)
+					dist = 1;
+				var pool = 1 - dist;
+				pool = pool * pool * (3 - 2 * pool);
+				var grain = 0.035 * Math.Sin((fx * 5.2 + seed) * Math.PI) * Math.Sin((fy * 3.4 + seed * 0.7) * Math.PI);
+				var settle = Math.Pow(Math.Max(0, fy - 0.5) / 0.5, 1.35) * (1 - dist * 0.35);
+				var mix = Clamp01(pool * 0.62 + grain + settle * 0.28);
+				var r = Mix(Byte(body, 16), Byte(wash, 16), mix);
+				var g = Mix(Byte(body, 8), Byte(wash, 8), mix);
+				var b = Mix(Byte(body, 0), Byte(wash, 0), mix);
+				var hi = Highlight(fx, fy);
+				r = Mix(r, 255, hi);
+				g = Mix(g, 255, hi);
+				b = Mix(b, 255, hi);
+				for (var run = 0; run < 2; run++)
+				{
+					var cover = Run(fx, fy, seed + run * 3, run);
+					r = Mix(r, Byte(wash, 16), cover);
+					g = Mix(g, Byte(wash, 8), cover);
+					b = Mix(b, Byte(wash, 0), cover);
+				}
+
+				var speck = Speck(x, y);
+				r = Clamp(r + speck);
+				g = Clamp(g + speck);
+				b = Clamp(b + speck);
+				var i = (y * Size + x) * 3;
+				rgb[i] = (byte)r;
+				rgb[i + 1] = (byte)g;
+				rgb[i + 2] = (byte)b;
+			}
 		}
+
+		return rgb;
 	}
 
-	var ihdr = new byte[13];
-	BinaryPrimitives.WriteInt32BigEndian(ihdr.AsSpan(0, 4), size);
-	BinaryPrimitives.WriteInt32BigEndian(ihdr.AsSpan(4, 4), size);
-	ihdr[8] = 8;
-	ihdr[9] = 2;
-	using var output = File.Create(path);
-	output.Write(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 });
-	Chunk(output, "IHDR", ihdr);
-	Chunk(output, "IDAT", raw.ToArray());
-	Chunk(output, "IEND", Array.Empty<byte>());
-}
-
-static byte Mix(byte from, byte to, int cover)
-{
-	if (cover <= 0)
-		return from;
-	if (cover >= 255)
-		return to;
-	return (byte)((from * (255 - cover) + to * cover) / 255);
-}
-
-static byte Clamp(int value)
-{
-	if (value < 0)
-		return 0;
-	if (value > 255)
-		return 255;
-	return (byte)value;
-}
-
-static int Drip(int x, int y, int size)
-{
-	ReadOnlySpan<int> seeds = [31, 54, 71];
-	var best = 0;
-	for (var i = 0; i < seeds.Length; i++)
+	static double Run(double fx, double fy, int seed, int index)
 	{
-		var start = size * (18 + (i * 5)) / 100;
-		if (y < start)
-			continue;
-		var column = size * seeds[i] / 100;
-		var width = size * (5 + (i * 2)) / 100;
-		var adx = x - column;
-		if (adx < 0)
-			adx = -adx;
-		if (adx >= width)
-			continue;
-		var length = size * (46 + (i * 10)) / 100;
-		var fall = y - start;
-		if (fall >= length)
-			continue;
-		var head = length * 22 / 100;
-		if (head < 1)
-			head = 1;
-		var fadeIn = fall >= head ? 255 : fall * 255 / head;
-		var tail = length * 35 / 100;
-		if (tail < 1)
-			tail = 1;
-		var remain = length - fall;
-		var fadeOut = remain >= tail ? 255 : remain * 255 / tail;
-		var across = (width - adx) * 255 / width;
-		var cover = across * fadeIn / 255 * fadeOut / 255;
-		if (cover > best)
-			best = cover;
+		var start = index == 0 ? 0.28 + (seed % 4) * 0.05 : 0.66 + (seed % 3) * 0.04;
+		var drift = (index == 0 ? 0.14 : -0.1) * Math.Sin((fy * (1.6 + index) + seed * 0.4) * Math.PI);
+		var bend = 0.03 * Math.Sin((fy * 5.0 + seed + index) * Math.PI);
+		var center = start + drift + bend;
+		var along = (fy - 0.02) / 0.92;
+		if (along <= 0 || along >= 1)
+			return 0;
+		var taper = Math.Pow(1 - along, 1.35);
+		var half = (index == 0 ? 0.12 : 0.07) * taper + 0.01;
+		var dist = Math.Abs(fx - center) / half;
+		if (dist >= 1)
+			return 0;
+		var edge = 1 - dist * dist;
+		var head = Math.Min(1, along / 0.1);
+		return edge * edge * head * (0.35 + 0.65 * taper) * (index == 0 ? 0.42 : 0.22);
 	}
 
-	return best * 150 / 255;
-}
-
-static int Highlight(int x, int y, int size)
-{
-	var hx = x - (size * 38 / 100);
-	var hy = y - (size * 32 / 100);
-	var h2 = hx * (long)hx + hy * (long)hy * 2;
-	var rad = size * 16L / 100;
-	var rad2 = rad * rad;
-	if (h2 >= rad2)
-		return 0;
-	return (int)((rad2 - h2) * 140 / rad2);
-}
-
-static int Speck(int x, int y)
-{
-	var cell = Hash(x / 4, y / 4);
-	if (cell > 248)
-		return 16;
-	if (cell < 6)
-		return -12;
-	return 0;
-}
-
-static int Hash(int x, int y)
-{
-	var n = (uint)(x * 374761393 + y * 668265263);
-	n = (n ^ (n >> 13)) * 1274126177u;
-	return (int)((n ^ (n >> 16)) & 255);
-}
-
-static void Chunk(Stream output, string type, byte[] data)
-{
-	Span<byte> length = stackalloc byte[4];
-	BinaryPrimitives.WriteInt32BigEndian(length, data.Length);
-	output.Write(length);
-	var name = Encoding.ASCII.GetBytes(type);
-	output.Write(name);
-	output.Write(data);
-	var crcInput = new byte[name.Length + data.Length];
-	name.CopyTo(crcInput, 0);
-	data.CopyTo(crcInput, name.Length);
-	Span<byte> crc = stackalloc byte[4];
-	BinaryPrimitives.WriteUInt32BigEndian(crc, Crc32(crcInput));
-	output.Write(crc);
-}
-
-static uint Crc32(ReadOnlySpan<byte> data)
-{
-	var crc = 0xFFFFFFFFu;
-	foreach (var value in data)
+	static double Highlight(double fx, double fy)
 	{
-		crc ^= value;
-		for (var bit = 0; bit < 8; bit++)
-			crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
+		var dx = (fx - 0.36) / 0.22;
+		var dy = (fy - 0.30) / 0.16;
+		var d = dx * dx + dy * dy;
+		if (d >= 1)
+			return 0;
+		return (1 - d) * (1 - d) * 0.28;
 	}
 
-	return crc ^ 0xFFFFFFFFu;
+	static int Speck(int x, int y)
+	{
+		var cell = Hash(x / 6, y / 6);
+		if (cell < 250)
+			return 0;
+		return (Hash(x, y) & 1) == 0 ? 5 : -4;
+	}
+
+	static int Mix(int a, int b, double t) => Clamp(a + (int)Math.Round((b - a) * t));
+
+	static double Clamp01(double value)
+	{
+		if (value < 0)
+			return 0;
+		if (value > 1)
+			return 1;
+		return value;
+	}
+
+	static int Clamp(int value)
+	{
+		if (value < 0)
+			return 0;
+		if (value > 255)
+			return 255;
+		return value;
+	}
+
+	static int Byte(uint color, int shift) => (int)((color >> shift) & 0xFF);
+
+	static int Hash(int x, int y)
+	{
+		var n = (uint)(x * 374761393 + y * 668265263);
+		n = (n ^ (n >> 13)) * 1274126177;
+		return (int)((n ^ (n >> 16)) & 255);
+	}
 }

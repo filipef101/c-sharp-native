@@ -405,6 +405,25 @@ public sealed class MainActivity : Activity
 
 	public void GoBack() => _platform?.Pop();
 
+	internal View? PaintBelow()
+	{
+		if (_platform is null)
+			return null;
+		var id = ScreenNav.Shared.UnderId();
+		if (id.Length == 0)
+			return null;
+		Element tree;
+		if (ScreenNav.Shared.Below() is { } bound)
+			tree = bound.Render(_platform);
+		else if (!CompiledScreens.TryRender(id, _platform, out tree))
+			return null;
+		var host = new AndroidHost(this, () => tree);
+		host.PaintReady();
+		var reconciler = new ViewReconciler<View>(host);
+		reconciler.Render(tree);
+		return reconciler.Root;
+	}
+
 	internal void GoPush(string screen) => _platform?.Push(screen);
 
 #pragma warning disable CA1422
