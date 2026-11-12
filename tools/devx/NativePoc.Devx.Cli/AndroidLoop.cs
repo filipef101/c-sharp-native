@@ -100,7 +100,7 @@ static class AndroidLoop
 				var packing = SendPacking(session, repo, kept);
 				if (!ReportApplied(PackingScreen, packing, editStartedMs: null, packingStarted) && options.Once)
 					return 1;
-				if (!ShowGenerated(session, repo, kept) && options.Once)
+				if (!ShowGenerated(session, repo, kept, options.Root) && options.Once)
 					return 1;
 			}
 
@@ -220,7 +220,7 @@ static class AndroidLoop
 					if (follow is not null)
 						Console.WriteLine(follow);
 					if (restarting)
-						Relaunch(session, repo, rid, serial, options.Listener, kept);
+						Relaunch(session, repo, rid, serial, options.Listener, kept, options.Root);
 
 					break;
 				default:
@@ -512,10 +512,10 @@ static class AndroidLoop
 
 	internal readonly record struct PackingSend(bool Applied, bool Refused, string Text, double Milliseconds, SubsetDiagnostic? Diagnostic = null);
 
-	static bool ShowGenerated(ReloadSession session, string repo, KeptPrograms kept)
+	static bool ShowGenerated(ReloadSession session, string repo, KeptPrograms kept, string? root)
 	{
 		var ok = true;
-		foreach (var relative in NewLoop.AppScreens(repo))
+		foreach (var relative in ScreensInOrder(repo, root))
 		{
 			Console.WriteLine("cnative: show " + relative);
 			var started = Stopwatch.GetTimestamp();
@@ -748,12 +748,12 @@ static class AndroidLoop
 	static void Restart(ReloadSession session, string repo, string rid, string serial, CliOptions options, KeptPrograms kept, bool subset)
 	{
 		if (subset)
-			RelaunchInstalled(session, repo, serial, kept);
+			RelaunchInstalled(session, repo, serial, kept, options.Root);
 		else
-			Relaunch(session, repo, rid, serial, options.Listener, kept);
+			Relaunch(session, repo, rid, serial, options.Listener, kept, options.Root);
 	}
 
-	static void Relaunch(ReloadSession session, string repo, string rid, string serial, bool listener, KeptPrograms kept)
+	static void Relaunch(ReloadSession session, string repo, string rid, string serial, bool listener, KeptPrograms kept, string? root)
 	{
 		byte[]? checkpoint = null;
 		try
@@ -768,10 +768,10 @@ static class AndroidLoop
 		session.Token = DeployAndLaunch(repo, rid, serial, listener: listener);
 		session.Open(repo, serial);
 		Restore(session, checkpoint);
-		Replay(session, repo, kept);
+		Replay(session, repo, kept, root);
 	}
 
-	static void RelaunchInstalled(ReloadSession session, string repo, string serial, KeptPrograms kept)
+	static void RelaunchInstalled(ReloadSession session, string repo, string serial, KeptPrograms kept, string? root)
 	{
 		byte[]? checkpoint = null;
 		try
@@ -787,10 +787,28 @@ static class AndroidLoop
 		session.Token = LaunchInstalled(serial);
 		session.Open(repo, serial);
 		Restore(session, checkpoint);
-		Replay(session, repo, kept);
+		Replay(session, repo, kept, root);
 	}
 
-	static void Replay(ReloadSession session, string repo, KeptPrograms kept)
+	static IEnumerable<string> ScreensInOrder(string repo, string? root)
+	{
+		var screens = NewLoop.AppScreens(repo);
+		if (string.IsNullOrEmpty(root))
+			return screens;
+		var preferred = "samples/" + root + "/" + NewLoop.TypeName(root) + "Screen.cs";
+		var ordered = new List<string>();
+		foreach (var relative in screens)
+		{
+			if (!string.Equals(relative, preferred, StringComparison.Ordinal))
+				ordered.Add(relative);
+		}
+
+		if (screens.Contains(preferred))
+			ordered.Add(preferred);
+		return ordered;
+	}
+
+	static void Replay(ReloadSession session, string repo, KeptPrograms kept, string? root)
 	{
 		var host = SendFile(session);
 		Console.WriteLine(host.Applied ? "screen program restored: " + host.Text : "screen program was not restored: " + host.Text);
@@ -798,7 +816,7 @@ static class AndroidLoop
 		var packing = SendPacking(session, repo, kept, fault: false);
 		if (!ReportApplied(PackingScreen, packing, editStartedMs: null, packingStarted))
 			RestoreRemembered(session, PackingScreen, kept);
-		foreach (var relative in NewLoop.AppScreens(repo))
+		foreach (var relative in ScreensInOrder(repo, root))
 		{
 			var started = Stopwatch.GetTimestamp();
 			var sent = SendSource(session, repo, relative, kept, fault: false);

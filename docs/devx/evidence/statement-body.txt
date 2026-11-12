@@ -1,0 +1,42 @@
+# Statement bodies in one process
+
+Emulator-run on boot `56815464-4bc4-4f4c-a503-944cb91ab31f`. The command was `tools/devx/cnative run android --listener --restart-on-rude --device emulator-5554 --root feed`. Listener pid 18899. `IsDynamicCodeSupported=False`. The committed sources stayed the expression bodies. The statement bodies were saved, the swap was logged, and the expression bodies were saved again on that same pid.
+
+The committed bodies are `CounterService.Next` = `count + 5` and `LibraryFormat.Label` = `name.Length == 0 ? "empty" : name.Trim()`.
+
+## What was saved
+
+`Next` became a block: local `step` of 2, `if (count < 0) return 0`, a `while` that adds 4 twice, then `return total + 1`.
+`Label` became a block: `if (name.Length == 0) return "blank"`, `Trim`, a `for` that counts to 2, then `return trimmed`.
+
+The listener printed, still pid 18899:
+
+```
+swapped vm-body NativePoc.CounterService.Next in this process
+body-swap 14.1 ms
+edit-to-reply 56 ms
+swapped vm-body NativePoc.Library.LibraryFormat.Label in this process
+body-swap 7.5 ms
+edit-to-reply 48 ms
+```
+
+Saving the expression bodies again printed:
+
+```
+swapped vm-body NativePoc.CounterService.Next in this process
+body-swap 4.4 ms
+edit-to-reply 44 ms
+swapped vm-body NativePoc.Library.LibraryFormat.Label in this process
+body-swap 5.0 ms
+edit-to-reply 44 ms
+```
+
+No relaunch line was printed. The feed screen stayed up. Those two methods were not called from the feed screen, so this pid did not display the new return values. The values are the unit test below.
+
+## Tested
+
+`MethodBodyTests.A_statement_body_with_locals_if_while_and_for_runs` lowers those two blocks and runs them in the action VM: `Next(3)` is 12, `Next(-4)` is 0, `Label("  Ada  ")` is `Ada`, `Label("")` is `blank`.
+
+`MethodBodyTests.A_body_that_cannot_be_lowered_is_refused` uses a `try` / `catch` body. The refusal contains `could not be lowered into the action VM` and `Relaunching.` That refusal was not sent to the emulator in this pass.
+
+Devx tests: 132 passed. Core tests excluding `ReloadAot`: 63 passed. Packing tests: 14 passed. `ReloadAot` was not run.

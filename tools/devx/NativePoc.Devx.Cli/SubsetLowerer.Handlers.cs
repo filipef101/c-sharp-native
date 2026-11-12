@@ -452,6 +452,22 @@ public static partial class SubsetLowerer
 		bool WriteCond(ExpressionSyntax expression, List<byte> script)
 		{
 			expression = Bare(expression);
+			if (expression is InvocationExpressionSyntax call
+				&& call.Expression is MemberAccessExpressionSyntax starts
+				&& starts.Name.Identifier.ValueText == "StartsWith"
+				&& call.ArgumentList.Arguments.Count == 1
+				&& Bare(call.ArgumentList.Arguments[0].Expression) is LiteralExpressionSyntax prefix
+				&& prefix.IsKind(SyntaxKind.StringLiteralExpression)
+				&& starts.Expression is MemberAccessExpressionSyntax source
+				&& Member(source, out var prefixed)
+				&& prefixed.Kind == ValueKind.Str)
+			{
+				script.Add(RecordProgram.CondPrefix);
+				U16(script, _code.Intern(prefixed.Name));
+				U16(script, _code.Intern(prefix.Token.ValueText));
+				return true;
+			}
+
 			if (expression is LiteralExpressionSyntax flag && (flag.IsKind(SyntaxKind.TrueLiteralExpression) || flag.IsKind(SyntaxKind.FalseLiteralExpression)))
 			{
 				script.Add(RecordProgram.CondLit);

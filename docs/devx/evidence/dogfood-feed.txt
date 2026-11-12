@@ -1,0 +1,49 @@
+# Feed, built through the listener
+
+Emulator-run on boot `56815464-4bc4-4f4c-a503-944cb91ab31f`. The command was `tools/devx/cnative run android --listener --restart-on-rude --device emulator-5554 --root feed`. Nothing was published.
+
+The screen is `samples/feed/FeedScreen.cs`. Refresh and a pull on the scroll call the same `Load` handler. That handler sets loading, awaits `Timer.After` then `Http.GetJson` of `http://10.0.2.2:8094/feed`, and on `http-error:` reads `Storage` key `feed-json`. A hit shows `offline` and the cached rows. A miss shows `error` and an empty list. Post calls `Http.PostJson`.
+
+The server was `/tmp/feed-server.py` on `0.0.0.0:8094`. It is not in the repo. GET `/feed` waits 2 seconds and returns `{"items":[{"id":"a","title":"Ada"},{"id":"b","title":"Bea"}]}`. POST echoes the body. The emulator reaches the VM at `10.0.2.2`.
+
+## Launch
+
+pid 18899. `IsDynamicCodeSupported=False`. The shows were note, then notes, then feed, because `--root feed` shows that screen last. Reply `idle`. The tree was `idle`, Refresh, Post, Back. Without `--root`, `Show` does not move a screen that is already on the stack, so the alphabetical last screen (`notes`) would have stayed on top.
+
+## Edits on pid 18899
+
+1. The loading text became `Loading feed`. `reloaded in 29.7 ms (apply 25.9 ms)`. Reply `Loading feed`. Edit to reply 72 ms. The tree showed `Loading feed`. State kept `Phase="loading"` and `Loading=true`.
+
+2. Refresh, server up. The tree showed `Loading feed`, then `ready`, Ada, and Bea. Log `http-get chars=69` and `storage-set key=feed-json chars=69`.
+
+3. Post. The tree showed `posted` and Cara. Log `http-post chars=41`.
+
+4. Refresh, then Back before the response. Log `http-cancel screen=feed` and `http-cancel module=http.GetJson`. The view stayed on the feed (`Loading`, Cara). The action was `steps=1` and no `rendered` line followed the cancel. The accessibility tree was still the feed, and the nav stack no longer contained feed. `Pop` had removed the frame and had not asked for a render.
+
+5. Server stopped. Refresh. The tree showed `offline`, `http-error: HttpRequestException`, Ada, and Bea. Log `http-error module=http.GetJson HttpRequestException` and `storage-load key=feed-json chars=69`.
+
+6. The handler's storage key was changed to `feed-missing` and restored to `feed-json` after the check. The missing-key reload: `reloaded in 16.1 ms (apply 12.3 ms)`, edit to reply 60 ms. Refresh with the server still stopped showed `error`, `http-error: HttpRequestException`, and no rows. The restore reload: `reloaded in 15.1 ms (apply 12.7 ms)`, edit to reply 56 ms, reply `error`.
+
+7. Pull down on the scroll with the server stopped. The tree showed `offline`, the same error text, Ada, and Bea. Log `http-error module=http.GetJson HttpRequestException` and `storage-load key=feed-json chars=69`. `action-us=44379 steps=5`, then `steps=1`, then `steps=8`.
+
+The statement-body swaps in `statement-body.txt` are the same pid, between edits 6 and the pull.
+
+## The fix
+
+`PlatformBridge.Pop` now requests a render after a successful pop. Saving `AndroidHost.cs` was a rude edit. `--restart-on-rude` published the listener again and launched pid 19383. `IsDynamicCodeSupported=False`. Feed was on top (`offline`, Ada, Bea). Back logged `http-cancel screen=feed` and `rendered ... title=Day`. The tree was the notes screen: Day, New note, Add. Stack `counter`, `packing`, `note`, `notes`.
+
+## Release
+
+Built: `dotnet publish -c Release -f net10.0-android -r android-x64` exited 0. The log has the two existing `monodroid_unhandled_exception` ILC notes and no `IL2026` or `IL3050` line.
+
+The previous Release `.so` was hashed before that publish replaced it: sha256 `8ad3a712a4b39dccd87368b6965335a2a2e78b265cfcc39c2855c1dee210e6bd`, 6,703,488 bytes. That matches `tap-phases.txt`.
+
+This Release `.so`, `lib/x86_64/libNativePoc.Android.so` inside the signed APK: sha256 `cf2c4bcbf9da2417a9af57a91125ae1172ca1a433845428574025060e7602b1a`, 10,768,168 bytes. Delta +4,064,680 bytes. Measured. The ASCII `TryRunReplacement` and `npoc-hotreload` are absent. Signed APK sha256 `701bbb3c9398d70ac936598babcf8191bebd628a6e0121687409498346d6fd7b`, 4,793,133 bytes.
+
+The listener `.so` after the pop-render publish: sha256 `e1d5e7e6df5239c37ae8595eabbbe19ccb60b6f3cd8b18ee955ad96ad255928b`, 16,675,104 bytes. `TryRunReplacement` is present. The listener recorded in `tap-phases.txt` was 10,287,104 bytes. That file was not still on disk to re-hash. The difference against the recorded size is 6,388,000 bytes. Signed listener APK sha256 `87e5f7ae837bddd0b43b5d1fcbb9ca287772dd2522fdfc03818dc48e68e5fdb0`, 6,378,419 bytes.
+
+Emulator-run, Release pid 19524, `am start --es nativepoc_root feed`. `IsDynamicCodeSupported=False`. Title `idle`. Refresh showed `Loading feed`, then `ready`, Ada, and Bea. Log `http-get chars=69` and `storage-set key=feed-json chars=69`. Post showed `posted` and Cara. Log `http-post chars=41`. Refresh then Back logged `http-cancel screen=feed`, `http-cancel module=http.GetJson`, and `rendered ... title=Counter 0`. The tree was Counter 0.
+
+## Tested
+
+`AsyncHandlerTests` lowers `samples/feed/FeedScreen.cs`, suspends on the first await, resumes on the caller, and checks that the second segment's step count is lower than the first. The fault path stores `http-error: HttpRequestException` and calls `feed.Apply`. Devx 132 passed. Core 63 passed with `ReloadAot` excluded. Packing 14 passed.

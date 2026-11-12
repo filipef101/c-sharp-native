@@ -693,6 +693,7 @@ public static partial class SubsetLowerer
 		Submit _pendingSubmit;
 		byte[]? _pendingSubmitScript;
 		string _listName = "";
+		readonly Dictionary<string, BlockSyntax> _localFns = new(StringComparer.Ordinal);
 		string _originFile = "src/NativePoc.Screen/Screen.cs";
 		Dictionary<string, (byte Slot, ValueKind Kind)>? _locals;
 		byte _localSlots;
@@ -817,6 +818,14 @@ public static partial class SubsetLowerer
 		{
 			var statements = block.Statements;
 			var index = 0;
+			while (index < statements.Count && statements[index] is LocalFunctionStatementSyntax localFn)
+			{
+				if (localFn.Body is null)
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", localFn);
+				_localFns[localFn.Identifier.ValueText] = localFn.Body;
+				index++;
+			}
+
 			while (index < statements.Count)
 			{
 				if (!TryEffect(statements[index], out var consumed))
@@ -2187,6 +2196,8 @@ public static partial class SubsetLowerer
 
 			if (assignment.Left is not MemberAccessExpressionSyntax member || !Member(member, out var field))
 				return false;
+			if (field.Kind == ValueKind.Str && Bare(assignment.Right) is AwaitExpressionSyntax awaited)
+				return AwaitStore(field.Name, awaited, script);
 			if (assignment.Right is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == parameter && parameter.Length > 0)
 			{
 				if (field.Kind == ValueKind.Str)
@@ -2296,6 +2307,19 @@ public static partial class SubsetLowerer
 		bool Call(InvocationExpressionSyntax invocation, string parameter, List<byte> script)
 		{
 			_ = parameter;
+			if (invocation.Expression is IdentifierNameSyntax localCall
+				&& invocation.ArgumentList.Arguments.Count == 0
+				&& _localFns.TryGetValue(localCall.Identifier.ValueText, out var localBody))
+			{
+				foreach (var statement in localBody.Statements)
+				{
+					if (!Statement(statement, "", script))
+						return false;
+				}
+
+				return true;
+			}
+
 			if (UserCall(invocation, out _))
 				return false;
 			if (invocation.Expression is MemberAccessExpressionSyntax listCall
@@ -2312,7 +2336,7 @@ public static partial class SubsetLowerer
 				return StateCall(member.Name.Identifier.ValueText, script, invocation);
 			if (owner.Identifier.ValueText == "PackingTelemetry")
 				return true;
-			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme")
+			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme" or "FeedModule")
 				return ModuleCall(owner.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, script);
 			if (owner.Identifier.ValueText != _platform)
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
@@ -2480,11 +2504,16 @@ public static partial class SubsetLowerer
 				if (!ModuleArg(args[1].Expression, encoded))
 					return false;
 			}
+			else if (module == "FeedModule" && method == "Apply" && args.Count == 3)
+			{
+				if (!ModuleArg(args[2].Expression, encoded))
+					return false;
+			}
 			else
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 
 			script.Add(RecordProgram.ActModule);
-			U16(script, _code.Intern(module.ToLowerInvariant()));
+			U16(script, _code.Intern(module == "FeedModule" ? "feed" : module.ToLowerInvariant()));
 			U16(script, _code.Intern(method));
 			script.Add((byte)encoded.Count);
 			foreach (var (kind, index) in encoded)
@@ -2516,7 +2545,58 @@ public static partial class SubsetLowerer
 				return true;
 			}
 
+			if (expression is LiteralExpressionSyntax number && number.IsKind(SyntaxKind.NumericLiteralExpression) && number.Token.Value is int ms && ms >= 0)
+			{
+				encoded.Add((0, _code.Intern(ms.ToString(CultureInfo.InvariantCulture))));
+				return true;
+			}
+
 			return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", expression);
+		}
+
+		bool AwaitStore(string dest, AwaitExpressionSyntax awaited, List<byte> script)
+		{
+			if (awaited.Expression is not InvocationExpressionSyntax invocation
+				|| invocation.Expression is not MemberAccessExpressionSyntax member
+				|| member.Expression is not IdentifierNameSyntax owner)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", awaited);
+			var encoded = new List<(byte Kind, int Index)>();
+			if (!AwaitArgs(owner.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, encoded))
+				return false;
+			script.Add(RecordProgram.ActAwait);
+			U16(script, _code.Intern(owner.Identifier.ValueText.ToLowerInvariant()));
+			U16(script, _code.Intern(member.Name.Identifier.ValueText));
+			script.Add((byte)encoded.Count);
+			foreach (var (kind, index) in encoded)
+			{
+				script.Add(kind);
+				U16(script, index);
+			}
+
+			U16(script, _code.Intern(dest));
+			return true;
+		}
+
+		bool AwaitArgs(string module, string method, InvocationExpressionSyntax invocation, List<(byte Kind, int Index)> encoded)
+		{
+			var args = invocation.ArgumentList.Arguments;
+			if (args.Count == 0 || args[0].Expression is not IdentifierNameSyntax platform || platform.Identifier.ValueText != _platform)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			if (module == "Http" && method == "GetJson" && args.Count == 2)
+				return ModuleArg(args[1].Expression, encoded);
+			if (module == "Http" && method == "PostJson" && args.Count == 3)
+				return ModuleArg(args[1].Expression, encoded) && ModuleArg(args[2].Expression, encoded);
+			if (module == "Storage" && method == "Get" && args.Count == 2)
+			{
+				if (args[1].Expression is not LiteralExpressionSyntax key || !key.IsKind(SyntaxKind.StringLiteralExpression))
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", args[1].Expression);
+				encoded.Add((0, _code.Intern(key.Token.ValueText)));
+				return true;
+			}
+
+			if (module == "Timer" && method == "After" && args.Count == 2)
+				return ModuleArg(args[1].Expression, encoded);
+			return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 		}
 
 		bool StateCall(string name, List<byte> script, InvocationExpressionSyntax invocation)
