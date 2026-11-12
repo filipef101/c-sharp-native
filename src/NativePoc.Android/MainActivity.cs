@@ -92,6 +92,10 @@ public sealed class MainActivity : Activity
 			KeyedList.LogBinds = true;
 #endif
 		var requestedRoot = Intent?.GetStringExtra("nativepoc_root");
+#if NATIVEPOC_ROOT_HOME
+		if (string.IsNullOrEmpty(requestedRoot))
+			requestedRoot = "home";
+#endif
 		var wantsRoot = !string.IsNullOrEmpty(requestedRoot) && !string.Equals(requestedRoot, "counter", StringComparison.Ordinal);
 		var navStart = SystemClock.ElapsedRealtime();
 		CompiledScreens.Install(ScreenNav.Shared);
@@ -124,6 +128,9 @@ public sealed class MainActivity : Activity
 		}
 
 		RenderNow();
+#if NATIVEPOC_LOCATION
+		ScheduleLocation();
+#endif
 		if (string.Equals(Intent?.GetStringExtra("nativepoc_keyed_move"), "1", StringComparison.Ordinal))
 		{
 			AppSession.Shared.State.GreetingFirst = true;
@@ -290,6 +297,60 @@ public sealed class MainActivity : Activity
 		Current = this;
 		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
 	}
+
+	public void GoBack() => _platform?.Pop();
+
+#pragma warning disable CA1422
+	public override void OnBackPressed()
+	{
+		if (OperatingSystem.IsAndroidVersionAtLeast(33))
+		{
+			base.OnBackPressed();
+			return;
+		}
+
+		if (!ActivityBack.HandleLegacy(this))
+			base.OnBackPressed();
+	}
+#pragma warning restore CA1422
+
+#if NATIVEPOC_LOCATION
+	public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
+	{
+		LocationModule.OnResult(this, requestCode, permissions, grantResults);
+		base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+	}
+
+	void ScheduleLocation()
+	{
+		var mode = Intent?.GetStringExtra("nativepoc_location");
+		if (mode is not ("read" or "probe"))
+			return;
+		var request = mode == "read";
+		_reconciler?.Root?.Post(() =>
+		{
+			_ = ReportLocation(request);
+		});
+	}
+
+	async Task ReportLocation(bool request)
+	{
+		var wire = await LocationModule.Read(this, request, CancellationToken.None);
+		try
+		{
+			var fix = Location.Parse(wire);
+			Log.Info(
+				Tag,
+				string.Create(
+					CultureInfo.InvariantCulture,
+					$"location access={fix.Access} lat={fix.Latitude} lon={fix.Longitude} accuracy={fix.AccuracyMeters}"));
+		}
+		catch (InvalidOperationException)
+		{
+			Log.Info(Tag, "location unparsed " + wire);
+		}
+	}
+#endif
 
 	protected override void OnDestroy()
 	{
@@ -535,7 +596,15 @@ public sealed class MainActivity : Activity
 
 	void RenderNow()
 	{
-		if (_reconciler is null || _platform is null)
+		if (_reconciler is null || _platform is null || _host is null)
+		{
+			TapTrace.PrepDone();
+			return;
+		}
+
+		var host = _host;
+		var leaving = NavMotion.Detach(ref _reconciler, host);
+		if (_reconciler is null)
 		{
 			TapTrace.PrepDone();
 			return;
@@ -678,11 +747,9 @@ public sealed class MainActivity : Activity
 		LocaleRuntime.ApplyDirection(mounted);
 		LocaleRuntime.ApplyDirection(this);
 		var dirUs = TakeUs(clock);
-		if (!ReferenceEquals(previousRoot, mounted))
-		{
-			SetContentView(mounted);
-			Log.Info(Tag, "set-content-view");
-		}
+		if (!ReferenceEquals(previousRoot, mounted) || leaving is not null)
+			NavMotion.Present(this, mounted, leaving);
+		ActivityBack.Sync(this);
 
 		StartupMarks.Arm(this);
 		var contentUs = TakeUs(clock);

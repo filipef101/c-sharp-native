@@ -13,8 +13,13 @@ static class StartupMarks
 	static bool _render;
 	static bool _present;
 	static bool _armed;
+	static Action? _afterPresent;
 
 	static long _managedTick;
+
+	public static bool Presented => _present;
+
+	public static void AfterPresent(Action flush) => _afterPresent = flush;
 
 #pragma warning disable CA2255
 	[ModuleInitializer]
@@ -147,6 +152,9 @@ static class StartupMarks
 			}
 			else
 				Android.Util.Log.Info(MainActivity.Tag, "startup report-fully-drawn skipped");
+			var flush = _afterPresent;
+			if (flush is not null)
+				_view.Post(flush);
 
 			return true;
 		}

@@ -6,6 +6,29 @@ namespace NativePoc.Tests;
 public sealed class NavRestoreTests
 {
 	[Fact]
+	public void Pop_keeps_each_screen_bag_and_a_restore_keeps_the_stack()
+	{
+		var nav = new ScreenNav();
+		nav.Show(Program("counter", "Counter"));
+		nav.Show(Program("notes", "Notes"));
+		nav.Bag("counter").WriteInt("Count", 3);
+		nav.Bag("notes").WriteString("Title", "Ada");
+		Assert.Equal(2, nav.Depth);
+		var checkpoint = nav.Checkpoint();
+		var restored = new ScreenNav();
+		restored.Restore(checkpoint);
+		Assert.Equal(2, restored.Depth);
+		Assert.Equal("notes", restored.TopId());
+		Assert.Equal(3, restored.Bag("counter").ReadInt("Count"));
+		Assert.Equal("Ada", restored.Bag("notes").ReadString("Title"));
+		Assert.True(nav.Pop());
+		Assert.Equal(1, nav.Depth);
+		Assert.Equal("counter", nav.TopId());
+		Assert.Equal(3, nav.Bag("counter").ReadInt("Count"));
+		Assert.Equal("Ada", nav.Bag("notes").ReadString("Title"));
+	}
+
+	[Fact]
 	public void A_restored_listener_keeps_the_screen_and_the_program()
 	{
 		var program = Program("packing", "Pack");

@@ -49,6 +49,7 @@ static class KeyedList
 		if (LogBinds)
 			JNIEnv.CallVoidMethod(view.Handle, _setBindLog, new[] { new JValue(true) });
 		view.ContentDescription = "List";
+		StartupMarks.AfterPresent(FirstFrame.Flush);
 		StartupMarks.Phase("attach");
 		return view;
 	}
@@ -148,8 +149,7 @@ static class KeyedList
 			var imageView = Java.Lang.Object.GetObject<ImageView>(image, JniHandleOwnership.DoNotTransfer);
 			if (titleView is null || subtitleView is null || imageView is null)
 				return;
-			if (timed)
-				mark = System.Diagnostics.Stopwatch.GetTimestamp();
+			mark = System.Diagnostics.Stopwatch.GetTimestamp();
 			RowText.Apply(titleView, face.Title);
 			if (face.Subtitle.Length == 0)
 			{
@@ -162,13 +162,21 @@ static class KeyedList
 				subtitleView.Visibility = ViewStates.Visible;
 			}
 
-			var textUs = timed ? BindTimes.Micros(mark) : 0;
-			var context = state.View.Context ?? throw new InvalidOperationException("List row has no context.");
-			if (timed)
-				mark = System.Diagnostics.Stopwatch.GetTimestamp();
-			PictureBinder.Show(imageView, face.Picture, context);
-			if (timed)
-				BindTimes.Add(rowUs, faceUs, textUs, BindTimes.Micros(mark));
+			var textUs = BindTimes.Micros(mark);
+			if (!StartupMarks.Presented)
+			{
+				FirstFrame.Note(textUs);
+				FirstFrame.Defer(imageView, face.Picture);
+			}
+			else
+			{
+				var context = state.View.Context ?? throw new InvalidOperationException("List row has no context.");
+				if (timed)
+					mark = System.Diagnostics.Stopwatch.GetTimestamp();
+				PictureBinder.Show(imageView, face.Picture, context);
+				if (timed)
+					BindTimes.Add(rowUs, faceUs, textUs, BindTimes.Micros(mark));
+			}
 		}
 		catch (Exception ex)
 		{
@@ -286,6 +294,62 @@ static class KeyedList
 			}
 
 			return index.ToString(CultureInfo.InvariantCulture);
+		}
+	}
+
+	static class FirstFrame
+	{
+		static int _binds;
+		static long _textUs;
+		static bool _flushed;
+		static readonly List<Pending> _images = new();
+
+		readonly record struct Pending(ImageView Image, string Source);
+
+		public static void Note(long textUs)
+		{
+			if (_flushed)
+				return;
+			_binds++;
+			_textUs += textUs;
+		}
+
+		public static void Defer(ImageView image, string source)
+		{
+			if (_flushed)
+			{
+				var context = image.Context;
+				if (context is not null)
+					PictureBinder.Show(image, source, context);
+				return;
+			}
+
+			_images.Add(new Pending(image, source));
+		}
+
+		public static void Flush()
+		{
+			if (_flushed)
+				return;
+			_flushed = true;
+			var mark = System.Diagnostics.Stopwatch.GetTimestamp();
+			foreach (var pending in _images)
+			{
+				if (pending.Image.Handle == IntPtr.Zero)
+					continue;
+				var context = pending.Image.Context;
+				if (context is null)
+					continue;
+				PictureBinder.Show(pending.Image, pending.Source, context);
+			}
+
+			var imageUs = BindTimes.Micros(mark);
+			Android.Util.Log.Info(
+				MainActivity.Tag,
+				"startup frame binds=" + _binds.ToString(CultureInfo.InvariantCulture)
+				+ " text-us=" + _textUs.ToString(CultureInfo.InvariantCulture)
+				+ " image-us=" + imageUs.ToString(CultureInfo.InvariantCulture));
+			_images.Clear();
 		}
 	}
 

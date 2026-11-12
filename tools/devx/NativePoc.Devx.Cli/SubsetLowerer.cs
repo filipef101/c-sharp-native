@@ -596,7 +596,7 @@ public static partial class SubsetLowerer
 	static SubsetDiagnostic At(string id, string message, SyntaxNode node, string source) =>
 		At(id, message, node.GetLocation(), source);
 
-	static SubsetDiagnostic At(string id, string message, Location location, string source)
+	static SubsetDiagnostic At(string id, string message, Microsoft.CodeAnalysis.Location location, string source)
 	{
 		var span = location.SourceSpan;
 		var line = location.GetLineSpan().StartLinePosition;
@@ -2397,7 +2397,7 @@ public static partial class SubsetLowerer
 				return StateCall(member.Name.Identifier.ValueText, script, invocation);
 			if (owner.Identifier.ValueText == "PackingTelemetry")
 				return true;
-			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme" or "FeedModule" or "Animate")
+			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme" or "FeedModule" or "Animate" or "Location")
 				return ModuleCall(owner.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, script);
 			if (owner.Identifier.ValueText != _platform)
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
@@ -2663,6 +2663,8 @@ public static partial class SubsetLowerer
 
 			if (module == "Timer" && method == "After" && args.Count == 2)
 				return ModuleArg(args[1].Expression, encoded);
+			if (module == "Location" && method == "Read" && args.Count == 1)
+				return true;
 			return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 		}
 

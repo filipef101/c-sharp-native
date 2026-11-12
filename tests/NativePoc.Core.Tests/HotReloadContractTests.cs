@@ -28,8 +28,9 @@ public sealed class HotReloadContractTests
 		Assert.Contains("GetStringExtra(\"nativepoc_bench\")", activity);
 		Assert.Contains("GetStringExtra(\"nativepoc_root\")", activity);
 		Assert.Contains("GetStringExtra(\"nativepoc_bind_log\")", activity);
+		Assert.Contains("GetStringExtra(\"nativepoc_location\")", activity);
 		Assert.DoesNotContain("GetStringExtra(\"nativepoc_hotreload\")", activity);
-		Assert.Equal(9, CountOf(activity, "GetStringExtra"));
+		Assert.Equal(10, CountOf(activity, "GetStringExtra"));
 	}
 
 	[Fact]

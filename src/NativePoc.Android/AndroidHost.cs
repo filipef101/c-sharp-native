@@ -873,8 +873,12 @@ sealed class PlatformBridge : IPlatform
 
 	public void Push(string screen)
 	{
+		var before = ScreenNav.Shared.TopId();
+		var depth = ScreenNav.Shared.Depth;
 		if (!ScreenNav.Shared.Push(screen))
 			Log.Info(MainActivity.Tag, "nav-miss " + screen);
+		else if (ScreenNav.Shared.TopId() != before || ScreenNav.Shared.Depth != depth)
+			NavMotion.Arm(NavMotion.Dir.Push);
 		StorageSeed.Refresh(_activity, screen);
 	}
 
@@ -895,6 +899,7 @@ sealed class PlatformBridge : IPlatform
 		var leaving = ScreenNav.Shared.TopId();
 		if (!ScreenNav.Shared.Pop())
 			return;
+		NavMotion.Arm(NavMotion.Dir.Pop);
 		_live.Cancel();
 		_live = new CancellationTokenSource();
 		Log.Info(MainActivity.Tag, "http-cancel screen=" + leaving);

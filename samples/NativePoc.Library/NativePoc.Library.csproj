@@ -6,6 +6,8 @@
 		<RootNamespace>NativePoc.Library</RootNamespace>
 		<IsAotCompatible>true</IsAotCompatible>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<Version>0.3.0</Version>
+		<IsPackable>true</IsPackable>
 	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\NativePoc.Core\NativePoc.Core.csproj" />

@@ -335,6 +335,15 @@ public sealed class ScreenNav
 			return _stack.Count == 0 ? "" : _stack[^1];
 	}
 
+	public int Depth
+	{
+		get
+		{
+			lock (_gate)
+				return _stack.Count;
+		}
+	}
+
 	public bool HasProgram(string id)
 	{
 		lock (_gate)

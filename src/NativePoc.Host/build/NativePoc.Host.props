@@ -1,0 +1,33 @@
+<Project>
+	<PropertyGroup>
+		<NativePocHostDir>$(MSBuildThisFileDirectory)..\content\host\</NativePocHostDir>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(NativePocHttp)' != 'true'">
+		<Compile Include="$(NativePocHostDir)*.cs" Exclude="$(NativePocHostDir)FeedJson.cs" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(NativePocHttp)' == 'true'">
+		<Compile Include="$(NativePocHostDir)*.cs" />
+	</ItemGroup>
+	<ItemGroup>
+		<AndroidResource Include="$(NativePocHostDir)Resources\**\*">
+			<Link>Resources\%(RecursiveDir)%(Filename)%(Extension)</Link>
+		</AndroidResource>
+	</ItemGroup>
+	<Target Name="UseHostManifest" BeforeTargets="_GetAndroidPackageName">
+		<Copy SourceFiles="$(NativePocHostDir)AndroidManifest.xml" DestinationFiles="$(MSBuildProjectDirectory)/obj/HostAndroidManifest.xml" />
+		<PropertyGroup>
+			<AndroidManifest>obj/HostAndroidManifest.xml</AndroidManifest>
+		</PropertyGroup>
+	</Target>
+	<ItemGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
+		<AndroidManifestOverlay Include="$(NativePocHostDir)Properties\DevListenerDebuggable.xml" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(NativePocLocation)' == 'true'">
+		<AndroidManifestOverlay Include="$(NativePocHostDir)Properties\LocationPermission.xml" />
+	</ItemGroup>
+	<PropertyGroup Condition="'$(NativePocLocation)' == 'true'">
+		<!-- Same reason as the app project: the manifest merger only reruns when an
+		     input such as build.props changes, and an overlay is not an input. -->
+		<AndroidManifestPlaceholders>nativepocLocation=1</AndroidManifestPlaceholders>
+	</PropertyGroup>
+</Project>

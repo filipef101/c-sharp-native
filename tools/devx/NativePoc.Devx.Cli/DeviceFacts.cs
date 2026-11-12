@@ -72,7 +72,7 @@ static class LaunchCommand
 	public static string[] Start(string component) =>
 		["shell", "am", "start", "-n", component];
 
-	public static IReadOnlyList<string[]> BeforeStart(string package, string component)
+	public static IReadOnlyList<string[]> BeforeStart(string package, string component, string? extras = null)
 	{
 		var commands = new List<string[]>
 		{
@@ -80,7 +80,14 @@ static class LaunchCommand
 		};
 		foreach (var relative in TokenFiles.RelativePaths)
 			commands.Add(new[] { "shell", "run-as", package, "rm", "-f", relative });
-		commands.Add(Start(component));
+		var start = new List<string> { "shell", "am", "start", "-n", component };
+		if (!string.IsNullOrEmpty(extras))
+		{
+			foreach (var part in extras.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+				start.Add(part);
+		}
+
+		commands.Add(start.ToArray());
 		return commands;
 	}
 

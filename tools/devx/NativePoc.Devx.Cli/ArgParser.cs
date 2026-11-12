@@ -77,6 +77,9 @@ static class ArgParser
 		  A drive refuses a Screen.cs hash that does not match the running
 		  program and names: tools/devx/cnative run android --once
 
+		  A directory with cnative-app.csproj is an app from `dotnet new cnative-app`.
+		  cnative run android publishes that project, installs it, and watches screens/.
+
 		  --device <serial>     adb serial. Default: the only online device.
 		  --abi <rid>           android-x64 or android-arm64. Default: the device ABI.
 		  --listener            publish the Debug NativeAOT listener for that ABI.

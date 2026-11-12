@@ -58,6 +58,10 @@ static class PlatformModules
 						return "http-error: timer";
 					await Task.Delay(ms, cancel);
 					return "ok";
+#if NATIVEPOC_LOCATION
+				case ("location", "Read", 0):
+					return await LocationModule.Read(activity, request: true, cancel);
+#endif
 				default:
 					return "http-error: unknown " + module + "." + method;
 			}

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<IsPackable>true</IsPackable>
+		<Version>0.3.0</Version>
+		<PackageId>NativePoc.Host</PackageId>
+		<Description>Android host sources compiled into a cnative app.</Description>
+		<DevelopmentDependency>true</DevelopmentDependency>
+		<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+		<NoWarn>$(NoWarn);NU5128</NoWarn>
+		<EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+	</PropertyGroup>
+	<ItemGroup>
+		<None Include="build\NativePoc.Host.props" Pack="true" PackagePath="build\" />
+		<None Include="..\NativePoc.Android\*.cs" Pack="true" PackagePath="content\host\" />
+		<None Include="..\NativePoc.Android\AndroidManifest.xml" Pack="true" PackagePath="content\host\" />
+		<None Include="..\NativePoc.Android\Properties\*.xml" Pack="true" PackagePath="content\host\Properties\" />
+		<None Include="..\NativePoc.Android\Resources\**\*" Pack="true" PackagePath="content\host\Resources\%(RecursiveDir)%(Filename)%(Extension)" />
+	</ItemGroup>
+</Project>

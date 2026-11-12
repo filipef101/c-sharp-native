@@ -229,6 +229,23 @@ public sealed class AsyncHandlerTests
 		Assert.Contains(platform.Calls, call => call == "feed.Apply");
 	}
 
+	[Fact]
+	public void An_interpreted_handler_reads_location_into_a_string_field()
+	{
+		var source = File.ReadAllText(Path.Combine(Repo(), "samples", "where", "WhereScreen.cs"));
+		var lowered = SubsetLowerer.TryLower(source, originFile: "samples/where/WhereScreen.cs");
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var bag = new RecordProgram.Bag();
+		var bound = RecordProgram.Bind(lowered.Program!, bag);
+		var platform = new AsyncPlatform();
+		ElementIds.Invoke(bound.Render(platform), "read", null);
+		Assert.Contains(platform.Calls, call => call == "location.Read");
+		platform.Release("granted 37.8 -122.4 4");
+		Assert.Equal("granted 37.8 -122.4 4", bag.ReadString("Label"));
+		Assert.Equal(LocationAccess.Granted, Location.Parse(bag.ReadString("Label")).Access);
+		Assert.Equal(37.8, Location.Parse(bag.ReadString("Label")).Latitude);
+	}
+
 	static string Repo()
 	{
 		var dir = new DirectoryInfo(AppContext.BaseDirectory);

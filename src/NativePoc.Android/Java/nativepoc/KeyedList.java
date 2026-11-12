@@ -26,12 +26,16 @@ public final class KeyedList extends RecyclerView {
 	int bindSeen;
 	int bindKept;
 	boolean loggedMeasure;
+	boolean loggedAgain;
 	boolean loggedLayout;
 	boolean loggedReady;
+	int measures;
 
 	public KeyedList(Context context) {
 		super(context);
-		setLayoutManager(new LinearLayoutManager(context));
+		LinearLayoutManager manager = new LinearLayoutManager(context);
+		manager.setInitialPrefetchItemCount(0);
+		setLayoutManager(manager);
 		setHasFixedSize(true);
 		setItemViewCacheSize(4);
 		setNestedScrollingEnabled(true);
@@ -87,12 +91,20 @@ public final class KeyedList extends RecyclerView {
 				heightMeasureSpec = View.MeasureSpec.makeMeasureSpec(screen, View.MeasureSpec.AT_MOST);
 		}
 		super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+		measures++;
+		long now = SystemClock.elapsedRealtime();
 		if (!loggedMeasure) {
 			loggedMeasure = true;
-			long now = SystemClock.elapsedRealtime();
 			android.util.Log.i("NativePoc", "startup clock=elapsed phase=measure t=" + now
 				+ " since-process-ms=" + (now - Process.getStartElapsedRealtime())
-				+ " took-ms=" + (now - start));
+				+ " took-ms=" + (now - start)
+				+ " n=" + measures);
+		} else if (!loggedAgain) {
+			loggedAgain = true;
+			android.util.Log.i("NativePoc", "startup clock=elapsed phase=measure-again t=" + now
+				+ " since-process-ms=" + (now - Process.getStartElapsedRealtime())
+				+ " took-ms=" + (now - start)
+				+ " n=" + measures);
 		}
 	}
 
@@ -219,6 +231,7 @@ public final class KeyedList extends RecyclerView {
 			subtitle.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
 			subtitle.setVisibility(View.GONE);
 			picture.setScaleType(ImageView.ScaleType.CENTER_CROP);
+			picture.setBackgroundColor(0xFFE6E6E6);
 			float density = context.getResources().getDisplayMetrics().density;
 			if (density <= 0)
 				density = 1f;

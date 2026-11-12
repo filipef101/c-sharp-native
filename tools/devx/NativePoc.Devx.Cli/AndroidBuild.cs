@@ -13,6 +13,16 @@ static class AndroidBuild
 		"-p:AdbTarget=-s " + serial,
 	];
 
+	public static string[] AppListenerPublish(string project, string rid) =>
+	[
+		"publish",
+		project,
+		"-c", "Debug",
+		"-f", "net10.0-android",
+		"-r", rid,
+		"-p:NativePocDevListener=true",
+	];
+
 	public static string[] ListenerPublish(string project, string rid) =>
 	[
 		"publish",
@@ -27,6 +37,9 @@ static class AndroidBuild
 
 	public static string PublishDirectory(string repo, string configuration, string rid) =>
 		Path.Combine(repo, "src", "NativePoc.Android", "bin", configuration, "net10.0-android", rid, "publish");
+
+	public static string AppPublishDirectory(string root, string configuration, string rid) =>
+		Path.Combine(root, "bin", configuration, "net10.0-android", rid, "publish");
 
 	public static string LinkedAssembly(string repo, string configuration, string rid) =>
 		Path.Combine(repo, "src", "NativePoc.Android", "obj", configuration, "net10.0-android", rid, "linked", "NativePoc.Android.dll");

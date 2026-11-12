@@ -68,6 +68,8 @@ static class AndroidLoop
 
 	static int Execute(CliOptions options)
 	{
+		if (AppRoot.TryFind(Directory.GetCurrentDirectory(), out var app))
+			return AppLoop.Run(app, options);
 		var repo = RepoRoot.Find(Directory.GetCurrentDirectory());
 		var serial = ResolveSerial(options.Serial);
 		var abi = Prop(serial, "ro.product.cpu.abi");
@@ -981,16 +983,18 @@ static class AndroidLoop
 		return LaunchInstalled(serial);
 	}
 
-	internal static FoundToken LaunchInstalled(string serial)
+	internal static FoundToken LaunchInstalled(string serial) => LaunchInstalled(serial, null);
+
+	internal static FoundToken LaunchInstalled(string serial, string? extras)
 	{
 		var resolved = Adb(serial, "shell", "cmd", "package", "resolve-activity", "--brief", LaunchCommand.Package);
 		var component = ActivityName.FromResolve(resolved.Stdout)
 			?? throw new InvalidOperationException("The launcher activity was not resolved: " + resolved.Stdout + resolved.Stderr);
 		var startArgs = LaunchCommand.Start(component);
-		if (LaunchCommand.PassesToken(startArgs))
+		if (LaunchCommand.PassesToken(startArgs) || (extras is not null && extras.Contains("nativepoc_hotreload", StringComparison.Ordinal)))
 			throw new InvalidOperationException("Refusing to pass the hot reload token as a launch extra.");
 		Console.WriteLine("cnative: launching " + component);
-		var commands = LaunchCommand.BeforeStart(LaunchCommand.Package, component);
+		var commands = LaunchCommand.BeforeStart(LaunchCommand.Package, component, extras);
 		for (var i = 0; i < commands.Count; i++)
 		{
 			if (i == 1)

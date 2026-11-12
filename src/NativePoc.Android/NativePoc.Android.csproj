@@ -15,6 +15,7 @@
 		<NoWarn>$(NoWarn);IL3053</NoWarn>
 		<NativePocHttp Condition="'$(NativePocHttp)' == ''">false</NativePocHttp>
 		<NativePocRecycler Condition="'$(NativePocRecycler)' == ''">false</NativePocRecycler>
+		<NativePocLocation Condition="'$(NativePocLocation)' == ''">false</NativePocLocation>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
@@ -52,6 +53,16 @@
 	<PropertyGroup Condition="'$(NativePocRecycler)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_RECYCLER</DefineConstants>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocLocation)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_LOCATION</DefineConstants>
+		<!-- The manifest merger skips when its inputs are unchanged, and an overlay
+		     is not one of those inputs. A placeholder is written into build.props,
+		     which is an input, so turning the module on or off remerges the manifest. -->
+		<AndroidManifestPlaceholders>nativepocLocation=1</AndroidManifestPlaceholders>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(NativePocLocation)' == 'true'">
+		<AndroidManifestOverlay Include="Properties/LocationPermission.xml" />
+	</ItemGroup>
 	<PropertyGroup Condition="'$(NativePocRecycler)' == 'true' And '$(Configuration)' == 'Release'">
 		<AndroidLinkTool>r8</AndroidLinkTool>
 	</PropertyGroup>
@@ -98,6 +109,9 @@
 	</Target>
 	<PropertyGroup Condition="'$(NativePocHttp)' != 'true'">
 		<NativePocSampleExclude>..\..\samples\feed\**</NativePocSampleExclude>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocLocation)' != 'true'">
+		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\where\**</NativePocSampleExclude>
 	</PropertyGroup>
 	<Target Name="RefuseDevListenerInRelease" BeforeTargets="Build;Publish">
 		<Error

@@ -1,0 +1,86 @@
+<Project Sdk="Microsoft.NET.Sdk" InitialTargets="RefuseDevListenerInRelease">
+	<PropertyGroup>
+		<TargetFramework>net10.0-android</TargetFramework>
+		<SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
+		<OutputType>Exe</OutputType>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<RootNamespace>NativePoc</RootNamespace>
+		<AssemblyName>CnativeApp</AssemblyName>
+		<ApplicationId>com.scratch.nativepoc</ApplicationId>
+		<ApplicationVersion>1</ApplicationVersion>
+		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+		<AcceptAndroidSDKLicenses>true</AcceptAndroidSDKLicenses>
+		<IsAotCompatible>true</IsAotCompatible>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<NoWarn>$(NoWarn);IL3053</NoWarn>
+		<NativePocHttp Condition="'$(NativePocHttp)' == ''">false</NativePocHttp>
+		<NativePocRecycler Condition="'$(NativePocRecycler)' == ''">false</NativePocRecycler>
+		<NativePocLocation Condition="'$(NativePocLocation)' == ''">false</NativePocLocation>
+		<DefineConstants>$(DefineConstants);NATIVEPOC_ROOT_HOME</DefineConstants>
+		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
+		<PublishAot>true</PublishAot>
+		<PublishTrimmed>true</PublishTrimmed>
+		<AndroidLinkMode>SdkOnly</AndroidLinkMode>
+		<TrimMode>full</TrimMode>
+		<EnablePreviewFeatures>true</EnablePreviewFeatures>
+		<NativePocProgramOnly>true</NativePocProgramOnly>
+		<AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
+		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+		<DebugSymbols>false</DebugSymbols>
+		<DebugType>none</DebugType>
+		<IlcGenerateDebugInfo>false</IlcGenerateDebugInfo>
+		<DebuggerSupport>false</DebuggerSupport>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<UseSystemResourceKeys>true</UseSystemResourceKeys>
+		<EventSourceSupport>false</EventSourceSupport>
+		<HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+		<MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+		<StackTraceSupport>false</StackTraceSupport>
+		<MetricsSupport>false</MetricsSupport>
+		<StartupHookSupport>false</StartupHookSupport>
+		<_EnableSerializationDiscovery>false</_EnableSerializationDiscovery>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocProgramOnly)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_PROGRAM_ONLY</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocHttp)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_HTTP;NATIVEPOC_LAZY_FEED</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocLocation)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_LOCATION</DefineConstants>
+	</PropertyGroup>
+	<Target Name="RefuseDevListenerInRelease" BeforeTargets="Build;Publish">
+		<Error
+			Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' == 'Release'"
+			Text="NativePocDevListener refuses to build into a normal Release." />
+		<Error
+			Condition="'$(NativePocDevListener)' != 'true' And '$(Configuration)' != 'Release' And '$(PublishAot)' == 'true'"
+			Text="PublishAot on a Debug build requires NativePocDevListener, which keeps the program-only listener. A normal Release publishes NativeAOT without the listener." />
+	</Target>
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<PublishAot>true</PublishAot>
+		<EnablePreviewFeatures>true</EnablePreviewFeatures>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<EventSourceSupport>false</EventSourceSupport>
+		<HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+		<MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+		<DebuggerSupport>false</DebuggerSupport>
+		<UseSystemResourceKeys>true</UseSystemResourceKeys>
+		<IlcGenerateDebugInfo>false</IlcGenerateDebugInfo>
+		<StackTraceSupport>false</StackTraceSupport>
+		<MetricsSupport>false</MetricsSupport>
+		<StartupHookSupport>false</StartupHookSupport>
+	</PropertyGroup>
+	<ItemGroup>
+		<Using Include="NativePoc" />
+		<PackageReference Include="NativePoc.Core" Version="0.3.0" />
+		<PackageReference Include="NativePoc.Screen" Version="0.3.0" />
+		<PackageReference Include="NativePoc.Packing" Version="0.3.0" />
+		<PackageReference Include="NativePoc.Library" Version="0.3.0" />
+		<PackageReference Include="NativePoc.ReloadGen" Version="0.3.0" />
+		<PackageReference Include="NativePoc.Host" Version="0.3.0" />
+	</ItemGroup>
+</Project>

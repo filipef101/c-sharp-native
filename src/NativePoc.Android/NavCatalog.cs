@@ -342,6 +342,7 @@ static class NavCatalog
 		foreach (var screen in nav.Screens)
 			StageKnown(screen.Id);
 		ScreenNav.Shared.Restore(nav);
+		Log.Info(MainActivity.Tag, "nav-restore depth=" + ScreenNav.Shared.Depth.ToString(System.Globalization.CultureInfo.InvariantCulture));
 		if (ScreenNav.Shared.DropUnresolved())
 			return;
 		Log.Info(MainActivity.Tag, "state-nav unresolved, showing counter");

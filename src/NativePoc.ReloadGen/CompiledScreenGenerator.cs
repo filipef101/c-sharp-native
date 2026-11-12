@@ -219,10 +219,15 @@ public sealed class CompiledScreenGenerator : IIncrementalGenerator
 		{
 			var parts = reference.SyntaxTree.FilePath.Replace('\\', '/').Split('/');
 			var samples = System.Array.IndexOf(parts, "samples");
-			if (samples < 0 || samples + 1 >= parts.Length)
-				continue;
-			var folder = parts[samples + 1];
-			if (folder.Length > 0 && folder[0] is >= 'a' and <= 'z' && folder.IndexOf('.') < 0)
+			if (samples >= 0 && samples + 1 < parts.Length)
+			{
+				var folder = parts[samples + 1];
+				if (folder.Length > 0 && folder[0] is >= 'a' and <= 'z' && folder.IndexOf('.') < 0)
+					return true;
+			}
+
+			var screens = System.Array.IndexOf(parts, "screens");
+			if (screens >= 0 && screens + 1 < parts.Length && parts[screens + 1].EndsWith(".cs", System.StringComparison.Ordinal))
 				return true;
 		}
 

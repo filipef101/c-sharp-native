@@ -108,6 +108,31 @@ sealed class ScreenCompiler
 			diagnostic.GetMessage(CultureInfo.InvariantCulture));
 	}
 
+	static string CoreAssembly(string repo)
+	{
+		var built = Path.Combine(repo, "src", "NativePoc.Core", "bin", "Debug", "net10.0", "NativePoc.Core.dll");
+		if (File.Exists(built))
+			return built;
+		var beside = Path.Combine(AppContext.BaseDirectory, "NativePoc.Core.dll");
+		if (File.Exists(beside))
+			return beside;
+		var cache = Path.Combine(
+			Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+			".nuget",
+			"packages",
+			"nativepoc.core");
+		if (Directory.Exists(cache))
+		{
+			foreach (var candidate in Directory.EnumerateFiles(cache, "NativePoc.Core.dll", SearchOption.AllDirectories))
+			{
+				if (candidate.Contains($"{Path.DirectorySeparatorChar}net10.0{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+					return candidate;
+			}
+		}
+
+		throw new InvalidOperationException("Build NativePoc.Core before reloading the screen.");
+	}
+
 	static IReadOnlyList<MetadataReference> References(string repo)
 	{
 		var dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT")
@@ -119,9 +144,7 @@ sealed class ScreenCompiler
 			.Select(dir => Path.Combine(dir, "ref", "net10.0"))
 			.FirstOrDefault(Directory.Exists)
 			?? throw new InvalidOperationException("The net10.0 reference pack was not found under " + packRoot + ".");
-		var corePath = Path.Combine(repo, "src", "NativePoc.Core", "bin", "Debug", "net10.0", "NativePoc.Core.dll");
-		if (!File.Exists(corePath))
-			throw new InvalidOperationException("Build NativePoc.Core before reloading the screen.");
+		var corePath = CoreAssembly(repo);
 		var coreBytes = File.ReadAllBytes(corePath);
 		using var core = new MemoryStream(coreBytes, writable: false);
 		return Directory.GetFiles(refDir, "*.dll")

@@ -9,6 +9,11 @@
 		<RootNamespace>NativePoc.Devx</RootNamespace>
 		<AssemblyName>cnative</AssemblyName>
 		<InvariantGlobalization>true</InvariantGlobalization>
+		<IsPackable>true</IsPackable>
+		<PackAsTool>true</PackAsTool>
+		<ToolCommandName>cnative</ToolCommandName>
+		<PackageId>NativePoc.Devx.Cli</PackageId>
+		<Version>0.3.0</Version>
 	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\src\NativePoc.Core\NativePoc.Core.csproj" />

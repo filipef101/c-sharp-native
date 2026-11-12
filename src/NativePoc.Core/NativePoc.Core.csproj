@@ -6,5 +6,7 @@
 		<RootNamespace>NativePoc</RootNamespace>
 		<IsAotCompatible>true</IsAotCompatible>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<Version>0.3.0</Version>
+		<IsPackable>true</IsPackable>
 	</PropertyGroup>
 </Project>

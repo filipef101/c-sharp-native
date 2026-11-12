@@ -13,12 +13,16 @@
 #     --run counter:nativepoc.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
 #     --run floor:floor.apk:com.scratch.floor/.FloorActivity \
 #     --run 'packing:nativepoc.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:--es nativepoc_bench packing1000'
-# Feed cold start, interleaved with the counter. The summary prints TotalTime
-# and, when the log has them, since-process p50 for runtime, render, attach,
-# bind, draw, and list-first. The serial is the pixel_8 emulator.
+# Feed cold start, interleaved with the counter. Both series use the same feed
+# APK. mac-bench.sh refuses one package installed from two APK paths. The
+# Java floor is a different package, so it can sit in the same run. The
+# summary prints TotalTime and, when the log has them, since-process p50 for
+# runtime, render, attach, bind, draw, and list-first. The serial is the
+# pixel_8 emulator.
 #   tools/bench/mac-bench.sh --device <pixel_8> --n 10 --out /tmp/feed-cold \
-#     --run counter:nativepoc-counter-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
-#     --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed'
+#     --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+#     --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+#     --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
 set -euo pipefail
 
 samples=20
@@ -410,14 +414,17 @@ done
 			local round value
 			for ((round = 0; round < samples; round++)); do
 				value="$(awk -v pattern="$pattern" '
-					$0 ~ pattern {
+					index($0, "startup mark=activity ") { hit = "" }
+					$0 ~ pattern && hit == "" {
 						value = $0
 						sub(/^.*since-process-ms=/, "", value)
 						sub(/[^0-9].*$/, "", value)
-						if (value ~ /^[0-9]+$/) {
-							print value
-							exit
-						}
+						if (value ~ /^[0-9]+$/)
+							hit = value
+					}
+					END {
+						if (hit != "")
+							print hit
 					}
 				' "$out/$label-log-$round.txt" || true)"
 				[[ -n "$value" ]] && values+=("$value")
@@ -446,6 +453,7 @@ done
 			echo "method=am start -W -S LaunchState=COLD warmup=1 discarded per series interleaved=1 percentile=Hyndman-Fan-7"
 			echo "load=$(tr '\n' ' ' <"$out/round-load.txt" | sed 's/ $//')"
 		} >"$out/$label-summary.txt"
+		echo "startup_since_process_p50 $label runtime=$runtime_p50 render=$render_p50 attach=$attach_p50 bind=$bind_p50 draw=$draw_phase_p50 list=$list_p50"
 	done
 	floor_seen=0
 	for ((s = 0; s < ${#labels[@]}; s++)); do
