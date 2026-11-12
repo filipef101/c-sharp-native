@@ -164,9 +164,33 @@ public static class HeadlessLayout
 
 		var gap = element.Style?.Gap ?? 0;
 		var at = boxes.Count;
+		var prefix = id == "root" ? "" : id;
+		if (element.Style is { Across: > 0 })
+		{
+			var count = children.Count;
+			var gaps = count > 1 ? gap * (count - 1) : 0;
+			var slot = count == 0 ? innerWidth : Math.Max(0, (innerWidth - gaps) / count);
+			var rowTop = top + pad;
+			var max = 0;
+			var x = innerLeft;
+			for (var index = 0; index < count; index++)
+			{
+				var child = children[index];
+				var childId = ChildId(child, prefix, index);
+				var childHeight = MeasureNode(child, childId, x, rowTop, slot, boxes, fontScale);
+				if (childHeight > max)
+					max = childHeight;
+				x += slot + gap;
+			}
+
+			var across = max + (pad * 2);
+			Floor(element, ref width, ref across);
+			boxes.Insert(at, new Box(id, left, top, width, across));
+			return across;
+		}
+
 		var y = top + pad;
 		var content = 0;
-		var prefix = id == "root" ? "" : id;
 		for (var index = 0; index < children.Count; index++)
 		{
 			if (index > 0)
@@ -176,11 +200,7 @@ public static class HeadlessLayout
 			}
 
 			var child = children[index];
-			var childId = child.Key is { Length: > 0 } key
-				? (prefix.Length == 0 ? key : prefix + "/" + key)
-				: prefix.Length == 0
-					? index.ToString(CultureInfo.InvariantCulture)
-					: prefix + "/" + index.ToString(CultureInfo.InvariantCulture);
+			var childId = ChildId(child, prefix, index);
 			var childHeight = MeasureNode(child, childId, innerLeft, y, innerWidth, boxes, fontScale);
 			y += childHeight;
 			content += childHeight;
@@ -243,6 +263,14 @@ public static class HeadlessLayout
 
 	static int Scale(int unit, float fontScale) =>
 		fontScale == 1f ? unit : (int)Math.Ceiling(unit * fontScale);
+
+	static string ChildId(Element child, string prefix, int index)
+	{
+		if (child.Key is { Length: > 0 } key)
+			return prefix.Length == 0 ? key : prefix + "/" + key;
+		var ordinal = index.ToString(CultureInfo.InvariantCulture);
+		return prefix.Length == 0 ? ordinal : prefix + "/" + ordinal;
+	}
 
 	static IReadOnlyList<Element> Children(Element element)
 	{

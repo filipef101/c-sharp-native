@@ -30,4 +30,21 @@ public sealed class HeadlessHostTests
 		Assert.DoesNotContain("Save name", host.Accessibility, StringComparison.Ordinal);
 		Assert.Contains("id=root left=0 top=0 width=360", host.Layout, StringComparison.Ordinal);
 	}
+
+	[Fact]
+	public void An_across_column_places_children_side_by_side()
+	{
+		var host = new HeadlessHost();
+		host.Show(_ => new Column(
+		[
+			new Text("Left") { Key = "left" },
+			new Text("Right") { Key = "right" },
+		])
+		{
+			Key = "row",
+			Style = new Style { Across = 1, Gap = 16 },
+		});
+		Assert.Contains("id=row/left left=0 top=0 width=172", host.Layout, StringComparison.Ordinal);
+		Assert.Contains("id=row/right left=188 top=0 width=172", host.Layout, StringComparison.Ordinal);
+	}
 }

@@ -34,6 +34,9 @@ public sealed class StyleEffectTests
 			Radius = 10,
 			Color = 0xFF1B3A2F,
 			Background = 0xFFF4F1EA,
+			Across = 1,
+			Wash = 0xFF3FA888,
+			Stroke = 0xFF0F6E56,
 		};
 		var bytes = new byte[StyleCodec.Bytes];
 		StyleCodec.Write(style, bytes);

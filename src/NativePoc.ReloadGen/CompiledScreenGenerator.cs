@@ -163,6 +163,28 @@ public sealed class CompiledScreenGenerator : IIncrementalGenerator
 			builder.Append("\t\tStore").Append(screen.Holder).Append("();\n");
 		builder.AppendLine("\t}");
 		builder.AppendLine();
+		builder.AppendLine("\tpublic static void ApplyTheme(bool dark, bool large)");
+		builder.AppendLine("\t{");
+		var themed = false;
+		foreach (var screen in screens)
+		{
+			var darkProp = BoolProp(screen.StateSymbol, "Dark");
+			var largeProp = BoolProp(screen.StateSymbol, "Large");
+			if (!darkProp && !largeProp)
+				continue;
+			themed = true;
+			builder.Append("\t\t{ var state = ").Append(Hold(screen.Holder)).Append("; ");
+			if (darkProp)
+				builder.Append("state.Dark = dark; ");
+			if (largeProp)
+				builder.Append("state.Large = large; ");
+			builder.AppendLine("}");
+		}
+
+		if (!themed)
+			builder.AppendLine("\t\t_ = (dark, large);");
+		builder.AppendLine("\t}");
+		builder.AppendLine();
 		builder.AppendLine("\tpublic static void Recall(NavCheckpoint nav)");
 		builder.AppendLine("\t{");
 		builder.AppendLine("\t\tforeach (var screen in nav.Screens)");
@@ -471,6 +493,12 @@ public sealed class CompiledScreenGenerator : IIncrementalGenerator
 
 		return found;
 	}
+
+	static bool BoolProp(INamedTypeSymbol state, string name) =>
+		state.GetMembers(name).OfType<IPropertySymbol>().Any(property =>
+			property.Type.SpecialType == SpecialType.System_Boolean
+			&& property.SetMethod is not null
+			&& property.DeclaredAccessibility == Accessibility.Public);
 
 	static string Hold(string holder) => "Hold" + holder + "()";
 

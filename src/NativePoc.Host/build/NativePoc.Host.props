@@ -34,8 +34,8 @@
 	<ItemGroup Condition="'$(NativePocJni)' == 'true'">
 		<AndroidManifestOverlay Include="$(NativePocHostDir)Properties\VibratePermission.xml" />
 	</ItemGroup>
-	<PropertyGroup Condition="'$(NativePocJni)' == 'true'">
-		<AndroidManifestPlaceholders>$(AndroidManifestPlaceholders);nativepocJni=1</AndroidManifestPlaceholders>
+	<PropertyGroup>
+		<AndroidManifestPlaceholders>$(AndroidManifestPlaceholders);nativepocJni=$(NativePocJni)</AndroidManifestPlaceholders>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocLocation)' == 'true'">
 		<!-- Same reason as the app project: the manifest merger only reruns when an

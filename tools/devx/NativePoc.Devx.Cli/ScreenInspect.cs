@@ -153,7 +153,7 @@ static class ScreenInspect
 				findings.Add(new Finding("missing-label", node.Id, "Missing label on " + ScreenSnapshot.Role(node.Element) + " " + node.Id + "."));
 			if (ImageAccess(node.Element, node.Id) is { } imageAccess)
 				findings.Add(imageAccess);
-			if (FixedHeight(node.Element, node.Id, boxes, scaled) is { } fixedHeight)
+			if (FixedHeight(node, nodes, boxes, scaled) is { } fixedHeight)
 				findings.Add(fixedHeight);
 			if (IsTouch(node.Element))
 			{
@@ -185,12 +185,14 @@ static class ScreenInspect
 	}
 
 	static Finding? FixedHeight(
-		Element element,
-		string id,
+		ElementIds.Node node,
+		IReadOnlyList<ElementIds.Node> nodes,
 		Dictionary<string, HeadlessLayout.Box> boxes,
 		Dictionary<string, HeadlessLayout.Box>? scaled)
 	{
-		if (element.Style is { Grow: > 0 } && ContainsText(element))
+		var element = node.Element;
+		var id = node.Id;
+		if (element.Style is { Grow: > 0 } && ContainsText(element) && !WidthShare(node, nodes))
 			return new Finding("fixed-height", id, "Text in " + id + " is in a fixed-height container.");
 		if (scaled is null || element is not (NativePoc.Text or Button or TextField or TextInput or Switch))
 			return null;
@@ -211,6 +213,20 @@ static class ScreenInspect
 		if (image.Decorative || image.Description.Length > 0)
 			return null;
 		return new Finding("image-a11y", id, "Image " + id + " needs a description or Decorative = true.");
+	}
+
+	static bool WidthShare(ElementIds.Node node, IReadOnlyList<ElementIds.Node> nodes)
+	{
+		if (node.Path.Length == 0)
+			return false;
+		var parent = node.Path.Parent();
+		foreach (var other in nodes)
+		{
+			if (other.Path.Equals(parent) && other.Element.Style is { Across: > 0 })
+				return true;
+		}
+
+		return false;
 	}
 
 	static bool ContainsText(Element element)

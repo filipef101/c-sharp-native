@@ -122,6 +122,7 @@ sealed class AndroidHost : IElementHost<View>
 		if (view is not AndroidButton button)
 			throw new InvalidOperationException("Button patch targeted a non-button view.");
 		button.Text = title;
+		button.TransformationMethod = null;
 		button.ContentDescription = accessibilityLabel;
 		button.SetSingleLine(false);
 		button.Ellipsize = null;
@@ -237,8 +238,14 @@ sealed class AndroidHost : IElementHost<View>
 
 			if (margin is LinearLayout.LayoutParams linear && style.Grow > 0)
 			{
-				linear.Height = 0;
 				linear.Weight = style.Grow;
+				if (view.Parent is LinearLayout parent && parent.Orientation == Orientation.Horizontal)
+				{
+					linear.Width = 0;
+					linear.Height = ViewGroup.LayoutParams.WrapContent;
+				}
+				else
+					linear.Height = 0;
 			}
 
 			view.LayoutParameters = margin;
@@ -246,6 +253,7 @@ sealed class AndroidHost : IElementHost<View>
 
 		if (view is LinearLayout row)
 		{
+			row.Orientation = style.Across > 0 ? Orientation.Horizontal : Orientation.Vertical;
 			if (style.Gap > 0)
 			{
 				var gap = Px(style.Gap);
@@ -300,13 +308,24 @@ sealed class AndroidHost : IElementHost<View>
 				: new Android.Graphics.Color(unchecked((int)style.Color)));
 		}
 
-		if (style.Background != 0 || style.Radius > 0)
+		if (style.Background != 0 || style.Wash != 0 || style.Radius > 0 || style.Stroke != 0)
 		{
 			var drawable = new GradientDrawable();
 			drawable.SetCornerRadius(Px(style.Radius));
-			drawable.SetColor(style.Background == 0
-				? Android.Graphics.Color.Transparent
-				: new Android.Graphics.Color(unchecked((int)style.Background)));
+			if (style.Background != 0 && style.Wash != 0)
+			{
+				drawable.SetOrientation(GradientDrawable.Orientation.TopBottom);
+				drawable.SetColors(new[] { unchecked((int)style.Background), unchecked((int)style.Wash) });
+			}
+			else
+			{
+				drawable.SetColor(style.Background == 0
+					? Android.Graphics.Color.Transparent
+					: new Android.Graphics.Color(unchecked((int)style.Background)));
+			}
+
+			if (style.Stroke != 0)
+				drawable.SetStroke(Math.Max(1, Px(2)), new Android.Graphics.Color(unchecked((int)style.Stroke)));
 			if (view is AndroidButton tinted)
 				tinted.BackgroundTintList = null;
 			view.Background = drawable;

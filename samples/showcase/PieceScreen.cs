@@ -45,22 +45,21 @@ public static class PieceScreen
 
 		return new ScrollView(new Column(
 		[
-			new Text("Piece") { Key = "heading", Style = new Style { FontSize = 32, Weight = FontWeight.Bold } },
 			state.Tone == "Mist"
-				? new Column([new Text(state.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFF143028 } }]) { Key = "swatch", Style = new Style { Background = 0xFF8EAEB4, Radius = 18, Padding = 18 } }
+				? new Text(state.Tone) { Key = "swatch", Style = new Style { Background = 0xFF6E97A0, Wash = 0xFFD5E6EA, Color = 0xFF143028, Radius = 16, Padding = 48, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center } }
 				: state.Tone == "Iron"
-					? new Column([new Text(state.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFFF4F7F5 } }]) { Key = "swatch", Style = new Style { Background = 0xFF6B5E53, Radius = 18, Padding = 18 } }
+					? new Text(state.Tone) { Key = "swatch", Style = new Style { Background = 0xFF4A4038, Wash = 0xFF8A7B6E, Color = 0xFFF7F4EF, Radius = 16, Padding = 48, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center } }
 					: state.Tone == "Ash"
-						? new Column([new Text(state.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFF143028 } }]) { Key = "swatch", Style = new Style { Background = 0xFFC4B7A6, Radius = 18, Padding = 18 } }
+						? new Text(state.Tone) { Key = "swatch", Style = new Style { Background = 0xFFA89886, Wash = 0xFFE4D9CC, Color = 0xFF143028, Radius = 16, Padding = 48, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center } }
 						: state.Tone == "Cobalt"
-							? new Column([new Text(state.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFFF4F7F5 } }]) { Key = "swatch", Style = new Style { Background = 0xFF1F4E79, Radius = 18, Padding = 18 } }
+							? new Text(state.Tone) { Key = "swatch", Style = new Style { Background = 0xFF163A5C, Wash = 0xFF3E78B0, Color = 0xFFF7F4EF, Radius = 16, Padding = 48, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center } }
 							: state.Tone == "Straw"
-								? new Column([new Text(state.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFF143028 } }]) { Key = "swatch", Style = new Style { Background = 0xFFE0B15A, Radius = 18, Padding = 18 } }
+								? new Text(state.Tone) { Key = "swatch", Style = new Style { Background = 0xFFC4923A, Wash = 0xFFF0D48A, Color = 0xFF143028, Radius = 16, Padding = 48, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center } }
 								: state.Tone == "Slate"
-									? new Column([new Text(state.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFFF4F7F5 } }]) { Key = "swatch", Style = new Style { Background = 0xFF5E6A73, Radius = 18, Padding = 18 } }
+									? new Text(state.Tone) { Key = "swatch", Style = new Style { Background = 0xFF3E4850, Wash = 0xFF8A969E, Color = 0xFFF7F4EF, Radius = 16, Padding = 48, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center } }
 									: state.Tone == "Bone"
-										? new Column([new Text(state.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFF143028 } }]) { Key = "swatch", Style = new Style { Background = 0xFFE7E1D5, Radius = 18, Padding = 18 } }
-										: new Column([new Text(state.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFFF4F7F5 } }]) { Key = "swatch", Style = new Style { Background = 0xFFB5694D, Radius = 18, Padding = 18 } },
+										? new Text(state.Tone) { Key = "swatch", Style = new Style { Background = 0xFFC9C0B0, Wash = 0xFFF3EFE6, Color = 0xFF143028, Radius = 16, Padding = 48, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center } }
+										: new Text(state.Tone) { Key = "swatch", Style = new Style { Background = 0xFF8C4A34, Wash = 0xFFD4A090, Color = 0xFFF7F4EF, Radius = 16, Padding = 48, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center } },
 			new Text(state.Title) { Key = "title", Style = new Style { FontSize = 28, Weight = FontWeight.Bold } },
 			new Text(state.Note) { Key = "note", Style = new Style { FontSize = 16 } },
 			new Text(state.Kept.Length == 0 ? "Not kept yet." : "Kept " + state.Kept)
@@ -68,20 +67,26 @@ public static class PieceScreen
 				Key = "kept",
 				Style = new Style { FontSize = 16 },
 			},
-			new Button("Keep", () => Keep(), "Keep")
-			{
-				Key = "keep",
-				Style = new Style { Background = 0xFF0F6E56, Color = 0xFFF4F7F5, Radius = 16, Padding = 14, FontSize = 16, Weight = FontWeight.Bold },
-			},
+			state.Kept.Length == 0
+				? new Button("Keep", () => Keep(), "Keep")
+				{
+					Key = "keep",
+					Style = new Style { Background = 0xFFFFFFFF, Stroke = 0xFF0F6E56, Color = 0xFF0F6E56, Radius = 24, Padding = 14, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center },
+				}
+				: new Button("Keep", () => Keep(), "Keep")
+				{
+					Key = "keep",
+					Style = new Style { Background = 0xFF0F6E56, Color = 0xFFF7F4EF, Radius = 24, Padding = 14, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center },
+				},
 			new Button("Clear", () => Clear(), "Clear")
 			{
 				Key = "clear",
-				Style = new Style { Background = 0xFF143028, Color = 0xFFF4F7F5, Radius = 16, Padding = 14, FontSize = 16, Weight = FontWeight.Bold },
+				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
 			},
 			new Button("Recall", () => Recall(), "Recall")
 			{
 				Key = "recall",
-				Style = new Style { Background = 0xFF143028, Color = 0xFFF4F7F5, Radius = 16, Padding = 14, FontSize = 16, Weight = FontWeight.Bold },
+				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
 			},
 			new Button(
 				"Back",
@@ -93,12 +98,12 @@ public static class PieceScreen
 				"Back")
 			{
 				Key = "back",
-				Style = new Style { Background = 0xFF143028, Color = 0xFFF4F7F5, Radius = 16, Padding = 14, FontSize = 16, Weight = FontWeight.Bold },
+				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
 			},
 		])
 		{
 			Key = "page",
-			Style = new Style { Gap = 14 },
+			Style = new Style { Gap = 16 },
 		})
 		{ Key = "scroll" };
 	}

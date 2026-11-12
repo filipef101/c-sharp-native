@@ -479,6 +479,7 @@ stable|P:NativePoc.ScrollView.Child
 stable|P:NativePoc.StringTable.AssetSuffix
 stable|P:NativePoc.StringTable.Language
 stable|P:NativePoc.StringTable.RightToLeft
+stable|P:NativePoc.Style.Across
 stable|P:NativePoc.Style.Align
 stable|P:NativePoc.Style.Background
 stable|P:NativePoc.Style.Color
@@ -488,6 +489,8 @@ stable|P:NativePoc.Style.Grow
 stable|P:NativePoc.Style.Margin
 stable|P:NativePoc.Style.Padding
 stable|P:NativePoc.Style.Radius
+stable|P:NativePoc.Style.Stroke
+stable|P:NativePoc.Style.Wash
 stable|P:NativePoc.Style.Weight
 stable|P:NativePoc.Switch.AccessibilityLabel
 stable|P:NativePoc.Switch.OnChange

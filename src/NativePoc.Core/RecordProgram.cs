@@ -93,6 +93,7 @@ internal static partial class RecordProgram
 	public const byte ActTry = 40;
 	public const byte ActLeave = 41;
 	public const byte ActEndFinally = 42;
+	public const byte ActPushIndex = 43;
 
 	public const int ActionStepBudget = 100_000;
 
@@ -1284,6 +1285,39 @@ internal static partial class RecordProgram
 		platform.Push(screen);
 	}
 
+	static void DeliverIndex(byte[] script, string[] strings, Bag bag, IPlatform platform, ref int ip)
+	{
+		var screen = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+		var list = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+		var row = TakeU16(script, ref ip, script.Length);
+		var idField = TakeU16(script, ref ip, script.Length);
+		if (ip >= script.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var count = script[ip++];
+		var fields = new (string Name, int Index, string Value)[count];
+		for (var index = 0; index < count; index++)
+		{
+			var cell = TakeU16(script, ref ip, script.Length);
+			var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+			fields[index] = (name, cell, bag.CellAt(list, row, cell));
+		}
+
+		if (ip >= script.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var flagCount = script[ip++];
+		var flags = new (string Name, int Index, bool Value)[flagCount];
+		for (var index = 0; index < flagCount; index++)
+		{
+			var cell = TakeU16(script, ref ip, script.Length);
+			var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+			flags[index] = (name, cell, bag.CellAt(list, row, cell) == "true");
+		}
+
+		var idValue = bag.CellAt(list, row, idField);
+		ScreenNav.Shared.DeliverRow(screen, list, idValue, idField, fields, flags);
+		platform.Push(screen);
+	}
+
 	public static void RunRenderRequest(IPlatform platform)
 	{
 		ArgumentNullException.ThrowIfNull(platform);
@@ -1513,6 +1547,9 @@ internal static partial class RecordProgram
 					break;
 				case ActPushRow:
 					DeliverRow(script, strings, bag, platform, rowId, ref ip);
+					break;
+				case ActPushIndex:
+					DeliverIndex(script, strings, bag, platform, ref ip);
 					break;
 				case ActWriteBack:
 					ScreenNav.Shared.WriteBack();

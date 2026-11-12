@@ -66,16 +66,22 @@ public readonly record struct Style
 	public uint Color { get; init; }
 
 	public uint Background { get; init; }
+
+	public int Across { get; init; }
+
+	public uint Wash { get; init; }
+
+	public uint Stroke { get; init; }
 }
 
 internal static class StyleCodec
 {
-	public const int Bytes = 22;
+	public const int Bytes = 32;
 
 	public static void Write(Style style, Span<byte> dest)
 	{
 		if (dest.Length < Bytes)
-			throw new ArgumentException("Style encoding is 22 bytes.", nameof(dest));
+			throw new ArgumentException("Style encoding is 32 bytes.", nameof(dest));
 		WriteI16(dest, 0, style.Padding);
 		WriteI16(dest, 2, style.Margin);
 		WriteI16(dest, 4, style.Gap);
@@ -86,6 +92,9 @@ internal static class StyleCodec
 		dest[13] = (byte)style.Weight;
 		WriteU32(dest, 14, style.Color);
 		WriteU32(dest, 18, style.Background);
+		WriteI16(dest, 22, style.Across);
+		WriteU32(dest, 24, style.Wash);
+		WriteU32(dest, 28, style.Stroke);
 	}
 
 	public static Style Read(ReadOnlySpan<byte> src)
@@ -104,6 +113,9 @@ internal static class StyleCodec
 			Weight = (FontWeight)src[13],
 			Color = ReadU32(src, 14),
 			Background = ReadU32(src, 18),
+			Across = ReadI16(src, 22),
+			Wash = ReadU32(src, 24),
+			Stroke = ReadU32(src, 28),
 		};
 	}
 

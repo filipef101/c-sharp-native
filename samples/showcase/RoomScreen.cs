@@ -24,36 +24,49 @@ public static class RoomScreen
 				Key = "lede",
 				Style = new Style { FontSize = 16 },
 			},
-			new Text(state.Dark ? "Night is on." : "Day is on.")
-			{
-				Key = "night-state",
-				Style = new Style { FontSize = 14 },
-			},
-			new Switch(
-				state.Dark,
-				value =>
+			new Column(
+			[
+				new Text(state.Dark ? "Night is on." : "Day is on.")
 				{
-					state.Dark = value;
-					Theme.Mode(platform, state.Dark);
-					platform.RequestRender();
+					Key = "night-state",
+					Style = new Style { FontSize = 16, Color = 0xFF1C1917 },
 				},
-				"Night")
-			{ Key = "night" },
-			new Text(state.Large ? "Large type is on." : "Type is at the usual size.")
-			{
-				Key = "type-state",
-				Style = new Style { FontSize = 14 },
-			},
-			new Switch(
-				state.Large,
-				value =>
+				new Switch(
+					state.Dark,
+					value =>
+					{
+						state.Dark = value;
+						Theme.Mode(platform, state.Dark);
+						platform.RequestRender();
+					},
+					"Night")
 				{
-					state.Large = value;
-					Theme.Scale(platform, state.Large);
-					platform.RequestRender();
+					Key = "night",
+					Style = new Style { Color = 0xFF1C1917, FontSize = 16 },
 				},
-				"Large type")
-			{ Key = "large" },
+				new Text(state.Large ? "Large type is on." : "Type is at the usual size.")
+				{
+					Key = "type-state",
+					Style = new Style { FontSize = 16, Color = 0xFF1C1917 },
+				},
+				new Switch(
+					state.Large,
+					value =>
+					{
+						state.Large = value;
+						Theme.Scale(platform, state.Large);
+						platform.RequestRender();
+					},
+					"Large type")
+				{
+					Key = "large",
+					Style = new Style { Color = 0xFF1C1917, FontSize = 16 },
+				},
+			])
+			{
+				Key = "card",
+				Style = new Style { Background = 0xFFFFFFFF, Radius = 16, Padding = 16, Gap = 12 },
+			},
 			new Button(
 				"Back",
 				() =>
@@ -64,12 +77,12 @@ public static class RoomScreen
 				"Back")
 			{
 				Key = "back",
-				Style = new Style { Background = 0xFF0F6E56, Color = 0xFFF4F7F5, Radius = 16, Padding = 14, FontSize = 16, Weight = FontWeight.Bold },
+				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
 			},
 		])
 		{
 			Key = "page",
-			Style = new Style { Gap = 14 },
+			Style = new Style { Gap = 24 },
 		})
 		{ Key = "scroll" };
 }

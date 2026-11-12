@@ -79,6 +79,8 @@ static class ThemeRuntime
 			bag.WriteBool("Dark", dark);
 			bag.WriteBool("Large", large);
 		}
+
+		CompiledScreens.ApplyTheme(dark, large);
 	}
 
 	public static void ApplyWindow(Activity activity)

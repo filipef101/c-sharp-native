@@ -32,70 +32,223 @@ public static class ShelfScreen
 {
 	public const string ScreenId = "shelf";
 
-	public static Element Render(ShelfState state, IPlatform platform)
-	{
-		Element Swatch(Piece item)
-		{
-			return item.Tone == "Mist"
-				? new Column([new Text(item.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFF143028 } }]) { Key = "swatch", Style = new Style { Background = 0xFF8EAEB4, Radius = 14, Padding = 12 } }
-				: item.Tone == "Iron"
-					? new Column([new Text(item.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFFF4F7F5 } }]) { Key = "swatch", Style = new Style { Background = 0xFF6B5E53, Radius = 14, Padding = 12 } }
-					: item.Tone == "Ash"
-						? new Column([new Text(item.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFF143028 } }]) { Key = "swatch", Style = new Style { Background = 0xFFC4B7A6, Radius = 14, Padding = 12 } }
-						: item.Tone == "Cobalt"
-							? new Column([new Text(item.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFFF4F7F5 } }]) { Key = "swatch", Style = new Style { Background = 0xFF1F4E79, Radius = 14, Padding = 12 } }
-							: item.Tone == "Straw"
-								? new Column([new Text(item.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFF143028 } }]) { Key = "swatch", Style = new Style { Background = 0xFFE0B15A, Radius = 14, Padding = 12 } }
-								: item.Tone == "Slate"
-									? new Column([new Text(item.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFFF4F7F5 } }]) { Key = "swatch", Style = new Style { Background = 0xFF5E6A73, Radius = 14, Padding = 12 } }
-									: item.Tone == "Bone"
-										? new Column([new Text(item.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFF143028 } }]) { Key = "swatch", Style = new Style { Background = 0xFFE7E1D5, Radius = 14, Padding = 12 } }
-										: new Column([new Text(item.Tone) { Key = "chip", Style = new Style { FontSize = 13, Weight = FontWeight.Bold, Color = 0xFFF4F7F5 } }]) { Key = "swatch", Style = new Style { Background = 0xFFB5694D, Radius = 14, Padding = 12 } };
-		}
-
-		Element Row(Piece item)
-		{
-			return new Column(
+	public static Element Render(ShelfState state, IPlatform platform) =>
+		new ScrollView(new Column(
+		[
+			new Text("The shelf")
+			{
+				Key = "heading",
+				Style = new Style { FontSize = 32, Weight = FontWeight.Bold },
+			},
+			new Text("Eight pieces from this firing.")
+			{
+				Key = "intro",
+				Style = new Style { FontSize = 16 },
+			},
+			new Column(
 			[
-				Swatch(item),
-				new Text(item.Title) { Key = "title", Style = new Style { FontSize = 20, Weight = FontWeight.Bold, Color = 0xFFF4F7F5 } },
-				new Text(item.Note) { Key = "note", Style = new Style { FontSize = 14, Color = 0xFFD5E4DE } },
-				new Button(
-					"Open",
-					() =>
+				new Column(
+				[
+					new Button(
+						"Mist",
+						() =>
+						{
+							platform.Push("piece", state.Pieces[0]);
+							platform.RequestRender();
+						},
+						"Harbor bowl")
 					{
-						platform.Push("piece", item);
-						platform.RequestRender();
+						Key = "swatch",
+						Style = new Style { Background = 0xFF6E97A0, Wash = 0xFFD5E6EA, Color = 0xFF143028, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
 					},
-					"Open")
+					new Text("Harbor bowl") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
+				])
 				{
-					Key = "open",
-					Style = new Style { Background = 0xFF143028, Color = 0xFFF4F7F5, Radius = 12, Padding = 10, FontSize = 15, Weight = FontWeight.Bold },
+					Key = "harbor",
+					Style = new Style { Gap = 8, Grow = 1 },
+				},
+				new Column(
+				[
+					new Button(
+						"Iron",
+						() =>
+						{
+							platform.Push("piece", state.Pieces[1]);
+							platform.RequestRender();
+						},
+						"Kiln door")
+					{
+						Key = "swatch",
+						Style = new Style { Background = 0xFF4A4038, Wash = 0xFF8A7B6E, Color = 0xFFF7F4EF, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
+					},
+					new Text("Kiln door") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
+				])
+				{
+					Key = "kiln",
+					Style = new Style { Gap = 8, Grow = 1 },
 				},
 			])
 			{
-				Key = item.Id,
-				Style = new Style { Background = 0xFF0F6E56, Radius = 22, Padding = 16, Gap = 8, Margin = 2 },
-			};
-		}
-
-		var rows = new List<Element>();
-		rows.Add(new Text("The shelf") { Key = "heading", Style = new Style { FontSize = 32, Weight = FontWeight.Bold } });
-		rows.Add(new Text("Eight pieces from this firing.") { Key = "intro", Style = new Style { FontSize = 16 } });
-		foreach (var item in state.Pieces)
-			rows.Add(Row(item));
-		rows.Add(new Button(
-			"Back",
-			() =>
-			{
-				platform.Pop();
-				platform.RequestRender();
+				Key = "row-0",
+				Style = new Style { Across = 1, Gap = 16 },
 			},
-			"Back")
+			new Column(
+			[
+				new Column(
+				[
+					new Button(
+						"Ash",
+						() =>
+						{
+							platform.Push("piece", state.Pieces[2]);
+							platform.RequestRender();
+						},
+						"Cedar tray")
+					{
+						Key = "swatch",
+						Style = new Style { Background = 0xFFA89886, Wash = 0xFFE4D9CC, Color = 0xFF143028, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
+					},
+					new Text("Cedar tray") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
+				])
+				{
+					Key = "cedar",
+					Style = new Style { Gap = 8, Grow = 1 },
+				},
+				new Column(
+				[
+					new Button(
+						"Cobalt",
+						() =>
+						{
+							platform.Push("piece", state.Pieces[3]);
+							platform.RequestRender();
+						},
+						"Night cup")
+					{
+						Key = "swatch",
+						Style = new Style { Background = 0xFF163A5C, Wash = 0xFF3E78B0, Color = 0xFFF7F4EF, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
+					},
+					new Text("Night cup") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
+				])
+				{
+					Key = "night",
+					Style = new Style { Gap = 8, Grow = 1 },
+				},
+			])
+			{
+				Key = "row-1",
+				Style = new Style { Across = 1, Gap = 16 },
+			},
+			new Column(
+			[
+				new Column(
+				[
+					new Button(
+						"Straw",
+						() =>
+						{
+							platform.Push("piece", state.Pieces[4]);
+							platform.RequestRender();
+						},
+						"Field plate")
+					{
+						Key = "swatch",
+						Style = new Style { Background = 0xFFC4923A, Wash = 0xFFF0D48A, Color = 0xFF143028, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
+					},
+					new Text("Field plate") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
+				])
+				{
+					Key = "field",
+					Style = new Style { Gap = 8, Grow = 1 },
+				},
+				new Column(
+				[
+					new Button(
+						"Slate",
+						() =>
+						{
+							platform.Push("piece", state.Pieces[5]);
+							platform.RequestRender();
+						},
+						"Rain jar")
+					{
+						Key = "swatch",
+						Style = new Style { Background = 0xFF3E4850, Wash = 0xFF8A969E, Color = 0xFFF7F4EF, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
+					},
+					new Text("Rain jar") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
+				])
+				{
+					Key = "rain",
+					Style = new Style { Gap = 8, Grow = 1 },
+				},
+			])
+			{
+				Key = "row-2",
+				Style = new Style { Across = 1, Gap = 16 },
+			},
+			new Column(
+			[
+				new Column(
+				[
+					new Button(
+						"Bone",
+						() =>
+						{
+							platform.Push("piece", state.Pieces[6]);
+							platform.RequestRender();
+						},
+						"Linen vase")
+					{
+						Key = "swatch",
+						Style = new Style { Background = 0xFFC9C0B0, Wash = 0xFFF3EFE6, Color = 0xFF143028, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
+					},
+					new Text("Linen vase") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
+				])
+				{
+					Key = "linen",
+					Style = new Style { Gap = 8, Grow = 1 },
+				},
+				new Column(
+				[
+					new Button(
+						"Copper",
+						() =>
+						{
+							platform.Push("piece", state.Pieces[7]);
+							platform.RequestRender();
+						},
+						"Moss tile")
+					{
+						Key = "swatch",
+						Style = new Style { Background = 0xFF8C4A34, Wash = 0xFFD4A090, Color = 0xFFF7F4EF, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
+					},
+					new Text("Moss tile") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
+				])
+				{
+					Key = "moss",
+					Style = new Style { Gap = 8, Grow = 1 },
+				},
+			])
+			{
+				Key = "row-3",
+				Style = new Style { Across = 1, Gap = 16 },
+			},
+			new Button(
+				"Back",
+				() =>
+				{
+					platform.Pop();
+					platform.RequestRender();
+				},
+				"Back")
+			{
+				Key = "back",
+				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
+			},
+		])
 		{
-			Key = "back",
-			Style = new Style { Background = 0xFF143028, Color = 0xFFF4F7F5, Radius = 16, Padding = 14, FontSize = 16, Weight = FontWeight.Bold },
-		});
-		return new ScrollView(new Column(rows) { Key = "list", Style = new Style { Gap = 14 } }) { Key = "scroll" };
-	}
+			Key = "list",
+			Style = new Style { Gap = 64 },
+		})
+		{ Key = "scroll" };
 }

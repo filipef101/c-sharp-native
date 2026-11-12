@@ -2143,6 +2143,9 @@ public static partial class SubsetLowerer
 			var weight = FontWeight.Regular;
 			uint color = 0;
 			uint background = 0;
+			var across = 0;
+			uint wash = 0;
+			uint stroke = 0;
 			foreach (var item in creation.Initializer.Expressions)
 			{
 				if (item is not AssignmentExpressionSyntax assignment || assignment.Left is not IdentifierNameSyntax name)
@@ -2189,6 +2192,18 @@ public static partial class SubsetLowerer
 						if (!ColorValue(assignment.Right, out background))
 							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
 						break;
+					case "Across":
+						if (!Integer(assignment.Right, out across))
+							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+						break;
+					case "Wash":
+						if (!ColorValue(assignment.Right, out wash))
+							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+						break;
+					case "Stroke":
+						if (!ColorValue(assignment.Right, out stroke))
+							return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+						break;
 					default:
 						return Fail(UnknownMember, "The screen subset does not include " + name.Identifier.ValueText + ".", assignment);
 				}
@@ -2206,6 +2221,9 @@ public static partial class SubsetLowerer
 				Weight = weight,
 				Color = color,
 				Background = background,
+				Across = across,
+				Wash = wash,
+				Stroke = stroke,
 			};
 			return true;
 		}
@@ -2628,8 +2646,11 @@ public static partial class SubsetLowerer
 			var args = invocation.ArgumentList.Arguments;
 			if (args[0].Expression is not LiteralExpressionSyntax pushed
 				|| !pushed.IsKind(SyntaxKind.StringLiteralExpression)
-				|| pushed.Token.ValueText.Length == 0
-				|| args[1].Expression is not IdentifierNameSyntax item
+				|| pushed.Token.ValueText.Length == 0)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			if (args[1].Expression is ElementAccessExpressionSyntax access)
+				return PushIndex(access, pushed.Token.ValueText, script, invocation);
+			if (args[1].Expression is not IdentifierNameSyntax item
 				|| item.Identifier.ValueText != _item
 				|| _item.Length == 0
 				|| _listName.Length == 0
@@ -2665,6 +2686,56 @@ public static partial class SubsetLowerer
 			foreach (var field in flags)
 			{
 				U16(script, _itemFields.IndexOf(field));
+				U16(script, _code.Intern(field.Name));
+			}
+
+			return true;
+		}
+
+		bool PushIndex(ElementAccessExpressionSyntax access, string screen, List<byte> script, InvocationExpressionSyntax invocation)
+		{
+			if (access.ArgumentList.Arguments.Count != 1
+				|| access.Expression is not MemberAccessExpressionSyntax member
+				|| member.Expression is not IdentifierNameSyntax owner
+				|| owner.Identifier.ValueText != _state
+				|| !Integer(access.ArgumentList.Arguments[0].Expression, out var index)
+				|| index < 0
+				|| index > ushort.MaxValue)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			var list = _fields.FirstOrDefault(field => field.Name == member.Name.Identifier.ValueText && field.Kind == ValueKind.List);
+			if (list is null || !_records.TryGetValue(list.Item, out var itemFields))
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			var id = itemFields.FindIndex(field => field.Name == "Id" && field.Kind == ValueKind.Str);
+			if (id < 0)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			var strings = new List<Field>();
+			var flags = new List<Field>();
+			foreach (var field in itemFields)
+			{
+				if (field.Kind == ValueKind.Str)
+					strings.Add(field);
+				else if (field.Kind == ValueKind.Bool)
+					flags.Add(field);
+			}
+
+			if (strings.Count > byte.MaxValue || flags.Count > byte.MaxValue)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			script.Add(RecordProgram.ActPushIndex);
+			U16(script, _code.Intern(screen));
+			U16(script, _code.Intern(list.Name));
+			U16(script, index);
+			U16(script, id);
+			script.Add((byte)strings.Count);
+			foreach (var field in strings)
+			{
+				U16(script, itemFields.IndexOf(field));
+				U16(script, _code.Intern(field.Name));
+			}
+
+			script.Add((byte)flags.Count);
+			foreach (var field in flags)
+			{
+				U16(script, itemFields.IndexOf(field));
 				U16(script, _code.Intern(field.Name));
 			}
 

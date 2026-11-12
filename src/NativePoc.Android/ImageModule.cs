@@ -34,6 +34,7 @@ static class ImageModule
 		if (cached is not null)
 		{
 			image.SetImageBitmap(cached);
+			Android.Util.Log.Info(MainActivity.Tag, "image-cache hit source=" + source);
 			return;
 		}
 
