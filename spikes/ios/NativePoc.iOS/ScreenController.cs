@@ -10,6 +10,7 @@ public sealed class ScreenController : UIViewController
 	UIKitHost? _host;
 	ViewReconciler<UIView>? _reconciler;
 	IosPlatform? _platform;
+	RecordProgram.Bound? _applied;
 
 	public override void ViewDidLoad()
 	{
@@ -29,16 +30,28 @@ public sealed class ScreenController : UIViewController
 
 	public void RequestRender() => RenderNow();
 
+	public Element Apply(ReadOnlySpan<byte> program, RecordProgram.Bag bag)
+	{
+		_applied = RecordProgram.Bind(program, bag);
+		RenderNow();
+		if (_platform is null)
+			throw new InvalidOperationException("The screen has no platform.");
+		return _applied.Render(_platform);
+	}
+
 	void RenderNow()
 	{
 		if (_reconciler is null || _platform is null || View is null)
 			return;
 		var previous = _reconciler.Root;
 		Element tree;
-		if (ScreenNav.Shared.Top() is { } top)
+		if (_applied is { } applied)
+			tree = applied.Render(_platform);
+		else if (ScreenNav.Shared.Top() is { } top)
 			tree = top.Render(_platform);
 		else
 			tree = _render(AppSession.Shared.State, _platform);
+		Console.WriteLine(ScreenSnapshot.FormatTree(tree));
 		_reconciler.Render(tree);
 		if (_reconciler.Root is null)
 			throw new InvalidOperationException("Screen did not mount a root view.");

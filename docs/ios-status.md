@@ -34,19 +34,25 @@ The gesture mask uses `UITapGestureRecognizer`, `UILongPressGestureRecognizer`, 
 
 Do not read the authored UIKit files as a successful iOS build. The recognizer constructors, `UIImage.FromBundle`, and the app entry point are written to the current contract and have not been type-checked by the iOS SDK.
 
-## Conformance gap
+## Conformance
 
-`PlatformConformance.Run` is the suite a screen platform has to pass: create, update, remove, text, a list, an accessibility label, and a hot-reload `Apply`. It ran on Linux against `HeadlessHost` and against `ViewReconciler` with `MemoryHost`. That reconciler is the managed side `AndroidHost` implements `IElementHost<View>` for. `Android.Views` is not constructed here. The UIKit project was not built. There is no iOS binary, simulator log, or device log. The list below is a reading of `spikes/ios`, not a run.
+`PlatformConformance.Run` is the suite a screen platform has to pass: create, update, remove, text, a list, an accessibility label, and a hot-reload `Apply`. On Linux it passes on `HeadlessHost`, on `ViewReconciler` with `MemoryHost`, and on `IosLogicSurface`. `IosLogicSurface` is the UIKit host's managed decisions (`HostPolicy` and `IosBridge`) on `ViewReconciler<IosView>`. `Android.Views` is not constructed here. `spikes/ios/NativePoc.iOS` (`net10.0-ios`) was not compiled. There is no iOS binary, simulator log, or device log.
 
-To pass the same suite, `spikes/ios` would need these changes:
+`HostPolicy` is the shared floor. `AndroidHost` calls it for hidden text, the 48 dp touch floor, headings (`FontSize` at least 20), and multiline fields. `UIKitHost` calls the same methods. `IosLogicHost` is the Linux stand-in and is what the tests construct.
 
-- `UIKitHost.Remove` throws unless the parent is a `UIStackView`. The suite removes a column child. A scroll child cannot be removed, and `Insert` into a `UIScrollView` ignores the index.
-- `SetText` writes `UILabel.Text` only. It does not set an accessibility value, and an empty string stays visible. `AndroidHost.SetText` sets `ContentDescription` and `Gone`.
-- `SetList` clears the scroll and adds a `UILabel` per row, and a row that is not `Text` becomes an empty label. It is not a recycled list. Nothing on this host prints the accessibility dump the suite reads (`count=2`, `label="Save name"`).
-- `SetGesture` adds recognizers and does not set a 48 pt minimum. `AndroidHost.SetGesture` calls `TouchTarget` when the mask is nonzero. A long-press name would stay at the label's line height.
-- `SetStyle` sets the font and color. It does not mark a heading. `AndroidHost` sets `AccessibilityHeading` when `FontSize` is at least 20.
-- `SetFieldMode` ignores `lines`, so a multiline field stays a single-line `UITextField`.
-- There is no `Apply` of a `RecordProgram`. `IosPlatform.RequestRender` asks `ScreenController` to render the compiled `ScreenNav` tree. A hot-reload program would not replace that tree or keep a bag.
-- `IosPlatform.Module` throws on a module other than clipboard, haptics, share, storage set, and theme. `http` and `location` are not implemented. `CopyText`, `WriteBack`, `Push(row)`, and `Continue` are the interface defaults.
+Closed in portable code, and written through in the UIKit sources. The UIKit project was not built, so the `UIView` lines are authored, not run:
 
-None of that was compiled or run.
+- `UIKitHost.Remove` removes a stack child and a scroll child. Scroll insert keeps the index by laying the host's child list out again. `IosLogicHost` does the same, and a test removes the first scroll child.
+- `SetText` sets `AccessibilityValue` from `HostPolicy.TextAccessibility` and hides an empty string. `AndroidHost.SetText` uses the same two calls for `ContentDescription` and `Gone`.
+- `SetList` labels each row with `HostPolicy.RowText`, including the first text inside a column, and sets `AccessibilityValue` to `HostPolicy.ListSummary` (`count=` plus the row count). `ScreenController` prints `ScreenSnapshot.FormatTree`, which is the dump the suite reads.
+- `SetGesture` adds the same recognizers and, when the mask is nonzero, a `nativepoc-touch` constraint of `HostPolicy.TouchFloorDp` (48). `AndroidHost.SetGesture` calls `TouchTarget` for that same value.
+- `SetStyle` sets `UIAccessibilityTrait.Header` when `HostPolicy.IsHeading` is true. `AndroidHost` sets `AccessibilityHeading` for the same font size.
+- `SetFieldMode` calls `HostPolicy.FieldIsMultiline`. A multiline field shows the `UITextView` inside `FieldBox`. A password stays the `UITextField`. The Linux host records `UITextView` or `UITextField`.
+- `ScreenController.Apply` binds a `RecordProgram` and renders that tree on the next paint. `IosLogicSurface.Apply` is the path `PlatformConformance` runs.
+- `IosPlatform` implements `CopyText`, `WriteBack`, `Push(string, object)`, and `Continue` by calling `IosBridge`. The bridge dispatches clipboard, haptics, share, storage set and get, theme, animate, http, and location. A Linux `IIosServices` double covers storage, http, location, and those four methods. `IosNet.Send` is `NSUrlSession` and `IosLocation.Read` is `CLLocationManager`. Neither has been compiled or run.
+
+Still not a build:
+
+- The list is not a recycled table. The Android row window is not in this host.
+- `NSUrlSession` and `CLLocationManager` are written in `PlatformBridge.cs` and have not been type-checked by the iOS SDK. A denied fix is the string `Location.Parse` already accepts. A granted fix from a simulator was not produced.
+- No iOS binary, simulator log, or device log exists. Do not read this section as an iOS run.

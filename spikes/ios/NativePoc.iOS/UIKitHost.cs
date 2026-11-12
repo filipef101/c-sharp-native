@@ -4,6 +4,7 @@ sealed class UIKitHost : IElementHost<UIView>
 {
 	readonly Func<Element?> _current;
 	readonly Dictionary<UIView, NodePath> _paths = new();
+	readonly Dictionary<UIView, List<UIView>> _scrollChildren = new();
 	bool _applyingText;
 
 	public UIKitHost(Func<Element?> current) => _current = current;
@@ -25,11 +26,7 @@ sealed class UIKitHost : IElementHost<UIView>
 			case ElementKind.Button:
 				return new UIButton(UIButtonType.System);
 			case ElementKind.TextField:
-				return new UITextField
-				{
-					BorderStyle = UITextBorderStyle.RoundedRect,
-					TextColor = UIColor.Label,
-				};
+				return new FieldBox();
 			case ElementKind.Switch:
 				return new UISwitch();
 			case ElementKind.Scroll:
@@ -54,7 +51,11 @@ sealed class UIKitHost : IElementHost<UIView>
 
 		if (parent is UIScrollView scroll)
 		{
-			scroll.AddSubview(child);
+			var list = Children(scroll);
+			if (index > list.Count)
+				index = list.Count;
+			list.Insert(index, child);
+			LayoutScroll(scroll, list);
 			return;
 		}
 
@@ -63,11 +64,46 @@ sealed class UIKitHost : IElementHost<UIView>
 
 	public void Remove(UIView parent, int index)
 	{
-		if (parent is not UIStackView stack)
-			throw new InvalidOperationException("Parent is not a stack.");
-		var child = stack.ArrangedSubviews[index];
-		stack.RemoveArrangedSubview(child);
-		child.RemoveFromSuperview();
+		if (parent is UIStackView stack)
+		{
+			var child = stack.ArrangedSubviews[index];
+			stack.RemoveArrangedSubview(child);
+			child.RemoveFromSuperview();
+			return;
+		}
+
+		if (parent is UIScrollView scroll)
+		{
+			var list = Children(scroll);
+			var child = list[index];
+			list.RemoveAt(index);
+			child.RemoveFromSuperview();
+			LayoutScroll(scroll, list);
+			return;
+		}
+
+		throw new InvalidOperationException("Parent is not a stack.");
+	}
+
+	List<UIView> Children(UIScrollView scroll)
+	{
+		if (_scrollChildren.TryGetValue(scroll, out var list))
+			return list;
+		list = new List<UIView>();
+		_scrollChildren[scroll] = list;
+		return list;
+	}
+
+	static void LayoutScroll(UIScrollView scroll, List<UIView> list)
+	{
+		foreach (var child in list)
+		{
+			if (child.Superview is not null)
+				child.RemoveFromSuperview();
+		}
+
+		foreach (var child in list)
+			scroll.AddSubview(child);
 	}
 
 	public void SetText(UIView view, string value)
@@ -75,6 +111,8 @@ sealed class UIKitHost : IElementHost<UIView>
 		if (view is not UILabel label)
 			throw new InvalidOperationException("Text patch targeted a non-label view.");
 		label.Text = value;
+		label.AccessibilityValue = HostPolicy.TextAccessibility(value);
+		label.Hidden = HostPolicy.TextIsHidden(value);
 	}
 
 	public void SetButton(UIView view, string title, string accessibilityLabel)
@@ -87,11 +125,11 @@ sealed class UIKitHost : IElementHost<UIView>
 
 	public void SetTextField(UIView view, string value, string placeholder, string accessibilityLabel)
 	{
-		if (view is not UITextField field)
+		if (view is not FieldBox field)
 			throw new InvalidOperationException("Text field patch targeted a non-field view.");
 		field.Placeholder = placeholder;
 		field.AccessibilityLabel = accessibilityLabel;
-		if (string.Equals(field.Text ?? "", value, StringComparison.Ordinal))
+		if (string.Equals(field.Text, value, StringComparison.Ordinal))
 			return;
 		_applyingText = true;
 		try
@@ -106,9 +144,11 @@ sealed class UIKitHost : IElementHost<UIView>
 
 	public void SetFieldMode(UIView view, Keyboard keyboard, int lines, Submit submit)
 	{
-		if (view is not UITextField field)
+		if (view is not FieldBox field)
 			throw new InvalidOperationException("Text field patch targeted a non-field view.");
-		field.KeyboardType = keyboard switch
+		var multiline = HostPolicy.FieldIsMultiline(lines, keyboard);
+		field.Use(multiline);
+		field.SingleLine.KeyboardType = keyboard switch
 		{
 			Keyboard.Text => UIKeyboardType.Default,
 			Keyboard.Email => UIKeyboardType.EmailAddress,
@@ -117,8 +157,8 @@ sealed class UIKitHost : IElementHost<UIView>
 			Keyboard.Password => UIKeyboardType.Default,
 			_ => throw new InvalidOperationException("Unknown keyboard."),
 		};
-		field.SecureTextEntry = keyboard == Keyboard.Password;
-		field.ReturnKeyType = submit switch
+		field.SingleLine.SecureTextEntry = keyboard == Keyboard.Password;
+		field.SingleLine.ReturnKeyType = submit switch
 		{
 			Submit.None => UIReturnKeyType.Default,
 			Submit.Next => UIReturnKeyType.Next,
@@ -127,7 +167,7 @@ sealed class UIKitHost : IElementHost<UIView>
 			Submit.Search => UIReturnKeyType.Search,
 			_ => throw new InvalidOperationException("Unknown submit."),
 		};
-		_ = lines;
+		field.ManyLines.KeyboardType = field.SingleLine.KeyboardType;
 	}
 
 	public void SetSwitch(UIView view, bool value, string accessibilityLabel)
@@ -146,9 +186,18 @@ sealed class UIKitHost : IElementHost<UIView>
 			sub.RemoveFromSuperview();
 		var stack = new UIStackView { Axis = UILayoutConstraintAxis.Vertical };
 		scroll.AddSubview(stack);
+		scroll.AccessibilityValue = HostPolicy.ListSummary(rows);
 		foreach (var row in rows)
 		{
-			var label = new UILabel { Text = row is Text text ? text.Value : "" };
+			var text = HostPolicy.RowText(row);
+			var label = new UILabel
+			{
+				Text = text,
+				AccessibilityValue = HostPolicy.TextAccessibility(text),
+				Hidden = HostPolicy.TextIsHidden(text),
+			};
+			if (row is Text heading && heading.Style is { } style && HostPolicy.IsHeading(style.FontSize))
+				label.AccessibilityTraits |= UIAccessibilityTrait.Header;
 			stack.AddArrangedSubview(label);
 		}
 	}
@@ -165,6 +214,10 @@ sealed class UIKitHost : IElementHost<UIView>
 				label.Font = style.Weight == FontWeight.Bold ? UIFont.BoldSystemFontOfSize(style.FontSize) : UIFont.SystemFontOfSize(style.FontSize);
 			if (style.Color != 0)
 				label.TextColor = Color(style.Color);
+			if (HostPolicy.IsHeading(style.FontSize))
+				label.AccessibilityTraits |= UIAccessibilityTrait.Header;
+			else
+				label.AccessibilityTraits &= ~UIAccessibilityTrait.Header;
 		}
 
 		if (style.Background != 0)
@@ -223,6 +276,30 @@ sealed class UIKitHost : IElementHost<UIView>
 			var pan = new UIPanGestureRecognizer(() => Fire(view, Gestures.Refresh));
 			view.AddGestureRecognizer(pan);
 		}
+
+		FloorTouch(view, mask);
+	}
+
+	static void FloorTouch(UIView view, byte mask)
+	{
+		var floor = HostPolicy.TouchFloor(mask);
+		if (view.Constraints is not null)
+		{
+			foreach (var constraint in view.Constraints)
+			{
+				if (constraint.Identifier == "nativepoc-touch")
+					view.RemoveConstraint(constraint);
+			}
+		}
+
+		if (floor == 0)
+			return;
+		var width = view.WidthAnchor.ConstraintGreaterThanOrEqualTo(floor);
+		width.Identifier = "nativepoc-touch";
+		width.Active = true;
+		var height = view.HeightAnchor.ConstraintGreaterThanOrEqualTo(floor);
+		height.Identifier = "nativepoc-touch";
+		height.Active = true;
 	}
 
 	public void SetImage(UIView view, string source)
@@ -271,15 +348,17 @@ sealed class UIKitHost : IElementHost<UIView>
 			};
 		}
 
-		if (view is UITextField field)
+		if (view is FieldBox field)
 		{
-			field.EditingChanged += (_, _) =>
+			field.SingleLine.EditingChanged += (_, _) => Changed(field.Text);
+			field.ManyLines.Changed += (_, _) => Changed(field.Text);
+			void Changed(string text)
 			{
 				if (_applyingText)
 					return;
 				if (Current(path) is TextField current)
-					current.OnChange(field.Text ?? "");
-			};
+					current.OnChange(text);
+			}
 		}
 
 		if (view is UISwitch toggle)
@@ -329,5 +408,55 @@ sealed class UIKitHost : IElementHost<UIView>
 		var green = ((argb >> 8) & 0xFF) / 255f;
 		var blue = (argb & 0xFF) / 255f;
 		return UIColor.FromRGBA(red, green, blue, alpha);
+	}
+}
+
+sealed class FieldBox : UIView
+{
+	public UITextField SingleLine { get; }
+
+	public UITextView ManyLines { get; }
+
+	public bool Multiline { get; private set; }
+
+	public FieldBox()
+	{
+		SingleLine = new UITextField
+		{
+			BorderStyle = UITextBorderStyle.RoundedRect,
+			TextColor = UIColor.Label,
+		};
+		ManyLines = new UITextView
+		{
+			TextColor = UIColor.Label,
+			Hidden = true,
+		};
+		AddSubview(SingleLine);
+		AddSubview(ManyLines);
+	}
+
+	public string Placeholder
+	{
+		get => SingleLine.Placeholder ?? "";
+		set => SingleLine.Placeholder = value;
+	}
+
+	public string Text
+	{
+		get => Multiline ? ManyLines.Text ?? "" : SingleLine.Text ?? "";
+		set
+		{
+			if (Multiline)
+				ManyLines.Text = value;
+			else
+				SingleLine.Text = value;
+		}
+	}
+
+	public void Use(bool multiline)
+	{
+		Multiline = multiline;
+		SingleLine.Hidden = multiline;
+		ManyLines.Hidden = !multiline;
 	}
 }

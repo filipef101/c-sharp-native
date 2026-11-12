@@ -163,10 +163,10 @@ public static class HeadlessLayout
 	{
 		if (element.Gesture == 0 && element.OnTap is null && element.OnLongPress is null && element.OnSwipe is null && element.OnRefresh is null && element.OnUndo is null)
 			return;
-		if (width < 48)
-			width = 48;
-		if (height < 48)
-			height = 48;
+		if (width < HostPolicy.TouchFloorDp)
+			width = HostPolicy.TouchFloorDp;
+		if (height < HostPolicy.TouchFloorDp)
+			height = HostPolicy.TouchFloorDp;
 	}
 
 	static int LeafHeight(Element element)
@@ -176,17 +176,17 @@ public static class HeadlessLayout
 			case Text text:
 				var size = text.Style?.FontSize ?? 0;
 				var line = (size > 0 ? size : 16) + 8;
-				// AndroidHost.SetGesture calls TouchTarget, a 48 dp minimum, when the
-				// gesture mask is nonzero. A long-press name is that view.
+				// AndroidHost.SetGesture calls TouchTarget, HostPolicy.TouchFloorDp,
+				// when the gesture mask is nonzero. A long-press name is that view.
 				if (text.Gesture != 0 || text.OnTap is not null || text.OnLongPress is not null || text.OnSwipe is not null || text.OnRefresh is not null || text.OnUndo is not null)
-					return line > 48 ? line : 48;
+					return line > HostPolicy.TouchFloorDp ? line : HostPolicy.TouchFloorDp;
 				return line;
 			case Button:
 			case TextField:
 			case TextInput:
 			case Switch:
 			case HostView:
-				return 48;
+				return HostPolicy.TouchFloorDp;
 			case Image:
 				return 96;
 			case ListView:

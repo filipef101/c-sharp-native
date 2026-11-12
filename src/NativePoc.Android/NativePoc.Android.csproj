@@ -16,6 +16,7 @@
 		<NativePocHttp Condition="'$(NativePocHttp)' == ''">false</NativePocHttp>
 		<NativePocRecycler Condition="'$(NativePocRecycler)' == ''">false</NativePocRecycler>
 		<NativePocLocation Condition="'$(NativePocLocation)' == ''">false</NativePocLocation>
+		<NativePocPersist Condition="'$(NativePocPersist)' == ''">false</NativePocPersist>
 		<NativePocStartupMarks Condition="'$(NativePocStartupMarks)' == ''">false</NativePocStartupMarks>
 		<NativePocDeferNatives Condition="'$(NativePocDeferNatives)' == ''">false</NativePocDeferNatives>
 		<NativePocFastNatives Condition="'$(NativePocFastNatives)' == ''">false</NativePocFastNatives>
@@ -56,6 +57,9 @@
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocRecycler)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_RECYCLER</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocPersist)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_PERSIST</DefineConstants>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocLocation)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_LOCATION</DefineConstants>
@@ -145,8 +149,9 @@
 		<NativeDebugSymbols>true</NativeDebugSymbols>
 		<IlcGenerateDebugInfo>true</IlcGenerateDebugInfo>
 		<StackTraceSupport>true</StackTraceSupport>
-		<!-- The emulator repeat kept this off. Evidence is in scroll-floor.txt. -->
-		<IlcDehydrate>false</IlcDehydrate>
+		<!-- The interleaved n=12 repeat=4 pair put dehydration back on.
+		     Evidence is in scroll-floor.txt. -->
+		<IlcDehydrate>true</IlcDehydrate>
 		<IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
 		<MetricsSupport>false</MetricsSupport>
 		<StartupHookSupport>false</StartupHookSupport>
@@ -160,6 +165,7 @@
 		<Using Include="NativePoc" />
 		<Compile Include="..\..\samples\*\*.cs" Exclude="..\..\samples\NativePoc.*\**;**\bin\**;**\obj\**;$(NativePocSampleExclude)" />
 		<Compile Remove="FeedJson.cs" Condition="'$(NativePocHttp)' != 'true'" />
+		<Compile Remove="PersistStore.cs" Condition="'$(NativePocPersist)' != 'true'" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\NativePoc.Core\NativePoc.Core.csproj" />

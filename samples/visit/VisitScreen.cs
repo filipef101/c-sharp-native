@@ -21,6 +21,10 @@ public sealed class VisitState
 
 	public string Body { get; set; } = "";
 
+	public string Note { get; set; } = "";
+
+	public string Record { get; set; } = "";
+
 	public List<VisitItem> Stops { get; set; } = new List<VisitItem>();
 }
 
@@ -49,6 +53,24 @@ public static class VisitScreen
 		async void Locate()
 		{
 			state.Fix = await Location.Read(platform);
+			platform.RequestRender();
+		}
+
+		async void Remember()
+		{
+			if (state.Place.Length == 0)
+				state.Place = "Pier";
+			if (state.When.Length == 0)
+				state.When = "Friday";
+			state.Note = await Persist.Put(platform, "visit.place", state.Place);
+			state.Record = await Persist.PutRecord(platform, "visit.stop", state.Place, state.Place, state.When);
+			platform.RequestRender();
+		}
+
+		async void Recall()
+		{
+			state.Place = await Persist.Get(platform, "visit.place");
+			state.Record = await Persist.GetRecord(platform, "visit.stop");
 			platform.RequestRender();
 		}
 
@@ -87,6 +109,10 @@ public static class VisitScreen
 		rows.Add(new Text(state.Fix) { Key = "fix" });
 		rows.Add(new Button("Locate", () => Locate(), "Locate") { Key = "locate" });
 		rows.Add(new Button("Save", () => Save(), "Save") { Key = "save" });
+		rows.Add(new Button("Remember", () => Remember(), "Remember") { Key = "remember" });
+		rows.Add(new Button("Recall", () => Recall(), "Recall") { Key = "recall" });
+		rows.Add(new Text(state.Note) { Key = "note" });
+		rows.Add(new Text(state.Record) { Key = "record" });
 		foreach (var item in state.Stops)
 		{
 			rows.Add(new Column(

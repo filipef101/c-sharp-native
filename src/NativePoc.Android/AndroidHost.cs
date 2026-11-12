@@ -61,7 +61,7 @@ sealed class AndroidHost : IElementHost<View>
 			case ElementKind.Image:
 				return new ImageView(_activity)
 				{
-					LayoutParameters = new ViewGroup.LayoutParams(Dp(48), Dp(48)),
+					LayoutParameters = new ViewGroup.LayoutParams(Dp(HostPolicy.TouchFloorDp), Dp(HostPolicy.TouchFloorDp)),
 				};
 			case ElementKind.Host:
 				return new HostSlot(_activity);
@@ -101,8 +101,8 @@ sealed class AndroidHost : IElementHost<View>
 			throw new InvalidOperationException("Text patch targeted a non-text view.");
 		var previous = text.Text ?? "";
 		text.Text = value;
-		text.ContentDescription = value;
-		text.Visibility = value.Length == 0 ? ViewStates.Gone : ViewStates.Visible;
+		text.ContentDescription = HostPolicy.TextAccessibility(value);
+		text.Visibility = HostPolicy.TextIsHidden(value) ? ViewStates.Gone : ViewStates.Visible;
 		if (value.Length == 0 || string.Equals(previous, value, StringComparison.Ordinal))
 			return;
 		if (!_paths.TryGetValue(view, out var path) || CurrentElement(path) is not Text spoken)
@@ -141,7 +141,7 @@ sealed class AndroidHost : IElementHost<View>
 			Keyboard.Password => InputTypes.ClassText | InputTypes.TextVariationPassword,
 			_ => throw new InvalidOperationException("Unknown keyboard."),
 		};
-		var multiline = lines > 1 && keyboard != Keyboard.Password;
+		var multiline = HostPolicy.FieldIsMultiline(lines, keyboard);
 		if (multiline)
 		{
 			edit.SetSingleLine(false);
@@ -275,7 +275,7 @@ sealed class AndroidHost : IElementHost<View>
 			};
 			if (style.FontSize > 0)
 				text.SetTextSize(ComplexUnitType.Sp, style.FontSize);
-			if (style.FontSize >= 20 && (int)Android.OS.Build.VERSION.SdkInt >= 28)
+			if (HostPolicy.IsHeading(style.FontSize) && (int)Android.OS.Build.VERSION.SdkInt >= 28)
 			{
 #pragma warning disable CA1416
 				text.AccessibilityHeading = true;
@@ -313,7 +313,7 @@ sealed class AndroidHost : IElementHost<View>
 
 	public void SetGesture(View view, byte mask)
 	{
-		if (mask != 0)
+		if (HostPolicy.TouchFloor(mask) > 0)
 			TouchTarget(view);
 		if (!_paths.TryGetValue(view, out var path))
 			return;
@@ -343,15 +343,15 @@ sealed class AndroidHost : IElementHost<View>
 		TouchTarget(image);
 		if (image.LayoutParameters is ViewGroup.LayoutParams layout)
 		{
-			layout.Width = Dp(48);
-			layout.Height = Dp(48);
+			layout.Width = Dp(HostPolicy.TouchFloorDp);
+			layout.Height = Dp(HostPolicy.TouchFloorDp);
 			image.LayoutParameters = layout;
 		}
 	}
 
 	void TouchTarget(View view)
 	{
-		var min = Dp(48);
+		var min = Dp(HostPolicy.TouchFloorDp);
 		view.SetMinimumWidth(min);
 		view.SetMinimumHeight(min);
 	}

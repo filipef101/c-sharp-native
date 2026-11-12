@@ -257,9 +257,8 @@ public sealed class AsyncHandlerTests
 	public void The_visit_form_lowers_and_the_stop_screen_fetches()
 	{
 		var root = Repo();
-		var visit = SubsetLowerer.TryLower(
-			File.ReadAllText(Path.Combine(root, "samples", "visit", "VisitScreen.cs")),
-			originFile: "samples/visit/VisitScreen.cs");
+		var visitSource = File.ReadAllText(Path.Combine(root, "samples", "visit", "VisitScreen.cs"));
+		var visit = SubsetLowerer.TryLower(visitSource, originFile: "samples/visit/VisitScreen.cs");
 		Assert.True(visit.Ok, visit.Diagnostics.Count == 0 ? "" : visit.Diagnostics[0].Message);
 		var stop = SubsetLowerer.TryLower(
 			File.ReadAllText(Path.Combine(root, "samples", "visit", "StopScreen.cs")),
@@ -282,6 +281,27 @@ public sealed class AsyncHandlerTests
 		Assert.Equal("button", ScreenSnapshot.Role(ElementIds.Require(bound.Render(platform), "scroll/list/Pier/open")));
 		ElementIds.Invoke(bound.Render(platform), "scroll/list/locate", null);
 		Assert.Contains(platform.Calls, call => call == "location.Read");
+		ElementIds.Invoke(bound.Render(platform), "scroll/list/remember", null);
+		Assert.Contains(platform.Calls, call => call == "persist.Put");
+		platform.Release("ok");
+		Assert.Equal("ok", bag.ReadString("Note"));
+		Assert.Contains(platform.Calls, call => call == "persist.PutRecord");
+		var stored = PersistCodec.Encode(new PersistRecord("Pier", "Pier", "Friday"));
+		platform.Release(stored);
+		Assert.Equal(stored, bag.ReadString("Record"));
+		Assert.True(PersistCodec.TryDecode(bag.ReadString("Record"), out var record));
+		Assert.Equal("Pier", record.Id);
+		var edited = visitSource.Replace("\"Pier\"", "\"Quay\"", StringComparison.Ordinal);
+		var reloaded = SubsetLowerer.TryLower(edited, originFile: "samples/visit/VisitScreen.cs");
+		Assert.True(reloaded.Ok, reloaded.Diagnostics.Count == 0 ? "" : reloaded.Diagnostics[0].Message);
+		var editedBag = new RecordProgram.Bag();
+		var editedProgram = RecordProgram.Bind(reloaded.Program!, editedBag);
+		var reloadPlatform = new AsyncPlatform();
+		ElementIds.Invoke(editedProgram.Render(reloadPlatform), "scroll/list/remember", null);
+		Assert.Equal("Quay", editedBag.ReadString("Place"));
+		reloadPlatform.Release("ok");
+		reloadPlatform.Release(PersistCodec.Encode(new PersistRecord("Quay", "Quay", "Friday")));
+		Assert.Equal("Quay", PersistCodec.TryDecode(editedBag.ReadString("Record"), out var quay) ? quay.Id : "");
 		var detail = RecordProgram.Bind(stop.Program!, new RecordProgram.Bag());
 		var lookup = new AsyncPlatform();
 		ElementIds.Invoke(detail.Render(lookup), "stop/lookup", null);

@@ -956,3 +956,68 @@ tools/bench/mac-bench.sh --device emulator-5554 --n 6 --repeat 2 --quiesce warn 
 ```
 
 The off pair used `/tmp/p40/feed-treat.apk` and `--out /tmp/p40/bench-treat`.
+
+## Dehydration, interleaved, persistence, and the clean-folder start
+
+No new Mac timing. The Mac emulator was not running. `mac-bench.sh --self-test` and `scroll-bench.sh --self-test` from `d3c8487` passed on macOS `/bin/bash` 3.2. This tree's `tools/check.sh` ran those self-tests on Linux and they passed. The script in this tree also prints a block delta for every non-floor series, which is how wet and dry share one floor.
+
+Emulator-run, emulator-5554, API 34, swiftshader, `--n 12 --repeat 4 --quiesce warn`. Not a phone. Not iOS. Not the Mac 44.5 ms. Guest load at or above 2, so only same-run relatives. n=48 each. guest_load_p50 wet/dry/floor 5.6/5.6/5.7. The floor APK is `/opt/cursor/artifacts/nativepoc-listfloor-android-x64.apk`, 531,381 bytes, sha256 `d7ffd1727fe71891e53e1e4e5ef8f058bdc5de70f3047d45a8f7c742dbc97c88`. No floor round was over 1.5 times the floor median.
+
+Wet is `IlcDehydrate` false, package `com.scratch.nativepoc`. Dry is `IlcDehydrate` true, package `com.scratch.nativepoc.dry`, so both stay installed. The activity class on both is `crc64ee53024f7ed0aa60.MainActivity`. The package id is the confound. The `.so` dehydrate bit is the treatment. The floor is shared and interleaved in the same rounds.
+
+```
+tools/bench/mac-bench.sh --device emulator-5554 --n 12 --repeat 4 --quiesce warn --out /tmp/p41/bench \
+  --run "wet:/tmp/p41/wet/feed.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:--es nativepoc_root feed" \
+  --run "dry:/tmp/p41/dry/feed.apk:com.scratch.nativepoc.dry/crc64ee53024f7ed0aa60.MainActivity:--es nativepoc_root feed" \
+  --run "floor:/opt/cursor/artifacts/nativepoc-listfloor-android-x64.apk:com.scratch.listfloor/.ListFloorActivity"
+```
+
+TotalTime p50/p90: wet 809.0/874.4, dry 725.0/786.2, floor 627.5/723.7. present_p50 wet 201.0, dry 165.0. layout p50 wet 198.5, dry 161.0. Block deltas, series p50 minus floor p50, Hyndman-Fan 7, bootstrap B=1000, Park-Miller seed 8946. Wet: 149.5, 197.5, 168.5, 176.0. Median 172.2. Interval 149.5–197.5. Dry: 62.5, 90.5, 99.5, 85.5. Median 88.0. Interval 62.5–99.5. The dry interval sits under the wet interval.
+
+Since process, p50, milliseconds. Wet: attach_end 49.5, class 50.5, before 55.5, so_reloc 65.5, so_ctors 65.5, after 91.0, java 94.5, java_end 95.5. Before to java_end is 40.0. so_ctors to after is 25.5. Dry: attach_end 36.5, class 37.5, before 38.0, so_reloc 42.5, so_ctors 43.5, after 60.5, java 63.5, java_end 66.5. Before to java_end is 28.5. so_ctors to after is 17.0.
+
+Wet APK 3,476,869 sha256 `658e080d806998d6c7652758982eaaa54c5db98f49e0b5391e970ec0d6a9c34e`. `.so` 9,128,264 sha256 `4909597e0048299d91bce9ac5aa21757ade908e6ae07848ba4143c31955f4b91`. No `.hydrated`. `.rela.dyn` 1,422,312. RELACOUNT 59,261. `.data` 1,210,912. `.rodata` 1,472,428. Dry APK 3,297,004 sha256 `f6eaed67c1ea2fa03780eaa81f3fa71a20d29ab4c5cecd4d8e9485dd828694b0`. `.so` 7,258,176 sha256 `b2e214f9c3d61d4928b3f397476b505185fe1f1c67b40fdf229370b369cf7127`. `.hydrated` NOBITS 1,136,232. `.rela.dyn` 81,144. RELACOUNT 3,379. `.data` 73,680. `.rodata` 2,079,628. Dehydration off costs 1,870,088 bytes of `.so` and 179,865 bytes of APK. The dry rsp contains `--dehydrate`. Release sets `IlcDehydrate` true. `StackTraceSupport` stays true. `NativePocFastNatives` and `NativePocDeferNatives` stay false.
+
+Both bench `.so` files contain `PersistStore`. They were published before that file was compiled only when `NativePocPersist` is true. They are the measured pair. They are not the shipped product APKs. The dry package id is `com.scratch.nativepoc.dry`.
+
+Shipped arm64, `IlcDehydrate` true, package `com.scratch.nativepoc`. Counter and feed were republished after the `PersistStore.cs` compile removal. A UTF-16 search finds `persist-put` in the visit `.so` and not in the counter or feed `.so`. `HttpURLConnection` is in the feed and the visit, and not in the counter.
+
+| build | label | APK | APK sha256 | .so | .so sha256 | dex |
+| --- | --- | --- | --- | --- | --- | --- |
+| counter arm64 | built | 2,904,952 | `c619de5e401eba97c6bb658f58de39232c9f1f994fb1b76e83723c88ccb64d86` | 7,290,192 | `c89bae04d3d495fb41f65bcceacfefca38e363120b3d53c4a9deb4aca579fa17` | 50,424 |
+| feed arm64, marks, http, recycler | built | 3,137,263 | `53d1833a7c8f8600fc2fcf07a99e110094337910ce479fa17f16b7470a12a173` | 7,459,672 | `0392c5491a961e15167eb52856ebc6b98d1d7f2e80210e3c5878b7d0cbdf2ed1` | 331,300 |
+| visit arm64, http, location, persist | built | 3,007,352 | `b5714bc5b5baa04fa2cacd3635bb5478f747a0e9258ef102776254d79102b91b` | 7,560,280 | `48f938b8b0d80d7aa1681ac9871034acb42e395d6918ed3a69714fa15acec783` | 52,784 |
+| visit x64 | emulator-run, force-stop | 3,171,189 | `89801d3431c06516baa374794415e67e0afcb157678eee3254cff12e6c8fe699` | 7,322,096 | `fb8b0954e780991a945f3912b55ab92ac0cc5ec876ad661c54bc882f08bc130c` | 52,784 |
+| list floor arm64 | not rebuilt | 531,381 | `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1` |  |  |  |
+| bench wet feed x64 | emulator-run, dehydrate off, includes PersistStore | 3,476,869 | `658e080d806998d6c7652758982eaaa54c5db98f49e0b5391e970ec0d6a9c34e` | 9,128,264 | `4909597e0048299d91bce9ac5aa21757ade908e6ae07848ba4143c31955f4b91` |  |
+| bench dry feed x64 | emulator-run, dehydrated, package `.dry`, includes PersistStore | 3,297,004 | `f6eaed67c1ea2fa03780eaa81f3fa71a20d29ab4c5cecd4d8e9485dd828694b0` | 7,258,176 | `b2e214f9c3d61d4928b3f397476b505185fe1f1c67b40fdf229370b369cf7127` |  |
+
+`.hydrated` NOBITS and RELACOUNT. Counter arm64 1,077,344 and 3,544. Feed arm64 1,131,960 and 3,574. Visit arm64 1,120,072 and 3,578. Visit x64 1,122,744 and 3,381. Dex sha256, both visit ABIs and the arm64 counter and feed: counter `34dd8b002b1c9aa71ef53f1d1a8ddac7cddccbcb129a804ea51d92638b8c49b6`, feed `93224637fbbb34b772e6971b68487ca1d3295ba9b588b5914ca19ebddd45c770`, visit `884a3b5857654b8797fb35c77d2e5b9a872b60a31ac10c7f8e019dd01be6dae6`. Counter x64 and feed x64 product APKs were not republished in this unit.
+
+`PlatformConformance.Run` passed on `HeadlessHost`, on `ViewReconciler` with `MemoryHost`, and on `IosLogicSurface`. `IosLogicSurface` is the UIKit host's managed decisions (`HostPolicy`, `IosBridge`) on `ViewReconciler<IosView>`. `tools/check.sh` runs `spikes/ios/NativePoc.iOS.Tests`: 6 passed. `UIKitHost`, `ScreenController`, and `PlatformBridge` call the same policy and bridge. That project is `net10.0-ios` and was not compiled. `NSUrlSession` and `CLLocationManager` were not type-checked. The list is not a recycled table. No iOS binary, simulator log, or device log exists. The split is in `docs/ios-status.md`.
+
+Emulator-run, visit x64 Release with `NativePocPersist` true, `tools/bench/persist-restart.sh --serial emulator-5554`. Remember on pid 19301 logged `persist-put key=visit.place chars=4`, `persist-put key=visit.stop chars=25`, `persist-record key=visit.stop id=Pier`. force-stop, then Recall on pid 19429 logged `persist-get key=visit.place chars=4`, `persist-get key=visit.stop chars=25`, `persist-record-load key=visit.stop id=Pier`. The UI dump showed text `Pier`. The file store is under the app files directory, length-prefixed text, version line `1`, no reflection. A unit test replaces the Remember literal `Pier` with `Quay`, re-lowers, and the interpreter writes `Place=Quay` before the first await. That reload was not driven through the emulator listener.
+
+The clean-folder walkthrough is `docs/getting-started.md`. This run, seconds: pack 10.39, template install 0.356, `dotnet new` 0.53, tool install 0.59, doctor 0.306, `cnative run android` to `cnative: watching` 25.085, inspect 0.105 (exit 0, lint empty, heading `home/title` text Hiya), `tools/check.sh` 22.307 (`passed=11 failed=0`). The edit logged `reloaded in 105.0 ms (lower 1.1 ms, apply 86.7 ms)` and `Hiya program=1 present=1` on pid 19670. core 87 passed, devx 152 passed, packing 14 passed, iOS managed-host 6 passed.
+
+```
+tools/check.sh
+tools/bench/mac-bench.sh --device <pixel_8> --n 20 --repeat 5 --quiesce warn --out /tmp/feed-cold \
+  --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run thin:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/nativepoc.ThinActivity \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+tools/bench/scroll-bench.sh --serial <pixel_8> --swipes 8 --rounds 5 \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+tools/bench/cold-start.sh --device <pixel_8> --n 10 --name visit --out /tmp/cold-visit \
+  --apk nativepoc-visit-android-arm64.apk \
+  --component com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  -- --es nativepoc_root visit
+tools/bench/a11y-dismiss.sh --apk nativepoc-feed-android-arm64.apk --serial <pixel_8>
+tools/bench/visit-ime.sh --serial <pixel_8>
+tools/bench/persist-restart.sh --serial <pixel_8>
+```
+
+Those pixel_8 commands were not run. `visit-ime.sh` and `persist-restart.sh` drive the visit build that is already installed. `persist-restart.sh` was run on emulator-5554 after `adb install -r` of the visit x64 APK above. A pixel_8 is arm64-v8a, so the same two scripts there follow an install of the visit arm64 APK.
+

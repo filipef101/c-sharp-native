@@ -15,7 +15,7 @@ public static class HomeScreen
 	{
 		return new Column(
 		[
-			new Text(state.Title) { Key = "title" },
+			new Text(state.Title) { Key = "title", Style = new Style { FontSize = 22 } },
 			new Text("Count " + state.Count) { Key = "count" },
 			new Button("Add", () => { state.Count++; platform.RequestRender(); }, "Add") { Key = "add" },
 		])

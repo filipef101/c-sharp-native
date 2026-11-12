@@ -2739,7 +2739,26 @@ public static partial class SubsetLowerer
 				return ModuleArg(args[1].Expression, encoded);
 			if (module == "Location" && method == "Read" && args.Count == 1)
 				return true;
+			if (module == "Persist" && method == "Get" && args.Count == 2)
+				return PersistKey(args[1].Expression, encoded);
+			if (module == "Persist" && method == "Put" && args.Count == 3)
+				return PersistKey(args[1].Expression, encoded) && ModuleArg(args[2].Expression, encoded);
+			if (module == "Persist" && method == "GetRecord" && args.Count == 2)
+				return PersistKey(args[1].Expression, encoded);
+			if (module == "Persist" && method == "PutRecord" && args.Count == 5)
+				return PersistKey(args[1].Expression, encoded)
+					&& ModuleArg(args[2].Expression, encoded)
+					&& ModuleArg(args[3].Expression, encoded)
+					&& ModuleArg(args[4].Expression, encoded);
 			return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+		}
+
+		bool PersistKey(ExpressionSyntax expression, List<(byte Kind, int Index)> encoded)
+		{
+			if (expression is not LiteralExpressionSyntax key || !key.IsKind(SyntaxKind.StringLiteralExpression) || key.Token.ValueText.Length == 0)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", expression);
+			encoded.Add((0, _code.Intern(key.Token.ValueText)));
+			return true;
 		}
 
 		bool StateCall(string name, List<byte> script, InvocationExpressionSyntax invocation)

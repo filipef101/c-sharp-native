@@ -689,6 +689,26 @@ samples="$flat"
 	else
 		echo "block_delta=- no feed and floor"
 	fi
+	if [[ "$floor_seen_delta" -eq 1 ]]; then
+		for ((s = 0; s < ${#labels[@]}; s++)); do
+			series="${labels[$s]}"
+			if [[ "$series" == "floor" || "$series" == "feed" ]]; then
+				continue
+			fi
+			echo "block_delta $series p50 minus floor p50. median is Hyndman-Fan 7 of the block deltas. low and high are the bootstrap 2.5 and 97.5 percentiles, B=1000, Park-Miller seed 8946."
+			series_deltas=()
+			for ((block = 0; block < blocks; block++)); do
+				start=$((block * block_n + 1))
+				end=$((start + block_n - 1))
+				series_block="$(sed -n "${start},${end}p" "$out/$series-totals.txt" | percentile 0.50)"
+				floor_block="$(sed -n "${start},${end}p" "$out/floor-totals.txt" | percentile 0.50)"
+				delta="$(awk -v a="$series_block" -v b="$floor_block" 'BEGIN { printf "%.1f", a - b }')"
+				echo "block $block ${series}_p50=$series_block floor_p50=$floor_block delta=$delta"
+				series_deltas+=("$delta")
+			done
+			echo "block_delta $series $(printf '%s\n' "${series_deltas[@]}" | bootstrap_ci) B=1000 seed=8946"
+		done
+	fi
 	floor_seen=0
 	for ((s = 0; s < ${#labels[@]}; s++)); do
 		if [[ "${labels[$s]}" == "floor" ]]; then

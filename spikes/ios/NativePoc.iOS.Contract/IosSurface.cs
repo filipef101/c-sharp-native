@@ -28,14 +28,7 @@ public static class IosSurface
 		}
 	}
 
-	public static readonly string[] Modules =
-	[
-		"clipboard.Copy",
-		"haptics.Confirm",
-		"share.Text",
-		"storage.Set",
-		"theme.Mode",
-	];
+	public static readonly string[] Modules = IosBridge.Modules;
 
 	public static bool Applies(Style style) =>
 		style.Padding != 0

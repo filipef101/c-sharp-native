@@ -62,6 +62,16 @@ static class PlatformModules
 				case ("location", "Read", 0):
 					return await LocationModule.Read(activity, request: true, cancel);
 #endif
+#if NATIVEPOC_PERSIST
+				case ("persist", "Get", 1):
+					return await Task.Run(() => PersistStore.Get(activity, args[0]), cancel);
+				case ("persist", "Put", 2):
+					return await Task.Run(() => PersistStore.Put(activity, args[0], args[1]), cancel);
+				case ("persist", "GetRecord", 1):
+					return await Task.Run(() => PersistStore.GetRecord(activity, args[0]), cancel);
+				case ("persist", "PutRecord", 4):
+					return await Task.Run(() => PersistStore.PutRecord(activity, args[0], args[1], args[2], args[3]), cancel);
+#endif
 				default:
 					return "http-error: unknown " + module + "." + method;
 			}

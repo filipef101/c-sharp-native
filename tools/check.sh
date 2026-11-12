@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One local gate for Linux and macOS. bash 3.2.
-# Runs the core, devx, and packing tests, cnative inspect on every sample
-# screen and the counter, then the bench self-tests. Prints PASS or FAIL
+# Runs the core, devx, packing, and iOS managed-host tests, cnative inspect
+# on every sample screen and the counter, then the bench self-tests. Prints PASS or FAIL
 # for each step. Exits 0 only when every step passed.
 #
 #   tools/check.sh
@@ -27,6 +27,7 @@ run() {
 run core dotnet test tests/NativePoc.Core.Tests/NativePoc.Core.Tests.csproj -c Release --nologo
 run devx dotnet test tools/devx/NativePoc.Devx.Cli.Tests/NativePoc.Devx.Cli.Tests.csproj -c Release --nologo
 run packing dotnet test tests/NativePoc.Packing.Tests/NativePoc.Packing.Tests.csproj -c Release --nologo
+run ios dotnet test spikes/ios/NativePoc.iOS.Tests/NativePoc.iOS.Tests.csproj -c Release --nologo
 
 cli="tools/devx/NativePoc.Devx.Cli/NativePoc.Devx.Cli.csproj"
 dll="tools/devx/NativePoc.Devx.Cli/bin/Release/net10.0/cnative.dll"
