@@ -669,6 +669,41 @@ public sealed class SubsetLowererTests
 	}
 
 	[Fact]
+	public void The_shelf_lowers_and_a_broken_line_names_its_file()
+	{
+		var path = Path.Combine(RepoRoot.Find(AppContext.BaseDirectory), "samples", "showcase", "ShelfScreen.cs");
+		var source = File.ReadAllText(path);
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var tree = RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag()).Render(new Platform());
+		Assert.Equal("Harbor bowl", Assert.IsType<Text>(ElementIds.Require(tree, "scroll/list/row-0/harbor/name")).Value);
+		Assert.NotNull(ElementIds.Require(tree, "scroll/list/row-3/moss"));
+
+		var renamed = source.Replace("Key = \"harbor\"", "Key = \"harbour\"", StringComparison.Ordinal);
+		var again = SubsetLowerer.TryLower(renamed);
+		Assert.True(again.Ok, again.Diagnostics.Count == 0 ? "" : again.Diagnostics[0].Message);
+		var renamedTree = RecordProgram.Bind(again.Program!, new RecordProgram.Bag()).Render(new Platform());
+		Assert.Equal("Harbor bowl", Assert.IsType<Text>(ElementIds.Require(renamedTree, "scroll/list/row-0/harbour/name")).Value);
+		Assert.Throws<InvalidOperationException>(() => ElementIds.Require(renamedTree, "scroll/list/row-0/harbor"));
+
+		var broken = source.Replace("new Text(\"The shelf\")", "new Text(\"The shelf\"", StringComparison.Ordinal);
+		var refused = SubsetLowerer.TryLower(broken);
+		Assert.False(refused.Ok);
+		var diagnostic = refused.Diagnostics[0];
+		Assert.Equal(SubsetLowerer.NotAScreen, diagnostic.Id);
+		Assert.True(diagnostic.Line > 0);
+		var note = System.Text.Encoding.UTF8.GetString(ScreenQuery.FaultNote(
+			diagnostic.Id,
+			diagnostic.Message,
+			diagnostic.Start,
+			diagnostic.End,
+			diagnostic.Line,
+			diagnostic.Column,
+			"samples/showcase/ShelfScreen.cs"));
+		Assert.Contains("samples/showcase/ShelfScreen.cs:" + diagnostic.Line.ToString(System.Globalization.CultureInfo.InvariantCulture), note, StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void Opening_a_note_passes_the_row_and_save_writes_it_back()
 	{
 		var root = RepoRoot.Find(AppContext.BaseDirectory);

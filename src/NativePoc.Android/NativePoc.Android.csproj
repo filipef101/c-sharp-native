@@ -22,6 +22,7 @@
 		<NativePocImage Condition="'$(NativePocImage)' == ''">false</NativePocImage>
 		<NativePocJni Condition="'$(NativePocJni)' == ''">false</NativePocJni>
 		<NativePocShowcase Condition="'$(NativePocShowcase)' == ''">false</NativePocShowcase>
+		<NativePocWidgetFloor Condition="'$(NativePocWidgetFloor)' == ''">false</NativePocWidgetFloor>
 		<NativePocHydratePrefetch Condition="'$(NativePocHydratePrefetch)' == ''">false</NativePocHydratePrefetch>
 		<NativePocStartupMarks Condition="'$(NativePocStartupMarks)' == ''">false</NativePocStartupMarks>
 		<NativePocDeferNatives Condition="'$(NativePocDeferNatives)' == ''">false</NativePocDeferNatives>
@@ -159,9 +160,15 @@
 	<PropertyGroup Condition="'$(NativePocShowcase)' != 'true'">
 		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\showcase\**</NativePocSampleExclude>
 	</PropertyGroup>
-	<PropertyGroup Condition="'$(NativePocShowcase)' == 'true'">
+	<PropertyGroup Condition="'$(NativePocShowcase)' == 'true' And '$(NativePocWidgetFloor)' != 'true'">
 		<ApplicationId>com.scratch.nativepoc.showcase</ApplicationId>
 		<DefineConstants>$(DefineConstants);NATIVEPOC_ROOT_HOME</DefineConstants>
+	</PropertyGroup>
+	<!-- Same showcase compile, an empty column, and a second package so the
+	     bench can install it beside Northroom. -->
+	<PropertyGroup Condition="'$(NativePocWidgetFloor)' == 'true'">
+		<ApplicationId>com.scratch.nativepoc.widgetfloor</ApplicationId>
+		<DefineConstants>$(DefineConstants);NATIVEPOC_WIDGET_FLOOR</DefineConstants>
 	</PropertyGroup>
 	<Target Name="RefuseDevListenerInRelease" BeforeTargets="Build;Publish">
 		<Error

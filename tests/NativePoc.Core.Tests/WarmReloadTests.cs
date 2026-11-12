@@ -44,6 +44,51 @@ public sealed class WarmReloadTests
 	}
 
 	[Fact]
+	public void Keyed_shelf_insert_delete_and_rename_keep_the_scroll()
+	{
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(Shelf("harbor", "kiln", "cedar", "night", "field", "rain", "linen", "moss"));
+		var scroll = reconciler.Root!;
+		scroll.ScrollY = 640;
+		var list = scroll.Children[0];
+		var harbor = list.Children[0];
+		var kiln = list.Children[1];
+		var moss = list.Children[7];
+
+		reconciler.Render(Shelf("harbor", "kiln", "cedar", "night", "field", "rain", "linen"));
+		Assert.Same(scroll, reconciler.Root);
+		Assert.Same(list, scroll.Children[0]);
+		Assert.Equal(640, scroll.ScrollY);
+		Assert.Equal(harbor.Identity, list.Children[0].Identity);
+		Assert.Equal(kiln.Identity, list.Children[1].Identity);
+		Assert.Equal(7, list.Children.Count);
+		Assert.True(moss.Disposed || moss.Removed > 0);
+
+		reconciler.Render(Shelf("extra", "harbor", "kiln", "cedar", "night", "field", "rain", "linen"));
+		Assert.Same(scroll, reconciler.Root);
+		Assert.Equal(640, scroll.ScrollY);
+		Assert.Equal("extra", list.Children[0].Text);
+		Assert.Equal(harbor.Identity, list.Children[1].Identity);
+		Assert.Equal(kiln.Identity, list.Children[2].Identity);
+
+		reconciler.Render(Shelf("extra", "harbour", "kiln", "cedar", "night", "field", "rain", "linen"));
+		Assert.Same(scroll, reconciler.Root);
+		Assert.Equal(640, scroll.ScrollY);
+		Assert.Equal(kiln.Identity, list.Children[2].Identity);
+		Assert.NotEqual(harbor.Identity, list.Children[1].Identity);
+		Assert.Equal("harbour", list.Children[1].Text);
+		Assert.True(harbor.Disposed || harbor.Removed > 0);
+	}
+
+	static ScrollView Shelf(params string[] keys)
+	{
+		var tiles = new Element[keys.Length];
+		for (var index = 0; index < keys.Length; index++)
+			tiles[index] = new Text(keys[index]) { Key = keys[index] };
+		return new ScrollView(new Column(tiles) { Key = "list" }) { Key = "scroll" };
+	}
+
+	[Fact]
 	public void Mixed_keys_in_one_parent_are_still_refused()
 	{
 		var mixed = new Column(

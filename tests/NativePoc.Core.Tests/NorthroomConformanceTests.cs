@@ -114,6 +114,49 @@ public sealed class NorthroomConformanceTests
 		BelowTheBar(host.Tree!, "scroll/page/heading");
 	}
 
+	[Fact]
+	public void Northroom_wash_stroke_and_across_remain_on_the_headless_host()
+	{
+		var host = new HeadlessHost();
+		var home = new HomeState();
+		host.Show(platform => HomeScreen.Render(home, platform));
+		var hero = ElementIds.Require(host.Tree!, "scroll/page/hero");
+		Assert.Equal(0xFF0F6E56u, hero.Style?.Background);
+		Assert.Equal(0xFF3FA888u, hero.Style?.Wash);
+		Assert.Equal(1, ElementIds.Require(host.Tree!, "scroll/page/stats").Style?.Across);
+		var pieces = Box(host.Tree!, "scroll/page/stats/pieces", 1f);
+		var kept = Box(host.Tree!, "scroll/page/stats/kept", 1f);
+		var kiln = Box(host.Tree!, "scroll/page/stats/kiln", 1f);
+		Assert.Equal(pieces.Top, kept.Top);
+		Assert.Equal(kept.Top, kiln.Top);
+		Assert.True(pieces.Left < kept.Left);
+		Assert.True(kept.Left < kiln.Left);
+
+		var shelf = new ShelfState();
+		host.Show(platform => ShelfScreen.Render(shelf, platform));
+		Assert.Equal(1, ElementIds.Require(host.Tree!, "scroll/list/row-0").Style?.Across);
+		var harbor = Box(host.Tree!, "scroll/list/row-0/harbor", 1f);
+		var door = Box(host.Tree!, "scroll/list/row-0/kiln", 1f);
+		Assert.Equal(harbor.Top, door.Top);
+		Assert.True(harbor.Left < door.Left);
+		var swatch = ElementIds.Require(host.Tree!, "scroll/list/row-0/harbor/swatch");
+		Assert.Equal(0xFF6E97A0u, swatch.Style?.Background);
+		Assert.Equal(0xFFD5E6EAu, swatch.Style?.Wash);
+
+		var piece = new PieceState { Id = "harbor", Title = "Harbor bowl", Tone = "Mist" };
+		host.Show(platform => PieceScreen.Render(piece, platform));
+		var keep = ElementIds.Require(host.Tree!, "scroll/page/keep");
+		Assert.Equal(0xFF0F6E56u, keep.Style?.Stroke);
+		Assert.Equal(24, keep.Style?.Radius);
+		var tile = ElementIds.Require(host.Tree!, "scroll/page/swatch");
+		Assert.NotEqual(0u, tile.Style?.Wash ?? 0);
+
+		host.Show(platform => FloorScreen.Render(new FloorState(), platform));
+		var page = Assert.IsType<Column>(host.Tree);
+		Assert.Equal("page", page.Key);
+		Assert.Empty(page.Children);
+	}
+
 	static void Press(HeadlessHost host, string id)
 	{
 		Assert.NotNull(host.Tree);

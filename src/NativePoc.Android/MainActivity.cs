@@ -128,7 +128,10 @@ public sealed class MainActivity : Activity
 			KeyedList.LogBinds = true;
 #endif
 		var requestedRoot = Intent?.GetStringExtra("nativepoc_root");
-#if NATIVEPOC_ROOT_HOME
+#if NATIVEPOC_WIDGET_FLOOR
+		if (string.IsNullOrEmpty(requestedRoot))
+			requestedRoot = "floor";
+#elif NATIVEPOC_ROOT_HOME
 		if (string.IsNullOrEmpty(requestedRoot))
 			requestedRoot = "home";
 #endif

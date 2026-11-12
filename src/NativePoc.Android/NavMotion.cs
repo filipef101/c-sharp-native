@@ -129,12 +129,25 @@ static class NavMotion
 
 	sealed class SystemBarInset : Java.Lang.Object, View.IOnApplyWindowInsetsListener
 	{
+		bool _logged;
+
 		public WindowInsets OnApplyWindowInsets(View v, WindowInsets insets)
 		{
 #pragma warning disable CA1416
 			var bars = insets.GetInsets(WindowInsets.Type.SystemBars());
 			v.SetPadding(bars.Left, bars.Top, bars.Right, bars.Bottom);
 			StartupMarks.Phase("insets");
+			if (!_logged)
+			{
+				_logged = true;
+				Android.Util.Log.Info(
+					MainActivity.Tag,
+					"startup insets top=" + bars.Top.ToString(System.Globalization.CultureInfo.InvariantCulture)
+					+ " bottom=" + bars.Bottom.ToString(System.Globalization.CultureInfo.InvariantCulture)
+					+ " left=" + bars.Left.ToString(System.Globalization.CultureInfo.InvariantCulture)
+					+ " right=" + bars.Right.ToString(System.Globalization.CultureInfo.InvariantCulture));
+			}
+
 			return WindowInsets.Consumed;
 #pragma warning restore CA1416
 		}
