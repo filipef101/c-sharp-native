@@ -559,3 +559,102 @@ tools/bench/cold-start.sh --device <pixel_8> --n 10 --name visit --out /tmp/cold
 ```
 
 Core tests: 75 passed, including `ReloadAotPublishTests`. Packing tests: 14 passed. Devx tests: 142 passed. `mac-bench.sh --self-test` and `scroll-bench.sh --self-test` passed.
+
+## JNI peer, bench blocks, TalkBack rows, developer loop
+
+The maintainer's Mac run of the previous feed (`36f3a5d1`, list floor `6f6e7ea0`) is the baseline these units did not reproduce. pixel_8 arm64, host GPU, `--quiesce warn`, guest_load_p50 2.9, host load spiked to 22 at the start, n=20 interleaved. TotalTime p50/p90: counter 295.5/344.4, feed 312.0/428.4, floor 259.5/317.8. Feed minus floor is +52.5 ms. The previous quiet Mac run was +19.5 ms, so that gap moves run to run. Feed since-process p50: attach_end 28.0, class 29.0, before 29.0, so_reloc 30.5, so_ctors 30.5, after 40.5, java 43.5, java_end 43.5, jni 67.5, runtime 74.0, render 98.0, bind 166.0, draw 177.0. Floor: onCreate 35.5, render 67.5, draw 141.5. The library load itself is before 29.0 to after 40.5, 11.5 ms. The largest single slice is java_end 43.5 to jni 67.5, 24 ms. Bind is render 98.0 to bind 166.0, 68 ms, against the floor's render 67.5 to draw 141.5, 74 ms. Scroll work p50/p90/p99: feed 16.3/21.1/37.1, floor 16.3/17.6/32.6. This workspace is still the SwiftShader emulator. Same-run relatives only. The 24 ms is not closed.
+
+### java_end to jni-activity (emulator-run)
+
+The `jni-activity` mark is the first line of the managed static constructor, so the window ends before that body. The generated wrapper is patched at build time, only when startup marks are on. The marks are `jcw-enter` at the start of the static block, `jcw-register` after the method string is built, `jcw-registered` after `ManagedPeer.registerNativeMembers`, `jcw-super` after `Activity` returns from `super`, and `jcw-peer` after `ManagedPeer.construct` returns. The log line `jcw-natives count=` is the number of newlines in the method string. Every sample in this run logged 5. The feed dex from `6959835` also has no `onRequestPermissionsResult` string. The five methods are onCreate, onNewIntent, onResume, onBackPressed, and onDestroy.
+
+`nativepoc.ThinActivity` is a handwritten activity in the same process and the same `.so`. It is not the launcher. Its static init marks `thin-class` and calls `Java_nativepoc_ThinActivity_thinMark`, which is the one extra dynamic export on the marks build. Counter and visit do not link that object and do not export the symbol.
+
+Interleaved mac-bench, emulator-5554, `--n 6 --repeat 2 --quiesce warn`, pooled n=12, one warmup dropped per block. guest_load_p50 counter 5.7, feed 5.9, thin 5.7, floor 5.9. Not the Mac. The slice numbers are the median of the per-sample differences, Hyndman-Fan type 7. Subtracting the p50 of two marks is a different statistic. The summary's `startup_jcw_p50` line is the p50 of each mark.
+
+| series | TotalTime p50/p90 | since-process p50 |
+| --- | --- | --- |
+| counter | 841.0 / 937.9 | java_end 47.0, jcw_enter 52.0, jcw_registered 56.0, jni 73.5 |
+| feed | 679.0 / 786.3 | java_end 55.0, jcw_enter 60.5, jcw_register 61.0, jcw_registered 66.5, jcw_super 67.5, jni 75.0, jcw_peer 76.0 |
+| thin | 516.5 / 540.6 | java_end 46.5, thin_class 52.5, thin_jni 60.0, thin_ctor 60.0, thin_oncreate 63.0 |
+| floor | 552.0 / 587.4 | onCreate 28.0, render 39.5, draw 79.0 |
+
+Feed, median of the twelve differences. java_end to jni-activity is 18.0 ms. Class load of the crc64 activity is 5.5 ms and about 88 minor faults. Building the five-method string is 1.0 ms. `registerNativeMembers` is 2.0 ms and about 56 minor faults. `Activity` construction after that returns is 1.0 ms. `ManagedPeer.construct` until the managed static constructor's first line is 5.5 ms. The rest of that constructor, through `jcw-peer`, is 0.5 ms and is outside the original window.
+
+Thin, same `.so`. java_end to `thin-jni` is 12.5 ms. Class load is 7.5 ms. The JNI call is 1.0 ms. A handwritten activity that calls one JNI pays the class load and that call. It does not register five natives and it does not construct a managed peer.
+
+The part of the window that is this app's code is those five registrations, about 2 ms. Each override is live. None was removed. The managed static constructor is the end of the window, not the body of it. The Mac 24 ms stays the maintainer's number.
+
+### Bench blocks
+
+`--repeat K` runs K independent interleaved blocks, each with its own discarded warmup. `--repeat 1` prints the same dry-run plan as before. `K` greater than 1 prints a `block k` header. The summary keeps the pooled totals and adds one line per block, `feed_p50` minus `floor_p50`, then `block_delta` with the median of those deltas and a bootstrap 95% interval. The interval is the 2.5 and 97.5 percentiles of 1000 resampled medians. The generator is Park-Miller, seed 8946, which stays inside the 53-bit integer range. `--self-test` locks the 1..10 fixture at `median=5.5 low=3.0 high=8.0` and the `--repeat 2` plan.
+
+This emulator run, K=2, n=6. Block 0 feed_p50 695.0, floor_p50 545.5, delta 149.5. Block 1 feed_p50 632.0, floor_p50 552.0, delta 80.0. Median of the two deltas 114.8, bootstrap low 80.0, high 149.5. Two blocks on this guest load are not a Mac conclusion. The pooled feed minus floor is 679.0 − 552.0 = 127.0, which is neither block. A single block would have been the wrong number.
+
+### TalkBack rows (emulator-run)
+
+The same TalkBack setup as the previous unit. `com.google.android.tts` was disabled so `SpeechControllerImpl` logged each phrase, including the failure that TTS was not ready. The service was bound and touch exploration was on. Tab was the traversal. TTS was enabled again afterwards, `accessibility_enabled` and `touch_exploration_enabled` were set back to 0, and the service was not bound.
+
+Feed, launch plus Tab: Native PoC, Feed. Heading. Out of list List, Post. Button, Back. Button, then • Row 0000. 1 of 1000. In list List. 1000 items, and the same shape through • Row 0013. 14 of 1000. `list-first` moved 0, 1, 2, 3, 4, 5, 6 during that walk, so the recycler scrolled to keep the focused row on screen. The uiautomator dump shows each row focusable with content description `• Row NNNN`. Refresh is focusable in that dump and was not in this utterance sequence. The dump does not list the custom action label.
+
+The row adds an accessibility action whose label is `Dismiss` and whose id is not click. The first node query logs `a11y-dismiss action=Dismiss`, which this TalkBack session did. Alt+Enter, Ctrl+Enter, and Menu did not log `a11y-dismiss pos=`. The action is attached. This run did not observe TalkBack performing it.
+
+Counter Tab loop: Name, Editing. Name. Edit box, Save name. Button, Packing. Button, then that loop. Packing: Pull to refresh, Canvas tent. Button, OFF. Packed Canvas tent. Switch, Edit Canvas tent. Button, Camp stove with ON, Ridge map, Water bladder. This is not a phone, and it is not a finger-swipe traversal.
+
+The row gesture listener was not changed. The Mac scroll numbers above are the maintainer's. This unit did not re-run the scroll bench.
+
+### Developer loop
+
+From a clean directory, warm NuGet and ILC packs, emulator-5554. `dotnet new install` of the local package 0.6 s. `dotnet new cnative-app` 0.6 s, and a second folder 0.6 s. `dotnet tool install` of the CLI 0.7 s.
+
+Cold `cnative run android --listener` on that folder, empty bin and obj. Process start to `Displayed` was 20.6 s. The log published the Debug NativeAOT listener, launched `crc64e3b30822abfd5217.MainActivity`, pid 32088, and printed `watching` with no reload before an edit. The published screen was already Hello. A dump showed Hello, Count 0, ADD.
+
+A second `dotnet publish` of that unchanged project still ran ILC and took 13.8 s. That is the old warm path. `cnative run` now skips the publish when the signed apk is newer than `cnative-app.csproj` and `nuget.config`. A screen edit does not invalidate the apk, because the listener reloads it. The warm run logged `listener apk is newer than cnative-app.csproj. Skipping publish.` Process start to `Displayed` was 2.9 s (`Displayed` itself +1.188 s).
+
+The first edit, `Title` from `Hello` to `Hiya` while that watcher was running, logged `reloaded in 77.9 ms (apply 32.4494 ms)` and `Hiya program=1 present=1`. A dump showed Hiya and not Hello. The file was put back. The eager send of every screen before `watching` was the other waste. `--once` still pushes the screens, because that is the one-shot.
+
+### Sizes
+
+| build | APK | APK sha256 | .so | .so sha256 | dex |
+| --- | --- | --- | --- | --- | --- |
+| counter x64, built | 3,056,501 | `1f444a2f35f7926353ba2f7c49ebae63172cedb3eba8521e042986a93b9d8fb8` | 7,042,304 | `6a1aaef1aab41786bf4dcd0d1ff43a593a0e2c4f20a2c5895c26164870bcfa2f` | 49,920 |
+| counter arm64, built | 2,896,760 | `e3097e99d1e7ebb28ab034270f2071ea1245c3962a558789ced20dd4a5adfcac` | 7,266,336 | `347dffd4f1413c18cb5f5d3ae6b0bf2d84938c21712c0c96c1cf38b5f7991457` | 49,920 |
+| feed x64, emulator-run, marks on | 3,267,973 | `8df18a20e97fe7b8fa665b0af61fb6ac9aa33df4c84bc7c97df9fc053e93294e` | 7,201,296 | `330f5bf912cb10a69d9f2da653fca062a3ac794caed07a233b726d74b2f0742f` | 288,528 |
+| feed arm64, built, marks on | 3,129,071 | `740a0f5d1464be08354a6b1abef26d14e3387ac2b320685da6bb50cc1861dd6c` | 7,433,976 | `d8ac6e29cf1b20aecc7035ee706aa47cc12290151b279bfcbe956a1bb16e78d0` | 330,128 |
+| visit x64, built | 3,146,613 | `7fa47ea334ac7147d4b35cc0e694e14c8e5be814da2ffbe0f5712a83c715d1ba` | 7,254,992 | `df9dded6fcc4df35ae641c17a1eba3995206e81c499af7a5cd4243b65c7eb2c2` | 52,276 |
+| visit arm64, built | 2,982,776 | `3ad617cd11fc4adf9f8ef5bd4cc11a256e526cd774e117d927a10837312daa1c` | 7,490,200 | `276c0b4045e9274c879291d696d980082b4cc5ae41b09734e29de0cb4fee85fa` | 52,276 |
+
+Dex sha256: counter `9267b0f166ebf71ec043bc7ec79eced7c9f698117489d37e3178c7c24596f771` (same bytes as `6959835`, both ABIs), feed x64 `96c1f534b9a479e9668b6d2c99f0fe34cbe916fd97c79ff15fbe45856df40cca`, feed arm64 `4ecc923530cd891419fc9ed6ffcdc33509960ae1d3a1afc636353f23bd5781bb`, visit `0efeb5ae4570f976f8724c34da34ce3cbfefd7fd43387b9d934a14c7276d5bed` (same bytes as `6959835`). The `.so` inside each APK matched the loose file. Counter and visit dex match the previous commit. Their `.so` files are the same size as that commit and differ in the build id. The arm64 feed dex is larger than the x64 feed dex. The x64 process still launched. List floor is unchanged, both ABIs, 531,381 bytes, sha256 `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1`. Shipped `.so` files stay stripped with a `.gnu_debuglink`. The marks feed exports `Java_nativepoc_ThinActivity_thinMark` in addition to the three JNI symbols. No RELR and no `extractNativeLibs=false`.
+
+```
+tools/bench/mac-bench.sh --device <pixel_8> --n 20 --repeat 5 --quiesce warn --out /tmp/feed-cold \
+  --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run thin:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/nativepoc.ThinActivity \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+```
+tools/bench/scroll-bench.sh --serial <pixel_8> --swipes 8 --rounds 5 \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+```
+tools/bench/cold-start.sh --device <pixel_8> --n 10 --name visit --out /tmp/cold-visit \
+  --apk nativepoc-visit-android-arm64.apk \
+  --component com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  -- --es nativepoc_root visit
+```
+
+The emulator attribution above was:
+
+```
+tools/bench/mac-bench.sh --device emulator-5554 --n 6 --repeat 2 --quiesce warn --out /tmp/p36/bench \
+  --run counter:/tmp/p36/feed-x64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:/tmp/p36/feed-x64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run thin:/tmp/p36/feed-x64.apk:com.scratch.nativepoc/nativepoc.ThinActivity \
+  --run floor:/opt/cursor/artifacts/progress33/nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+Core tests: 75 passed, including `ReloadAotPublishTests`. Packing tests: 14 passed. Devx tests: 143 passed. `mac-bench.sh --self-test` and `scroll-bench.sh --self-test` passed.

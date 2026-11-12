@@ -52,6 +52,16 @@ static class AndroidBuild
 		_ => throw new InvalidOperationException("Unsupported RID '" + rid + "'."),
 	};
 
+	public static string? ExistingSignedApk(string directory)
+	{
+		if (!Directory.Exists(directory))
+			return null;
+		var apks = Directory.GetFiles(directory, "*-Signed.apk");
+		if (apks.Length != 1)
+			return null;
+		return apks[0];
+	}
+
 	public static string RequireSignedApk(string directory)
 	{
 		if (!Directory.Exists(directory))

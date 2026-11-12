@@ -170,6 +170,7 @@
 	<ItemGroup Condition="'$(NativePocStartupMarks)' != 'true'">
 		<AndroidJavaSource Remove="Java\nativepoc\StartupProbe.java" />
 		<AndroidJavaSource Remove="Java\nativepoc\StartupApp.java" />
+		<AndroidJavaSource Remove="Java\nativepoc\ThinActivity.java" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(NativePocStartupMarks)' == 'true'">
 		<AndroidJavaSource Remove="Java\nativepoc\StartupProbe.java" />
@@ -178,6 +179,10 @@
 		</AndroidJavaSource>
 		<AndroidJavaSource Remove="Java\nativepoc\StartupApp.java" />
 		<AndroidJavaSource Include="Java\nativepoc\StartupApp.java">
+			<Bind>false</Bind>
+		</AndroidJavaSource>
+		<AndroidJavaSource Remove="Java\nativepoc\ThinActivity.java" />
+		<AndroidJavaSource Include="Java\nativepoc\ThinActivity.java">
 			<Bind>false</Bind>
 		</AndroidJavaSource>
 		<AndroidManifestOverlay Include="Properties\StartupMarks.xml" />
@@ -215,10 +220,19 @@
 		</PropertyGroup>
 		<Error Condition="!Exists('$(_LoadMarkClang)')" Text="Load mark clang was not found at $(_LoadMarkClang)." />
 		<Exec Command="&quot;$(_LoadMarkClang)&quot; -fPIC -Os -c &quot;$(MSBuildThisFileDirectory)native/loadmark.c&quot; -o &quot;$(_LoadMarkObj)&quot;" />
+		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)native/export-thin.py&quot; &quot;$(IntermediateOutputPath)native/$(AssemblyName).exports&quot;" />
 		<ItemGroup>
 			<LinkerArg Include="&quot;$(_LoadMarkObj)&quot;" />
 			<LinkerArg Include="-llog" />
 		</ItemGroup>
+	</Target>
+	<!-- The generated wrapper is overwritten by _GenerateJavaStubs, which
+	     _CompileJava depends on. Mark it after the stub exists. -->
+	<Target Name="MarkJcwActivity" BeforeTargets="_CompileJava" Condition="'$(NativePocStartupMarks)' == 'true'">
+		<ItemGroup>
+			<_JcwActivity Include="$(IntermediateOutputPath)android/src/**/MainActivity.java" />
+		</ItemGroup>
+		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)native/mark-jcw.py&quot; &quot;%(_JcwActivity.Identity)&quot;" />
 	</Target>
 	<ItemGroup Condition="'$(NativePocPackRelocs)' != ''">
 		<LinkerArg Include="-Wl,--pack-dyn-relocs=$(NativePocPackRelocs)" />

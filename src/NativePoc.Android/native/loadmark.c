@@ -1,4 +1,5 @@
 #include <android/log.h>
+#include <jni.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -114,4 +115,14 @@ __attribute__((constructor(101))) static void so_reloc(void)
 __attribute__((constructor(65535))) static void so_ctors(void)
 {
 	mark("so-ctors");
+}
+
+/* The handwritten activity calls this after its class is loaded. It does
+   not enter the managed runtime. */
+JNIEXPORT void JNICALL
+Java_nativepoc_ThinActivity_thinMark(JNIEnv *env, jclass clazz)
+{
+	(void)env;
+	(void)clazz;
+	mark("thin-jni");
 }

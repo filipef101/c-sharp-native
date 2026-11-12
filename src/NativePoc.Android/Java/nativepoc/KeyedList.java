@@ -36,6 +36,8 @@ public final class KeyedList extends RecyclerView {
 	boolean loggedReady;
 	boolean rowFitPosted;
 	int measures;
+	boolean dismissLogged;
+	static final int ACTION_DISMISS = 0x0000c0de;
 
 	public KeyedList(Context context) {
 		super(context);
@@ -221,7 +223,23 @@ public final class KeyedList extends RecyclerView {
 
 		@Override
 		public Cell onCreateViewHolder(ViewGroup parent, int viewType) {
-			return new Cell(getContext());
+			Cell cell = new Cell(getContext());
+			cell.itemView.setFocusable(true);
+			cell.itemView.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
+			if (android.os.Build.VERSION.SDK_INT >= 28)
+				cell.itemView.setScreenReaderFocusable(true);
+			cell.title.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+			cell.subtitle.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+			cell.picture.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+			cell.itemView.setAccessibilityDelegate(new RowAccess(cell));
+			cell.itemView.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+				@Override
+				public void onFocusChange(View view, boolean hasFocus) {
+					if (hasFocus)
+						requestChildRectangleOnScreen(view, new android.graphics.Rect(0, 0, view.getWidth(), view.getHeight()), false);
+				}
+			});
+			return cell;
 		}
 
 		@Override
@@ -229,11 +247,52 @@ public final class KeyedList extends RecyclerView {
 			holder.itemView.setTranslationX(0);
 			if (!bindLog) {
 				nativeBind(peer, position, holder.title, holder.subtitle, holder.picture);
+				showRow(holder);
 				return;
 			}
 			long start = System.nanoTime();
 			nativeBind(peer, position, holder.title, holder.subtitle, holder.picture);
 			noteBind(System.nanoTime() - start);
+			showRow(holder);
+		}
+
+		void showRow(Cell holder) {
+			CharSequence text = holder.title.getText();
+			holder.itemView.setContentDescription(text == null ? "" : text);
+		}
+	}
+
+	final class RowAccess extends View.AccessibilityDelegate {
+		final Cell cell;
+
+		RowAccess(Cell cell) {
+			this.cell = cell;
+		}
+
+		@Override
+		public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
+			super.onInitializeAccessibilityNodeInfo(host, info);
+			int pos = cell.getBindingAdapterPosition();
+			if (pos == NO_POSITION)
+				pos = 0;
+			info.setCollectionItemInfo(AccessibilityNodeInfo.CollectionItemInfo.obtain(pos, 1, 0, 1, false));
+			info.addAction(new AccessibilityNodeInfo.AccessibilityAction(ACTION_DISMISS, "Dismiss"));
+			if (!dismissLogged) {
+				dismissLogged = true;
+				android.util.Log.i("NativePoc", "a11y-dismiss action=Dismiss");
+			}
+		}
+
+		@Override
+		public boolean performAccessibilityAction(View host, int action, android.os.Bundle args) {
+			if (action == ACTION_DISMISS) {
+				int pos = cell.getBindingAdapterPosition();
+				android.util.Log.i("NativePoc", "a11y-dismiss pos=" + pos);
+				if (peer != 0 && pos != NO_POSITION)
+					nativeSignal(peer, OP_SWIPE, pos);
+				return true;
+			}
+			return super.performAccessibilityAction(host, action, args);
 		}
 	}
 

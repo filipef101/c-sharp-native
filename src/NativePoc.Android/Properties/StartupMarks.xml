@@ -3,5 +3,6 @@
 	<application android:name="nativepoc.StartupApp" tools:replace="android:name">
 		<provider android:name="nativepoc.StartupProbe$Before" android:authorities="${applicationId}.nativepoc.before" android:exported="false" android:initOrder="2147483647" />
 		<provider android:name="nativepoc.StartupProbe$After" android:authorities="${applicationId}.nativepoc.after" android:exported="false" android:initOrder="1" />
+		<activity android:name="nativepoc.ThinActivity" android:exported="true" />
 	</application>
 </manifest>

@@ -34,16 +34,27 @@ static class AppLoop
 		var rid = options.Abi ?? Abi.RidFromProperty(abi);
 		Console.WriteLine("cnative: app " + root + " " + serial + " rid=" + rid);
 		var project = Path.Combine(root, "cnative-app.csproj");
-		Console.WriteLine("cnative: publishing NativeAOT listener " + rid + " for " + serial);
-		var published = ProcessRunner.Run(
-			"dotnet",
-			AndroidBuild.AppListenerPublish(project, rid),
-			root,
-			Console.WriteLine,
-			Console.Error.WriteLine);
-		if (published.Code != 0)
-			throw new InvalidOperationException("Listener publish exited " + published.Code + ".");
-		var apk = AndroidBuild.RequireSignedApk(AndroidBuild.AppPublishDirectory(root, "Debug", rid));
+		var publishDir = AndroidBuild.AppPublishDirectory(root, "Debug", rid);
+		var apk = AndroidBuild.ExistingSignedApk(publishDir);
+		if (ListenerApkCurrent(project, apk))
+		{
+			Console.WriteLine("cnative: listener apk is newer than cnative-app.csproj. Skipping publish.");
+		}
+		else
+		{
+			Console.WriteLine("cnative: publishing NativeAOT listener " + rid + " for " + serial);
+			var published = ProcessRunner.Run(
+				"dotnet",
+				AndroidBuild.AppListenerPublish(project, rid),
+				root,
+				Console.WriteLine,
+				Console.Error.WriteLine);
+			if (published.Code != 0)
+				throw new InvalidOperationException("Listener publish exited " + published.Code + ".");
+			apk = AndroidBuild.RequireSignedApk(publishDir);
+		}
+		if (apk is null)
+			throw new InvalidOperationException("Missing signed apk.");
 		Install(serial, apk);
 		var session = new ReloadSession();
 		using var cancel = new CancellationTokenSource();
@@ -56,15 +67,22 @@ static class AppLoop
 		{
 			session.Token = AndroidLoop.LaunchInstalled(serial, "--es nativepoc_root home");
 			session.Open(root, serial);
-			foreach (var relative in Screens(root))
+			/* --once is an explicit push of the screens. A watching run
+			   leaves the published UI on screen; the first edit sends the
+			   file. Re-sending every screen before the user edits reloads
+			   the program the publish already contains. */
+			if (options.Once)
 			{
-				var started = Stopwatch.GetTimestamp();
-				var sent = AndroidLoop.SendSource(session, root, relative);
-				Report(relative, sent, started);
+				foreach (var relative in Screens(root))
+				{
+					var started = Stopwatch.GetTimestamp();
+					var sent = AndroidLoop.SendSource(session, root, relative);
+					Report(relative, sent, started);
+				}
+
+				return 0;
 			}
 
-			if (options.Once)
-				return 0;
 			return Watch(root, session, options.DebounceMs, cancel.Token);
 		}
 		finally
@@ -131,6 +149,21 @@ static class AppLoop
 		var elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 		Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"reloaded in {elapsed:F1} ms (apply {sent.Milliseconds} ms)"));
 		Console.WriteLine(sent.Text);
+	}
+
+	/* Screen edits reload through the listener, so they do not make the apk
+	   stale. A newer project file or nuget.config does. */
+	internal static bool ListenerApkCurrent(string projectPath, string? apkPath)
+	{
+		if (string.IsNullOrEmpty(apkPath) || !File.Exists(apkPath) || !File.Exists(projectPath))
+			return false;
+		var apkTime = File.GetLastWriteTimeUtc(apkPath);
+		if (File.GetLastWriteTimeUtc(projectPath) > apkTime)
+			return false;
+		var nuget = Path.Combine(Path.GetDirectoryName(projectPath) ?? "", "nuget.config");
+		if (File.Exists(nuget) && File.GetLastWriteTimeUtc(nuget) > apkTime)
+			return false;
+		return true;
 	}
 
 	static List<string> Screens(string root)

@@ -15,7 +15,7 @@ public final class StartupProbe {
 	private StartupProbe() {
 	}
 
-	static void mark(String phase) {
+	public static void mark(String phase) {
 		long process = Process.getStartElapsedRealtime();
 		long now = SystemClock.elapsedRealtime();
 		long since = now - process;
