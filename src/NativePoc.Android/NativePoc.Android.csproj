@@ -17,6 +17,8 @@
 		<NativePocRecycler Condition="'$(NativePocRecycler)' == ''">false</NativePocRecycler>
 		<NativePocLocation Condition="'$(NativePocLocation)' == ''">false</NativePocLocation>
 		<NativePocPersist Condition="'$(NativePocPersist)' == ''">false</NativePocPersist>
+		<NativePocNav Condition="'$(NativePocNav)' == ''">false</NativePocNav>
+		<NativePocHydratePrefetch Condition="'$(NativePocHydratePrefetch)' == ''">false</NativePocHydratePrefetch>
 		<NativePocStartupMarks Condition="'$(NativePocStartupMarks)' == ''">false</NativePocStartupMarks>
 		<NativePocDeferNatives Condition="'$(NativePocDeferNatives)' == ''">false</NativePocDeferNatives>
 		<NativePocFastNatives Condition="'$(NativePocFastNatives)' == ''">false</NativePocFastNatives>
@@ -60,6 +62,9 @@
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocPersist)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_PERSIST</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocNav)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_NAV</DefineConstants>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocLocation)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_LOCATION</DefineConstants>
@@ -166,6 +171,7 @@
 		<Compile Include="..\..\samples\*\*.cs" Exclude="..\..\samples\NativePoc.*\**;**\bin\**;**\obj\**;$(NativePocSampleExclude)" />
 		<Compile Remove="FeedJson.cs" Condition="'$(NativePocHttp)' != 'true'" />
 		<Compile Remove="PersistStore.cs" Condition="'$(NativePocPersist)' != 'true'" />
+		<Compile Remove="NavFocus.cs" Condition="'$(NativePocNav)' != 'true'" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\NativePoc.Core\NativePoc.Core.csproj" />
@@ -241,7 +247,10 @@
 			<_LoadMarkObj>$(IntermediateOutputPath)loadmark.o</_LoadMarkObj>
 		</PropertyGroup>
 		<Error Condition="!Exists('$(_LoadMarkClang)')" Text="Load mark clang was not found at $(_LoadMarkClang)." />
-		<Exec Command="&quot;$(_LoadMarkClang)&quot; -fPIC -Os -c &quot;$(MSBuildThisFileDirectory)native/loadmark.c&quot; -o &quot;$(_LoadMarkObj)&quot;" />
+		<PropertyGroup>
+			<_LoadMarkExtra Condition="'$(NativePocHydratePrefetch)' == 'true'">-DNATIVEPOC_HYDRATE_PREFETCH=1</_LoadMarkExtra>
+		</PropertyGroup>
+		<Exec Command="&quot;$(_LoadMarkClang)&quot; -fPIC -Os $(_LoadMarkExtra) -c &quot;$(MSBuildThisFileDirectory)native/loadmark.c&quot; -o &quot;$(_LoadMarkObj)&quot;" />
 		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)native/export-thin.py&quot; &quot;$(IntermediateOutputPath)native/$(AssemblyName).exports&quot;" />
 		<ItemGroup>
 			<LinkerArg Include="&quot;$(_LoadMarkObj)&quot;" />

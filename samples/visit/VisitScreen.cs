@@ -112,6 +112,7 @@ public static class VisitScreen
 		rows.Add(new Button("Remember", () => Remember(), "Remember") { Key = "remember" });
 		rows.Add(new Button("Recall", () => Recall(), "Recall") { Key = "recall" });
 		rows.Add(new Text(state.Note) { Key = "note" });
+		rows.Add(new Text("Pier") { Key = "mark" });
 		rows.Add(new Text(state.Record) { Key = "record" });
 		foreach (var item in state.Stops)
 		{

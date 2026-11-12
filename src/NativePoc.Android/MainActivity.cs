@@ -352,6 +352,8 @@ public sealed class MainActivity : Activity
 
 	public void GoBack() => _platform?.Pop();
 
+	internal void GoPush(string screen) => _platform?.Push(screen);
+
 #pragma warning disable CA1422
 	public override void OnBackPressed()
 	{
@@ -826,6 +828,9 @@ public sealed class MainActivity : Activity
 		var titleUs = TakeUs(clock);
 		if (_host is not null && _reconciler.Root is not null)
 			_host.RestoreFocus(_reconciler.Root);
+#if NATIVEPOC_NAV
+		NavFocus.Apply(mounted);
+#endif
 		var focusUs = TakeUs(clock);
 #if DEBUG
 		if (Structural(patches) || !ReferenceEquals(previousRoot, mounted))

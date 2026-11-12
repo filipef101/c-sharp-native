@@ -34,6 +34,16 @@ static class PlatformModules
 				FeedJson.FillBag(args[0]);
 				return;
 #endif
+#if NATIVEPOC_NAV
+			case ("nav", "Push", 1):
+				if (activity is MainActivity navPush)
+					navPush.GoPush(args[0]);
+				return;
+			case ("nav", "Pop", 0):
+				if (activity is MainActivity navPop)
+					navPop.GoBack();
+				return;
+#endif
 			default:
 				throw new InvalidOperationException("Unknown platform module " + module + "." + method + ".");
 		}

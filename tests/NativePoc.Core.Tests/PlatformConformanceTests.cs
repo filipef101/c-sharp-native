@@ -25,7 +25,7 @@ public sealed class PlatformConformanceTests
 	{
 		var surface = new ManagedSurface();
 		PlatformConformance.Run(surface);
-		Assert.Equal("Edited", surface.Reconciler.Root!.Text);
+		Assert.Equal("Kept", surface.Reconciler.Root!.Text);
 	}
 
 	[Fact]
@@ -63,6 +63,7 @@ public sealed class PlatformConformanceTests
 	sealed class ManagedSurface : IPlatform, IPlatformSurface
 	{
 		readonly ViewReconciler<MemoryNode> _reconciler;
+		readonly NavFocusState _nav = new();
 		Func<IPlatform, Element>? _render;
 		bool _painting;
 
@@ -74,6 +75,12 @@ public sealed class PlatformConformanceTests
 
 		public string Accessibility => ScreenSnapshot.FormatTree(Tree);
 
+		public int NavDepth => _nav.Depth;
+
+		public string NavFocus => _nav.Focus;
+
+		public void ResetNav() => _nav.Reset();
+
 		public void Show(Func<IPlatform, Element> render)
 		{
 			_render = render;
@@ -84,11 +91,28 @@ public sealed class PlatformConformanceTests
 		{
 			var bound = RecordProgram.Bind(program, bag);
 			Show(bound.Render);
+			_nav.FocusFrom(Tree);
 			return Tree ?? throw new InvalidOperationException("The program rendered no tree.");
 		}
 
 		public void CopyNonce(string nonce)
 		{
+		}
+
+		public void Push(string screen)
+		{
+			_nav.Push(screen);
+			Paint();
+			_nav.FocusFrom(Tree);
+		}
+
+		public void Push(string screen, object row) => Push(screen);
+
+		public void Pop()
+		{
+			_nav.Pop();
+			Paint();
+			_nav.FocusFrom(Tree);
 		}
 
 		public void RequestRender() => Paint();

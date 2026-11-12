@@ -2471,7 +2471,7 @@ public static partial class SubsetLowerer
 				return StateCall(member.Name.Identifier.ValueText, script, invocation);
 			if (owner.Identifier.ValueText == "PackingTelemetry")
 				return true;
-			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme" or "FeedModule" or "Animate" or "Location")
+			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme" or "FeedModule" or "Animate" or "Location" or "Nav")
 				return ModuleCall(owner.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, script);
 			if (owner.Identifier.ValueText != _platform)
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
@@ -2643,6 +2643,17 @@ public static partial class SubsetLowerer
 			{
 				if (!ModuleArg(args[2].Expression, encoded))
 					return false;
+			}
+			else if (module == "Nav" && method == "Pop" && args.Count == 1)
+			{
+			}
+			else if (module == "Nav" && method == "Push" && args.Count == 2)
+			{
+				if (args[1].Expression is not LiteralExpressionSyntax screen
+					|| !screen.IsKind(SyntaxKind.StringLiteralExpression)
+					|| screen.Token.ValueText.Length == 0)
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", args[1].Expression);
+				encoded.Add((0, _code.Intern(screen.Token.ValueText)));
 			}
 			else if (module == "Animate" && method == "Play" && args.Count == 2)
 			{

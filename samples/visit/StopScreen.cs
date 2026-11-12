@@ -35,7 +35,7 @@ public static class StopScreen
 			new Text(state.Body) { Key = "body" },
 			new Text(state.Error) { Key = "error" },
 			new Button("Lookup", () => Lookup(), "Lookup") { Key = "lookup" },
-			new Button("Back", () => { platform.Pop(); platform.RequestRender(); }, "Back") { Key = "back" },
+			new Button("Back", () => { Nav.Pop(platform); platform.RequestRender(); }, "Back") { Key = "back" },
 		])
 		{ Key = "stop" };
 	}

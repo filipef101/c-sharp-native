@@ -140,6 +140,7 @@ public sealed class IosLogicSurface : IPlatform, IPlatformSurface
 {
 	readonly ViewReconciler<IosView> _reconciler;
 	readonly IosLogicHost _host = new();
+	readonly NavFocusState _nav = new();
 	Func<IPlatform, Element>? _render;
 	bool _painting;
 
@@ -153,6 +154,12 @@ public sealed class IosLogicSurface : IPlatform, IPlatformSurface
 
 	public string Accessibility => ScreenSnapshot.FormatTree(Tree);
 
+	public int NavDepth => _nav.Depth;
+
+	public string NavFocus => _nav.Focus;
+
+	public void ResetNav() => _nav.Reset();
+
 	public void Show(Func<IPlatform, Element> render)
 	{
 		_render = render;
@@ -163,11 +170,40 @@ public sealed class IosLogicSurface : IPlatform, IPlatformSurface
 	{
 		var bound = RecordProgram.Bind(program, bag);
 		Show(bound.Render);
+		_nav.FocusFrom(Tree);
 		return Tree ?? throw new InvalidOperationException("The program rendered no tree.");
 	}
 
 	public void CopyNonce(string nonce)
 	{
+	}
+
+	public void Push(string screen)
+	{
+		_nav.Push(screen);
+		Paint();
+		_nav.FocusFrom(Tree);
+	}
+
+	public void Push(string screen, object row) => Push(screen);
+
+	public void Pop()
+	{
+		_nav.Pop();
+		Paint();
+		_nav.FocusFrom(Tree);
+	}
+
+	public void Module(string module, string method, string[] args)
+	{
+		if (module == "nav" && method == "Push" && args.Length >= 1)
+		{
+			Push(args[0]);
+			return;
+		}
+
+		if (module == "nav" && method == "Pop")
+			Pop();
 	}
 
 	public void RequestRender() => Paint();

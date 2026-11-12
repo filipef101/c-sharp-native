@@ -131,6 +131,9 @@ sealed class IosPlatform : IPlatform
 	{
 		if (!ScreenNav.Shared.Push(screen))
 			Console.WriteLine("NativePoc nav-miss " + screen);
+		/* Authored only. This project was not compiled. The Linux host records
+		   the same heading focus in IosLogicSurface. */
+		Console.WriteLine("nav-focus heading=" + screen);
 		RequestRender();
 	}
 

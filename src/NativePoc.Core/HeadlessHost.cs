@@ -12,6 +12,7 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 	readonly List<string> _copied = new();
 	readonly List<string> _pushed = new();
 	readonly List<string> _calls = new();
+	readonly NavFocusState _nav = new();
 	Func<IPlatform, Element>? _render;
 	bool _painting;
 
@@ -24,6 +25,12 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 	public IReadOnlyList<string> Calls => _calls;
 
 	public int Pops { get; private set; }
+
+	public int NavDepth => _nav.Depth;
+
+	public string NavFocus => _nav.Focus;
+
+	public void ResetNav() => _nav.Reset();
 
 	public int Renders { get; private set; }
 
@@ -43,6 +50,7 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 		ArgumentNullException.ThrowIfNull(bag);
 		var bound = RecordProgram.Bind(program, bag);
 		Show(bound.Render);
+		_nav.FocusFrom(Tree);
 		return Tree ?? throw new InvalidOperationException("The program rendered no tree.");
 	}
 
@@ -54,16 +62,35 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 		Paint();
 	}
 
-	public void Push(string screen) => _pushed.Add(screen);
+	public void Push(string screen)
+	{
+		_pushed.Add(screen);
+		_nav.Push(screen);
+		Paint();
+		_nav.FocusFrom(Tree);
+	}
 
-	public void Push(string screen, object row) => _pushed.Add(screen);
+	public void Push(string screen, object row) => Push(screen);
 
-	public void Pop() => Pops++;
+	public void Pop()
+	{
+		Pops++;
+		_nav.Pop();
+		Paint();
+		_nav.FocusFrom(Tree);
+	}
 
 	public void Module(string module, string method, string[] args)
 	{
-		_ = args;
 		_calls.Add(module + "." + method);
+		if (module == "nav" && method == "Push" && args.Length >= 1)
+		{
+			Push(args[0]);
+			return;
+		}
+
+		if (module == "nav" && method == "Pop")
+			Pop();
 	}
 
 	void Paint()

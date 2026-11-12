@@ -36,7 +36,7 @@ Do not read the authored UIKit files as a successful iOS build. The recognizer c
 
 ## Conformance
 
-`PlatformConformance.Run` is the suite a screen platform has to pass: create, update, remove, text, a list, an accessibility label, and a hot-reload `Apply`. On Linux it passes on `HeadlessHost`, on `ViewReconciler` with `MemoryHost`, and on `IosLogicSurface`. `IosLogicSurface` is the UIKit host's managed decisions (`HostPolicy` and `IosBridge`) on `ViewReconciler<IosView>`. `Android.Views` is not constructed here. `spikes/ios/NativePoc.iOS` (`net10.0-ios`) was not compiled. There is no iOS binary, simulator log, or device log.
+`PlatformConformance.Run` is the suite a screen platform has to pass: create, update, remove, text, a list, an accessibility label, a hot-reload `Apply`, a push, a pop, the heading key as the focus target, and a second `Apply` that leaves the stack at depth 2. On Linux it passes on `HeadlessHost`, on `ViewReconciler` with `MemoryHost`, and on `IosLogicSurface`. `IosLogicSurface` records that focus key. It does not construct UIKit. `IosLogicSurface` is the UIKit host's managed decisions (`HostPolicy` and `IosBridge`) on `ViewReconciler<IosView>`. `Android.Views` is not constructed here. `spikes/ios/NativePoc.iOS` (`net10.0-ios`) was not compiled. There is no iOS binary, simulator log, or device log.
 
 `HostPolicy` is the shared floor. `AndroidHost` calls it for hidden text, the 48 dp touch floor, headings (`FontSize` at least 20), and multiline fields. `UIKitHost` calls the same methods. `IosLogicHost` is the Linux stand-in and is what the tests construct.
 
@@ -50,6 +50,7 @@ Closed in portable code, and written through in the UIKit sources. The UIKit pro
 - `SetFieldMode` calls `HostPolicy.FieldIsMultiline`. A multiline field shows the `UITextView` inside `FieldBox`. A password stays the `UITextField`. The Linux host records `UITextView` or `UITextField`.
 - `ScreenController.Apply` binds a `RecordProgram` and renders that tree on the next paint. `IosLogicSurface.Apply` is the path `PlatformConformance` runs.
 - `IosPlatform` implements `CopyText`, `WriteBack`, `Push(string, object)`, and `Continue` by calling `IosBridge`. The bridge dispatches clipboard, haptics, share, storage set and get, theme, animate, http, and location. A Linux `IIosServices` double covers storage, http, location, and those four methods. `IosNet.Send` is `NSUrlSession` and `IosLocation.Read` is `CLLocationManager`. Neither has been compiled or run.
+- `IosPlatform.Push` writes `nav-focus heading=` plus the screen id. That line is in `spikes/ios/NativePoc.iOS/PlatformBridge.cs`. The file was not compiled. `IosBridge.Modules` does not dispatch `nav`. The Android log of the same name is `NavFocus`, compiled only when `NativePocNav` is true.
 
 Still not a build:
 

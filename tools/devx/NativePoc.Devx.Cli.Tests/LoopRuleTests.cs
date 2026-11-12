@@ -221,6 +221,7 @@ public sealed class LoopRuleTests
 		Assert.Contains("-p:NativePocRecycler=true", listener);
 		Assert.Contains("-p:NativePocLocation=true", listener);
 		Assert.Contains("-p:NativePocPersist=true", listener);
+		Assert.Contains("-p:NativePocNav=true", listener);
 		var other = rid == "android-arm64" ? "android-x64" : "android-arm64";
 		Assert.DoesNotContain(other, debug);
 		Assert.DoesNotContain(other, listener);

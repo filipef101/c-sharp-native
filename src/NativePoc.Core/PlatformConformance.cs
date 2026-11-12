@@ -14,6 +14,12 @@ public interface IPlatformSurface
 	Element? Tree { get; }
 
 	Element Apply(ReadOnlySpan<byte> program, RecordProgram.Bag bag);
+
+	int NavDepth { get; }
+
+	string NavFocus { get; }
+
+	void ResetNav();
 }
 
 public static class PlatformConformance
@@ -69,6 +75,43 @@ public static class PlatformConformance
 		surface.Apply(RecordProgram.Encode(["Edited", "title"], [], code, "edit"), new RecordProgram.Bag());
 		Require(surface.Accessibility.Contains("value=\"Edited\"", StringComparison.Ordinal), "hot-reload apply");
 		Require(!surface.Accessibility.Contains("Save name", StringComparison.Ordinal), "hot-reload apply replaces the tree");
+
+		surface.ResetNav();
+		IPlatform? navPlatform = null;
+		surface.Show(platform =>
+		{
+			navPlatform = platform;
+			if (surface.NavDepth > 1)
+			{
+				return new Column(
+				[
+					new Text("Detail") { Key = "heading", Style = new Style { FontSize = 22 } },
+				]);
+			}
+
+			return new Column(
+			[
+				new Text("Home") { Key = "heading", Style = new Style { FontSize = 22 } },
+				new Button("Open", () => platform.Push("detail"), "Open") { Key = "open" },
+			]);
+		});
+		Require(surface.Accessibility.Contains("value=\"Home\"", StringComparison.Ordinal), "nav home");
+		Require(surface.NavDepth == 1, "nav home depth");
+		if (navPlatform is null || surface.Tree is null)
+			throw new InvalidOperationException("Platform conformance failed: nav home.");
+		ElementIds.Invoke(surface.Tree, "open", null);
+		Require(surface.Accessibility.Contains("value=\"Detail\"", StringComparison.Ordinal), "nav push");
+		Require(surface.NavDepth == 2, "nav push depth");
+		Require(string.Equals(surface.NavFocus, "heading", StringComparison.Ordinal), "nav focus");
+		navPlatform.Pop();
+		Require(surface.NavDepth == 1, "nav back");
+		Require(surface.Accessibility.Contains("value=\"Home\"", StringComparison.Ordinal), "nav back home");
+		Require(string.Equals(surface.NavFocus, "heading", StringComparison.Ordinal), "nav back focus");
+		ElementIds.Invoke(surface.Tree!, "open", null);
+		Require(surface.NavDepth == 2, "nav push again");
+		surface.Apply(RecordProgram.Encode(["Kept", "title"], [], code, "nav-edit"), new RecordProgram.Bag());
+		Require(surface.NavDepth == 2, "hot reload keeps the stack");
+		Require(surface.Accessibility.Contains("value=\"Kept\"", StringComparison.Ordinal), "hot reload paints the edit");
 	}
 
 	static void Require(bool ok, string name)

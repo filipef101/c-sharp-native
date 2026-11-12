@@ -277,6 +277,7 @@ sealed class AndroidHost : IElementHost<View>
 				text.SetTextSize(ComplexUnitType.Sp, style.FontSize);
 			if (HostPolicy.IsHeading(style.FontSize) && (int)Android.OS.Build.VERSION.SdkInt >= 28)
 			{
+				text.ImportantForAccessibility = ImportantForAccessibility.Yes;
 #pragma warning disable CA1416
 				text.AccessibilityHeading = true;
 #pragma warning restore CA1416
@@ -1046,7 +1047,22 @@ sealed class PlatformBridge : IPlatform
 		if (!ScreenNav.Shared.Push(screen))
 			Log.Info(MainActivity.Tag, "nav-miss " + screen);
 		else if (ScreenNav.Shared.TopId() != before || ScreenNav.Shared.Depth != depth)
+		{
 			NavMotion.Arm(NavMotion.Dir.Push);
+#if NATIVEPOC_NAV
+			NavFocus.Arm();
+#endif
+		}
+		else
+		{
+			/* DeliverRow pushes before this call, so the stack is already
+			   there. The screen the user is about to see still needs the
+			   heading focus. */
+#if NATIVEPOC_NAV
+			NavFocus.Arm();
+#endif
+			NavMotion.Arm(NavMotion.Dir.Push);
+		}
 		StorageSeed.Refresh(_activity, screen);
 	}
 
@@ -1068,6 +1084,9 @@ sealed class PlatformBridge : IPlatform
 		if (!ScreenNav.Shared.Pop())
 			return;
 		NavMotion.Arm(NavMotion.Dir.Pop);
+#if NATIVEPOC_NAV
+		NavFocus.Arm();
+#endif
 		_live.Cancel();
 		_live = new CancellationTokenSource();
 		Log.Info(MainActivity.Tag, "http-cancel screen=" + leaving);

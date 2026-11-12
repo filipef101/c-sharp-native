@@ -108,7 +108,7 @@ public sealed class IosStatusTests
 	{
 		var surface = new IosLogicSurface();
 		PlatformConformance.Run(surface);
-		Assert.Equal("Edited", surface.Reconciler.Root!.Text);
+		Assert.Equal("Kept", surface.Reconciler.Root!.Text);
 	}
 
 	[Fact]

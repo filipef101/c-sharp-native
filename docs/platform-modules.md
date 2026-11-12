@@ -21,6 +21,8 @@ Clipboard.Copy(host, "form", state.Email);
 | `Http` | `PostJson` | a URL string, then a JSON string | the same connection, POST, `application/json` |
 | `Timer` | `After` | a millisecond int from 0 to 10000 | completes after that delay. The result is `ok` |
 | `Location` | `Read` | none | runtime permission, then one GPS fix. The result is a string `Location.Parse` turns into `LocationFix`. `granted <lat> <lon> <accuracy>`, `denied`, or `permanently-denied`. Compiles only when `NativePocLocation` is true |
+| `Nav` | `Push` | a screen id literal | pushes that screen. The log is `nav-focus heading=` when the new tree has a heading. `NavFocus.cs` is compiled only when `NativePocNav` is true |
+| `Nav` | `Pop` | none | pops the stack. Android back calls the same pop. The log is `nav-back invoked` and then `nav-focus` on the screen that returns |
 | `Persist` | `Get` | a key literal | async read of one string from the app's private `nativepoc-persist` directory. Missing is empty. The log is `persist-get`. The file copy is compiled only when `NativePocPersist` is true |
 | `Persist` | `Put` | a key literal, then one string | async write of that string. The call returns `ok`. The log is `persist-put` |
 | `Persist` | `GetRecord` | a key literal | the same file, decoded as a `PersistRecord` (`Id`, `Title`, `Note`) by `PersistCodec`. There is no reflection serializer. The log is `persist-record-load` |
