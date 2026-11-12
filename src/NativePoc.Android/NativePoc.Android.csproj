@@ -207,6 +207,36 @@
 			<NativeDebugSymbols>true</NativeDebugSymbols>
 		</PropertyGroup>
 	</Target>
+	<Target Name="CompileLoadMark" BeforeTargets="LinkNative" DependsOnTargets="_AndroidBeforeIlcCompile" Condition="'$(NativePocStartupMarks)' == 'true' And '$(Configuration)' == 'Release'">
+		<PropertyGroup>
+			<_LoadMarkApi>$([System.String]::Copy('$(SupportedOSPlatformVersion)').Split('.')[0])</_LoadMarkApi>
+			<_LoadMarkClang>$(_AndroidNdkDirectory)toolchains/llvm/prebuilt/$(_NdkPrebuiltAbi)/bin/$(_NdkAbi)-linux-android$(_LoadMarkApi)-clang</_LoadMarkClang>
+			<_LoadMarkObj>$(IntermediateOutputPath)loadmark.o</_LoadMarkObj>
+		</PropertyGroup>
+		<Error Condition="!Exists('$(_LoadMarkClang)')" Text="Load mark clang was not found at $(_LoadMarkClang)." />
+		<Exec Command="&quot;$(_LoadMarkClang)&quot; -fPIC -Os -c &quot;$(MSBuildThisFileDirectory)native/loadmark.c&quot; -o &quot;$(_LoadMarkObj)&quot;" />
+		<ItemGroup>
+			<LinkerArg Include="&quot;$(_LoadMarkObj)&quot;" />
+			<LinkerArg Include="-llog" />
+		</ItemGroup>
+	</Target>
+	<ItemGroup Condition="'$(NativePocPackRelocs)' != ''">
+		<LinkerArg Include="-Wl,--pack-dyn-relocs=$(NativePocPackRelocs)" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(NativePocVersionScript)' != ''">
+		<LinkerArg Include="-Wl,--version-script=$(NativePocVersionScript)" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(NativePocSymbolOrder)' != ''">
+		<LinkerArg Include="-Wl,--symbol-ordering-file=$(NativePocSymbolOrder)" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(NativePocEmbedSo)' == 'true'">
+		<AndroidManifestOverlay Include="Properties\EmbedSo.xml" />
+	</ItemGroup>
+	<!-- The merger inputs do not include the overlay item, so an incremental
+	     publish would keep the previous extractNativeLibs value. -->
+	<Target Name="RefreshEmbedManifest" BeforeTargets="_ManifestMerger">
+		<Delete Files="$(IntermediateOutputPath)android/AndroidManifest.xml" Condition="Exists('$(IntermediateOutputPath)android/AndroidManifest.xml')" />
+	</Target>
 	<Target Name="DropPdbFromPackage" AfterTargets="ILLink" Condition="'$(Configuration)' == 'Release'">
 		<ItemGroup>
 			<ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />

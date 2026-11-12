@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Process;
 import android.os.SystemClock;
 import android.util.DisplayMetrics;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -18,8 +19,12 @@ public final class KeyedList extends RecyclerView {
 	static final int OP_ID = 2;
 	static final int OP_IDLE = 4;
 	static final int OP_READY = 8;
+	static final int OP_SWIPE = 16;
+	static final int OP_REFRESH = 32;
 
 	long peer;
+	boolean refresh;
+	final float density;
 	final Rows rows = new Rows();
 	boolean bindLog;
 	final long[] bindUs = new long[512];
@@ -42,6 +47,10 @@ public final class KeyedList extends RecyclerView {
 		setNestedScrollingEnabled(true);
 		setContentDescription("List");
 		setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
+		DisplayMetrics metrics = context.getResources().getDisplayMetrics();
+		float found = metrics == null ? 1f : metrics.density;
+		density = found <= 0 ? 1f : found;
+		addOnItemTouchListener(new RowGestures());
 		addOnScrollListener(new OnScrollListener() {
 			@Override
 			public void onScrollStateChanged(RecyclerView recyclerView, int state) {
@@ -55,6 +64,10 @@ public final class KeyedList extends RecyclerView {
 
 	public void setBindLog(boolean on) {
 		bindLog = on;
+	}
+
+	public void setRefresh(boolean on) {
+		refresh = on;
 	}
 
 	public void setPeer(long peer) {
@@ -213,6 +226,7 @@ public final class KeyedList extends RecyclerView {
 
 		@Override
 		public void onBindViewHolder(Cell holder, int position) {
+			holder.itemView.setTranslationX(0);
 			if (!bindLog) {
 				nativeBind(peer, position, holder.title, holder.subtitle, holder.picture);
 				return;
@@ -220,6 +234,76 @@ public final class KeyedList extends RecyclerView {
 			long start = System.nanoTime();
 			nativeBind(peer, position, holder.title, holder.subtitle, holder.picture);
 			noteBind(System.nanoTime() - start);
+		}
+	}
+
+	final class RowGestures implements OnItemTouchListener {
+		float downX;
+		float downY;
+		int claim;
+		View child;
+		int position = NO_POSITION;
+
+		@Override
+		public boolean onInterceptTouchEvent(RecyclerView recycler, MotionEvent event) {
+			int action = event.getActionMasked();
+			if (action == MotionEvent.ACTION_DOWN) {
+				downX = event.getX();
+				downY = event.getY();
+				claim = 0;
+				child = findChildViewUnder(event.getX(), event.getY());
+				position = child == null ? NO_POSITION : getChildAdapterPosition(child);
+				return false;
+			}
+			if (action == MotionEvent.ACTION_MOVE && claim == 0) {
+				float dx = event.getX() - downX;
+				float dy = event.getY() - downY;
+				float slop = 48f * density;
+				if (position != NO_POSITION && Math.abs(dx) > slop && Math.abs(dx) > Math.abs(dy) * 1.5f) {
+					claim = 1;
+					return true;
+				}
+				if (refresh && !canScrollVertically(-1) && dy > 64f * density && dy > Math.abs(dx) * 1.5f) {
+					claim = 2;
+					return true;
+				}
+				return false;
+			}
+			if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)
+				release();
+			return false;
+		}
+
+		@Override
+		public void onTouchEvent(RecyclerView recycler, MotionEvent event) {
+			if (claim == 0)
+				return;
+			int action = event.getActionMasked();
+			float dx = event.getX() - downX;
+			float dy = event.getY() - downY;
+			if (claim == 1 && child != null)
+				child.setTranslationX(dx);
+			if (action != MotionEvent.ACTION_UP && action != MotionEvent.ACTION_CANCEL)
+				return;
+			if (action == MotionEvent.ACTION_UP && peer != 0) {
+				if (claim == 1 && position != NO_POSITION && Math.abs(dx) > 48f * density)
+					nativeSignal(peer, OP_SWIPE, position);
+				else if (claim == 2 && dy > 64f * density)
+					nativeSignal(peer, OP_REFRESH, 0);
+			}
+			release();
+		}
+
+		@Override
+		public void onRequestDisallowInterceptTouchEvent(boolean disallow) {
+			if (disallow)
+				release();
+		}
+
+		void release() {
+			if (child != null)
+				child.setTranslationX(0);
+			claim = 0;
 		}
 	}
 

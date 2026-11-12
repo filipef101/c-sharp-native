@@ -6,6 +6,8 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Process;
 import android.os.SystemClock;
+import android.system.ErrnoException;
+import android.system.Os;
 import android.util.Log;
 
 /** Timestamps on SystemClock.elapsedRealtime around NativeAotRuntimeProvider. */
@@ -19,7 +21,28 @@ public final class StartupProbe {
 		long since = now - process;
 		if (since < 0)
 			since = 0;
-		Log.i("NativePoc", "startup clock=elapsed phase=" + phase + " t=" + now + " since-process-ms=" + since);
+		long minflt = -1;
+		long majflt = -1;
+		try {
+			java.io.RandomAccessFile stat = new java.io.RandomAccessFile("/proc/self/stat", "r");
+			String line = stat.readLine();
+			stat.close();
+			if (line != null) {
+				int paren = line.lastIndexOf(')');
+				if (paren >= 0 && paren + 2 < line.length()) {
+					String[] parts = line.substring(paren + 2).split(" ");
+					if (parts.length > 9) {
+						minflt = Long.parseLong(parts[7]);
+						majflt = Long.parseLong(parts[9]);
+					}
+				}
+			}
+		} catch (Exception ignored) {
+			minflt = -1;
+			majflt = -1;
+		}
+		Log.i("NativePoc", "startup clock=elapsed phase=" + phase + " t=" + now + " since-process-ms=" + since
+			+ " minflt=" + minflt + " majflt=" + majflt);
 	}
 
 	abstract static class Stub extends ContentProvider {
@@ -52,6 +75,10 @@ public final class StartupProbe {
 	/** initOrder above NativeAotRuntimeProvider, so this runs before System.loadLibrary. */
 	public static final class Before extends Stub {
 		static {
+			try {
+				Os.setenv("NATIVEPOC_START_ELAPSED", Long.toString(Process.getStartElapsedRealtime()), true);
+			} catch (ErrnoException ignored) {
+			}
 			mark("java-class");
 		}
 

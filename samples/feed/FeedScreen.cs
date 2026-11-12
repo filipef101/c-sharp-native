@@ -22,6 +22,17 @@ public sealed class FeedState
 	public List<FeedItem> Items { get; set; } = new List<FeedItem>();
 
 	public List<FeedItem> Generated { get; set; } = new List<FeedItem>();
+
+	public void Drop(FeedItem item)
+	{
+		if (item is null)
+			return;
+		for (var index = Generated.Count - 1; index >= 0; index--)
+		{
+			if (Generated[index].Id == item.Id)
+				Generated.RemoveAt(index);
+		}
+	}
 }
 
 public static class FeedScreen
@@ -69,6 +80,23 @@ public static class FeedScreen
 			}
 		}
 
+		Element Row(FeedItem item)
+		{
+			return new Column(
+			[
+				new Text("• " + item.Title),
+				new Image(item.Id == "0000" ? "feed_mark" : "http://10.0.2.2:8094/img/" + item.Id),
+			])
+			{
+				Key = item.Id,
+				OnSwipe = () =>
+				{
+					state.Drop(item);
+					platform.RequestRender();
+				},
+			};
+		}
+
 		async void Post()
 		{
 			state.Loading = true;
@@ -102,7 +130,7 @@ public static class FeedScreen
 		head.Add(new Button("Refresh", () => Load(), "Refresh") { Key = "refresh" });
 		head.Add(new Button("Post", () => Post(), "Post") { Key = "post" });
 		head.Add(new Button("Back", () => platform.Pop(), "Back") { Key = "back" });
-		return FeedRows.Lazy(head, state.Generated.Count, index => Row(state.Generated[index]), index => state.Generated[index].Id);
+		return FeedRows.Lazy(head, state.Generated.Count, index => Row(state.Generated[index]), index => state.Generated[index].Id, () => Load());
 #else
 		// The listener lowerer does not define NATIVEPOC_LAZY_FEED, so it still
 		// sees this foreach and lowers it to a window list. Release defines the
@@ -116,14 +144,7 @@ public static class FeedScreen
 		rows.Add(new Button("Back", () => platform.Pop(), "Back") { Key = "back" });
 		foreach (var item in state.Generated)
 			rows.Add(Row(item));
-		return FeedRows.Window(rows, 6);
+		return FeedRows.Window(rows, 6, () => Load());
 #endif
 	}
-
-	static Element Row(FeedItem item) => new Column(
-	[
-		new Text("• " + item.Title),
-		new Image(item.Id == "0000" ? "feed_mark" : "http://10.0.2.2:8094/img/" + item.Id),
-	])
-	{ Key = item.Id };
 }

@@ -470,3 +470,92 @@ tools/bench/cold-start.sh --device <pixel_8> --n 10 --name visit --out /tmp/cold
 ```
 
 Add `--quiesce` to refuse when another third-party package is in front or above 5% CPU, `--quiesce warn` to print the names and continue, or `--quiesce --force-stop-others` to stop only those named packages. Core tests: 75 passed. Packing tests: 14 passed. Devx tests: 142 passed. `guest-env.sh --self-test`, `mac-bench.sh --self-test`, `cold-start.sh --self-test`, and `scroll-bench.sh --self-test` passed.
+
+## Library load, TalkBack, feed gestures
+
+The maintainer's Mac run of the previous feed (`00a63065`, list floor `6f6e7ea0`) is the baseline these units did not reproduce. pixel_8 arm64, host GPU, `--quiesce warn`, guest_load_p50 2.5, n=20 interleaved. TotalTime p50/p90: counter 312.0/394.4, feed 302.0/522.7, floor 282.5/375.7 (feed +19.5 ms). Since-process p50 feed: java_attach 22.5, java 40.5, jni 60.5, enter/runtime 69.0, render 92.0, bind 154.0, draw 163.5, flush 249.5. Floor: onCreate 38.5, render 67.0, draw 152.0. Scroll work p50/p90/p99: feed 16.3/19.4/24.6, floor 16.3/19.7/24.0. Visit cold-start n=10, guest load 2.8, displayed p50/p90 323.0/483.5. This workspace is still the SwiftShader emulator. Same-run relatives only.
+
+### What the library load actually costs (emulator-run)
+
+Release feed with startup marks, Http, and Recycler. x86_64 APK sha256 `e58936e1c5f18e52`. Two constructors in `native/loadmark.c` log `so-reloc` (priority 101, after relocation) and `so-ctors` (priority 65535). Java marks also log minflt/majflt from `/proc/self/stat`. The first interleaved series computed native `since-process-ms` from `/proc` starttime, which is the USAP fork and sat 76-140 ms before `Process.getStartElapsedRealtime`. Those native since values are wrong. The table uses each mark's `t=` minus the process start taken from `phase=java-attach`. The shipped marks build writes that start into `NATIVEPOC_START_ELAPSED` before `System.loadLibrary`, and one later launch logged `so-reloc` since 35 against `t` 88720945 and process 88720910.
+
+Interleaved mac-bench.sh, emulator-5554, n=8, one warmup dropped, Hyndman-Fan 7. guest_load_p50 counter 4.4, feed 4.4, floor 4.3. Not the Mac.
+
+| series | TotalTime p50/p90 | corrected since-process p50 | guest_load_p50 |
+| --- | --- | --- | --- |
+| counter | 794.5 / 889.4 | before 22.5, so-reloc 29.5, so-ctors 36.0, after 52.5, java 54.0, jni 72.0 | 4.4 |
+| feed | 649.0 / 780.4 | attach 19.0, before 24.0, so-reloc 26.5, so-ctors 26.5, after 38.5, java 40.0, java_end 40.5, jni 71.5, runtime 80.5 | 4.4 |
+| floor | 652.5 / 733.3 | onCreate 76.5, render 97.5, draw 141.0 | 4.3 |
+
+Feed TotalTime minus floor is -3.5 ms on this run. Feed minflt p50: before 1768, so-reloc 1800, so-ctors 1817, after 2306. Relocation is about 2.5 ms and about 32 minor faults. Constructors are under 1 ms and about 17 faults. `so-ctors` to `after-runtime` is about 12 ms and about 490 minor faults: JNI_OnLoad and the managed startup touching pages. The `.so` is already 16 KB LOAD-aligned (`0x4000`), BIND_NOW, RELA 80,976 bytes, RELACOUNT 3372, INIT_ARRAY 18 entries with the two probes. Defined global exports are `JNI_OnLoad`, `JNI_OnUnload`, and `Java_net_dot_jni_nativeaot_JavaInteropRuntime_init`, which is the version script already at `obj/.../NativePoc.Android.exports`. `__managedcode` is one section.
+
+Variants, each a separate publish, interleaved the same way. None is the default.
+
+| variant | feed TotalTime p50/p90 | floor p50/p90 | feed − floor | load window p50 | guest_load_p50 | kept |
+| --- | --- | --- | --- | --- | --- | --- |
+| baseline, compressed RELA | 649.0 / 780.4 | 652.5 / 733.3 | -3.5 | before 24.0, reloc 26.5, ctors 26.5, after 38.5 | 4.4 / 4.3 | yes |
+| `android+relr` | 719.5 / 814.0 | 672.5 / 689.8 | +47.0 | before 30.5, reloc 34.5, ctors 35.0, after 42.5 | 5.6 / 5.8 | no |
+| `extractNativeLibs=false`, stored, zip page-aligned | 731.5 / 805.5 | 666.0 / 704.0 | +65.5 | before 33.0, reloc 35.0, ctors 36.0, after 46.0 | 4.0 / 4.1 | no |
+
+`android+relr` did pack the table: RELRSZ 600 bytes plus ANDROID_RELASZ 28, `.so` 7,120,952 instead of 7,201,200. The reloc slice did not get shorter, and TotalTime against the floor got worse. The uncompressed library is stored and `zipalign -c -P 16` succeeds; ELF alignment was already 16 KB. Startup got worse, so `NativePocEmbedSo` stays off. A symbol-order file naming `JNI_OnLoad`, `NativeLibraryStartup`, and `InitializeModules` left `.text` at `0x353730` size `0xc2732` and `__managedcode` at `0x415e80` size `0x2afc3e`, the same as the clock-fixed `.so`. It was not benched. A second version script cannot drop the three JNI exports, and the undefined imports have to stay. `NativePocPackRelocs`, `NativePocEmbedSo`, `NativePocVersionScript`, and `NativePocSymbolOrder` remain opt-in and empty.
+
+### The 18 ms before java-oncreate (emulator-run)
+
+On the feed p50 above, java-attach 19.0 to java-oncreate 40.0 is 21 ms. attach-end 19.5, `java-class` 23.0, before-runtime 24.0: StartupProbe's class init and the provider before `loadLibrary` are about 5 ms, and they exist only in the marks build. before-runtime 24.0 to after-runtime 38.5 is `NativeAotRuntimeProvider` calling `System.loadLibrary`. Of that, relocation is 2.5 ms and the post-constructor runtime init is 12 ms. Application.onCreate is after-runtime 38.5 to java-oncreate 40.0. java-oncreate-end 40.5 to jni-activity 71.5 is after the library, the framework creating the activity peer. Nothing of ours in that window was removed. The probes stay, because they are the split. The Mac 18 ms (22.5 to 40.5) and the Mac 20 ms (java_end 40.5 to jni 60.5) are that same shape on the other machine. This run does not close them.
+
+### TalkBack (emulator-run)
+
+`com.google.android.marvin.talkback` is installed (`/product/app/talkback/talkback.apk`). Enabled with `settings put secure enabled_accessibility_services com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService`, `accessibility_enabled 1`, and `touch_exploration_enabled 1`. `dumpsys accessibility` then showed the service bound and touch exploration on. The image's TTS engine does not log a successful utterance, so `com.google.android.tts` was disabled and TalkBack's `SpeechControllerImpl` logged every phrase it tried to speak, including `TalkBack on`. Injected one-finger flicks produced no utterance and no app motion. Focus was walked with Tab and D-pad down, which TalkBack did announce. TTS was re-enabled and the service turned back off afterwards.
+
+Launch plus Tab, in order. `list floor` / `List` are the previous window as it closed.
+
+| screen | announced order |
+| --- | --- |
+| counter | Native PoC, Counter 0. Heading, Name, Editing. Name. Edit box, Save name. Button, Packing. Button, then that edit-box loop |
+| feed | Native PoC, Feed. Heading, then Refresh. Button, Post. Button, Back. Button, List. Rows were not in the Tab or D-pad order |
+| packing | Pull to refresh, Canvas tent. Button, OFF. Packed Canvas tent. Switch, Edit Canvas tent. Button, Camp stove. Button, ON. Packed Camp stove. Switch, then Ridge map and Water bladder the same way, Add item. Button, Copy list. Button, Settings. Button, Back. Button |
+
+Headings were spoken as headings. Packing names were spoken as buttons. Switches were spoken with OFF/ON. This is not a phone, and it is not a finger-swipe traversal of the feed rows.
+
+### Feed gestures (emulator-run)
+
+`OnSwipe` on a feed row and `OnRefresh` on the feed list. The RecyclerView claims a horizontal move only after 48 dp that dominates vertical, and a downward pull only at the top after 64 dp that dominates horizontal. A vertical move returns false. Release feed, same pid 24587: `list-dismiss pos=1 key=0001`, the dump went from Row 0000 to Row 0002, rows=999. After scrolling, `list-first=36`, then `list-dismiss pos=38 key=0039`, and the next line was still `list-first=36 saved=36 restored=0`. Pull at the top logged `list-refresh`.
+
+Scroll bench, 8 swipes, 5 rounds, interleaved with the list floor, SwiftShader. guest_load_p50 feed 2.9, floor 3.2. Work time p50/p90/p99: feed 34.9/54.9/71.2, floor 45.1/65.5/93.1. The feed was not slower than the floor. This does not reproduce the Mac 16.3 ms tie.
+
+Hot reload used the Debug listener, `cnative run android --device emulator-5554 --listener --root feed --debounce 40`, pid 26112 for the whole check. Scrolled to `list-first=47`. Editing the row `OnSwipe` lambda reloaded in 26.2 ms (apply 21.9 ms), edit-to-reply 68 ms, same pid, `list-first=47` again. A swipe then logged `list-dismiss pos=49 key=0049` and the phase text was `swiped`, with Row 0049 gone. That edit was reverted. Editing the loading label reloaded in 22.9 ms and logged `state kept Phase="swiped"`. Pull-to-refresh logged `list-refresh` and the phase text was `Refreshing`. Both strings were reverted. The shipped loading text is `Loading feed`, and the shipped swipe handler only drops the row.
+
+### Sizes
+
+| build | APK | APK sha256 | .so | .so sha256 | dex |
+| --- | --- | --- | --- | --- | --- |
+| counter x64, built | 3,056,501 | `ff87da21520a3439052bb6c09bf35eb712e7fb7e1e3e2a9bfa1914c4d7e13f4a` | 7,042,304 | `c0c088b08793497b9ee2febb36c85e779b9d88a750e943023eab1d17e8c9985e` | 49,920 |
+| counter arm64, built | 2,896,760 | `8074d196db34c202b88871c92c13574ffbda838711fc2b74d00b2168f7d6260d` | 7,266,336 | `ba35fd4af1f1ab39f0461934b74c00706a5b7adc6837212b19b23e56280b8523` | 49,920 |
+| feed x64, emulator-run, marks on | 3,263,877 | `e58936e1c5f18e52869e9f57efdfe8a327f55d02877e0ffd467ff70a97450457` | 7,201,200 | `6a1932695568714b9ae44fd79ba0b060804e8db0756593c85682e78a895a7aac` | 285,188 |
+| feed arm64, built, marks on | 3,124,975 | `36f3a5d16419c93cfcbe191f8cafcea05181f622ad76521347079ccf6135a231` | 7,433,816 | `cc0da8c1a367b0ab1d993df75959e41b90d392530703f713c6e7d26f837e812c` | 327,852 |
+| visit x64, built | 3,146,613 | `8eb23e3fb9524dcbf4fbde0165508a6b595c486d3117d24a6fc7254c3f0f4736` | 7,254,992 | `46c41a2d44337621046a9a72e2da158b02cabb2fe3ebd67ddaa9eb887e3d9c31` | 52,276 |
+| visit arm64, built | 2,982,776 | `b5293e26bed8fcbf3320f2ad421b97b0c25cc0aaa3d388d4e408dcd4955016a4` | 7,490,200 | `f91385828d6c7221439b85ed3ef18a14988df6159024b337974ce7d21b9f4774` | 52,276 |
+
+Dex sha256: counter `9267b0f166ebf71ec043bc7ec79eced7c9f698117489d37e3178c7c24596f771`, feed x64 `d87bf57fbb008cf6946ae7f3caeb8c75a89012f1d5e4a48aab8fa5b9a7a75a68`, feed arm64 `0d04f3c1620291d734bb9c1ce0704f45baad3d3ad68c542ef319fdd39aeafe48`, visit `0efeb5ae4570f976f8724c34da34ce3cbfefd7fd43387b9d934a14c7276d5bed`. The `.so` inside each APK matched the loose file. The arm64 feed dex keeps `CoreComponentFactory` and unused RecyclerView grid and staggered managers that R8 removed from the x64 dex; the x64 process still launched. List floor is unchanged, both ABIs, 531,381 bytes, sha256 `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1`. Shipped `.so` files stay stripped with a `.gnu_debuglink`. No RELR and no `extractNativeLibs=false` in these APKs.
+
+```
+tools/bench/mac-bench.sh --device <pixel_8> --n 20 --quiesce warn --out /tmp/feed-cold \
+  --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+```
+tools/bench/scroll-bench.sh --serial <pixel_8> --swipes 8 --rounds 5 \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+```
+tools/bench/cold-start.sh --device <pixel_8> --n 10 --name visit --out /tmp/cold-visit \
+  --apk nativepoc-visit-android-arm64.apk \
+  --component com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  -- --es nativepoc_root visit
+```
+
+Core tests: 75 passed, including `ReloadAotPublishTests`. Packing tests: 14 passed. Devx tests: 142 passed. `mac-bench.sh --self-test` and `scroll-bench.sh --self-test` passed.

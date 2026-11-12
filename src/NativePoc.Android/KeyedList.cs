@@ -16,6 +16,8 @@ static class KeyedList
 	const int OpId = 2;
 	const int OpIdle = 4;
 	const int OpReady = 8;
+	const int OpSwipe = 16;
+	const int OpRefresh = 32;
 
 	static readonly SignalFn SignalSink = OnSignal;
 	static readonly BindFn BindSink = OnBind;
@@ -28,6 +30,7 @@ static class KeyedList
 	static IntPtr _replace;
 	static IntPtr _scroll;
 	static IntPtr _setBindLog;
+	static IntPtr _setRefresh;
 
 	public static bool LogBinds { get; set; }
 
@@ -63,6 +66,14 @@ static class KeyedList
 		state.Bind(rows);
 	}
 
+	public static void SetRefresh(View view, bool enabled, Action? refresh)
+	{
+		if (view is not ViewGroup group || !Live.TryGetValue(group, out var state))
+			return;
+		state.Refresh = enabled ? refresh : null;
+		JNIEnv.CallVoidMethod(view.Handle, _setRefresh, new[] { new JValue(enabled) });
+	}
+
 	static void Ensure()
 	{
 		if (_ready)
@@ -86,8 +97,9 @@ static class KeyedList
 		_replace = JNIEnv.GetMethodID(_class, "replace", "()V");
 		_scroll = JNIEnv.GetMethodID(_class, "scrollTo", "(I)V");
 		_setBindLog = JNIEnv.GetMethodID(_class, "setBindLog", "(Z)V");
+		_setRefresh = JNIEnv.GetMethodID(_class, "setRefresh", "(Z)V");
 
-		if (_ctor == IntPtr.Zero || _setPeer == IntPtr.Zero || _first == IntPtr.Zero || _replace == IntPtr.Zero || _scroll == IntPtr.Zero || _setBindLog == IntPtr.Zero)
+		if (_ctor == IntPtr.Zero || _setPeer == IntPtr.Zero || _first == IntPtr.Zero || _replace == IntPtr.Zero || _scroll == IntPtr.Zero || _setBindLog == IntPtr.Zero || _setRefresh == IntPtr.Zero)
 			throw new InvalidOperationException("KeyedList is missing a Java method.");
 		_ready = true;
 	}
@@ -112,6 +124,18 @@ static class KeyedList
 				case OpReady:
 					state.Log(arg, arg, false);
 					StartupMarks.Phase("list");
+					return 0;
+				case OpSwipe:
+					if ((uint)arg < (uint)state.Rows.Count)
+					{
+						var row = state.Rows[arg];
+						Android.Util.Log.Info(MainActivity.Tag, "list-dismiss pos=" + arg.ToString(CultureInfo.InvariantCulture) + " key=" + state.KeyAt(arg));
+						row.OnSwipe?.Invoke();
+					}
+					return 0;
+				case OpRefresh:
+					Android.Util.Log.Info(MainActivity.Tag, "list-refresh");
+					state.Refresh?.Invoke();
 					return 0;
 				default:
 					return 0;
@@ -206,6 +230,8 @@ static class KeyedList
 
 		public IReadOnlyList<Element> Rows { get; private set; }
 
+		public Action? Refresh { get; set; }
+
 		public long Peer => GCHandle.ToIntPtr(_handle).ToInt64();
 
 		public static State? From(long peer)
@@ -228,10 +254,34 @@ static class KeyedList
 			var saved = JNIEnv.CallIntMethod(View.Handle, _first);
 			if (saved < 0)
 				saved = 0;
+			var anchor = "";
+			if (saved > 0 && (uint)saved < (uint)Rows.Count)
+				anchor = KeyAt(saved);
 			Rows = rows;
-			JNIEnv.CallVoidMethod(View.Handle, _replace);
 			var keep = saved;
-			View.Post(() => Hold(keep));
+			if (anchor.Length > 0)
+			{
+				var found = IndexOf(anchor);
+				if (found >= 0)
+					keep = found;
+			}
+			if (rows.Count == 0)
+				keep = 0;
+			else if (keep >= rows.Count)
+				keep = rows.Count - 1;
+			JNIEnv.CallVoidMethod(View.Handle, _replace);
+			var held = keep;
+			View.Post(() => Hold(held));
+		}
+
+		int IndexOf(string key)
+		{
+			for (var index = 0; index < Rows.Count; index++)
+			{
+				if (KeyAt(index) == key)
+					return index;
+			}
+			return -1;
 		}
 
 		public long Id(int index)
@@ -279,7 +329,7 @@ static class KeyedList
 			Log(restored ? saved : seen, saved, restored);
 		}
 
-		string KeyAt(int index)
+		internal string KeyAt(int index)
 		{
 			if ((uint)index >= (uint)Rows.Count)
 				return index.ToString(CultureInfo.InvariantCulture);

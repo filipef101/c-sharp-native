@@ -77,7 +77,9 @@ public sealed class AsyncHandlerTests
 		var window = Assert.IsType<RecordProgram.WindowList>(list.Rows);
 		Assert.Equal(1000, window.Count);
 		Assert.Equal(0, window.Built);
+		Assert.NotNull(list.OnRefresh);
 		var row = Assert.IsType<Column>(window[0]);
+		Assert.NotNull(row.OnSwipe);
 		Assert.Equal("0000", row.Key);
 		Assert.Equal("• Row 0000", Assert.IsType<Text>(row.Children[0]).Value);
 		Assert.Equal("feed_mark", Assert.IsType<Image>(row.Children[1]).Source);

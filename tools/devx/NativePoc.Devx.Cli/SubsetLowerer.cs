@@ -1038,6 +1038,15 @@ public static partial class SubsetLowerer
 			_listName = "";
 			var length = _code.Here - start;
 			_code.PatchAt(lengthAt, length);
+			if (!RefreshOf(ret, out var refresh))
+				return false;
+			if (refresh is { Length: > 0 })
+			{
+				_code.Op(RecordProgram.OpGesture);
+				_code.U8(Gestures.Refresh);
+				_code.U16(refresh.Length);
+				_code.Bytes(refresh);
+			}
 			foreach (var element in suffix)
 			{
 				if (!Element(element, keys))
@@ -1049,6 +1058,26 @@ public static partial class SubsetLowerer
 			return Gathered(ret.Expression, keys) && Return();
 		}
 
+		bool RefreshOf(ReturnStatementSyntax ret, out byte[]? script)
+		{
+			script = null;
+			if (ret.Expression is not InvocationExpressionSyntax window
+				|| window.Expression is not MemberAccessExpressionSyntax windowCall
+				|| windowCall.Name.Identifier.ValueText != "Window"
+				|| windowCall.Expression is not IdentifierNameSyntax windowType
+				|| windowType.Identifier.ValueText != "FeedRows")
+				return true;
+			if (window.ArgumentList.Arguments.Count == 2)
+				return true;
+			if (window.ArgumentList.Arguments.Count != 3
+				|| window.ArgumentList.Arguments[2].Expression is not LambdaExpressionSyntax lambda)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", window);
+			if (!Script(lambda, out var body) || body.Length == 0)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", lambda);
+			script = body;
+			return true;
+		}
+
 		bool Gathered(ExpressionSyntax expression, KeySet keys)
 		{
 			if (expression is InvocationExpressionSyntax window
@@ -1056,7 +1085,7 @@ public static partial class SubsetLowerer
 				&& windowCall.Name.Identifier.ValueText == "Window"
 				&& windowCall.Expression is IdentifierNameSyntax windowType
 				&& windowType.Identifier.ValueText == "FeedRows"
-				&& window.ArgumentList.Arguments.Count == 2
+				&& window.ArgumentList.Arguments.Count is 2 or 3
 				&& window.ArgumentList.Arguments[0].Expression is IdentifierNameSyntax windowRows
 				&& windowRows.Identifier.ValueText == _rows
 				&& window.ArgumentList.Arguments[1].Expression is LiteralExpressionSyntax windowCount
@@ -1152,6 +1181,21 @@ public static partial class SubsetLowerer
 				return Element(paren.Expression, keys);
 			if (expression is ConditionalExpressionSyntax conditional)
 				return Choice(conditional, arm => Element(arm, new KeySet()));
+			if (expression is InvocationExpressionSyntax localRow
+				&& localRow.Expression is IdentifierNameSyntax localName
+				&& _localFns.TryGetValue(localName.Identifier.ValueText, out var localBody)
+				&& localRow.ArgumentList.Arguments.Count == 1
+				&& localRow.ArgumentList.Arguments[0].Expression is IdentifierNameSyntax localArg
+				&& localArg.Identifier.ValueText == _item
+				&& _item.Length > 0)
+			{
+				if (localBody.Statements.Count != 1
+					|| localBody.Statements[0] is not ReturnStatementSyntax localReturn
+					|| localReturn.Expression is null)
+					return Fail(UnknownElement, "The screen subset does not include " + localName.Identifier.ValueText + ".", localRow);
+				return Element(localReturn.Expression, keys);
+			}
+
 			if (expression is InvocationExpressionSyntax helper
 				&& helper.Expression is IdentifierNameSyntax called
 				&& _routines.TryGetValue(called.Identifier.ValueText, out var routine)

@@ -477,6 +477,14 @@ sealed class AndroidHost : IElementHost<View>
 			return;
 		}
 
+#if NATIVEPOC_RECYCLER
+		if (KeyedList.Is(view))
+		{
+			KeyedList.SetRefresh(view, (mask & Gestures.Refresh) != 0, (mask & Gestures.Refresh) == 0 ? null : () => Fire(path, Gestures.Refresh));
+			return;
+		}
+#endif
+
 		if (view is TextView text && view is not AndroidButton && view is not EditText)
 		{
 			text.Clickable = (mask & Gestures.Tap) != 0;

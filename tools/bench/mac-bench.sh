@@ -544,6 +544,11 @@ done
 			hold_p50="$(phase_p50 'phase=hold ')"
 			echo "startup_breakdown_p50 before=$before_p50 managed=$managed_p50 after=$after_p50 oncreate=$oncreate_p50 layout=$layout_p50 idle=$idle_p50 flush=$flush_p50"
 			echo "startup_split_p50 java_attach=$java_attach_p50 java=$java_p50 java_end=$java_end_p50 jni=$jni_p50 enter=$enter_p50 base=$base_p50 direction=$direction_p50 warm=$warm_p50 hold=$hold_p50"
+			attach_end_p50="$(prior_p50 'phase=java-attach-end ')"
+			class_p50="$(prior_p50 'phase=java-class ')"
+			so_reloc_p50="$(prior_p50 'phase=so-reloc ')"
+			so_ctors_p50="$(prior_p50 'phase=so-ctors ')"
+			echo "startup_load_p50 attach_end=$attach_end_p50 class=$class_p50 before=$before_p50 so_reloc=$so_reloc_p50 so_ctors=$so_ctors_p50 after=$after_p50 java=$java_p50 java_end=$java_end_p50"
 			echo "startup clock is SystemClock.elapsedRealtime. process t is Process.startElapsedRealtime. list is the first list-first= line."
 			echo "method=am start -W -S LaunchState=COLD warmup=1 discarded per series interleaved=1 percentile=Hyndman-Fan-7"
 			echo "load=$(tr '\n' ' ' <"$out/round-load.txt" | sed 's/ $//')"
@@ -555,6 +560,7 @@ done
 		echo "startup_since_process_p50 $label runtime=$runtime_p50 render=$render_p50 attach=$attach_p50 bind=$bind_p50 draw=$draw_phase_p50 list=$list_p50"
 		echo "startup_breakdown_p50 $label before=$before_p50 managed=$managed_p50 after=$after_p50 oncreate=$oncreate_p50 layout=$layout_p50 idle=$idle_p50 flush=$flush_p50"
 		echo "startup_split_p50 $label java_attach=$java_attach_p50 java=$java_p50 java_end=$java_end_p50 jni=$jni_p50 enter=$enter_p50 base=$base_p50 direction=$direction_p50 warm=$warm_p50 hold=$hold_p50"
+		echo "startup_load_p50 $label attach_end=$attach_end_p50 class=$class_p50 before=$before_p50 so_reloc=$so_reloc_p50 so_ctors=$so_ctors_p50 after=$after_p50 java=$java_p50 java_end=$java_end_p50"
 	done
 	floor_seen=0
 	for ((s = 0; s < ${#labels[@]}; s++)); do
