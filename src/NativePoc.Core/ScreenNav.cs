@@ -245,6 +245,10 @@ public sealed class ScreenNav
 
 	public static ScreenNav Shared { get; } = new();
 
+	/* Empty means the first Show on an empty stack is the one screen.
+	   A named root is the only frame a cold launch may add. */
+	public string LaunchRoot { get; set; } = "";
+
 	public RecordProgram.Bag Bag(string id)
 	{
 		lock (_gate)
@@ -353,6 +357,23 @@ public sealed class ScreenNav
 		}
 	}
 
+	public bool ReplaceRoot(string id)
+	{
+		if (id.Length == 0)
+			return false;
+		lock (_gate)
+		{
+			Ensure(id);
+			if (!_programs.ContainsKey(id) && !_allowed.Contains(id) && !_pending.ContainsKey(id))
+				return false;
+			_stack.Clear();
+			_stack.Add(id);
+			DropCache();
+			StateEpoch.Bump();
+			return true;
+		}
+	}
+
 	public void Show(byte[] program)
 	{
 		ArgumentNullException.ThrowIfNull(program);
@@ -363,15 +384,17 @@ public sealed class ScreenNav
 			_ = BagLocked(id);
 			DropCache();
 			var at = _stack.IndexOf(id);
-			if (at < 0)
-				_stack.Add(id);
-			else if (at != _stack.Count - 1)
+			if (at >= 0)
 			{
-				_stack.RemoveAt(at);
-				_stack.Add(id);
+				StateEpoch.Bump();
+				return;
 			}
 
-			StateEpoch.Bump();
+			if (_stack.Count == 0 && (LaunchRoot.Length == 0 || string.Equals(LaunchRoot, id, StringComparison.Ordinal)))
+			{
+				_stack.Add(id);
+				StateEpoch.Bump();
+			}
 		}
 	}
 

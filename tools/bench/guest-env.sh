@@ -159,11 +159,61 @@ median_values() {
 	'
 }
 
+bench_packages=""
+
+quiesce_add_package() {
+	local pkg="$1"
+	local existing
+	[[ -z "$pkg" ]] && return 0
+	while IFS= read -r existing; do
+		[[ "$existing" == "$pkg" ]] && return 0
+	done <<<"${bench_packages:-}"
+	bench_packages="${bench_packages}${pkg}
+"
+}
+
+quiesce_stop_bench() {
+	local pkg alive tries
+	[[ -n "${bench_packages:-}" ]] || return 0
+	while IFS= read -r pkg; do
+		[[ -z "$pkg" ]] && continue
+		echo "quiesce: force-stop bench $pkg" >&2
+		adb_cmd shell am force-stop "$pkg" </dev/null >/dev/null 2>&1 || true
+	done <<<"$bench_packages"
+	tries=0
+	while [[ "$tries" -lt 10 ]]; do
+		alive=""
+		while IFS= read -r pkg; do
+			[[ -z "$pkg" ]] && continue
+			if adb_cmd shell pidof "$pkg" </dev/null 2>/dev/null | grep -q '[0-9]'; then
+				alive="$pkg"
+			fi
+		done <<<"$bench_packages"
+		if [[ -z "$alive" ]]; then
+			echo "quiesce: bench packages stopped" >&2
+			return 0
+		fi
+		tries=$((tries + 1))
+		sleep 0.2
+	done
+	echo "quiesce: bench package still running: $alive" >&2
+}
+
 quiesce_names() {
 	local self="$1"
-	awk -v self="$self" '
+	local bench="${2:-}"
+	awk -v self="$self" -v bench="$bench" '
+		function bench_pkg(name,    n, i, parts) {
+			if (name == self)
+				return 1
+			n = split(bench, parts, ",")
+			for (i = 1; i <= n; i++)
+				if (parts[i] == name)
+					return 1
+			return 0
+		}
 		function system_pkg(name) {
-			if (name == "" || name == self)
+			if (name == "" || bench_pkg(name))
 				return 1
 			if (index(name, ".") == 0)
 				return 1
@@ -229,10 +279,12 @@ quiesce_decide() {
 
 quiesce_before() {
 	local self="$1"
-	local focus top names action pkg
+	local focus top names action pkg bench_csv
+	quiesce_stop_bench
+	bench_csv="$(printf '%s\n' "${bench_packages:-}" | paste -sd, -)"
 	focus="$(adb_cmd shell dumpsys window | tr -d '\r' | awk '/mCurrentFocus=/')"
 	top="$(adb_cmd shell top -n 1 -b | tr -d '\r' | awk 'NR <= 30')"
-	names="$(printf '%s\n' FOCUS "$focus" TOP "$top" | quiesce_names "$self")"
+	names="$(printf '%s\n' FOCUS "$focus" TOP "$top" | quiesce_names "$self" "$bench_csv")"
 	action="$(printf '%s\n' "$names" | quiesce_decide "${quiesce_mode:-refuse}" "${force_stop_others:-0}")"
 	case "$action" in
 		ok)
@@ -242,7 +294,7 @@ quiesce_before() {
 			echo "quiesce: force-stop ${action#stop }" >&2
 			while IFS= read -r pkg; do
 				[[ -z "$pkg" ]] && continue
-				adb_cmd shell am force-stop "$pkg" >/dev/null 2>&1 || true
+				adb_cmd shell am force-stop "$pkg" </dev/null >/dev/null 2>&1 || true
 			done <<<"$names"
 			;;
 		warn\ *)
@@ -323,6 +375,8 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 	fixture=$'FOCUS\nmCurrentFocus=Window{abc u0 com.other.debug/com.other.debug.Main}\nmFocusedApp=ActivityRecord{u0 com.scratch.nativepoc/crc.Main}\nTOP\n  PID USER PR NI VIRT RES SHR S %CPU %MEM TIME+ ARGS\n  10 shell 20 0 10G 4M 3M R 7.6 0.1 0:00.00 top -n 1 -b\n  88 u0_a12 20 0 13G 90M 60M S 40.0 3.0 0:12.00 com.other.debug\n  90 system 20 0 13G 90M 60M S 80.0 3.0 0:12.00 system_server\n  91 u0 20 0 13G 90M 60M S 30.0 3.0 0:01.00 com.scratch.nativepoc'
 	found="$(printf '%s\n' "$fixture" | quiesce_names com.scratch.nativepoc)"
 	[[ "$found" == "com.other.debug" ]] || { echo "quiesce names $found" >&2; fail=1; }
+	bench_found="$(printf '%s\n' "$fixture" | quiesce_names com.scratch.nativepoc com.other.debug)"
+	[[ -z "$bench_found" ]] || { echo "quiesce bench names $bench_found" >&2; fail=1; }
 	clear_fix=$'FOCUS\nmCurrentFocus=Window{abc u0 com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}\nTOP\n  90 system 20 0 13G 90M 60M S 80.0 3.0 0:12.00 system_server'
 	clear_names="$(printf '%s\n' "$clear_fix" | quiesce_names com.scratch.nativepoc)"
 	[[ -z "$clear_names" ]] || { echo "quiesce clear $clear_names" >&2; fail=1; }

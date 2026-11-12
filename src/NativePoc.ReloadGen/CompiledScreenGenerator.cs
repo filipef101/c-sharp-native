@@ -156,9 +156,217 @@ public sealed class CompiledScreenGenerator : IIncrementalGenerator
 		if (!wrote)
 			builder.AppendLine("\t\t_ = screen;");
 		builder.AppendLine("\t}");
+		builder.AppendLine();
+		builder.AppendLine("\tpublic static void Store()");
+		builder.AppendLine("\t{");
+		foreach (var screen in screens)
+			builder.Append("\t\tStore").Append(screen.Holder).Append("();\n");
+		builder.AppendLine("\t}");
+		builder.AppendLine();
+		builder.AppendLine("\tpublic static void Recall(NavCheckpoint nav)");
+		builder.AppendLine("\t{");
+		builder.AppendLine("\t\tforeach (var screen in nav.Screens)");
+		builder.AppendLine("\t\t\tRecall(screen.Id);");
+		builder.AppendLine("\t\tforeach (var id in nav.Stack)");
+		builder.AppendLine("\t\t\tRecall(id);");
+		builder.AppendLine("\t}");
+		builder.AppendLine();
+		builder.AppendLine("\tstatic void Recall(string id)");
+		builder.AppendLine("\t{");
+		builder.AppendLine("\t\tswitch (id)");
+		builder.AppendLine("\t\t{");
+		foreach (var screen in screens)
+		{
+			builder.Append("\t\t\tcase \"").Append(Escape(screen.Id)).Append("\":\n");
+			builder.Append("\t\t\t\tRecall").Append(screen.Holder).Append("();\n");
+			builder.AppendLine("\t\t\t\treturn;");
+		}
+
+		builder.AppendLine("\t\t\tdefault:");
+		builder.AppendLine("\t\t\t\treturn;");
+		builder.AppendLine("\t\t}");
+		builder.AppendLine("\t}");
+		foreach (var screen in screens)
+			AppendBag(builder, screen);
 		builder.AppendLine("}");
 		return builder.ToString();
 	}
+
+	static void AppendBag(StringBuilder builder, Screen screen)
+	{
+		var scalars = Scalars(screen.StateSymbol).ToList();
+		var lists = Lists(screen.StateSymbol).ToList();
+		builder.Append("\tstatic void Store").Append(screen.Holder).Append("()\n\t{\n");
+		builder.Append("\t\tvar state = ").Append(screen.Holder).Append(";\n");
+		builder.Append("\t\tif (state is null)\n\t\t\treturn;\n");
+		builder.Append("\t\tvar bag = ScreenNav.Shared.Bag(\"").Append(Escape(screen.Id)).Append("\");\n");
+		foreach (var property in scalars)
+			AppendWrite(builder, property);
+		foreach (var (property, item) in lists)
+			AppendWriteList(builder, property, item);
+		builder.AppendLine("\t}");
+		builder.Append("\tstatic void Recall").Append(screen.Holder).Append("()\n\t{\n");
+		builder.Append("\t\tvar bag = ScreenNav.Shared.Bag(\"").Append(Escape(screen.Id)).Append("\");\n");
+		builder.Append("\t\tvar state = ").Append(Hold(screen.Holder)).Append(";\n");
+		foreach (var property in scalars)
+			AppendRead(builder, property);
+		foreach (var (property, item) in lists)
+			AppendReadList(builder, property, item);
+		builder.AppendLine("\t}");
+	}
+
+	static void AppendWrite(StringBuilder builder, IPropertySymbol property)
+	{
+		var name = Escape(property.Name);
+		switch (property.Type.SpecialType)
+		{
+			case SpecialType.System_String:
+				builder.Append("\t\tbag.WriteString(\"").Append(name).Append("\", ").Append(TextOf("state." + property.Name, property)).Append(");\n");
+				return;
+			case SpecialType.System_Boolean:
+				builder.Append("\t\tbag.WriteBool(\"").Append(name).Append("\", state.").Append(property.Name).Append(");\n");
+				return;
+			case SpecialType.System_Int32:
+				builder.Append("\t\tbag.WriteInt(\"").Append(name).Append("\", state.").Append(property.Name).Append(");\n");
+				return;
+			default:
+				return;
+		}
+	}
+
+	static void AppendRead(StringBuilder builder, IPropertySymbol property)
+	{
+		var name = Escape(property.Name);
+		switch (property.Type.SpecialType)
+		{
+			case SpecialType.System_String:
+				builder.Append("\t\tstate.").Append(property.Name).Append(" = bag.ReadString(\"").Append(name).Append("\");\n");
+				return;
+			case SpecialType.System_Boolean:
+				builder.Append("\t\tstate.").Append(property.Name).Append(" = bag.ReadBool(\"").Append(name).Append("\");\n");
+				return;
+			case SpecialType.System_Int32:
+				builder.Append("\t\tstate.").Append(property.Name).Append(" = bag.ReadInt(\"").Append(name).Append("\");\n");
+				return;
+			default:
+				return;
+		}
+	}
+
+	static void AppendWriteList(StringBuilder builder, IPropertySymbol property, INamedTypeSymbol item)
+	{
+		var fields = Scalars(item).ToList();
+		builder.Append("\t\tvar ").Append(property.Name).Append("Rows = new System.Collections.Generic.List<string[]>();\n");
+		builder.Append("\t\tvar ").Append(property.Name).Append("Source = state.").Append(property.Name).Append(";\n");
+		builder.Append("\t\tif (").Append(property.Name).Append("Source is not null)\n");
+		builder.Append("\t\t{\n");
+		builder.Append("\t\t\tforeach (var item in ").Append(property.Name).Append("Source)\n");
+		builder.Append("\t\t\t{\n");
+		builder.Append("\t\t\t\t").Append(property.Name).Append("Rows.Add(new[] { ");
+		for (var index = 0; index < fields.Count; index++)
+		{
+			if (index > 0)
+				builder.Append(", ");
+			AppendCell(builder, fields[index]);
+		}
+
+		builder.Append(" });\n");
+		builder.Append("\t\t\t}\n");
+		builder.Append("\t\t}\n");
+		builder.Append("\t\tbag.ReplaceRows(\"").Append(Escape(property.Name)).Append("\", ").Append(property.Name).Append("Rows);\n");
+	}
+
+	static void AppendCell(StringBuilder builder, IPropertySymbol property)
+	{
+		switch (property.Type.SpecialType)
+		{
+			case SpecialType.System_String:
+				builder.Append(TextOf("item." + property.Name, property));
+				return;
+			case SpecialType.System_Boolean:
+				builder.Append("item.").Append(property.Name).Append(" ? \"true\" : \"false\"");
+				return;
+			default:
+				builder.Append("\"\"");
+				return;
+		}
+	}
+
+	static void AppendReadList(StringBuilder builder, IPropertySymbol property, INamedTypeSymbol item)
+	{
+		var fields = Scalars(item).ToList();
+		var type = item.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+		builder.Append("\t\tvar ").Append(property.Name).Append("List = state.").Append(property.Name).Append(";\n");
+		builder.Append("\t\tif (").Append(property.Name).Append("List is null)\n\t\t{\n");
+		builder.Append("\t\t\t").Append(property.Name).Append("List = new System.Collections.Generic.List<").Append(type).Append(">();\n");
+		builder.Append("\t\t\tstate.").Append(property.Name).Append(" = ").Append(property.Name).Append("List;\n\t\t}\n");
+		builder.Append("\t\t").Append(property.Name).Append("List.Clear();\n");
+		builder.Append("\t\tforeach (var row in bag.Rows(\"").Append(Escape(property.Name)).Append("\"))\n");
+		builder.Append("\t\t{\n");
+		builder.Append("\t\t\tif (row.Length < ").Append(fields.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append(")\n\t\t\t\tcontinue;\n");
+		builder.Append("\t\t\t").Append(property.Name).Append("List.Add(new ").Append(type).Append(" { ");
+		for (var index = 0; index < fields.Count; index++)
+		{
+			if (index > 0)
+				builder.Append(", ");
+			builder.Append(fields[index].Name).Append(" = ");
+			AppendAssign(builder, fields[index], index);
+		}
+
+		builder.Append(" });\n");
+		builder.Append("\t\t}\n");
+	}
+
+	static void AppendAssign(StringBuilder builder, IPropertySymbol property, int index)
+	{
+		switch (property.Type.SpecialType)
+		{
+			case SpecialType.System_String:
+				builder.Append("row[").Append(index.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append(']');
+				return;
+			case SpecialType.System_Boolean:
+				builder.Append("row[").Append(index.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append("] == \"true\"");
+				return;
+			default:
+				builder.Append("default");
+				return;
+		}
+	}
+
+	static string TextOf(string access, IPropertySymbol property) =>
+		property.NullableAnnotation == NullableAnnotation.Annotated ? access + " ?? \"\"" : access;
+
+	static IEnumerable<IPropertySymbol> Scalars(INamedTypeSymbol type)
+	{
+		foreach (var property in type.GetMembers().OfType<IPropertySymbol>())
+		{
+			if (!IsPlain(property))
+				continue;
+			if (property.Type.SpecialType is SpecialType.System_String or SpecialType.System_Boolean or SpecialType.System_Int32)
+				yield return property;
+		}
+	}
+
+	static IEnumerable<(IPropertySymbol Property, INamedTypeSymbol Item)> Lists(INamedTypeSymbol type)
+	{
+		foreach (var property in type.GetMembers().OfType<IPropertySymbol>())
+		{
+			if (!IsPlain(property) || property.Type is not INamedTypeSymbol named || named.Name != "List" || named.TypeArguments.Length != 1)
+				continue;
+			if (named.TypeArguments[0] is not INamedTypeSymbol item)
+				continue;
+			var fields = Scalars(item).Where(field => field.Type.SpecialType is SpecialType.System_String or SpecialType.System_Boolean).ToList();
+			if (fields.Count == 0 || fields.Count != Scalars(item).Count())
+				continue;
+			yield return (property, item);
+		}
+	}
+
+	static bool IsPlain(IPropertySymbol property) =>
+		property.SetMethod is not null
+		&& property.GetMethod is not null
+		&& property.DeclaredAccessibility == Accessibility.Public
+		&& !property.IsStatic;
 
 	static IEnumerable<INamedTypeSymbol> Types(INamespaceSymbol space)
 	{

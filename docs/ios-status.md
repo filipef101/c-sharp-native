@@ -50,7 +50,7 @@ Closed in portable code, and written through in the UIKit sources. The UIKit pro
 - `SetFieldMode` calls `HostPolicy.FieldIsMultiline`. A multiline field shows the `UITextView` inside `FieldBox`. A password stays the `UITextField`. The Linux host records `UITextView` or `UITextField`.
 - `ScreenController.Apply` binds a `RecordProgram` and renders that tree on the next paint. `IosLogicSurface.Apply` is the path `PlatformConformance` runs.
 - `IosPlatform` implements `CopyText`, `WriteBack`, `Push(string, object)`, and `Continue` by calling `IosBridge`. The bridge dispatches clipboard, haptics, share, storage set and get, theme, animate, http, and location. A Linux `IIosServices` double covers storage, http, location, and those four methods. `IosNet.Send` is `NSUrlSession` and `IosLocation.Read` is `CLLocationManager`. Neither has been compiled or run.
-- `IosPlatform.Push` writes `nav-focus heading=` plus the screen id. That line is in `spikes/ios/NativePoc.iOS/PlatformBridge.cs`. The file was not compiled. `IosBridge.Modules` does not dispatch `nav`. The Android log of the same name is `NavFocus`, compiled only when `NativePocNav` is true.
+- `IosPlatform.Push` writes `nav-focus heading=` plus the screen id. That line is in `spikes/ios/NativePoc.iOS/PlatformBridge.cs`. The file was not compiled. `IosBridge.Modules` does not dispatch `nav`. The Android log of the same name is `NavFocus`, compiled only when `NativePocNav` is true. On Android, `Show` does not push a catalog, and a cold launch of one screen is depth 1. That Android behavior was emulator-run. The UIKit project was not built, so there is no iOS depth log.
 
 Still not a build:
 

@@ -59,9 +59,11 @@ tools/bench/mac-bench.sh [options] --run label:apk:component[:am extras]
                   or label:apk:component:am extras.
   --dry-run       print the interleaved plan and do not call adb.
   --quiesce [warn|refuse]
-                  before each series, list foreground and top-CPU third-party
-                  packages. refuse (the default) stops the series and names
-                  them. warn names them and starts. Nothing is force-stopped.
+                  before each series warmup, force-stop every bench package,
+                  then list other foreground and top-CPU packages.
+                  refuse (the default) stops the series and names them.
+                  warn names them and starts. Bench packages are stopped
+                  in either mode.
   --force-stop-others
                   with --quiesce, am force-stop those packages, then start.
                   system_server and the series package are never stopped.
@@ -353,9 +355,9 @@ fi
 
 adb_cmd() {
 	if [[ -n "$device" ]]; then
-		"$adb_bin" -s "$device" "$@"
+		"$adb_bin" -s "$device" "$@" </dev/null
 	else
-		"$adb_bin" "$@"
+		"$adb_bin" "$@" </dev/null
 	fi
 }
 
@@ -401,6 +403,7 @@ done
 one_start() {
 	local index="$1"
 	local -a extra_args=()
+	quiesce_stop_bench
 	if [[ -n "${extras[$index]}" ]]; then
 		read -r -a extra_args <<<"${extras[$index]}"
 	fi
@@ -434,6 +437,9 @@ done
 : >"$out/round-load.txt"
 : >"$out/guest.txt"
 
+for ((s = 0; s < ${#labels[@]}; s++)); do
+	quiesce_add_package "${components[$s]%%/*}"
+done
 flat=0
 for ((block = 0; block < blocks; block++)); do
 	if [[ "$blocks" -gt 1 ]]; then
@@ -459,6 +465,7 @@ for ((block = 0; block < blocks; block++)); do
 		echo "block $block round $round load=$load" >&2
 		for ((s = 0; s < ${#labels[@]}; s++)); do
 			label="${labels[$s]}"
+			quiesce_stop_bench
 			guest_line="$(capture_guest "$out/$label-guest-$flat.txt")"
 		printf '%s\n' "label=$label block=$block round=$round $guest_line" >>"$out/guest.txt"
 		guest_value="$(printf '%s\n' "$guest_line" | awk 'NR == 1 { for (i = 1; i <= NF; i++) if ($i ~ /^guest_load=/) { split($i, a, "="); print a[2]; exit } }')"

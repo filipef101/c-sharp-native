@@ -66,10 +66,11 @@ tools/bench/scroll-bench.sh [options]
   --wait <seconds>  how long to wait for list-first=. Default: 45.
   --dry-run         print the plan and do not call adb.
   --quiesce [warn|refuse]
-                    before each series, list foreground and top-CPU
-                    third-party packages. refuse (the default) stops the
-                    series and names them. warn names them and starts.
-                    Nothing is force-stopped.
+                    before each series, force-stop every bench package,
+                    then list other foreground and top-CPU packages.
+                    refuse (the default) stops the series and names them.
+                    warn names them and starts. Bench packages are
+                    stopped in either mode.
   --force-stop-others
                     with --quiesce, am force-stop those packages, then start.
   --self-test       check percentile, uptime parsing, and framestats.
@@ -174,6 +175,54 @@ percentile() {
 	'
 }
 
+# One value per line. Median is Hyndman-Fan type 7. The interval is the
+# 2.5 and 97.5 percentiles of B=1000 resampled medians. Park-Miller, seed 8946.
+bootstrap_ci() {
+	awk '
+		function next_seed() {
+			seed = (seed * 48271) % 2147483647
+			if (seed < 0)
+				seed += 2147483647
+			return seed
+		}
+		function percentile(v, n, p,    h, lo, hi, frac, i, j, key) {
+			for (i = 2; i <= n; i++) {
+				key = v[i]
+				j = i - 1
+				while (j >= 1 && v[j] > key) {
+					v[j + 1] = v[j]
+					j--
+				}
+				v[j + 1] = key
+			}
+			h = 1 + (n - 1) * p
+			lo = int(h)
+			frac = h - lo
+			hi = (frac > 0) ? lo + 1 : lo
+			if (lo < 1) lo = 1
+			if (hi > n) hi = n
+			if (lo > n) lo = n
+			return v[lo] + frac * (v[hi] - v[lo])
+		}
+		{ d[NR] = $1 + 0 }
+		END {
+			n = NR
+			if (n < 1) exit 1
+			seed = 8946
+			for (b = 1; b <= 1000; b++) {
+				delete sample
+				for (i = 1; i <= n; i++)
+					sample[i] = d[int(next_seed() % n) + 1]
+				med[b] = percentile(sample, n, 0.50)
+			}
+			point = percentile(d, n, 0.50)
+			low = percentile(med, 1000, 0.025)
+			high = percentile(med, 1000, 0.975)
+			printf "median=%.1f low=%.1f high=%.1f\n", point, low, high
+		}
+	'
+}
+
 parse_load() {
 	printf '%s\n' "$1" | awk '
 		{
@@ -211,6 +260,8 @@ host_load() {
 # vsync is that start minus IntendedVsync.
 # jank is 1 when FrameCompleted is after FrameDeadline.
 # Rows still in progress (0 or INT64_MAX) are skipped.
+# A FrameCompleted far past IntendedVsync (around 10^11 ms) is the two
+# stamps sitting on different clocks. Those rows are flagged and left out.
 frame_rows() {
 	awk -F, '
 		function col(name,    i) {
@@ -242,6 +293,11 @@ frame_rows() {
 				next
 			if (c < a)
 				next
+			frame_ms = (c - a) / 1000000
+			if (frame_ms > 10000) {
+				dropped++
+				next
+			}
 			start = a
 			if (handle > 0)
 				start = inside($(handle) + 0, a, c)
@@ -254,7 +310,11 @@ frame_rows() {
 			if (start == 0)
 				start = a
 			jank = (d > 0 && c > d) ? 1 : 0
-			printf "%.3f %.3f %.3f %d\n", (c - a) / 1000000, (c - start) / 1000000, (start - a) / 1000000, jank
+			printf "%.3f %.3f %.3f %d\n", frame_ms, (c - start) / 1000000, (start - a) / 1000000, jank
+		}
+		END {
+			if (dropped > 0)
+				printf "clock_drop %d\n", dropped > "/dev/stderr"
 		}
 	' "$1"
 }
@@ -315,14 +375,29 @@ Flags,FrameTimelineVsyncId,IntendedVsync,Vsync,OldestInputEvent,NewestInputEvent
 0,1,1000000000,1000000000,0,0,1004000000,0,0,0,1012000000,16666666,0,0,0,0,0,1016000000,0,0,0,0,0,0
 0,2,2000000000,2000000000,0,0,2002000000,0,0,0,2032000000,16666666,0,0,0,0,0,2008000000,0,0,0,0,0,0
 0,3,3000000000,3000000000,9223372036854775807,9223372036854775807,0,0,0,0,3012000000,16666666,0,0,0,0,0,9223372036854775807,0,0,0,0,0,0
+0,4,4000000000,4000000000,0,0,4002000000,0,0,0,4012000000,16666666,0,0,0,0,0,144000004000000000,0,0,0,0,0,0
 EOF
-	got="$(frame_rows "$fixture")"
+	local err
+	err="$(mktemp)"
+	got="$(frame_rows "$fixture" 2>"$err")"
 	rm -f "$fixture"
 	local lines
 	lines="$(printf '%s\n' "$got" | awk 'NF { n++ } END { print n + 0 }')"
 	if [[ "$lines" != "2" ]]; then
 		echo "framestats self-test kept $lines rows" >&2
 		printf '%s\n' "$got" >&2
+		exit 1
+	fi
+	if ! grep -q "clock_drop 1" "$err"; then
+		echo "framestats clock-drop self-test failed" >&2
+		cat "$err" >&2
+		exit 1
+	fi
+	rm -f "$err"
+	local ci
+	ci="$(printf '%s\n' 1 2 3 4 5 6 7 8 9 10 | bootstrap_ci)"
+	if [[ "$ci" != "median=5.5 low=3.0 high=8.0" ]]; then
+		echo "bootstrap self-test failed: $ci" >&2
 		exit 1
 	fi
 	local first_jank second_jank
@@ -390,9 +465,9 @@ fi
 
 adb_cmd() {
 	if [[ -n "$serial" ]]; then
-		adb -s "$serial" "$@"
+		adb -s "$serial" "$@" </dev/null
 	else
-		adb "$@"
+		adb "$@" </dev/null
 	fi
 }
 
@@ -455,11 +530,11 @@ one_round() {
 	local summary_frames summary_janky rows janky janky_pct
 	local p50 p90 p99 w50 w90 w99 v50 v90 v99 list_line
 	pkg="${component%%/*}"
+	quiesce_stop_bench
 	guest_line="$(capture_guest "$out/$label-guest-$round.txt")"
 	printf '%s\n' "label=$label round=$round $guest_line" >>"$out/guest.txt"
 	guest_value="$(printf '%s\n' "$guest_line" | awk 'NR == 1 { for (i = 1; i <= NF; i++) if ($i ~ /^guest_load=/) { split($i, a, "="); print a[2]; exit } }')"
 	printf '%s\n' "$guest_value" >>"$out/loads-$label.txt"
-	adb_cmd shell am force-stop "$pkg" >/dev/null 2>&1 || true
 	adb_cmd logcat -c >/dev/null 2>&1 || true
 	load="$(host_load)"
 	printf '%s\n' "$load" >>"$out/loads.txt"
@@ -516,7 +591,7 @@ one_round() {
 	adb_cmd shell dumpsys gfxinfo "$pkg" framestats >"$out/framestats-$label-$round.txt" || true
 	summary_frames="$(summary_field "$out/gfx-$label-$round.txt" "Total frames rendered:")"
 	summary_janky="$(summary_field "$out/gfx-$label-$round.txt" "Janky frames:")"
-	frame_rows "$out/framestats-$label-$round.txt" >"$out/rows-$label-$round.txt"
+	frame_rows "$out/framestats-$label-$round.txt" >"$out/rows-$label-$round.txt" 2>"$out/clock-$label-$round.txt" || true
 	rows="$(awk 'END { print NR + 0 }' "$out/rows-$label-$round.txt")"
 	janky="$(awk '{ s += $4 } END { print s + 0 }' "$out/rows-$label-$round.txt")"
 	if [[ "$rows" -eq 0 ]]; then
@@ -538,6 +613,9 @@ one_round() {
 		awk '{ print $1 }' "$out/rows-$label-$round.txt" >>"$out/frames-$label.txt"
 		awk '{ print $2 }' "$out/rows-$label-$round.txt" >>"$out/work-$label.txt"
 		awk '{ print $3 }' "$out/rows-$label-$round.txt" >>"$out/vsync-$label.txt"
+		printf '%s\n' "$janky_pct" >>"$out/janky-$label.txt"
+		printf '%s\n' "$p90" >>"$out/p90-$label.txt"
+		printf '%s\n' "$p99" >>"$out/p99-$label.txt"
 	fi
 	{
 		echo "label=$label apk=$apk_path round=$round load=$load size=${width}x${height} swipe=${x},${y1},${x},${y2},250"
@@ -545,12 +623,12 @@ one_round() {
 		echo "list=${list_line:-none}"
 		echo "summary_frames=${summary_frames:-none}"
 		echo "summary_janky=${summary_janky:-none}"
-		echo "framestats_rows=$rows framestats_janky=$janky framestats_janky_pct=$janky_pct"
+		echo "framestats_rows=$rows framestats_janky=$janky framestats_janky_pct=$janky_pct clock=$(tr '\n' ' ' <"$out/clock-$label-$round.txt" | sed 's/ $//')"
 		echo "frame_p50_ms=$p50 frame_p90_ms=$p90 frame_p99_ms=$p99"
 		echo "work_p50_ms=$w50 work_p90_ms=$w90 work_p99_ms=$w99"
 		echo "vsync_p50_ms=$v50 vsync_p90_ms=$v90 vsync_p99_ms=$v99"
 		echo "frame=FrameCompleted-IntendedVsync work=FrameCompleted-HandleInputStart vsync=HandleInputStart-IntendedVsync"
-		echo "jank=FrameCompleted>FrameDeadline percentile=Hyndman-Fan-7"
+		echo "jank=FrameCompleted>FrameDeadline percentile=Hyndman-Fan-7 clock_drop=frame above 10000 ms"
 	} | tee "$out/round-$label-$round.txt"
 	adb_cmd logcat -d -s NativePoc:I 2>/dev/null | grep -E "bind-jni|bind-part" | tail -n 20 >"$out/bind-$label-$round.txt" || true
 	if [[ -s "$out/bind-$label-$round.txt" ]]; then
@@ -560,6 +638,14 @@ one_round() {
 
 round=0
 : >"$out/guest.txt"
+index=0
+while [[ "$index" -lt "${#labels[@]}" ]]; do
+	quiesce_add_package "${components[$index]%%/*}"
+	: >"$out/janky-${labels[$index]}.txt"
+	: >"$out/p90-${labels[$index]}.txt"
+	: >"$out/p99-${labels[$index]}.txt"
+	index=$((index + 1))
+done
 if [[ "$quiesce" -eq 1 ]]; then
 	index=0
 	while [[ "$index" -lt "${#labels[@]}" ]]; do
@@ -590,8 +676,18 @@ done
 		else
 			echo "label=$label pooled_frame_p50_ms=- pooled_work_p50_ms=- pooled_vsync_p50_ms=- guest_load_p50=$guest_p50"
 		fi
+		if [[ -s "$out/janky-$label.txt" ]]; then
+			echo "label=$label janky_pct $(bootstrap_ci <"$out/janky-$label.txt") B=1000 seed=8946"
+			echo "label=$label frame_p90_ms $(bootstrap_ci <"$out/p90-$label.txt") B=1000 seed=8946"
+			echo "label=$label frame_p99_ms $(bootstrap_ci <"$out/p99-$label.txt") B=1000 seed=8946"
+		fi
 		index=$((index + 1))
 	done
+	if [[ -s "$out/janky-feed.txt" && -s "$out/janky-floor.txt" ]]; then
+		echo "janky_pct feed minus floor $(paste "$out/janky-feed.txt" "$out/janky-floor.txt" | awk '{ print $1 - $2 }' | bootstrap_ci) B=1000 seed=8946"
+		echo "frame_p90_ms feed minus floor $(paste "$out/p90-feed.txt" "$out/p90-floor.txt" | awk '{ print $1 - $2 }' | bootstrap_ci) B=1000 seed=8946"
+		echo "frame_p99_ms feed minus floor $(paste "$out/p99-feed.txt" "$out/p99-floor.txt" | awk '{ print $1 - $2 }' | bootstrap_ci) B=1000 seed=8946"
+	fi
 	echo "load=$(tr '\n' ' ' <"$out/loads.txt" | sed 's/ $//')"
 	echo "guest rounds are in guest.txt. A guest_load at or above 2.0 is a warning. The sample stays."
 	if [[ -f "$out/guest.txt" ]]; then

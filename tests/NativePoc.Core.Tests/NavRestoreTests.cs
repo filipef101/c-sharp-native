@@ -6,11 +6,41 @@ namespace NativePoc.Tests;
 public sealed class NavRestoreTests
 {
 	[Fact]
+	public void A_catalog_of_screens_does_not_deepen_a_one_screen_launch()
+	{
+		var nav = new ScreenNav { LaunchRoot = "notes" };
+		nav.Show(Program("feed", "Feed"));
+		nav.Show(Program("visit", "Visit"));
+		nav.Show(Program("notes", "Notes"));
+		nav.Show(Program("stop", "Stop"));
+		Assert.Equal(1, nav.Depth);
+		Assert.Equal("notes", nav.TopId());
+		Assert.True(nav.Push("visit"));
+		Assert.Equal(2, nav.Depth);
+		Assert.Equal("visit", nav.TopId());
+		var restored = new ScreenNav();
+		restored.Restore(nav.Checkpoint());
+		Assert.Equal(2, restored.Depth);
+		Assert.Equal("visit", restored.TopId());
+		Assert.Equal("stack 0 notes\nstack 1 visit\n", restored.Format());
+		restored.Show(Program("visit", "Visit again"));
+		Assert.Equal(2, restored.Depth);
+		Assert.Equal("stack 0 notes\nstack 1 visit\n", restored.Format());
+		var top = restored.Top() ?? throw new InvalidOperationException("missing");
+		Assert.Equal("Visit again", Assert.IsType<Text>(top.Render(new Quiet())).Value);
+		restored.Show(Program("notes", "Notes again"));
+		Assert.Equal("visit", restored.TopId());
+		Assert.Equal(2, restored.Depth);
+	}
+
+	[Fact]
 	public void Pop_keeps_each_screen_bag_and_a_restore_keeps_the_stack()
 	{
 		var nav = new ScreenNav();
 		nav.Show(Program("counter", "Counter"));
 		nav.Show(Program("notes", "Notes"));
+		Assert.Equal(1, nav.Depth);
+		Assert.True(nav.Push("notes"));
 		nav.Bag("counter").WriteInt("Count", 3);
 		nav.Bag("notes").WriteString("Title", "Ada");
 		Assert.Equal(2, nav.Depth);
@@ -124,23 +154,23 @@ public sealed class NavRestoreTests
 	}
 
 	[Fact]
-	public void A_show_of_a_screen_already_on_the_stack_moves_that_frame_to_the_top()
+	public void A_show_updates_a_screen_already_on_the_stack_and_leaves_the_order()
 	{
 		var nav = new ScreenNav();
 		nav.Show(Program("counter", "Hello"));
 		nav.Show(Program("packing", "Pack"));
 		nav.Show(Program("notes", "Notes"));
+		Assert.Equal(1, nav.Depth);
+		Assert.True(nav.Push("packing"));
+		Assert.True(nav.Push("notes"));
+		Assert.Equal("stack 0 counter\nstack 1 packing\nstack 2 notes\n", nav.Format());
 		nav.Show(Program("packing", "Pack again"));
-		Assert.Equal("stack 0 counter\nstack 1 notes\nstack 2 packing\n", nav.Format());
-		Assert.Equal("packing", nav.TopId());
-		Assert.Equal(3, nav.Format().Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
-		nav.Show(Program("counter", "Hello again"));
-		Assert.Equal("stack 0 notes\nstack 1 packing\nstack 2 counter\n", nav.Format());
-		Assert.Equal("counter", nav.TopId());
+		Assert.Equal("stack 0 counter\nstack 1 packing\nstack 2 notes\n", nav.Format());
+		Assert.Equal("notes", nav.TopId());
+		nav.Show(Program("notes", "Notes again"));
+		Assert.Equal("stack 0 counter\nstack 1 packing\nstack 2 notes\n", nav.Format());
 		var top = nav.Top() ?? throw new InvalidOperationException("missing");
-		Assert.Equal("Hello again", Assert.IsType<Text>(top.Render.Invoke(new Quiet())).Value);
-		nav.Show(Program("counter", "Still top"));
-		Assert.Equal("stack 0 notes\nstack 1 packing\nstack 2 counter\n", nav.Format());
+		Assert.Equal("Notes again", Assert.IsType<Text>(top.Render.Invoke(new Quiet())).Value);
 	}
 
 	[Fact]
@@ -150,6 +180,8 @@ public sealed class NavRestoreTests
 		nav.Show(Program("counter", "Hello"));
 		nav.Show(Program("packing", "Pack"));
 		nav.Show(Program("notes", "Notes"));
+		Assert.True(nav.Push("packing"));
+		Assert.True(nav.Push("notes"));
 		Assert.True(nav.Push("packing"));
 		Assert.Equal("stack 0 counter\nstack 1 notes\nstack 2 packing\n", nav.Format());
 		Assert.True(nav.Push("packing"));

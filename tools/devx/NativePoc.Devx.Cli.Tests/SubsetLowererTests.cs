@@ -207,6 +207,8 @@ public sealed class SubsetLowererTests
 		var nav = new ScreenNav();
 		nav.Show(loweredCounter.Program!);
 		nav.Show(loweredPacking.Program!);
+		Assert.Equal(1, nav.Depth);
+		Assert.True(nav.Push("packing"));
 		nav.Bag("counter").WriteString("Name", "Ada");
 		var host = new NavPlatform(nav);
 		var top = nav.Top() ?? throw new InvalidOperationException("The stack is empty.");
@@ -607,22 +609,31 @@ public sealed class SubsetLowererTests
 	{
 		var root = RepoRoot.Find(AppContext.BaseDirectory);
 		var notes = SubsetLowerer.TryLower(File.ReadAllText(Path.Combine(root, "samples", "notes", "NotesScreen.cs")));
-		var note = SubsetLowerer.TryLower(File.ReadAllText(Path.Combine(root, "samples", "note", "NoteScreen.cs")));
+		var detailProgram = SubsetLowerer.TryLower(File.ReadAllText(Path.Combine(root, "samples", "notes", "DetailScreen.cs")));
+		var edit = SubsetLowerer.TryLower(File.ReadAllText(Path.Combine(root, "samples", "notes", "EditScreen.cs")));
 		Assert.True(notes.Ok, notes.Diagnostics.Count == 0 ? "" : notes.Diagnostics[0].Message);
-		Assert.True(note.Ok, note.Diagnostics.Count == 0 ? "" : note.Diagnostics[0].Message);
+		Assert.True(detailProgram.Ok, detailProgram.Diagnostics.Count == 0 ? "" : detailProgram.Diagnostics[0].Message);
+		Assert.True(edit.Ok, edit.Diagnostics.Count == 0 ? "" : edit.Diagnostics[0].Message);
 		var nav = ScreenNav.Shared;
 		nav.Restore(new NavCheckpoint());
 		try
 		{
+			nav.LaunchRoot = "notes";
 			nav.Show(notes.Program!);
-			nav.Show(note.Program!);
-			Assert.True(nav.Pop());
+			nav.Show(detailProgram.Program!);
+			nav.Show(edit.Program!);
+			Assert.Equal(1, nav.Depth);
+			Assert.Equal("notes", nav.TopId());
 			var shape = Assert.Single(RecordProgram.Lists(notes.Program!), item => item.Name == "Notes");
 			var idAt = Array.IndexOf(shape.Fields, "Id");
 			var titleAt = Array.IndexOf(shape.Fields, "Title");
+			var bodyAt = Array.IndexOf(shape.Fields, "Body");
 			var cells = new string[shape.Fields.Length];
+			for (var index = 0; index < cells.Length; index++)
+				cells[index] = "";
 			cells[idAt] = "Milk";
 			cells[titleAt] = "Milk";
+			cells[bodyAt] = "Oats";
 			nav.Bag("notes").AddRow("Notes", cells);
 			var platform = new Platform();
 			var list = (nav.Top() ?? throw new InvalidOperationException("missing")).Render(platform);
@@ -631,24 +642,40 @@ public sealed class SubsetLowererTests
 			Assert.Equal(Submit.Send, draft.Submit);
 			Assert.NotNull(draft.OnSubmit);
 			Assert.IsType<Button>(ElementIds.Require(list, "scroll/list/Milk/open")).OnPress();
-			Assert.Equal("note", nav.TopId());
-			Assert.Equal("Milk", nav.Bag("note").ReadString("Title"));
-			Assert.Equal("notes", nav.Bag("note").ReadString("RouteScreen"));
+			Assert.Equal("detail", nav.TopId());
+			Assert.Equal(2, nav.Depth);
+			Assert.Equal("Milk", nav.Bag("detail").ReadString("Title"));
+			Assert.Equal("notes", nav.Bag("detail").ReadString("RouteScreen"));
+			var detail = (nav.Top() ?? throw new InvalidOperationException("missing")).Render(platform);
+			Assert.Equal("Milk", TextValue(detail, "detail/title"));
+			Assert.Equal(22, Assert.IsType<Text>(ElementIds.Require(detail, "detail/heading")).Style!.Value.FontSize);
+			Assert.True(nav.Pop());
+			Assert.Equal("notes", nav.TopId());
+			Assert.Equal(1, nav.Depth);
+			list = (nav.Top() ?? throw new InvalidOperationException("missing")).Render(platform);
+			Assert.IsType<Button>(ElementIds.Require(list, "scroll/list/Milk/edit")).OnPress();
+			Assert.Equal("edit", nav.TopId());
+			Assert.Equal(2, nav.Depth);
+			Assert.Equal("Milk", nav.Bag("edit").ReadString("Title"));
 			var restored = new ScreenNav();
 			restored.Restore(nav.Checkpoint());
-			Assert.Equal("Milk", restored.Bag("note").ReadString("Title"));
-			nav.Bag("note").WriteString("Title", "Oat milk");
-			var detail = (nav.Top() ?? throw new InvalidOperationException("missing")).Render(platform);
-			Assert.Equal("Milk", TextValue(detail, "note/open"));
-			var title = Assert.IsType<TextField>(ElementIds.Require(detail, "note/title"));
+			Assert.Equal(2, restored.Depth);
+			Assert.Equal("edit", restored.TopId());
+			Assert.Equal("Milk", restored.Bag("edit").ReadString("Title"));
+			nav.Bag("edit").WriteString("Title", "Oat milk");
+			var editor = (nav.Top() ?? throw new InvalidOperationException("missing")).Render(platform);
+			var title = Assert.IsType<TextField>(ElementIds.Require(editor, "edit/title"));
 			Assert.Equal(Keyboard.Text, title.Keyboard);
-			Assert.Equal(Submit.Go, title.Submit);
-			Assert.Equal(4, Assert.IsType<TextField>(ElementIds.Require(detail, "note/body")).Lines);
-			Assert.IsType<Button>(ElementIds.Require(detail, "note/save")).OnPress();
+			Assert.Equal(Submit.Next, title.Submit);
+			var body = Assert.IsType<TextField>(ElementIds.Require(editor, "edit/body"));
+			Assert.Equal(4, body.Lines);
+			Assert.Equal(Submit.Go, body.Submit);
+			Assert.IsType<Button>(ElementIds.Require(editor, "edit/save")).OnPress();
 			Assert.Equal("Oat milk", nav.Bag("notes").Cell("Notes", "Milk", idAt, titleAt));
 		}
 		finally
 		{
+			nav.LaunchRoot = "";
 			nav.Restore(new NavCheckpoint());
 		}
 	}

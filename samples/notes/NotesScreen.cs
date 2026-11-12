@@ -7,8 +7,6 @@ public sealed record NoteItem
 	public string Title { get; set; } = "";
 
 	public string Body { get; set; } = "";
-
-	public bool Done { get; set; }
 }
 
 public sealed class NotesState
@@ -17,11 +15,11 @@ public sealed class NotesState
 
 	public string Error { get; set; } = "";
 
-	public bool Dark { get; set; }
+	public string Saved { get; set; } = "";
+
+	public string Record { get; set; } = "";
 
 	public List<NoteItem> Notes { get; set; } = new List<NoteItem>();
-
-	public void Drop(NoteItem item) => Notes.Remove(item);
 }
 
 public static class NotesScreen
@@ -30,7 +28,7 @@ public static class NotesScreen
 
 	public static Element Render(NotesState state, IPlatform platform)
 	{
-		void Add()
+		async void Add()
 		{
 			if (state.Draft.Length == 0)
 			{
@@ -41,9 +39,9 @@ public static class NotesScreen
 			{
 				state.Error = "";
 				state.Notes.Add(new NoteItem { Id = state.Draft, Title = state.Draft, Body = "" });
-				Storage.Set(platform, "notes-last", state.Draft);
+				state.Saved = await Persist.Put(platform, "notes.last", state.Draft);
+				state.Record = await Persist.PutRecord(platform, "notes.item", state.Draft, state.Draft, state.Draft);
 				state.Draft = "";
-				Animate.Play(platform, "heading");
 				platform.RequestRender();
 			}
 		}
@@ -53,19 +51,7 @@ public static class NotesScreen
 		{
 			Key = "heading",
 			Style = new Style { FontSize = 22 },
-			Motion = new Motion { FromOpacity = 100, Opacity = 100, FromScale = 100, Scale = 100, FromY = 12, Y = 0, Duration = 180, Easing = 1 },
 		});
-		rows.Add(new Text(state.Dark ? "Night" : "Day") { Key = "mode" });
-		rows.Add(new Switch(
-			state.Dark,
-			value =>
-			{
-				state.Dark = value;
-				Theme.Mode(platform, state.Dark);
-				platform.RequestRender();
-			},
-			"Dark")
-		{ Key = "dark" });
 		rows.Add(new TextInput(
 			state.Draft,
 			value =>
@@ -73,8 +59,8 @@ public static class NotesScreen
 				state.Draft = value;
 				platform.RequestRender();
 			},
-			"New note",
-			"Title")
+			"Title",
+			"New note")
 		{
 			Key = "draft",
 			Keyboard = Keyboard.Text,
@@ -83,36 +69,34 @@ public static class NotesScreen
 			OnSubmit = () => Add(),
 		});
 		rows.Add(new Text(state.Error) { Key = "error" });
+		rows.Add(new Text(state.Saved) { Key = "saved" });
 		rows.Add(new Button("Add", () => Add(), "Add") { Key = "add" });
 		foreach (var item in state.Notes)
 		{
 			rows.Add(new Column(
 			[
-				new Text(item.Done ? "done" : "open") { Key = "flag" },
 				new Text(item.Title) { Key = "title" },
 				new Button(
 					"Open",
 					() =>
 					{
-						platform.Push("note", item);
+						platform.Push("detail", item);
 						platform.RequestRender();
 					},
 					"Open")
 				{ Key = "open" },
 				new Button(
-					"Delete",
+					"Edit",
 					() =>
 					{
-						state.Drop(item);
-						Animate.Play(platform, "heading");
+						platform.Push("edit", item);
 						platform.RequestRender();
 					},
-					"Delete")
-				{ Key = "delete" },
+					"Edit")
+				{ Key = "edit" },
 			])
 			{
 				Key = item.Id,
-				Motion = new Motion { FromOpacity = 0, Opacity = 100, FromY = 16, Y = 0, FromScale = 98, Scale = 100, Duration = 180, Easing = 1 },
 			});
 		}
 

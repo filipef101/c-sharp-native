@@ -44,6 +44,7 @@ public sealed class MainActivity : Activity
 	bool _traceRender;
 	bool _traceTap;
 	bool _notedWindow;
+	bool _startupCost;
 	bool _painted;
 	View? _paintedRoot;
 	bool _paintedDark;
@@ -113,22 +114,27 @@ public sealed class MainActivity : Activity
 		if (string.IsNullOrEmpty(requestedRoot))
 			requestedRoot = "home";
 #endif
-		var wantsRoot = !string.IsNullOrEmpty(requestedRoot) && !string.Equals(requestedRoot, "counter", StringComparison.Ordinal);
-		var compiledRoot = wantsRoot && CompiledScreens.Knows(requestedRoot!);
+		var launchRoot = string.IsNullOrEmpty(requestedRoot) ? "counter" : requestedRoot;
+		ScreenNav.Shared.LaunchRoot = launchRoot;
+		var wantsRoot = !string.Equals(launchRoot, "counter", StringComparison.Ordinal);
+		var compiledRoot = wantsRoot && CompiledScreens.Knows(launchRoot);
 		var navTicks = System.Diagnostics.Stopwatch.GetTimestamp();
 		var navStart = SystemClock.ElapsedRealtime();
 		CompiledScreens.Install(ScreenNav.Shared);
-		if (!compiledRoot)
-			NavCatalog.InstallRoot();
 		if (Bench || (wantsRoot && !compiledRoot))
 			NavCatalog.InstallRest();
 		var stagedMs = SystemClock.ElapsedRealtime() - navStart;
 		var stagedUs = (System.Diagnostics.Stopwatch.GetTimestamp() - navTicks) * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
 		var decodeStart = SystemClock.ElapsedRealtime();
 		if (Bench)
+		{
+			NavCatalog.InstallRoot();
 			ScreenNav.Shared.Push("packing");
-		else if (!string.IsNullOrEmpty(requestedRoot) && !string.Equals(requestedRoot, "counter", StringComparison.Ordinal))
-			ScreenNav.Shared.Push(requestedRoot);
+		}
+		else if (!wantsRoot)
+			NavCatalog.InstallRoot();
+		else if (!ScreenNav.Shared.ReplaceRoot(launchRoot))
+			Log.Info(Tag, "startup root waiting id=" + launchRoot);
 		var decodeMs = SystemClock.ElapsedRealtime() - decodeStart;
 		Log.Info(
 			Tag,
@@ -136,7 +142,9 @@ public sealed class MainActivity : Activity
 			+ " us=" + stagedUs.ToString(CultureInfo.InvariantCulture)
 			+ " decode-ms=" + decodeMs.ToString(CultureInfo.InvariantCulture)
 			+ " loaded=" + ScreenNav.Shared.Loaded.ToString(CultureInfo.InvariantCulture)
-			+ " staged=" + ScreenNav.Shared.Staged.ToString(CultureInfo.InvariantCulture));
+			+ " staged=" + ScreenNav.Shared.Staged.ToString(CultureInfo.InvariantCulture)
+			+ " depth=" + ScreenNav.Shared.Depth.ToString(CultureInfo.InvariantCulture)
+			+ " top=" + ScreenNav.Shared.TopId());
 		StartupMarks.Phase("nav");
 		StorageSeed.Apply(this);
 #if DEBUG
@@ -725,6 +733,8 @@ public sealed class MainActivity : Activity
 		}
 
 		var evalUs = TakeUs(clock);
+		if (_record is null)
+			CompiledScreens.Store();
 		List<Patch> patches;
 		try
 		{
@@ -821,6 +831,12 @@ public sealed class MainActivity : Activity
 
 		StartupMarks.Arm(this);
 		var contentUs = TakeUs(clock);
+		if (!_startupCost)
+		{
+			_startupCost = true;
+			StartupMarks.Note("paint", paintUs / 1000);
+			StartupMarks.Note("content", contentUs / 1000);
+		}
 		LastTitle = TitleOf(tree);
 #if DEBUG
 		Log.Info(Tag, "reload-texts " + VisibleTexts(tree));

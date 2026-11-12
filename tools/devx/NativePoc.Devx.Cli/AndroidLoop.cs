@@ -90,7 +90,7 @@ static class AndroidLoop
 		try
 		{
 			var checkpoint = CaptureRunning(serial);
-			session.Token = DeployAndLaunch(repo, rid, serial, listener: options.Listener, reuseRunning: true);
+			session.Token = DeployAndLaunch(repo, rid, serial, listener: options.Listener, reuseRunning: true, launchExtras: LaunchRootExtra(options.Root));
 			session.Open(repo, serial);
 			Restore(session, checkpoint);
 			var initial = Push(session, options, editStartedMs: null);
@@ -769,7 +769,7 @@ static class AndroidLoop
 			Console.WriteLine("state was not captured: " + ex.Message);
 		}
 
-		session.Token = DeployAndLaunch(repo, rid, serial, listener: listener);
+		session.Token = DeployAndLaunch(repo, rid, serial, listener: listener, launchExtras: LaunchRootExtra(root));
 		session.Open(repo, serial);
 		Restore(session, checkpoint);
 		Replay(session, repo, kept, root);
@@ -788,7 +788,7 @@ static class AndroidLoop
 		}
 
 		Console.WriteLine("cnative: relaunching the installed app");
-		session.Token = LaunchInstalled(serial);
+		session.Token = LaunchInstalled(serial, LaunchRootExtra(root));
 		session.Open(repo, serial);
 		Restore(session, checkpoint);
 		Replay(session, repo, kept, root);
@@ -947,7 +947,10 @@ static class AndroidLoop
 			throw new InvalidOperationException("Install failed: " + again.Stderr + again.Stdout + installed.Stderr + installed.Stdout);
 	}
 
-	internal static FoundToken DeployAndLaunch(string repo, string rid, string serial, IReadOnlyList<string>? extraBuild = null, bool listener = false, bool reuseRunning = false)
+	static string? LaunchRootExtra(string? root) =>
+		string.IsNullOrEmpty(root) ? null : "--es nativepoc_root " + root;
+
+	internal static FoundToken DeployAndLaunch(string repo, string rid, string serial, IReadOnlyList<string>? extraBuild = null, bool listener = false, bool reuseRunning = false, string? launchExtras = null)
 	{
 		var project = Path.Combine(repo, "src", "NativePoc.Android", "NativePoc.Android.csproj");
 		if (listener)
@@ -965,10 +968,10 @@ static class AndroidLoop
 			if (!reuseRunning)
 			{
 				InstallApk(serial, apk);
-				return LaunchInstalled(serial);
+				return LaunchInstalled(serial, launchExtras);
 			}
 
-			InstallOrAttach(serial, apk, null, out var token);
+			InstallOrAttach(serial, apk, launchExtras, out var token);
 			return token;
 		}
 
@@ -990,7 +993,7 @@ static class AndroidLoop
 				Console.Error.WriteLine);
 			if (build.Code != 0)
 				throw new InvalidOperationException("Debug deploy exited " + build.Code + ".");
-			return LaunchInstalled(serial);
+			return LaunchInstalled(serial, launchExtras);
 		}
 
 		Console.WriteLine("cnative: building Debug " + rid + " for " + serial);
@@ -1010,7 +1013,7 @@ static class AndroidLoop
 		if (built.Code != 0)
 			throw new InvalidOperationException("Debug build exited " + built.Code + ".");
 		var debugApk = AndroidBuild.RequireSignedApk(AndroidBuild.DebugDirectory(repo, "Debug", rid));
-		InstallOrAttach(serial, debugApk, null, out var running);
+		InstallOrAttach(serial, debugApk, launchExtras, out var running);
 		return running;
 	}
 

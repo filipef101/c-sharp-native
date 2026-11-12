@@ -171,9 +171,9 @@ fi
 
 adb_cmd() {
 	if [[ -n "$device" ]]; then
-		"$adb_bin" -s "$device" "$@"
+		"$adb_bin" -s "$device" "$@" </dev/null
 	else
-		"$adb_bin" "$@"
+		"$adb_bin" "$@" </dev/null
 	fi
 }
 

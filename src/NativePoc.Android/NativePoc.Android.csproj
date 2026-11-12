@@ -129,6 +129,9 @@
 	<PropertyGroup Condition="'$(NativePocHttp)' != 'true' Or '$(NativePocLocation)' != 'true'">
 		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\visit\**</NativePocSampleExclude>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocPersist)' != 'true' Or '$(NativePocNav)' != 'true'">
+		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\notes\**</NativePocSampleExclude>
+	</PropertyGroup>
 	<Target Name="RefuseDevListenerInRelease" BeforeTargets="Build;Publish">
 		<Error
 			Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' == 'Release'"

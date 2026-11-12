@@ -120,6 +120,7 @@ static class StartupMarks
 	{
 #if NATIVEPOC_STARTUP_MARKS
 		Phase("flush");
+		Phase("image");
 		Android.Util.Log.Info(
 			MainActivity.Tag,
 			"startup frame binds=" + binds.ToString(CultureInfo.InvariantCulture)
