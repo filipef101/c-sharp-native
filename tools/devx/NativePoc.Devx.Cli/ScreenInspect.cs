@@ -164,7 +164,7 @@ static class ScreenInspect
 				}
 			}
 			if (MissingLabel(node.Element))
-				findings.Add(new Finding("missing-label", node.Id, "Missing label on " + ScreenSnapshot.Role(node.Element) + " " + node.Id + "."));
+				findings.Add(new Finding("missing-label", node.Id, MissingLabelText(node.Element, node.Id)));
 			if (Contrast(node, nodes, byPath) is { } contrast)
 				findings.Add(contrast);
 			if (ImageAccess(node.Element, node.Id) is { } imageAccess)
@@ -476,6 +476,18 @@ static class ScreenInspect
 		Text text => IsHeading(text) || text.OnTap is not null || text.OnLongPress is not null,
 		_ => false,
 	};
+
+	static string MissingLabelText(Element element, string id)
+	{
+		var role = ScreenSnapshot.Role(element);
+		return element switch
+		{
+			Button => role + " " + id + " has no accessibility label. Pass a label as the third argument of Button, or set AccessibilityLabel.",
+			TextField or TextInput => role + " " + id + " has no accessibility label. Pass a label, or set Placeholder or AccessibilityLabel.",
+			Switch => role + " " + id + " has no accessibility label. Pass a label, or set AccessibilityLabel.",
+			_ => role + " " + id + " has no accessibility label. Set AccessibilityLabel.",
+		};
+	}
 
 	static bool MissingLabel(Element element) => element switch
 	{

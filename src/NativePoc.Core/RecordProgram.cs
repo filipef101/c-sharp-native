@@ -94,6 +94,8 @@ internal static partial class RecordProgram
 	public const byte ActLeave = 41;
 	public const byte ActEndFinally = 42;
 	public const byte ActPushIndex = 43;
+	public const byte ActNotRowBool = 44;
+	public const byte ActFillRows = 45;
 
 	public const int ActionStepBudget = 100_000;
 
@@ -1527,6 +1529,23 @@ internal static partial class RecordProgram
 					bag.WriteCell(list, rowId ?? throw new InvalidOperationException("Rejected record program."), 0, field, flag ? "true" : "false");
 					break;
 				}
+				case ActNotRowBool:
+				{
+					var list = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var field = TakeU16(script, ref ip, script.Length);
+					var id = rowId ?? throw new InvalidOperationException("Rejected record program.");
+					var current = bag.Cell(list, id, 0, field);
+					bag.WriteCell(list, id, 0, field, current == "true" ? "false" : "true");
+					break;
+				}
+				case ActFillRows:
+				{
+					var list = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var source = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					if (PersistRows.TryDecode(bag.ReadString(source), out var decoded))
+						bag.ReplaceRows(list, decoded);
+					break;
+				}
 				case ActTakeStr:
 				{
 					var dest = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
@@ -1980,6 +1999,7 @@ internal static partial class RecordProgram
 				0 => name,
 				1 => bag.ReadString(name),
 				2 => bag.ReadBool(name) ? "true" : "false",
+				3 => PersistRows.Encode(bag.Rows(name)),
 				_ => throw new InvalidOperationException("Rejected record program."),
 			};
 		}

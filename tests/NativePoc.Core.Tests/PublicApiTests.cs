@@ -229,6 +229,7 @@ public sealed class PublicApiTests
 		["Nav"] = "stable",
 		["Persist"] = "stable",
 		["PersistRecord"] = "stable",
+		["PersistRows"] = "stable",
 		["Theme"] = "stable",
 		["Http"] = "stable",
 		["Clipboard"] = "stable",

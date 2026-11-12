@@ -655,6 +655,23 @@ public static partial class SubsetLowerer
 
 			if (method == "Add" && args.Count == 1)
 				return ListAdd(list, args[0].Expression, script);
+			if (method == "Remove" && args.Count == 1)
+			{
+				if (args[0].Expression is IdentifierNameSyntax removed
+					&& removed.Identifier.ValueText == _item
+					&& _item.Length > 0
+					&& _listName == list.Name
+					&& _itemFields is not null)
+				{
+					var id = _itemFields.FindIndex(field => field.Name == "Id" && field.Kind == ValueKind.Str);
+					if (id < 0)
+						return Fail(BadLambda, ActionLimit, invocation);
+					Act(script, RecordProgram.ActDropRow, _code.Intern(list.Name));
+					U16(script, id);
+					return true;
+				}
+			}
+
 			return VmList(list, method, invocation, script);
 		}
 

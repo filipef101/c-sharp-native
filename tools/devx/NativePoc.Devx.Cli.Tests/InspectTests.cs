@@ -77,7 +77,7 @@ public sealed class InspectTests
 			new HeadlessLayout.Box("later", 0, 56, 80, 24),
 			new HeadlessLayout.Box("title", 0, 0, 360, 30),
 		]);
-		Assert.Contains("\"code\":\"missing-label\",\"id\":\"save\",\"message\":\"Missing label on button save.\"", json, StringComparison.Ordinal);
+		Assert.Contains("\"code\":\"missing-label\",\"id\":\"save\",\"message\":\"button save has no accessibility label. Pass a label as the third argument of Button, or set AccessibilityLabel.\"", json, StringComparison.Ordinal);
 		Assert.Contains("\"code\":\"touch-target\",\"id\":\"later\"", json, StringComparison.Ordinal);
 		Assert.Contains("under 48 dp.", json, StringComparison.Ordinal);
 		Assert.Contains("\"code\":\"focus-order\",\"id\":\"title\",\"message\":\"Focus reaches title above later.\"", json, StringComparison.Ordinal);

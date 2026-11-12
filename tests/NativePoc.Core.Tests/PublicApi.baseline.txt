@@ -234,6 +234,7 @@ stable|M:NativePoc.Button.ToString()
 stable|M:NativePoc.Button.op_Equality(NativePoc.Button,NativePoc.Button)
 stable|M:NativePoc.Button.op_Inequality(NativePoc.Button,NativePoc.Button)
 stable|M:NativePoc.Clipboard.Copy(NativePoc.IPlatform,System.String,System.String)
+stable|M:NativePoc.Column.#ctor(NativePoc.Element[])
 stable|M:NativePoc.Column.#ctor(System.Collections.Generic.IReadOnlyList<NativePoc.Element>)
 stable|M:NativePoc.Column.Deconstruct(System.Collections.Generic.IReadOnlyList<NativePoc.Element>&)
 stable|M:NativePoc.Column.Equals(NativePoc.Column)
@@ -331,6 +332,10 @@ stable|M:NativePoc.PersistRecord.GetHashCode()
 stable|M:NativePoc.PersistRecord.ToString()
 stable|M:NativePoc.PersistRecord.op_Equality(NativePoc.PersistRecord,NativePoc.PersistRecord)
 stable|M:NativePoc.PersistRecord.op_Inequality(NativePoc.PersistRecord,NativePoc.PersistRecord)
+stable|M:NativePoc.PersistRows.Encode(System.Collections.Generic.IReadOnlyList<System.String[]>)
+stable|M:NativePoc.PersistRows.Encode<T>(System.Collections.Generic.IReadOnlyList<T>)
+stable|M:NativePoc.PersistRows.Fill<T>(System.Collections.Generic.IList<T>,System.String)
+stable|M:NativePoc.PersistRows.TryDecode(System.String,System.Collections.Generic.List<System.String[]>&)
 stable|M:NativePoc.ReloadCallableAttribute.#ctor()
 stable|M:NativePoc.ReloadCallableAttribute.#ctor(System.String)
 stable|M:NativePoc.ScreenNav.#ctor()
@@ -545,6 +550,7 @@ stable|T:NativePoc.Nav
 stable|T:NativePoc.NavScreen
 stable|T:NativePoc.Persist
 stable|T:NativePoc.PersistRecord
+stable|T:NativePoc.PersistRows
 stable|T:NativePoc.ReloadCallableAttribute
 stable|T:NativePoc.ScreenNav
 stable|T:NativePoc.ScrollView

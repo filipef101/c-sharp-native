@@ -166,6 +166,7 @@
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocPersist)' != 'true' Or '$(NativePocNav)' != 'true'">
 		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\notes\**</NativePocSampleExclude>
+		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\tasks\**</NativePocSampleExclude>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocJni)' != 'true'">
 		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\bind\**</NativePocSampleExclude>

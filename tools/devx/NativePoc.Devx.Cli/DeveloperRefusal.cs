@@ -19,7 +19,7 @@ static class DeveloperRefusal
 		if (restarting)
 			return "restarting";
 		if (offerFlag)
-			return "pass --restart-on-rude to relaunch and keep state";
+			return "Fix the screen and save again. A relaunch loads this same file.";
 		return null;
 	}
 }

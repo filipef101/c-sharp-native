@@ -15,8 +15,8 @@ public sealed class ReloadCorpusTests
 		AssertLower(text);
 
 		var style = text.Replace(
-			"new Text(state.Title) { Key = \"title\" }",
-			"new Text(state.Title) { Key = \"title\", Style = new Style { FontSize = 28 } }",
+			"FontSize = 22",
+			"FontSize = 28",
 			StringComparison.Ordinal);
 		Assert.NotEqual(text, style);
 		AssertLower(style);
@@ -45,8 +45,9 @@ public sealed class ReloadCorpusTests
 		Assert.Contains("samples/hello/HelloScreen.cs:", line, StringComparison.Ordinal);
 		Assert.Contains("subset.bad-lambda:", line, StringComparison.Ordinal);
 		Assert.Contains("A screen action can update state, branch, loop, or call a method compiled into the binary.", line, StringComparison.Ordinal);
+		Assert.Contains("Normalize()", line, StringComparison.Ordinal);
 		Assert.Equal("restarting", DeveloperRefusal.FollowUp(true, false));
-		Assert.Equal("pass --restart-on-rude to relaunch and keep state", DeveloperRefusal.FollowUp(false, true));
+		Assert.Equal("Fix the screen and save again. A relaunch loads this same file.", DeveloperRefusal.FollowUp(false, true));
 		Assert.Null(DeveloperRefusal.FollowUp(false, false));
 
 		var renamed = hello.Replace("Count", "Total", StringComparison.Ordinal);

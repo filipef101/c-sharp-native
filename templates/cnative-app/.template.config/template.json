@@ -22,7 +22,7 @@
     "nav": {
       "type": "parameter",
       "datatype": "bool",
-      "defaultValue": "false",
+      "defaultValue": "true",
       "description": "Compile the navigation stack into the app."
     },
     "persist": {

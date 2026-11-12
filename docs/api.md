@@ -55,6 +55,10 @@ platform.Push("piece", state.Pieces[0]);
 platform.RequestRender();
 ```
 
+## Rows
+
+A list of records is one string. `Persist.Put(platform, "tasks", PersistRows.Encode(state.Tasks))` stores every row. Cells are the public string and bool properties, in declaration order, with a length prefix so a title may contain a newline. `PersistRows.Fill(state.Tasks, state.Saved)` puts the string from `Persist.Get` back. A string that is not that codec leaves the list as it was. On the row a render `foreach` is visiting, `item.Done = !item.Done` flips a bool and `state.Tasks.Remove(item)` drops the row. `Column` takes those children as arguments, and it still takes an `IReadOnlyList<Element>`. `samples/tasks` is that list, a detail screen, and a dark-mode switch. It compiles only when `NativePocPersist` and `NativePocNav` are both set.
+
 ## Inventory
 
 <!-- api-baseline -->
@@ -294,6 +298,7 @@ stable|M:NativePoc.Button.ToString()
 stable|M:NativePoc.Button.op_Equality(NativePoc.Button,NativePoc.Button)
 stable|M:NativePoc.Button.op_Inequality(NativePoc.Button,NativePoc.Button)
 stable|M:NativePoc.Clipboard.Copy(NativePoc.IPlatform,System.String,System.String)
+stable|M:NativePoc.Column.#ctor(NativePoc.Element[])
 stable|M:NativePoc.Column.#ctor(System.Collections.Generic.IReadOnlyList<NativePoc.Element>)
 stable|M:NativePoc.Column.Deconstruct(System.Collections.Generic.IReadOnlyList<NativePoc.Element>&)
 stable|M:NativePoc.Column.Equals(NativePoc.Column)
@@ -391,6 +396,10 @@ stable|M:NativePoc.PersistRecord.GetHashCode()
 stable|M:NativePoc.PersistRecord.ToString()
 stable|M:NativePoc.PersistRecord.op_Equality(NativePoc.PersistRecord,NativePoc.PersistRecord)
 stable|M:NativePoc.PersistRecord.op_Inequality(NativePoc.PersistRecord,NativePoc.PersistRecord)
+stable|M:NativePoc.PersistRows.Encode(System.Collections.Generic.IReadOnlyList<System.String[]>)
+stable|M:NativePoc.PersistRows.Encode<T>(System.Collections.Generic.IReadOnlyList<T>)
+stable|M:NativePoc.PersistRows.Fill<T>(System.Collections.Generic.IList<T>,System.String)
+stable|M:NativePoc.PersistRows.TryDecode(System.String,System.Collections.Generic.List<System.String[]>&)
 stable|M:NativePoc.ReloadCallableAttribute.#ctor()
 stable|M:NativePoc.ReloadCallableAttribute.#ctor(System.String)
 stable|M:NativePoc.ScreenNav.#ctor()
@@ -605,6 +614,7 @@ stable|T:NativePoc.Nav
 stable|T:NativePoc.NavScreen
 stable|T:NativePoc.Persist
 stable|T:NativePoc.PersistRecord
+stable|T:NativePoc.PersistRows
 stable|T:NativePoc.ReloadCallableAttribute
 stable|T:NativePoc.ScreenNav
 stable|T:NativePoc.ScrollView

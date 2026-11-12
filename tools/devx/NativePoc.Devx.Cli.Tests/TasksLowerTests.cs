@@ -1,0 +1,151 @@
+namespace NativePoc.Devx.Tests;
+
+public sealed class TasksLowerTests
+{
+	[Fact]
+	public void The_template_and_the_tasks_sample_lower()
+	{
+		AssertLower(NewLoop.Template("hello"));
+		AssertLower(RepoFile("templates", "cnative-app", "screens", "HomeScreen.cs"));
+		AssertLower(RepoFile("samples", "tasks", "TasksScreen.cs"));
+		AssertLower(RepoFile("samples", "tasks", "TaskScreen.cs"));
+	}
+
+	[Fact]
+	public void Complete_flips_the_row_and_save_persists_the_list()
+	{
+		var session = ScreenSession.Open(Lowered(Tasks()));
+		session.Tap("tasks/1/complete");
+		var row = Assert.Single(session.Bag.Rows("Tasks"));
+		Assert.Equal("true", row[2]);
+		Assert.Contains(session.Modules, call => call.StartsWith("persist.Put tasks ", StringComparison.Ordinal) && call.Contains("true", StringComparison.Ordinal));
+	}
+
+	[Fact]
+	public void Restore_replaces_the_list_from_the_saved_text()
+	{
+		var session = ScreenSession.Open(Lowered(Tasks()));
+		var encoded = PersistRows.Encode(new List<string[]>
+		{
+			new[] { "9", "Sweep", "true" },
+		});
+		session.Bag.WriteString("Saved", encoded);
+		session.Tap("tasks/restore");
+		var row = Assert.Single(session.Bag.Rows("Tasks"));
+		Assert.Equal("9", row[0]);
+		Assert.Equal("Sweep", row[1]);
+		Assert.Equal("true", row[2]);
+	}
+
+	[Fact]
+	public void A_duplicate_key_names_the_key_and_what_to_change()
+	{
+		var source = NewLoop.Template("hello").Replace("Key = \"count\"", "Key = \"title\"", StringComparison.Ordinal);
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.False(lowered.Ok);
+		Assert.Equal(SubsetLowerer.DuplicateKey, lowered.Diagnostics[0].Id);
+		Assert.Contains("Duplicate element key \"title\"", lowered.Diagnostics[0].Message, StringComparison.Ordinal);
+		Assert.Contains("different Key", lowered.Diagnostics[0].Message, StringComparison.Ordinal);
+	}
+
+	static string Tasks() =>
+		"""
+		namespace NativePoc.Tasks;
+
+		public sealed class TaskItem
+		{
+			public string Id { get; set; } = "";
+			public string Title { get; set; } = "";
+			public bool Done { get; set; }
+		}
+
+		public sealed class TasksState
+		{
+			public string Saved { get; set; } = "";
+			public List<TaskItem> Tasks { get; set; } = new List<TaskItem>
+			{
+				new TaskItem { Id = "1", Title = "Buy milk", Done = false },
+			};
+		}
+
+		public static class TasksScreen
+		{
+			public const string ScreenId = "tasks";
+
+			public static Element Render(TasksState state, IPlatform platform)
+			{
+				async void Save()
+				{
+					state.Saved = await Persist.Put(platform, "tasks", PersistRows.Encode(state.Tasks));
+					platform.RequestRender();
+				}
+
+				void Restore()
+				{
+					PersistRows.Fill(state.Tasks, state.Saved);
+					platform.RequestRender();
+				}
+
+				var rows = new List<Element>();
+				rows.Add(new Text("Tasks") { Key = "heading", Style = new Style { FontSize = 22 } });
+				foreach (var item in state.Tasks)
+				{
+					rows.Add(new Column(
+						new Text(item.Title) { Key = "title" },
+						new Button("Complete", () => { item.Done = !item.Done; Save(); }, "Complete") { Key = "complete" })
+					{ Key = item.Id });
+				}
+
+				rows.Add(new Button("Restore", () => Restore(), "Restore") { Key = "restore" });
+				return new Column(rows) { Key = "tasks" };
+			}
+		}
+		""";
+
+	[Fact]
+	public void An_unknown_call_names_the_expression()
+	{
+		var source = NewLoop.Template("hello").Replace(
+			"new Text(state.Title)",
+			"new Text(state.Title.Normalize())",
+			StringComparison.Ordinal);
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.False(lowered.Ok);
+		var diagnostic = Assert.Single(lowered.Diagnostics);
+		Assert.Equal(SubsetLowerer.UnknownExpression, diagnostic.Id);
+		Assert.Contains("Normalize()", diagnostic.Message);
+		Assert.Contains("list Add/Remove", diagnostic.Message);
+	}
+
+	static void AssertLower(string source)
+	{
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Id + ": " + lowered.Diagnostics[0].Message);
+	}
+
+	static byte[] Lowered(string source)
+	{
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Id + ": " + lowered.Diagnostics[0].Message);
+		return lowered.Program!;
+	}
+
+	static string RepoFile(params string[] parts)
+	{
+		var dir = new DirectoryInfo(AppContext.BaseDirectory);
+		while (dir is not null)
+		{
+			if (File.Exists(Path.Combine(dir.FullName, "NativePoc.slnx")))
+			{
+				var path = dir.FullName;
+				foreach (var part in parts)
+					path = Path.Combine(path, part);
+				return File.ReadAllText(path);
+			}
+
+			dir = dir.Parent;
+		}
+
+		throw new InvalidOperationException("Repository root was not found.");
+	}
+}

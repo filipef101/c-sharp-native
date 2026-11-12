@@ -2469,6 +2469,25 @@ public static partial class SubsetLowerer
 
 		bool Assign(AssignmentExpressionSyntax assignment, string parameter, List<byte> script)
 		{
+			if (assignment.Left is MemberAccessExpressionSyntax flipped
+				&& _itemFields is not null
+				&& flipped.Expression is IdentifierNameSyntax flippedItem
+				&& flippedItem.Identifier.ValueText == _item
+				&& assignment.Right is PrefixUnaryExpressionSyntax flip
+				&& flip.IsKind(SyntaxKind.LogicalNotExpression)
+				&& flip.Operand is MemberAccessExpressionSyntax same
+				&& same.Expression is IdentifierNameSyntax sameItem
+				&& sameItem.Identifier.ValueText == _item
+				&& same.Name.Identifier.ValueText == flipped.Name.Identifier.ValueText)
+			{
+				var index = _itemFields.FindIndex(candidate => candidate.Name == flipped.Name.Identifier.ValueText && candidate.Kind == ValueKind.Bool);
+				if (index < 0 || _listName.Length == 0)
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", assignment);
+				Act(script, RecordProgram.ActNotRowBool, _code.Intern(_listName));
+				U16(script, index);
+				return true;
+			}
+
 			if (assignment.Left is MemberAccessExpressionSyntax itemMember
 				&& _itemFields is not null
 				&& itemMember.Expression is IdentifierNameSyntax item
@@ -2657,6 +2676,8 @@ public static partial class SubsetLowerer
 				return StateCall(member.Name.Identifier.ValueText, script, invocation);
 			if (owner.Identifier.ValueText == "PackingTelemetry")
 				return true;
+			if (owner.Identifier.ValueText == "PersistRows" && member.Name.Identifier.ValueText == "Fill")
+				return FillRows(invocation, script);
 			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme" or "FeedModule" or "Animate" or "Animated" or "Location" or "Nav")
 				return ModuleCall(owner.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, script);
 			if (owner.Identifier.ValueText != _platform)
@@ -2929,8 +2950,39 @@ public static partial class SubsetLowerer
 			return true;
 		}
 
+		bool FillRows(InvocationExpressionSyntax invocation, List<byte> script)
+		{
+			var args = invocation.ArgumentList.Arguments;
+			if (args.Count != 2
+				|| args[0].Expression is not MemberAccessExpressionSyntax listMember
+				|| !Member(listMember, out var list)
+				|| list.Kind != ValueKind.List
+				|| args[1].Expression is not MemberAccessExpressionSyntax textMember
+				|| !Member(textMember, out var text)
+				|| text.Kind != ValueKind.Str)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			script.Add(RecordProgram.ActFillRows);
+			U16(script, _code.Intern(list.Name));
+			U16(script, _code.Intern(text.Name));
+			return true;
+		}
+
 		bool ModuleArg(ExpressionSyntax expression, List<(byte Kind, int Index)> encoded)
 		{
+			if (expression is InvocationExpressionSyntax encode
+				&& encode.Expression is MemberAccessExpressionSyntax encodeMember
+				&& encodeMember.Expression is IdentifierNameSyntax encodeType
+				&& encodeType.Identifier.ValueText == "PersistRows"
+				&& encodeMember.Name.Identifier.ValueText == "Encode"
+				&& encode.ArgumentList.Arguments.Count == 1
+				&& encode.ArgumentList.Arguments[0].Expression is MemberAccessExpressionSyntax listMember
+				&& Member(listMember, out var list)
+				&& list.Kind == ValueKind.List)
+			{
+				encoded.Add((3, _code.Intern(list.Name)));
+				return true;
+			}
+
 			if (expression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
 			{
 				encoded.Add((0, _code.Intern(literal.Token.ValueText)));
@@ -3118,8 +3170,31 @@ public static partial class SubsetLowerer
 
 		public bool Fail(string id, string message, SyntaxNode node)
 		{
+			if (id == BadLambda || id == UnknownExpression)
+			{
+				var snip = Snip(node);
+				if (snip.Length > 0)
+					message += " Not in the subset: " + snip + ".";
+			}
+
+			if (id == UnknownExpression)
+				message += " Use a property, string concat, a comparison, or list Add/Remove.";
+
 			Errors.Add(At(id, message, node, _source));
 			return false;
+		}
+
+		static string Snip(SyntaxNode node)
+		{
+			while (node.Parent is not null && node.ToString().Length < 12)
+				node = node.Parent;
+			var text = node.ToString().Replace("\r", " ", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal).Replace("\t", " ", StringComparison.Ordinal);
+			while (text.Contains("  ", StringComparison.Ordinal))
+				text = text.Replace("  ", " ", StringComparison.Ordinal);
+			text = text.Trim();
+			if (text.Length > 80)
+				text = text.Substring(0, 77) + "...";
+			return text;
 		}
 
 		bool Fail(string id, string message, string name)
@@ -3163,7 +3238,7 @@ public static partial class SubsetLowerer
 					? literal.Token.ValueText
 					: "";
 				if (text.Length > 0 && !_keys.Add(text))
-					return lower.Fail(DuplicateKey, "Duplicate element key " + text + ".", node);
+					return lower.Fail(DuplicateKey, "Duplicate element key \"" + text + "\". Give this child a different Key. Inside a list, use Key = item.Id.", node);
 			}
 
 			return true;

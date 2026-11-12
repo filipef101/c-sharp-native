@@ -138,7 +138,7 @@ public sealed class ActionParityTests
 	{
 		var bag = session.Bag;
 		var builder = new StringBuilder();
-		foreach (var name in new[] { "Added", "Count", "Open", "Title" })
+		foreach (var name in new[] { "Added", "Count", "Draft", "Open", "Title" })
 		{
 			if (bag.TryReadInt(name, out var number))
 				builder.Append(name).Append('=').Append(number.ToString(CultureInfo.InvariantCulture)).Append(';');
@@ -254,7 +254,9 @@ public sealed class ActionParityTests
 
 		public void Press()
 		{
-			var button = ElementIds.Flatten(_root).Select(node => node.Element).OfType<Button>().Single();
+			var nodes = ElementIds.Flatten(_root).Where(node => node.Element is Button).ToArray();
+			var chosen = nodes.FirstOrDefault(node => node.Id == Button);
+			var button = chosen.Element as Button ?? nodes.Select(node => node.Element).OfType<Button>().Single();
 			try
 			{
 				button.OnPress();

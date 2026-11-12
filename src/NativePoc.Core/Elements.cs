@@ -421,7 +421,12 @@ public abstract record Element
 	}
 }
 
-public sealed record Column(IReadOnlyList<Element> Children) : Element;
+public sealed record Column(IReadOnlyList<Element> Children) : Element
+{
+	public Column(params Element[] children) : this((IReadOnlyList<Element>)children)
+	{
+	}
+}
 
 public sealed record Text(string Value) : Element;
 

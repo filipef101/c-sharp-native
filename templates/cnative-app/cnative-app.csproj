@@ -134,4 +134,7 @@
 	<Target Name="WriteIlcInputStamp" AfterTargets="IlcCompile" Condition="'$(PublishAot)' == 'true'">
 		<Exec Command="sh &quot;$(MSBuildProjectDirectory)/build/ilc-stamp.sh&quot; write &quot;$(_IlcStampFile)&quot; &quot;$(_IlcStampFlagFile)&quot; &quot;$(_IlcStampList)&quot;" />
 	</Target>
+	<Target Name="RefreshPublishApk" AfterTargets="_CreateUniversalApkFromBundle" Condition="'$(PublishDir)' != '' And Exists('$(OutDir)$(_AndroidPackage)-Signed.apk')">
+		<Copy SourceFiles="$(OutDir)$(_AndroidPackage)-Signed.apk" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="false" />
+	</Target>
 </Project>

@@ -104,6 +104,12 @@ internal sealed class ScreenSession : IPlatform
 
 	public void Module(string module, string method, string[] args) => _modules.Add(module + "." + method);
 
+	public Task<string> ModuleAsync(string module, string method, string[] args)
+	{
+		_modules.Add(module + "." + method + " " + string.Join(" ", args));
+		return Task.FromResult("ok");
+	}
+
 	public void Every(string property)
 	{
 		if (!_every.Contains(property))
