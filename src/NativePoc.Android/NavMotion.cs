@@ -14,8 +14,6 @@ static class NavMotion
 		Pop,
 	}
 
-	const int DurationMs = 180;
-
 	static Dir _pending;
 	static FrameLayout? _stage;
 	static View? _current;
@@ -153,8 +151,7 @@ static class NavMotion
 		_ending = true;
 
 		var pace = Pace();
-		var span = commit ? 1f - _fraction : _fraction;
-		var ms = pace.Instant ? 0 : (int)Math.Round(pace.Ms * Math.Max(span, 0.2));
+		var ms = MotionContract.SettleMs(_fraction, commit, pace.Animator, pace.Motion);
 		Android.Util.Log.Info(
 			MainActivity.Tag,
 			"nav-swipe " + (commit ? "commit" : "cancel")
@@ -248,6 +245,8 @@ static class NavMotion
 
 	static void Slide(FrameLayout stage, View leaving, View arriving, bool push)
 	{
+		var pace = Pace();
+		var ms = MotionContract.TransitionMs(pace.Animator, pace.Motion);
 		var width = stage.Width > 0 ? stage.Width : Width(stage);
 		if (width <= 0)
 			width = 1;
@@ -257,16 +256,16 @@ static class NavMotion
 			leaving.TranslationX = 0;
 			stage.AddView(arriving, Fill());
 			arriving.TranslationX = width;
-			arriving.Animate()?.TranslationX(0)?.SetDuration(DurationMs)?.Start();
-			leaving.Animate()?.TranslationX(-width / 4f)?.SetDuration(DurationMs)?.WithEndAction(new End(() => Drop(stage, leaving)))?.Start();
+			arriving.Animate()?.TranslationX(0)?.SetDuration(ms)?.Start();
+			leaving.Animate()?.TranslationX(-width / 4f)?.SetDuration(ms)?.WithEndAction(new End(() => Drop(stage, leaving)))?.Start();
 			return;
 		}
 
 		arriving.TranslationX = -width / 4f;
 		stage.AddView(arriving, 0, Fill());
 		stage.AddView(leaving, Fill());
-		arriving.Animate()?.TranslationX(0)?.SetDuration(DurationMs)?.Start();
-		leaving.Animate()?.TranslationX(width)?.SetDuration(DurationMs)?.WithEndAction(new End(() => Drop(stage, leaving)))?.Start();
+		arriving.Animate()?.TranslationX(0)?.SetDuration(ms)?.Start();
+		leaving.Animate()?.TranslationX(width)?.SetDuration(ms)?.WithEndAction(new End(() => Drop(stage, leaving)))?.Start();
 	}
 
 	static void Drop(FrameLayout stage, View leaving)
@@ -338,7 +337,7 @@ static class NavMotion
 				var vx = dx / dt * 1000f;
 				_mine = false;
 				Track(fraction);
-				var commit = action != MotionEventActions.Cancel && (fraction >= 0.33f || (fraction >= 0.12f && vx > 900f));
+				var commit = action != MotionEventActions.Cancel && MotionContract.Commits(fraction, vx);
 				TrackEnd(commit);
 				return true;
 			}

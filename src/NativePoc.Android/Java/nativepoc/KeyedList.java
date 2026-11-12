@@ -11,6 +11,7 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -22,8 +23,11 @@ public final class KeyedList extends RecyclerView {
 	static final int OP_SWIPE = 16;
 	static final int OP_REFRESH = 32;
 	static final int OP_UNDO = 64;
+	static final int OP_KIND = 128;
+	static final int OP_PRESS = 256;
 
 	long peer;
+	int columns = 1;
 	boolean refresh;
 	boolean undo;
 	boolean undoLogged;
@@ -66,6 +70,25 @@ public final class KeyedList extends RecyclerView {
 				nativeSignal(peer, OP_IDLE, first());
 			}
 		});
+	}
+
+	public void setColumns(int count) {
+		if (count < 2)
+			count = 1;
+		if (count == columns && getLayoutManager() != null)
+			return;
+		columns = count;
+		if (count == 1) {
+			LinearLayoutManager linear = new LinearLayoutManager(getContext());
+			linear.setInitialPrefetchItemCount(0);
+			setLayoutManager(linear);
+		} else {
+			GridLayoutManager grid = new GridLayoutManager(getContext(), count);
+			grid.setInitialPrefetchItemCount(4);
+			setLayoutManager(grid);
+			setItemViewCacheSize(count * 3);
+		}
+		setHasFixedSize(true);
 	}
 
 	public void setBindLog(boolean on) {
@@ -185,7 +208,7 @@ public final class KeyedList extends RecyclerView {
 		super.onInitializeAccessibilityNodeInfo(info);
 		int count = peer == 0 ? 0 : (int) nativeSignal(peer, OP_COUNT, 0);
 		info.setClassName("androidx.recyclerview.widget.RecyclerView");
-		info.setCollectionInfo(AccessibilityNodeInfo.CollectionInfo.obtain(count, 1, false));
+		info.setCollectionInfo(AccessibilityNodeInfo.CollectionInfo.obtain(count, columns < 1 ? 1 : columns, false));
 		info.setScrollable(true);
 		info.setContentDescription("List");
 		if (!undo)
@@ -250,8 +273,23 @@ public final class KeyedList extends RecyclerView {
 		}
 
 		@Override
+		public int getItemViewType(int position) {
+			if (peer == 0)
+				return 0;
+			return (int) nativeSignal(peer, OP_KIND, position);
+		}
+
+		@Override
 		public Cell onCreateViewHolder(ViewGroup parent, int viewType) {
-			Cell cell = new Cell(getContext());
+			Cell cell = new Cell(getContext(), viewType);
+			cell.itemView.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View view) {
+					int pos = cell.getBindingAdapterPosition();
+					if (peer != 0 && pos != NO_POSITION)
+						nativeSignal(peer, OP_PRESS, pos);
+				}
+			});
 			cell.itemView.setFocusable(true);
 			cell.itemView.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
 			if (android.os.Build.VERSION.SDK_INT >= 28)
@@ -303,7 +341,10 @@ public final class KeyedList extends RecyclerView {
 			int pos = cell.getBindingAdapterPosition();
 			if (pos == NO_POSITION)
 				pos = 0;
-			info.setCollectionItemInfo(AccessibilityNodeInfo.CollectionItemInfo.obtain(pos, 1, 0, 1, false));
+			int span = columns < 2 ? 1 : columns;
+			int rowIndex = pos / span;
+			int col = pos % span;
+			info.setCollectionItemInfo(AccessibilityNodeInfo.CollectionItemInfo.obtain(rowIndex, 1, col, 1, false));
 			info.addAction(new AccessibilityNodeInfo.AccessibilityAction(ACTION_DISMISS, "Dismiss"));
 			if (!dismissLogged) {
 				dismissLogged = true;
@@ -403,12 +444,43 @@ public final class KeyedList extends RecyclerView {
 		final TextView subtitle;
 		final ImageView picture;
 
-		Cell(Context context) {
-			super(column(context));
+		Cell(Context context, int kind) {
+			super(kind == 1 ? tile(context) : column(context));
 			LinearLayout row = (LinearLayout) itemView;
-			title = (TextView) row.getChildAt(0);
-			subtitle = (TextView) row.getChildAt(1);
-			picture = (ImageView) row.getChildAt(2);
+			if (kind == 1) {
+				picture = (ImageView) row.getChildAt(0);
+				title = (TextView) row.getChildAt(1);
+				subtitle = (TextView) row.getChildAt(2);
+			} else {
+				title = (TextView) row.getChildAt(0);
+				subtitle = (TextView) row.getChildAt(1);
+				picture = (ImageView) row.getChildAt(2);
+			}
+		}
+
+		static LinearLayout tile(Context context) {
+			LinearLayout row = new LinearLayout(context);
+			row.setOrientation(LinearLayout.VERTICAL);
+			int match = ViewGroup.LayoutParams.MATCH_PARENT;
+			int wrap = ViewGroup.LayoutParams.WRAP_CONTENT;
+			row.setLayoutParams(new RecyclerView.LayoutParams(match, wrap));
+			float density = context.getResources().getDisplayMetrics().density;
+			if (density <= 0)
+				density = 1f;
+			int pad = (int) Math.ceil(8 * density);
+			int image = (int) Math.ceil(168 * density);
+			row.setPadding(pad, pad, pad, pad);
+			ImageView picture = new ImageView(context);
+			TextView title = new TextView(context);
+			TextView subtitle = new TextView(context);
+			picture.setScaleType(ImageView.ScaleType.CENTER_CROP);
+			title.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+			title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
+			subtitle.setVisibility(View.GONE);
+			row.addView(picture, new LinearLayout.LayoutParams(match, image));
+			row.addView(title, new LinearLayout.LayoutParams(match, wrap));
+			row.addView(subtitle, new LinearLayout.LayoutParams(match, wrap));
+			return row;
 		}
 
 		static LinearLayout column(Context context) {

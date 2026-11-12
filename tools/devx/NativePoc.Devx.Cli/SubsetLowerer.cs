@@ -1351,6 +1351,8 @@ public static partial class SubsetLowerer
 					return Column(creation, set);
 				case "ScrollView":
 					return Scroll(creation, set);
+				case "ListView":
+					return List(creation, set);
 				case "Image":
 					return Image(creation, set);
 				case "HostView":
@@ -1550,6 +1552,35 @@ public static partial class SubsetLowerer
 
 			_code.Op(RecordProgram.OpMakeColumn);
 			_code.U8((byte)children.Count);
+			_code.U16(key);
+			EmitStyle();
+			return true;
+		}
+
+		bool List(ObjectCreationExpressionSyntax creation, KeySet keys)
+		{
+			var children = ColumnChildren(creation);
+			if (children is null)
+				return Fail(UnknownElement, "The screen subset does not include ListView.", creation);
+			if (children.Count > RecordProgram.MaxRows)
+				return Fail(UnknownElement, "The screen subset does not include ListView.", creation);
+			_code.Op(RecordProgram.OpMark);
+			var nested = new KeySet();
+			foreach (var child in children)
+			{
+				if (!Element(child, nested))
+					return false;
+			}
+
+			if (!nested.Close(this, creation))
+				return false;
+			if (!KeyOf(creation, out var key, out var dynamic, out _))
+				return false;
+			if (dynamic)
+				return Fail(UnknownExpression, "The screen subset does not include this expression.", creation);
+			if (!keys.Add(this, key, false, creation))
+				return false;
+			_code.Op(RecordProgram.OpMakeList);
 			_code.U16(key);
 			EmitStyle();
 			return true;

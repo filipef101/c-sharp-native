@@ -33,7 +33,7 @@ public static class ShelfScreen
 	public const string ScreenId = "shelf";
 
 	public static Element Render(ShelfState state, IPlatform platform) =>
-		new ScrollView(new Column(
+		new Column(
 		[
 			new Column(
 			[
@@ -71,7 +71,7 @@ public static class ShelfScreen
 				Key = "head",
 				Style = new Style { Gap = 4 },
 			},
-			new Column(
+			new ListView(
 			[
 				new Column(
 				[
@@ -92,7 +92,7 @@ public static class ShelfScreen
 				])
 				{
 					Key = "harbor",
-					Style = new Style { Gap = 8, Grow = 1 },
+					Style = new Style { Gap = 8 },
 				},
 				new Column(
 				[
@@ -113,15 +113,8 @@ public static class ShelfScreen
 				])
 				{
 					Key = "kiln",
-					Style = new Style { Gap = 8, Grow = 1 },
+					Style = new Style { Gap = 8 },
 				},
-			])
-			{
-				Key = "row-0",
-				Style = new Style { Across = 1, Gap = 16 },
-			},
-			new Column(
-			[
 				new Column(
 				[
 					new Image("shelf_cedar")
@@ -141,7 +134,7 @@ public static class ShelfScreen
 				])
 				{
 					Key = "cedar",
-					Style = new Style { Gap = 8, Grow = 1 },
+					Style = new Style { Gap = 8 },
 				},
 				new Column(
 				[
@@ -162,15 +155,8 @@ public static class ShelfScreen
 				])
 				{
 					Key = "night",
-					Style = new Style { Gap = 8, Grow = 1 },
+					Style = new Style { Gap = 8 },
 				},
-			])
-			{
-				Key = "row-1",
-				Style = new Style { Across = 1, Gap = 16 },
-			},
-			new Column(
-			[
 				new Column(
 				[
 					new Image("shelf_field")
@@ -190,7 +176,7 @@ public static class ShelfScreen
 				])
 				{
 					Key = "field",
-					Style = new Style { Gap = 8, Grow = 1 },
+					Style = new Style { Gap = 8 },
 				},
 				new Column(
 				[
@@ -211,15 +197,8 @@ public static class ShelfScreen
 				])
 				{
 					Key = "rain",
-					Style = new Style { Gap = 8, Grow = 1 },
+					Style = new Style { Gap = 8 },
 				},
-			])
-			{
-				Key = "row-2",
-				Style = new Style { Across = 1, Gap = 16 },
-			},
-			new Column(
-			[
 				new Column(
 				[
 					new Image("shelf_linen")
@@ -239,7 +218,7 @@ public static class ShelfScreen
 				])
 				{
 					Key = "linen",
-					Style = new Style { Gap = 8, Grow = 1 },
+					Style = new Style { Gap = 8 },
 				},
 				new Column(
 				[
@@ -260,17 +239,16 @@ public static class ShelfScreen
 				])
 				{
 					Key = "moss",
-					Style = new Style { Gap = 8, Grow = 1 },
+					Style = new Style { Gap = 8 },
 				},
 			])
 			{
-				Key = "row-3",
-				Style = new Style { Across = 1, Gap = 16 },
+				Key = "grid",
+				Style = new Style { Across = 2, Gap = 16 },
 			},
 		])
 		{
-			Key = "list",
+			Key = "page",
 			Style = new Style { Gap = 20 },
-		})
-		{ Key = "scroll" };
+		};
 }

@@ -127,7 +127,8 @@ internal static class ElementIds
 				return column.Children;
 			case ScrollView scroll:
 				return [scroll.Child];
-			case ListView:
+			case ListView list:
+				return ListRows.Visible(list);
 			case Text:
 			case Button:
 			case TextField:

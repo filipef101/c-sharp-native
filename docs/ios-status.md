@@ -58,7 +58,7 @@ Still not a build:
 - `NSUrlSession` and `CLLocationManager` are written in `PlatformBridge.cs` and have not been type-checked by the iOS SDK. A denied fix is the string `Location.Parse` already accepts. A granted fix from a simulator was not produced.
 - No iOS binary, simulator log, or device log exists. Do not read this section as an iOS run.
 - The hot-reload error overlay is Android `DevOverlay`, compiled only for a Debug listener. It was not added to the UIKit host. The startup phase logs (`state-load`, `nav-restore`, `persist-read`) are Android. This wave did not compile `net10.0-ios`.
-- Nav transitions, night mode, and font scale are Android. `NavTransition.cs` is compiled only when `NativePocTransition` is true. The UIKit host has no `Slide` transition and does not read `fontScale`. `net10.0-ios` was not compiled.
+- Swipe-back and `Animated` decide in `MotionContract` (`Commits`, `SettleMs`, `TransitionMs`, `AnimatedMs`). A commit is progress at least 0.33, or at least 0.12 with a velocity above 900. Either system scale at 0 applies the end value and asks for no frame. `NavMotion` and `NavTransition` call that contract. The authored UIKit host maps it to `UINavigationController` interactive pop and to `UIView` animations ticked by `CADisplayLink` (`UIKitHost.cs`, `MotionMap` on the net10.0 stand-in). Night mode and font scale are still Android. `net10.0-ios` was not compiled. There is no iOS binary, simulator log, or device log.
 - A declared Android binding is `[JniType]` and `[JniMethod]` on a partial class. `JniBindingGenerator` emits `JNIEnv` calls. The iOS shape is the same declaration with an `[ObjcType]` / `[ObjcMethod]` generator that would emit `objc_msgSend`. That generator is not written. `net10.0-ios` was not compiled. This iOS shape is unverified.
 - Northroom's four screens render on `HeadlessHost`. `Every_Northroom_screen_runs_on_the_headless_host` checks the 24 dp inset, the shared back arrow, Keep, and font scale 2. The UIKit host was not compiled. `net10.0-ios` was not compiled.
 
@@ -68,9 +68,9 @@ This table is the UIKit host for the widgets Northroom actually builds. It was w
 
 | Northroom | UIKit view the host creates | Missing in that host |
 | --- | --- | --- |
-| `ScrollView` on home, the shelf, the piece, and the room | `UIScrollView` | `LayoutScroll` places subviews again and does not keep `ContentOffset`. A keyed insert or delete on Android leaves the scroll view in place. |
+| `ScrollView` on home, the piece, and the room. The shelf is a `ListView` | `UIScrollView` for those scroll screens | The shelf grid is not a recycled collection here. `LayoutScroll` places subviews again and does not keep `ContentOffset`. |
 | `Column` | `UIStackView`, vertical | Padding is not applied. `HeadlessLayout` does apply it. |
-| `Column` with `Style.Across` (the stats row, each shelf row, the back arrow row) | the same vertical `UIStackView` | `SetStyle` does not read `Across`, so the row stays vertical. `HeadlessLayout` splits that row across the width. |
+| `Column` with `Style.Across` (the stats row and the back arrow row). The shelf grid is a `ListView` with `Across` 2 | the same vertical `UIStackView` | `SetStyle` does not read `Across`, so the row stays vertical. `HeadlessLayout` splits a column and lays that shelf list in columns. |
 | `Text` | `UILabel` | Bold, color, size, and the heading trait are set. |
 | `Button` | `UIButton` (`UIButtonType.System`) | `Style.Wash` (the second gradient stop), `Style.Stroke` (the Keep outline), and elevation are not set. `Style.Radius` is `CornerRadius`. |
 | `Switch` on the room (Night, Large type) | `UISwitch` | The host sets the value. Night mode and font scale are not read here. |

@@ -58,9 +58,9 @@ public sealed class NorthroomConformanceTests
 		Assert.Equal("heading", host.NavFocus);
 		Assert.Contains("value=\"The shelf\"", host.Accessibility, StringComparison.Ordinal);
 		var shelfBack = AssertBack(host.Tree!);
-		BelowTheBar(host.Tree!, "scroll/list/head/heading");
+		BelowTheBar(host.Tree!, "page/head/heading");
 
-		Press(host, "scroll/list/row-0/harbor/swatch");
+		Press(host, "page/grid/harbor/swatch");
 		Assert.Equal(3, host.NavDepth);
 		Assert.Equal("piece", host.NavTop);
 		Assert.Equal("title", host.NavFocus);
@@ -93,7 +93,7 @@ public sealed class NorthroomConformanceTests
 		Press(host, "scroll/page/back-row/back");
 		Assert.Equal(2, host.NavDepth);
 		Assert.Equal("shelf", host.NavTop);
-		Press(host, "scroll/list/back-row/back");
+		Press(host, "page/back-row/back");
 		Assert.Equal(1, host.NavDepth);
 		Assert.Equal("home", host.NavTop);
 		Assert.Contains("value=\"Northroom\"", host.Accessibility, StringComparison.Ordinal);
@@ -134,12 +134,12 @@ public sealed class NorthroomConformanceTests
 
 		var shelf = new ShelfState();
 		host.Show(platform => ShelfScreen.Render(shelf, platform));
-		Assert.Equal(1, ElementIds.Require(host.Tree!, "scroll/list/row-0").Style?.Across);
-		var harbor = Box(host.Tree!, "scroll/list/row-0/harbor", 1f);
-		var door = Box(host.Tree!, "scroll/list/row-0/kiln", 1f);
+		Assert.Equal(2, ElementIds.Require(host.Tree!, "page/grid").Style?.Across);
+		var harbor = Box(host.Tree!, "page/grid/harbor", 1f);
+		var door = Box(host.Tree!, "page/grid/kiln", 1f);
 		Assert.Equal(harbor.Top, door.Top);
 		Assert.True(harbor.Left < door.Left);
-		var swatch = ElementIds.Require(host.Tree!, "scroll/list/row-0/harbor/swatch");
+		var swatch = ElementIds.Require(host.Tree!, "page/grid/harbor/swatch");
 		Assert.Equal(0xFF6E97A0u, swatch.Style?.Background);
 		Assert.Equal(0xFFD5E6EAu, swatch.Style?.Wash);
 
@@ -175,23 +175,23 @@ public sealed class NorthroomConformanceTests
 
 		host.Show(platform => ShelfScreen.Render(new ShelfState(), platform));
 		var shelf = host.Tree!;
-		AssertSpoken(shelf, "scroll/list/back-row/back", "Back");
-		AssertSpoken(shelf, "scroll/list/row-0/harbor/swatch", "Harbor bowl, Mist");
-		AssertSpoken(shelf, "scroll/list/row-0/kiln/swatch", "Kiln door, Iron");
-		AssertSpoken(shelf, "scroll/list/row-1/cedar/swatch", "Cedar tray, Ash");
-		AssertSpoken(shelf, "scroll/list/row-1/night/swatch", "Night cup, Cobalt");
-		AssertSpoken(shelf, "scroll/list/row-2/field/swatch", "Field plate, Straw");
-		AssertSpoken(shelf, "scroll/list/row-2/rain/swatch", "Rain jar, Slate");
-		AssertSpoken(shelf, "scroll/list/row-3/linen/swatch", "Linen vase, Bone");
-		AssertSpoken(shelf, "scroll/list/row-3/moss/swatch", "Moss tile, Copper");
-		Assert.Equal("Harbor bowl, Mist", Speech.Of(ElementIds.Require(shelf, "scroll/list/row-0/harbor")));
-		var harborSwatch = Assert.IsType<Image>(ElementIds.Require(shelf, "scroll/list/row-0/harbor/swatch"));
+		AssertSpoken(shelf, "page/back-row/back", "Back");
+		AssertSpoken(shelf, "page/grid/harbor/swatch", "Harbor bowl, Mist");
+		AssertSpoken(shelf, "page/grid/kiln/swatch", "Kiln door, Iron");
+		AssertSpoken(shelf, "page/grid/cedar/swatch", "Cedar tray, Ash");
+		AssertSpoken(shelf, "page/grid/night/swatch", "Night cup, Cobalt");
+		AssertSpoken(shelf, "page/grid/field/swatch", "Field plate, Straw");
+		AssertSpoken(shelf, "page/grid/rain/swatch", "Rain jar, Slate");
+		AssertSpoken(shelf, "page/grid/linen/swatch", "Linen vase, Bone");
+		AssertSpoken(shelf, "page/grid/moss/swatch", "Moss tile, Copper");
+		Assert.Equal("Harbor bowl, Mist", Speech.Of(ElementIds.Require(shelf, "page/grid/harbor")));
+		var harborSwatch = Assert.IsType<Image>(ElementIds.Require(shelf, "page/grid/harbor/swatch"));
 		Assert.Equal("shelf_harbor", harborSwatch.Source);
 		Assert.Equal("Harbor bowl, Mist", harborSwatch.Description);
 		Assert.True(harborSwatch.Side > 48);
-		Assert.Equal("Harbor bowl", Assert.IsType<Text>(ElementIds.Require(shelf, "scroll/list/row-0/harbor/name")).Value);
-		AssertBefore(shelf, "scroll/list/back-row/back", "scroll/list/head/heading");
-		AssertBefore(shelf, "scroll/list/head/heading", "scroll/list/row-0/harbor/swatch");
+		Assert.Equal("Harbor bowl", Assert.IsType<Text>(ElementIds.Require(shelf, "page/grid/harbor/name")).Value);
+		AssertBefore(shelf, "page/back-row/back", "page/head/heading");
+		AssertBefore(shelf, "page/head/heading", "page/grid/harbor/swatch");
 
 		var pieceState = new PieceState { Id = "harbor", Title = "Harbor bowl", Tone = "Mist" };
 		host.Show(platform => PieceScreen.Render(pieceState, platform));

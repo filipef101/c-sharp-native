@@ -1,5 +1,9 @@
 namespace NativePoc;
 
+/* Swipe-back commit and cancel, and an animation whose scale is 0, go
+   through MotionContract. Interactive pop is UINavigationController.
+   A running animation is a UIView animation ticked by CADisplayLink.
+   This file is not compiled. net10.0-ios is not compiled. */
 sealed class UIKitHost : IElementHost<UIView>
 {
 	readonly Func<Element?> _current;

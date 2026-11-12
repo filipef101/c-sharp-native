@@ -481,6 +481,21 @@ public sealed record ScrollView(Element Child) : Element;
 
 public sealed record ListView(IReadOnlyList<Element> Rows) : Element;
 
+internal static class ListRows
+{
+	public const int WalkLimit = 32;
+
+	public static IReadOnlyList<Element> Visible(ListView list)
+	{
+		ArgumentNullException.ThrowIfNull(list);
+		if (list.Rows is RecordProgram.WindowList or DeferredList)
+			return Array.Empty<Element>();
+		if (list.Rows.Count > WalkLimit)
+			return Array.Empty<Element>();
+		return list.Rows;
+	}
+}
+
 public static class FeedRows
 {
 	public static Element Window(List<Element> rows, int headers, Action? onRefresh = null, Action? onUndo = null)

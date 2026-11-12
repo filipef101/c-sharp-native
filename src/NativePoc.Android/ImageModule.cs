@@ -12,6 +12,7 @@ static class ImageModule
 {
 	const int Capacity = 32;
 	static readonly LruCache<Bitmap> Cache = new(Capacity);
+	static readonly LruCache<Bitmap> Baked = new(Capacity);
 	static readonly ConditionalWeakTable<ImageView, ImageSlot> Slots = new();
 	static readonly object Gate = new();
 
@@ -23,7 +24,8 @@ static class ImageModule
 		image.Visibility = ViewStates.Visible;
 		image.SetScaleType(radiusDp > 0 ? ImageView.ScaleType.FitXy : ImageView.ScaleType.CenterCrop);
 		PictureBinder.Describe(image, source, description, decorative);
-		var key = source + "@" + target.ToString(System.Globalization.CultureInfo.InvariantCulture);
+		var generated = source.StartsWith("gen:", StringComparison.Ordinal);
+		var key = generated ? source : source + "@" + target.ToString(System.Globalization.CultureInfo.InvariantCulture);
 		Bitmap? cached = null;
 		lock (Gate)
 		{
@@ -35,6 +37,24 @@ static class ImageModule
 		{
 			Android.Util.Log.Info(MainActivity.Tag, "image-cache hit source=" + source);
 			Place(image, slot, token, cached, source, description, decorative, radiusDp, target);
+			return;
+		}
+
+		if (generated)
+		{
+			Bitmap made;
+			lock (Gate)
+			{
+				if (Cache.TryGet(key, out var hit) && hit is not null)
+					made = hit;
+				else
+				{
+					made = Swatch(source);
+					Cache.Add(key, made);
+				}
+			}
+
+			Place(image, slot, token, made, source, description, decorative, radiusDp, target);
 			return;
 		}
 
@@ -86,6 +106,15 @@ static class ImageModule
 				return;
 			}
 
+			if (source.StartsWith("gen:", StringComparison.Ordinal))
+			{
+				image.SetScaleType(ImageView.ScaleType.Center);
+				image.SetImageBitmap(bitmap);
+				image.Visibility = ViewStates.Visible;
+				Android.Util.Log.Info(MainActivity.Tag, "image-bitmap reuse source=" + source + " px=" + bitmap.Width.ToString(System.Globalization.CultureInfo.InvariantCulture));
+				return;
+			}
+
 			var width = image.Width > 0 ? image.Width : target;
 			var height = image.Height > 0 ? image.Height : target;
 			var drawn = Fit(bitmap, width, height);
@@ -99,13 +128,37 @@ static class ImageModule
 				var density = image.Resources?.DisplayMetrics?.Density ?? 1f;
 				if (density <= 0)
 					density = 1f;
-				var baked = Bake(drawn, width, height, radiusDp * density);
+				var bakeKey = source + "@" + width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+					+ "x" + height.ToString(System.Globalization.CultureInfo.InvariantCulture)
+					+ "r" + radiusDp.ToString(System.Globalization.CultureInfo.InvariantCulture);
+				Bitmap? shared = null;
+				lock (Gate)
+				{
+					if (Baked.TryGet(bakeKey, out var hit))
+						shared = hit;
+				}
+
+				if (shared is null)
+				{
+					shared = Bake(drawn, width, height, radiusDp * density);
+					lock (Gate)
+						Baked.Add(bakeKey, shared);
+					Android.Util.Log.Info(
+						MainActivity.Tag,
+						"image-bitmap baked=" + shared.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+						+ "x" + shared.Height.ToString(System.Globalization.CultureInfo.InvariantCulture));
+				}
+				else
+				{
+					Android.Util.Log.Info(
+						MainActivity.Tag,
+						"image-bitmap reuse source=" + source
+						+ " px=" + shared.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+						+ "x" + shared.Height.ToString(System.Globalization.CultureInfo.InvariantCulture));
+				}
+
 				image.SetScaleType(ImageView.ScaleType.FitXy);
-				image.SetImageBitmap(baked);
-				Android.Util.Log.Info(
-					MainActivity.Tag,
-					"image-bitmap baked=" + baked.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
-					+ "x" + baked.Height.ToString(System.Globalization.CultureInfo.InvariantCulture));
+				image.SetImageBitmap(shared);
 			}
 			else
 				image.SetImageBitmap(drawn);
@@ -164,6 +217,8 @@ static class ImageModule
 
 	static Bitmap? Load(Context context, string source, int target)
 	{
+		if (source.StartsWith("gen:", StringComparison.Ordinal))
+			return Swatch(source);
 		if (ImageSource.IsRemote(source))
 		{
 			var bytes = Download(source);
@@ -182,6 +237,32 @@ static class ImageModule
 		stream.CopyTo(buffer);
 		var raw = buffer.ToArray();
 		return raw.Length == 0 ? null : Decode(raw, target);
+	}
+
+	static readonly uint[] SwatchInk =
+	[
+		0xFF6E97A0, 0xFF4A4038, 0xFFA89886, 0xFF163A5C,
+		0xFFC4923A, 0xFF3E4850, 0xFFC9C0B0, 0xFF8C4A34,
+	];
+
+	static Bitmap Swatch(string source)
+	{
+		const int side = 48;
+		var index = 0;
+		if (source.Length > 4 && int.TryParse(source.AsSpan(4), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+			index = parsed;
+		if (index < 0)
+			index = 0;
+		var ink = SwatchInk[index % SwatchInk.Length];
+		var bitmap = Bitmap.CreateBitmap(side, side, Bitmap.Config.Argb8888!) ?? throw new InvalidOperationException("Thumbnail was not created.");
+		var canvas = new Canvas(bitmap);
+		var paint = new Paint(PaintFlags.AntiAlias);
+		paint.Color = new Color(unchecked((int)ink));
+		canvas.DrawRect(0, 0, side, side, paint);
+		paint.Color = new Color(unchecked((int)0x66FFFFFF));
+		canvas.DrawCircle(side * 0.32f, side * 0.32f, side * 0.18f, paint);
+		Android.Util.Log.Info(MainActivity.Tag, "image-gen source=" + source + " px=" + side.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		return bitmap;
 	}
 
 	static Bitmap? Decode(byte[] bytes, int target)

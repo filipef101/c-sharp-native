@@ -4,6 +4,57 @@ The screen contract is the types marked `stable`. A screen calls those static me
 
 The types that were `internal-ought-to-be` are `internal`. Tests and the host projects see them through `InternalsVisibleTo`. `MainActivity`, `PackingActivity`, and `RecreateReceiver` stay public because the Android runtime builds the Java wrapper from a public type. `FeedModule` stays public because the feed sample calls it. `CompiledScreenGenerator`, `ReloadDispatchGenerator`, and `JniBindingGenerator` stay public because the compiler only loads a public generator. Their members are not listed. The test reads the source and fails if another public type appears in `src/NativePoc.Android` or `src/NativePoc.ReloadGen`.
 
+## Animated
+
+A screen starts a scale change by name. The host keeps the clock. `Timing` eases out. `Spring` settles. The last argument is the basis in milliseconds. Either system scale at 0, or a basis of 0, applies the end value and does not ask for a frame. The shelf tile and the piece Keep button call it like this:
+
+```csharp
+Animated.Timing(platform, "harbor", 94, 100, 140);
+Animated.Spring(platform, "keep", 86, 100, 220);
+```
+
+## Image
+
+An image names a drawable and a description. `Side` is the height in dp. `Radius` is baked into one bitmap the size of the view, and a recycled list row reuses that bitmap. The shelf tile is:
+
+```csharp
+new Image("shelf_harbor")
+{
+    Key = "swatch",
+    Description = "Harbor bowl, Mist",
+    Side = 168,
+    Style = new Style { Background = 0xFF6E97A0, Wash = 0xFFD5E6EA, Radius = 16 },
+}
+```
+
+A stress row uses a small generated thumbnail, `gen:` plus two digits, instead of a drawable. The bitmap is 48 px and is shared by every row that names the same source.
+
+## Field
+
+A field takes the current value, a change handler, a placeholder, and an accessibility label. The piece note does not autofill, and the handler writes `northroom.note`:
+
+```csharp
+new TextField(state.Draft, value =>
+{
+    state.Draft = value;
+    Save();
+    platform.RequestRender();
+}, "Note", "Note")
+{
+    Key = "draft",
+    Autofill = false,
+}
+```
+
+## Navigation
+
+`Push` stacks a screen. `Pop` removes it. The back button calls `Pop`. An edge swipe uses the same stack. The gesture commits when progress reaches 0.33, or 0.12 with a velocity above 900, and otherwise cancels. Scale 0 finishes that settle with no duration. The back button and the system back action still pop when a drag is not in progress. The shelf opens a piece with:
+
+```csharp
+platform.Push("piece", state.Pieces[0]);
+platform.RequestRender();
+```
+
 ## Inventory
 
 <!-- api-baseline -->

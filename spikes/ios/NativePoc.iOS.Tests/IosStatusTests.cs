@@ -104,6 +104,22 @@ public sealed class IosStatusTests
 	}
 
 	[Fact]
+	public void The_stand_in_maps_swipe_back_and_scale_zero_without_UIKit()
+	{
+		Assert.False(MotionMap.PopCommits(0.10f, 0f));
+		Assert.True(MotionMap.PopCommits(0.40f, 0f));
+		Assert.True(MotionMap.PopCommits(0.15f, 1000f));
+		Assert.False(MotionMap.PopCommits(0.15f, 100f));
+		Assert.Equal(0, MotionMap.PopMs(0.40f, true, 0f, 1f));
+		Assert.Equal(0, MotionMap.AnimatedMs(220, 0f, 1f));
+		Assert.Equal(100, MotionMap.ValueAtScaleZero(86, 100));
+		var host = File.ReadAllText(Path.Combine(RepoRoot(), "spikes", "ios", "NativePoc.iOS", "UIKitHost.cs"));
+		Assert.Contains("UINavigationController", host, StringComparison.Ordinal);
+		Assert.Contains("CADisplayLink", host, StringComparison.Ordinal);
+		Assert.Contains("net10.0-ios is not compiled", host, StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void The_managed_UIKit_host_passes_platform_conformance()
 	{
 		var surface = new IosLogicSurface();

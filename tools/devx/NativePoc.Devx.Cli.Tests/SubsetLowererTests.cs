@@ -676,15 +676,15 @@ public sealed class SubsetLowererTests
 		var lowered = SubsetLowerer.TryLower(source);
 		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
 		var tree = RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag()).Render(new Platform());
-		Assert.Equal("Harbor bowl", Assert.IsType<Text>(ElementIds.Require(tree, "scroll/list/row-0/harbor/name")).Value);
-		Assert.NotNull(ElementIds.Require(tree, "scroll/list/row-3/moss"));
+		Assert.Equal("Harbor bowl", Assert.IsType<Text>(ElementIds.Require(tree, "page/grid/harbor/name")).Value);
+		Assert.NotNull(ElementIds.Require(tree, "page/grid/moss"));
 
 		var renamed = source.Replace("Key = \"harbor\"", "Key = \"harbour\"", StringComparison.Ordinal);
 		var again = SubsetLowerer.TryLower(renamed);
 		Assert.True(again.Ok, again.Diagnostics.Count == 0 ? "" : again.Diagnostics[0].Message);
 		var renamedTree = RecordProgram.Bind(again.Program!, new RecordProgram.Bag()).Render(new Platform());
-		Assert.Equal("Harbor bowl", Assert.IsType<Text>(ElementIds.Require(renamedTree, "scroll/list/row-0/harbour/name")).Value);
-		Assert.Throws<InvalidOperationException>(() => ElementIds.Require(renamedTree, "scroll/list/row-0/harbor"));
+		Assert.Equal("Harbor bowl", Assert.IsType<Text>(ElementIds.Require(renamedTree, "page/grid/harbour/name")).Value);
+		Assert.Throws<InvalidOperationException>(() => ElementIds.Require(renamedTree, "page/grid/harbor"));
 
 		var broken = source.Replace("new Text(\"The shelf\")", "new Text(\"The shelf\"", StringComparison.Ordinal);
 		var refused = SubsetLowerer.TryLower(broken);

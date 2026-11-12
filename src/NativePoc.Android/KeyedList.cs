@@ -19,6 +19,8 @@ static class KeyedList
 	const int OpSwipe = 16;
 	const int OpRefresh = 32;
 	const int OpUndo = 64;
+	const int OpKind = 128;
+	const int OpPress = 256;
 
 	static readonly SignalFn SignalSink = OnSignal;
 	static readonly BindFn BindSink = OnBind;
@@ -33,6 +35,7 @@ static class KeyedList
 	static IntPtr _setBindLog;
 	static IntPtr _setRefresh;
 	static IntPtr _setUndo;
+	static IntPtr _setColumns;
 
 	public static bool LogBinds { get; set; }
 
@@ -76,6 +79,14 @@ static class KeyedList
 		JNIEnv.CallVoidMethod(view.Handle, _setRefresh, new[] { new JValue(enabled) });
 	}
 
+	public static void Columns(View view, int columns)
+	{
+		if (columns < 1)
+			columns = 1;
+		Ensure();
+		JNIEnv.CallVoidMethod(view.Handle, _setColumns, new[] { new JValue(columns) });
+	}
+
 	public static void SetUndo(View view, bool enabled, Action? undo)
 	{
 		if (view is not ViewGroup group || !Live.TryGetValue(group, out var state))
@@ -109,8 +120,9 @@ static class KeyedList
 		_setBindLog = JNIEnv.GetMethodID(_class, "setBindLog", "(Z)V");
 		_setRefresh = JNIEnv.GetMethodID(_class, "setRefresh", "(Z)V");
 		_setUndo = JNIEnv.GetMethodID(_class, "setUndo", "(Z)V");
+		_setColumns = JNIEnv.GetMethodID(_class, "setColumns", "(I)V");
 
-		if (_ctor == IntPtr.Zero || _setPeer == IntPtr.Zero || _first == IntPtr.Zero || _replace == IntPtr.Zero || _scroll == IntPtr.Zero || _setBindLog == IntPtr.Zero || _setRefresh == IntPtr.Zero || _setUndo == IntPtr.Zero)
+		if (_ctor == IntPtr.Zero || _setPeer == IntPtr.Zero || _first == IntPtr.Zero || _replace == IntPtr.Zero || _scroll == IntPtr.Zero || _setBindLog == IntPtr.Zero || _setRefresh == IntPtr.Zero || _setUndo == IntPtr.Zero || _setColumns == IntPtr.Zero)
 			throw new InvalidOperationException("KeyedList is missing a Java method.");
 		_ready = true;
 	}
@@ -152,6 +164,11 @@ static class KeyedList
 					Android.Util.Log.Info(MainActivity.Tag, "list-undo");
 					state.Undo?.Invoke();
 					return 0;
+				case OpKind:
+					return Kind(state, arg);
+				case OpPress:
+					Press(state, arg);
+					return 0;
 				default:
 					return 0;
 			}
@@ -190,12 +207,27 @@ static class KeyedList
 				return;
 			mark = System.Diagnostics.Stopwatch.GetTimestamp();
 			RowText.Apply(titleView, face.Title);
-			var description = face.Describe();
+			var picture = TilePicture(row);
+			var description = picture?.Description is { Length: > 0 } spoken ? spoken : face.Describe();
 			if (description.Length > 0)
 			{
 				titleView.ContentDescription = description;
 				if (titleView.Parent is View rowView)
 					rowView.ContentDescription = description;
+			}
+			var radius = picture?.Style?.Radius ?? 0;
+			var side = picture?.Side ?? 0;
+			if (side > 48 && imageView.LayoutParameters is ViewGroup.LayoutParams layout)
+			{
+				var density = imageView.Resources?.DisplayMetrics?.Density ?? 1f;
+				if (density <= 0)
+					density = 1f;
+				var px = (int)Math.Ceiling(side * density);
+				if (layout.Height != px)
+				{
+					layout.Height = px;
+					imageView.LayoutParameters = layout;
+				}
 			}
 			if (face.Subtitle.Length == 0)
 			{
@@ -212,14 +244,14 @@ static class KeyedList
 			if (!StartupMarks.Presented)
 			{
 				FirstFrame.Note(textUs);
-				FirstFrame.Defer(imageView, face.Picture);
+				FirstFrame.Defer(imageView, face.Picture, radius);
 			}
 			else
 			{
 				var context = state.View.Context ?? throw new InvalidOperationException("List row has no context.");
 				if (timed)
 					mark = System.Diagnostics.Stopwatch.GetTimestamp();
-				PictureBinder.Show(imageView, face.Picture, context, face.Title, false);
+				PictureBinder.Show(imageView, face.Picture, context, description.Length > 0 ? description : face.Title, false, radius);
 				if (timed)
 					BindTimes.Add(rowUs, faceUs, textUs, BindTimes.Micros(mark));
 			}
@@ -379,7 +411,7 @@ static class KeyedList
 		static bool _flushed;
 		static readonly List<Pending> _images = new();
 
-		readonly record struct Pending(ImageView Image, string Source);
+		readonly record struct Pending(ImageView Image, string Source, int Radius);
 
 		public static void Note(long textUs)
 		{
@@ -389,17 +421,17 @@ static class KeyedList
 			_textUs += textUs;
 		}
 
-		public static void Defer(ImageView image, string source)
+		public static void Defer(ImageView image, string source, int radius)
 		{
 			if (_flushed)
 			{
 				var context = image.Context;
 				if (context is not null)
-					PictureBinder.Show(image, source, context, "", false);
+					PictureBinder.Show(image, source, context, "", false, radius);
 				return;
 			}
 
-			_images.Add(new Pending(image, source));
+			_images.Add(new Pending(image, source, radius));
 		}
 
 		public static void Flush()
@@ -417,7 +449,7 @@ static class KeyedList
 				var context = pending.Image.Context;
 				if (context is null)
 					continue;
-				PictureBinder.Show(pending.Image, pending.Source, context, "", false);
+				PictureBinder.Show(pending.Image, pending.Source, context, "", false, pending.Radius);
 			}
 
 #if NATIVEPOC_STARTUP_MARKS
@@ -495,6 +527,43 @@ static class KeyedList
 				lo = n;
 			return (long)Math.Round(sorted[lo - 1] + frac * (sorted[hi - 1] - sorted[lo - 1]));
 		}
+	}
+
+	static int Kind(State state, int index)
+	{
+		if ((uint)index >= (uint)state.Rows.Count)
+			return 0;
+		var picture = TilePicture(state.Rows[index]);
+		return picture is { Side: > 48 } ? 1 : 0;
+	}
+
+	static void Press(State state, int index)
+	{
+		if ((uint)index >= (uint)state.Rows.Count)
+			return;
+		var row = state.Rows[index];
+		Android.Util.Log.Info(MainActivity.Tag, "list-press key=" + state.KeyAt(index));
+		var picture = TilePicture(row);
+		if (picture?.OnTap is not null)
+		{
+			picture.OnTap();
+			return;
+		}
+
+		row.OnTap?.Invoke();
+	}
+
+	static Image? TilePicture(Element row)
+	{
+		if (row is not Column column)
+			return null;
+		foreach (var child in column.Children)
+		{
+			if (child is Image picture && picture.Source.Length > 0)
+				return picture;
+		}
+
+		return null;
 	}
 
 	static class RowText

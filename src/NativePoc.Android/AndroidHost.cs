@@ -404,6 +404,10 @@ sealed class AndroidHost : IElementHost<View>
 			else
 				DeferChrome(view, style);
 		}
+#if NATIVEPOC_RECYCLER
+		if (KeyedList.Is(view) && style.Across >= 2)
+			KeyedList.Columns(view, style.Across);
+#endif
 #if NATIVEPOC_STARTUP_MARKS
 		var bucket = ViewBucket(view);
 		if (bucket is not null)

@@ -163,8 +163,20 @@
 	<PropertyGroup Condition="'$(NativePocShowcase)' == 'true' And '$(NativePocWidgetFloor)' != 'true'">
 		<ApplicationId>com.scratch.nativepoc.showcase</ApplicationId>
 		<NativePocImage>true</NativePocImage>
-		<DefineConstants>$(DefineConstants);NATIVEPOC_ROOT_HOME;NATIVEPOC_IMAGE</DefineConstants>
+		<NativePocRecycler>true</NativePocRecycler>
+		<DefineConstants>$(DefineConstants);NATIVEPOC_ROOT_HOME;NATIVEPOC_IMAGE;NATIVEPOC_RECYCLER</DefineConstants>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocShowcase)' == 'true' And '$(NativePocWidgetFloor)' != 'true' And '$(Configuration)' == 'Release'">
+		<AndroidLinkTool>r8</AndroidLinkTool>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(NativePocShowcase)' == 'true' And '$(NativePocWidgetFloor)' != 'true'">
+		<AndroidJavaSource Remove="Java\nativepoc\KeyedList.java" />
+		<AndroidJavaSource Include="Java\nativepoc\KeyedList.java">
+			<Bind>false</Bind>
+		</AndroidJavaSource>
+		<ProguardConfiguration Remove="proguard-list.cfg" />
+		<ProguardConfiguration Include="proguard-list.cfg" />
+	</ItemGroup>
 	<Target Name="WriteShelfGlazes" Condition="'$(NativePocImage)' == 'true'"
 		Inputs="$(MSBuildThisFileDirectory)..\..\tools\glaze\GlazeWrite.cs;$(MSBuildThisFileDirectory)..\..\tools\glaze\JpegEncode.cs;$(MSBuildThisFileDirectory)..\..\tools\glaze\GlazeWrite.csproj"
 		Outputs="$(IntermediateOutputPath)shelf-glaze\Resources\drawable\shelf_harbor.jpg">

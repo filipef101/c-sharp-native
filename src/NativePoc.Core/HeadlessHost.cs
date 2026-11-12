@@ -90,6 +90,26 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 		_nav.FocusFrom(Tree);
 	}
 
+	internal bool SwipeBack(float fraction, float velocity)
+	{
+		var commit = MotionContract.Commits(fraction, velocity);
+		_calls.Add(commit ? "nav-swipe commit" : "nav-swipe cancel");
+		if (commit)
+			Pop();
+		return commit;
+	}
+
+	internal int PlayAnimated(string key, int from, int to, int basis, float animatorScale, float transitionScale, bool spring)
+	{
+		var ms = MotionContract.AnimatedMs(basis, animatorScale, transitionScale);
+		var value = ms == 0 ? to : MotionContract.AnimatedValue(from, to, 0, ms, spring);
+		_calls.Add(
+			"animated key=" + key
+			+ " ms=" + ms.ToString(CultureInfo.InvariantCulture)
+			+ " value=" + value.ToString(CultureInfo.InvariantCulture));
+		return value;
+	}
+
 	public void Module(string module, string method, string[] args)
 	{
 		_calls.Add(module + "." + method);
@@ -197,6 +217,8 @@ public static class HeadlessLayout
 		var gap = element.Style?.Gap ?? 0;
 		var at = boxes.Count;
 		var prefix = id == "root" ? "" : id;
+		if (element is ListView && element.Style is { Across: >= 2 } grid)
+			return MeasureGrid(element, id, left, top, width, pad, innerLeft, innerWidth, children, grid.Across, gap, boxes, fontScale);
 		if (element.Style is { Across: > 0 })
 		{
 			var count = children.Count;
@@ -243,6 +265,61 @@ public static class HeadlessLayout
 			content += childHeight;
 		}
 
+		var total = content + (pad * 2);
+		Floor(element, allotted, ref width, ref total);
+		boxes.Insert(at, new Box(id, left, top, width, total));
+		return total;
+	}
+
+	static int MeasureGrid(Element element, string id, int left, int top, int allotted, int pad, int innerLeft, int innerWidth, IReadOnlyList<Element> children, int columns, int gap, List<Box> boxes, float fontScale)
+	{
+		var at = boxes.Count;
+		var prefix = id == "root" ? "" : id;
+		if (columns < 2)
+			columns = 2;
+		var count = children.Count;
+		var cols = count < columns ? count : columns;
+		if (cols < 1)
+			cols = 1;
+		var gaps = cols > 1 ? gap * (cols - 1) : 0;
+		var available = Math.Max(0, innerWidth - gaps);
+		var slot = count == 0 ? 0 : available / cols;
+		var y = top + pad;
+		var content = 0;
+		var col = 0;
+		var x = innerLeft;
+		var rowHeight = 0;
+		for (var index = 0; index < count; index++)
+		{
+			if (col == 0)
+			{
+				rowHeight = 0;
+				x = innerLeft;
+			}
+
+			var child = children[index];
+			var childId = ChildId(child, prefix, index);
+			var childHeight = MeasureNode(child, childId, x, y, slot, boxes, fontScale, widthShare: true);
+			if (childHeight > rowHeight)
+				rowHeight = childHeight;
+			col++;
+			x += slot;
+			if (col < cols)
+				x += gap;
+			if (col == columns || index + 1 == count)
+			{
+				y += rowHeight;
+				content += rowHeight;
+				col = 0;
+				if (index + 1 < count && gap > 0)
+				{
+					y += gap;
+					content += gap;
+				}
+			}
+		}
+
+		var width = allotted;
 		var total = content + (pad * 2);
 		Floor(element, allotted, ref width, ref total);
 		boxes.Insert(at, new Box(id, left, top, width, total));
@@ -318,7 +395,8 @@ public static class HeadlessLayout
 				return column.Children;
 			case ScrollView scroll:
 				return [scroll.Child];
-			case ListView:
+			case ListView list:
+				return ListRows.Visible(list);
 			case Text:
 			case Button:
 			case TextField:
