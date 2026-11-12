@@ -36,7 +36,7 @@ internal static class HostPolicy
 
 	public static int TouchFloor(byte mask) => mask == 0 ? 0 : TouchFloorDp;
 
-	public static bool IsHeading(int fontSize) => fontSize >= 20;
+	public static bool IsHeading(int fontSize) => fontSize >= ThemeTokens.HeadingSize;
 
 	public static bool FieldIsMultiline(int lines, Keyboard keyboard) =>
 		lines > 1 && keyboard != Keyboard.Password;

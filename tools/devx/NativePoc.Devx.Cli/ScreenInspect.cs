@@ -453,7 +453,7 @@ static class ScreenInspect
 		}
 	}
 
-	static bool IsHeading(Element element) => element is Text { Style: { FontSize: >= 20 } };
+	static bool IsHeading(Element element) => element is Text { Style: { } style } && HostPolicy.IsHeading(style.FontSize);
 
 	static bool IsTouch(Element element) => element switch
 	{
@@ -482,6 +482,7 @@ static class ScreenInspect
 		var role = ScreenSnapshot.Role(element);
 		return element switch
 		{
+			Button button when button.OnPress is null => role + " " + id + " has no action. Pass an action as the second argument of Button.",
 			Button => role + " " + id + " has no accessibility label. Pass a label as the third argument of Button, or set AccessibilityLabel.",
 			TextField or TextInput => role + " " + id + " has no accessibility label. Pass a label, or set Placeholder or AccessibilityLabel.",
 			Switch => role + " " + id + " has no accessibility label. Pass a label, or set AccessibilityLabel.",
@@ -491,7 +492,7 @@ static class ScreenInspect
 
 	static bool MissingLabel(Element element) => element switch
 	{
-		Button button => button.AccessibilityLabel.Length == 0 && button.Title.Length == 0,
+		Button button => button.OnPress is null || button.AccessibilityLabel.Length == 0,
 		TextField field => field.AccessibilityLabel.Length == 0 && field.Placeholder.Length == 0,
 		TextInput field => field.AccessibilityLabel.Length == 0 && field.Placeholder.Length == 0,
 		Switch toggle => toggle.AccessibilityLabel.Length == 0,

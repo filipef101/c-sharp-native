@@ -12,15 +12,18 @@ enum HotReloadExchange
 
 readonly record struct ApplyResult(double Milliseconds, bool Ok, string Text);
 
-// Socket name and handshake live here. The device listens on the fixed abstract
-// name npoc-hotreload. The first 16 bytes are the token from
-// files/nativepoc-hotreload.token. The accepted socket still closes after one
+// The device writes files/nativepoc-hotreload.socket with npoc- plus the package.
+// The host port comes from that package, so two listeners can forward at once.
+// The first 16 bytes are the token. Each accepted socket still closes after one
 // exchange, so this session keeps the adb forward and opens a TCP connection per push.
 static class HotReloadHandshake
 {
 	public const int TokenBytes = 16;
-	public const string AbstractSocketName = "npoc-hotreload";
 	public const HotReloadExchange Exchange = HotReloadExchange.OneShot;
+
+	public static string SocketFor(string package) => HotReloadAddress.SocketFor(package);
+
+	public static int PortFor(string package) => HotReloadAddress.PortFor(package);
 
 	public static byte[] Token(string tokenHex)
 	{
@@ -73,33 +76,37 @@ static class HotReloadHandshake
 
 sealed class HotReloadConnection : IDisposable
 {
-	public const int Port = 18765;
-
 	readonly string _serial;
 	readonly byte[] _token;
+	readonly int _port;
 	bool _forwarded;
 	bool _disposed;
 
-	public HotReloadConnection(string serial, string tokenHex)
+	public HotReloadConnection(string serial, string tokenHex, string? socketName = null, int port = 0)
 	{
 		_serial = serial;
 		_token = HotReloadHandshake.Token(tokenHex);
-		SocketName = HotReloadHandshake.AbstractSocketName;
+		var package = LaunchCommand.Package;
+		SocketName = socketName is { Length: > 0 } ? socketName : HotReloadHandshake.SocketFor(package);
+		_port = port > 0 ? port : HotReloadHandshake.PortFor(package);
 	}
 
 	public string SocketName { get; }
+
+	public int Port => _port;
 
 	public void EnsureForward()
 	{
 		ObjectDisposedException.ThrowIf(_disposed, this);
 		if (_forwarded)
 			return;
-		ProcessRunner.Run("adb", ["-s", _serial, "forward", "--remove", "tcp:" + Port]);
+		ProcessRunner.Run("adb", ["-s", _serial, "forward", "--remove", "tcp:" + _port]);
 		var added = ProcessRunner.Run(
 			"adb",
-			["-s", _serial, "forward", "tcp:" + Port, "localabstract:" + SocketName]);
+			["-s", _serial, "forward", "tcp:" + _port, "localabstract:" + SocketName]);
 		if (added.Code != 0)
 			throw new InvalidOperationException("adb forward failed: " + added.Stderr + added.Stdout);
+		Console.WriteLine("cnative: hotreload socket=" + SocketName + " port=" + _port.ToString(System.Globalization.CultureInfo.InvariantCulture));
 		_forwarded = true;
 	}
 
@@ -133,7 +140,7 @@ sealed class HotReloadConnection : IDisposable
 		client.SendTimeout = 15000;
 		try
 		{
-			client.Connect(IPAddress.Loopback, Port);
+			client.Connect(IPAddress.Loopback, _port);
 		}
 		catch (SocketException ex)
 		{

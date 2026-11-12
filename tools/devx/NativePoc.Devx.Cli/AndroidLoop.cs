@@ -27,7 +27,7 @@ sealed class ReloadSession : IDisposable
 		Root = repo;
 		_connection?.Dispose();
 		_compiler = ScreenCompiler.Create(repo);
-		_connection = new HotReloadConnection(serial, _token.Hex);
+		_connection = new HotReloadConnection(serial, _token.Hex, _token.Socket, _token.Port);
 	}
 
 	public void Dispose()
@@ -47,7 +47,7 @@ static class TokenFiles
 	];
 }
 
-readonly record struct FoundToken(string Hex, string Source);
+readonly record struct FoundToken(string Hex, string Source, string Socket = "", int Port = 0);
 
 static class AndroidLoop
 {
@@ -70,6 +70,8 @@ static class AndroidLoop
 	{
 		if (AppRoot.TryFind(Directory.GetCurrentDirectory(), out var app))
 			return AppLoop.Run(app, options);
+		if (!options.Listener)
+			throw new InvalidOperationException("This repo run needs --listener. A fast Debug build has no assemblies and the process aborts.");
 		var repo = RepoRoot.Find(Directory.GetCurrentDirectory());
 		var serial = ResolveSerial(options.Serial);
 		var abi = Prop(serial, "ro.product.cpu.abi");
@@ -879,7 +881,7 @@ static class AndroidLoop
 
 		try
 		{
-			using var connection = new HotReloadConnection(serial, token.Hex);
+			using var connection = new HotReloadConnection(serial, token.Hex, token.Socket, token.Port);
 			return ReadCheckpoint(connection);
 		}
 		catch (Exception ex) when (ex is InvalidOperationException or IOException)
@@ -930,7 +932,7 @@ static class AndroidLoop
 		{
 			var result = Adb(serial, "shell", "run-as", LaunchCommand.Package, "cat", relative);
 			if (TokenText.TryParse(result.Stdout, out var hex))
-				return new FoundToken(hex, relative);
+				return FinishToken(serial, hex, relative);
 		}
 
 		return new FoundToken("", "");
@@ -1090,7 +1092,7 @@ static class AndroidLoop
 		var token = ReadTokenOnce(serial);
 		if (token.Hex.Length == 0)
 			throw new InvalidOperationException("The running process has no hot reload token.");
-		using var connection = new HotReloadConnection(serial, token.Hex);
+		using var connection = new HotReloadConnection(serial, token.Hex, token.Socket, token.Port);
 		var reply = connection.Apply(ScreenQuery.Ask(ScreenQuery.Reset));
 		if (!reply.Ok || reply.Text != "state reset")
 		{
@@ -1146,7 +1148,7 @@ static class AndroidLoop
 			{
 				var result = Adb(serial, "shell", "run-as", LaunchCommand.Package, "cat", relative);
 				if (TokenText.TryParse(result.Stdout, out var hex))
-					return new FoundToken(hex, relative);
+					return FinishToken(serial, hex, relative);
 				notes.Append(relative).Append(" exit=").Append(result.Code).Append(' ').Append(One(result.Stderr)).Append('\n');
 			}
 
@@ -1166,14 +1168,14 @@ static class AndroidLoop
 						continue;
 					var result = Adb(serial, "shell", "run-as", LaunchCommand.Package, "cat", relative);
 					if (TokenText.TryParse(result.Stdout, out var hex))
-						return new FoundToken(hex, relative);
+						return FinishToken(serial, hex, relative);
 				}
 			}
 
 			var unix = Adb(serial, "shell", "run-as", LaunchCommand.Package, "cat", "/proc/net/unix");
 			var fromSocket = TokenText.FromUnixTable(unix.Stdout);
 			if (fromSocket is not null)
-				return new FoundToken(fromSocket, "/proc/net/unix");
+				return FinishToken(serial, fromSocket, "/proc/net/unix");
 			if (unix.Code != 0 || unix.Stderr.Trim().Length > 0)
 				notes.Append("unix exit=").Append(unix.Code).Append(' ').Append(One(unix.Stderr)).Append('\n');
 			else
@@ -1183,6 +1185,31 @@ static class AndroidLoop
 
 		throw new InvalidOperationException(
 			"The app did not publish a hot reload token for adb run-as. Launch extras are not used.\n" + notes);
+	}
+
+	static FoundToken FinishToken(string serial, string hex, string source)
+	{
+		var socket = ReadSocket(serial);
+		if (socket.Length == 0)
+			socket = HotReloadAddress.SocketFor(LaunchCommand.Package);
+		return new FoundToken(hex, source, socket, HotReloadAddress.PortFor(LaunchCommand.Package));
+	}
+
+	static string ReadSocket(string serial)
+	{
+		var result = Adb(serial, "shell", "run-as", LaunchCommand.Package, "cat", "files/" + HotReloadAddress.SocketFile);
+		var name = result.Stdout.Trim();
+		if (name.Length < 6 || name.Length > 100 || !name.StartsWith("npoc-", StringComparison.Ordinal))
+			return "";
+		for (var index = 5; index < name.Length; index++)
+		{
+			var ch = name[index];
+			if (ch is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '.' or '_' or '-')
+				continue;
+			return "";
+		}
+
+		return name;
 	}
 
 	static string One(string text)

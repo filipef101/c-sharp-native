@@ -57,7 +57,7 @@ platform.RequestRender();
 
 ## Rows
 
-A list of records is one string. `Persist.Put(platform, "tasks", PersistRows.Encode(state.Tasks, item => new[] { item.Id, item.Title, item.Done ? "true" : "false" }))` stores every row. The lambda is the field list, in cell order, and it is ordinary C# so the trimmer does not reflect over the record. `PersistRows.Encode` of a `string[]` list is the same codec. `PersistRows.Fill(state.Tasks, state.Saved, cells => new TaskItem { Id = cells[0], Title = cells[1], Done = cells[2] == "true" })` puts the string from `Persist.Get` back. A string that is not that codec leaves the list as it was. `PersistRows.EncodeFields` and `Persist.PutFields` store one record of any width, including a newline inside a field. `Persist.PutRecord` is still the three-field id, title, and note. `platform.OnOpen(ScreenId, Open)` runs a local function the first time that screen id is rendered on this platform. A later `RequestRender` and a hot reload do not run it again. `samples/tasks` uses that to load the saved list, so the screen has no Restore button. On the row a render `foreach` is visiting, `item.Done = !item.Done` flips a bool and `state.Tasks.Remove(item)` drops the row. `Column` takes those children as arguments, and it still takes an `IReadOnlyList<Element>`. `samples/tasks` is that list, a detail screen, and a dark-mode switch. It compiles only when `NativePocPersist` and `NativePocNav` are both set. `Push` of a row copies same-named string and bool fields. The row id is the string property named `Id`, or the first string property when there is no `Id`. A row with no string property is refused.
+A list of records is one string. `Persist.Put(platform, "tasks", PersistRows.Encode(state.Tasks, item => new[] { item.Id, item.Title, item.Done ? "true" : "false" }))` stores every row. The lambda is the field list, in wire order, and it is ordinary C# so the trimmer does not reflect over the record. The reload VM reads that same lambda. `PersistRows.Encode` of a `string[]` list is the same codec. `PersistRows.Fill(state.Tasks, state.Saved, cells => new TaskItem { Id = cells[0], Title = cells[1], Done = cells[2] == "true" })` puts the string from `Persist.Get` back. A string that is not that codec leaves the list as it was. `PersistRows.EncodeFields` and `Persist.PutFields` store one record of any width, including a newline inside a field. `Persist.PutRecord` is still the three-field id, title, and note. `platform.OnOpen(ScreenId, Open)` runs a local function when that screen id differs from the last one this platform opened. A later `RequestRender` and a hot reload of the same id do not run it. Coming back from another screen does. `samples/tasks` uses that to load the saved list, so the screen has no Restore button. On the row a render `foreach` is visiting, `item.Done = !item.Done` flips a bool and `state.Tasks.Remove(item)` drops the row. `Column` takes those children as arguments, and it still takes an `IReadOnlyList<Element>`. `samples/tasks` is that list, a detail screen, and a dark-mode switch. It compiles only when `NativePocPersist` and `NativePocNav` are both set. `Push` of a row copies same-named string and bool fields. The row id is the string property named `Id`, or the first string property when there is no `Id`. A row with no string property is refused.
 
 ## Inventory
 
@@ -287,6 +287,9 @@ stable|F:NativePoc.Submit.Next
 stable|F:NativePoc.Submit.None
 stable|F:NativePoc.Submit.Search
 stable|F:NativePoc.Submit.Send
+stable|F:NativePoc.ThemeMode.Dark
+stable|F:NativePoc.ThemeMode.Light
+stable|F:NativePoc.ThemeMode.System
 stable|M:NativePoc.Animate.Play(NativePoc.IPlatform,System.String)
 stable|M:NativePoc.AppSession.#ctor()
 stable|M:NativePoc.AppState.#ctor()
@@ -485,6 +488,7 @@ stable|M:NativePoc.TextInput.GetHashCode()
 stable|M:NativePoc.TextInput.ToString()
 stable|M:NativePoc.TextInput.op_Equality(NativePoc.TextInput,NativePoc.TextInput)
 stable|M:NativePoc.TextInput.op_Inequality(NativePoc.TextInput,NativePoc.TextInput)
+stable|M:NativePoc.Theme.Mode(NativePoc.IPlatform,NativePoc.ThemeMode)
 stable|M:NativePoc.Theme.Mode(NativePoc.IPlatform,System.Boolean)
 stable|M:NativePoc.Theme.Mode(NativePoc.IPlatform,System.String)
 stable|M:NativePoc.Theme.Scale(NativePoc.IPlatform,System.Boolean)
@@ -634,5 +638,6 @@ stable|T:NativePoc.Text
 stable|T:NativePoc.TextField
 stable|T:NativePoc.TextInput
 stable|T:NativePoc.Theme
+stable|T:NativePoc.ThemeMode
 stable|T:NativePoc.Timer
 <!-- /api-baseline -->

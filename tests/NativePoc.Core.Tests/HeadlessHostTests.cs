@@ -100,6 +100,28 @@ public sealed class HeadlessHostTests
 	}
 
 	[Fact]
+	public void OnOpen_runs_again_when_a_screen_is_shown_after_another()
+	{
+		var seen = new List<string>();
+		var host = new HeadlessHost();
+		host.Show(platform =>
+		{
+			var id = host.NavDepth <= 1 ? "tasks" : host.NavTop;
+			platform.OnOpen(id, () => seen.Add(id));
+			return new Text(id) { Key = "heading", Style = new Style { FontSize = 22 } };
+		});
+		Assert.Equal(["tasks"], seen);
+		host.RequestRender();
+		Assert.Equal(["tasks"], seen);
+		host.Push("detail");
+		Assert.Equal(["tasks", "detail"], seen);
+		host.Pop();
+		Assert.Equal(["tasks", "detail", "tasks"], seen);
+		host.RequestRender();
+		Assert.Equal(["tasks", "detail", "tasks"], seen);
+	}
+
+	[Fact]
 	public void An_across_column_places_children_side_by_side()
 	{
 		var host = new HeadlessHost();

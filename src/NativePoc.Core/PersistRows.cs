@@ -39,6 +39,47 @@ public static class PersistRows
 		return Encode(cells);
 	}
 
+	internal static string EncodeOrder(IReadOnlyList<string[]> rows, IReadOnlyList<int> order)
+	{
+		ArgumentNullException.ThrowIfNull(rows);
+		ArgumentNullException.ThrowIfNull(order);
+		var cells = new List<string[]>(rows.Count);
+		foreach (var row in rows)
+		{
+			ArgumentNullException.ThrowIfNull(row);
+			var next = new string[order.Count];
+			for (var index = 0; index < order.Count; index++)
+			{
+				var source = order[index];
+				next[index] = (uint)source < (uint)row.Length ? row[source] ?? "" : "";
+			}
+
+			cells.Add(next);
+		}
+
+		return Encode(cells);
+	}
+
+	internal static List<string[]> ApplyOrder(List<string[]> rows, IReadOnlyList<int> order)
+	{
+		ArgumentNullException.ThrowIfNull(rows);
+		ArgumentNullException.ThrowIfNull(order);
+		var mapped = new List<string[]>(rows.Count);
+		foreach (var row in rows)
+		{
+			var next = new string[order.Count];
+			for (var index = 0; index < order.Count; index++)
+			{
+				var source = order[index];
+				next[index] = row is null || (uint)source >= (uint)row.Length ? "" : row[source] ?? "";
+			}
+
+			mapped.Add(next);
+		}
+
+		return mapped;
+	}
+
 	public static string EncodeFields(params string[] fields)
 	{
 		ArgumentNullException.ThrowIfNull(fields);

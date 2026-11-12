@@ -243,6 +243,8 @@ internal static class MotionMath
 
 internal static class ThemeTokens
 {
+	public const int HeadingSize = 22;
+
 	public static bool ResolveDark(bool systemDark, string mode) =>
 		mode switch
 		{

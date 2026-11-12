@@ -160,105 +160,14 @@ internal static class TreeDiff
 		DiffChildren(Array.Empty<Element>(), ChildrenOf(next), path, patches);
 	}
 
-	enum ChildKeys
-	{
-		Empty,
-		Plain,
-		Keyed,
-		Mixed,
-	}
-
 	static void DiffChildren(
 		IReadOnlyList<Element> previous,
 		IReadOnlyList<Element> next,
 		NodePath path,
 		List<Patch> patches)
 	{
-		var previousMode = KeyMode(previous);
-		var nextMode = KeyMode(next);
-		// A parent that mixes keyed and unkeyed children is an invalid tree.
-		// A parent that is entirely keyed diffed against one that is entirely
-		// unkeyed is a valid edit: the warm column has no keys, and Screen.cs
-		// keys every child. Replace those children instead of refusing.
-		if (previousMode == ChildKeys.Mixed || nextMode == ChildKeys.Mixed)
-			throw new InvalidOperationException("Keyed children cannot be mixed with unkeyed children.");
-		if (previousMode == ChildKeys.Plain && nextMode == ChildKeys.Keyed
-			|| previousMode == ChildKeys.Keyed && nextMode == ChildKeys.Plain)
-		{
-			ReplaceChildren(previous, next, path, patches);
-			return;
-		}
-
-		if (previousMode == ChildKeys.Keyed || nextMode == ChildKeys.Keyed)
-		{
-			DiffKeyedChildren(previous, next, path, patches);
-			return;
-		}
-
-		var shared = previous.Count < next.Count ? previous.Count : next.Count;
-		for (var i = 0; i < shared; i++)
-			DiffNode(previous[i], next[i], path.Child(i), patches);
-		for (var i = previous.Count - 1; i >= shared; i--)
-			patches.Add(new Unmount(path.Child(i)));
-		for (var i = shared; i < next.Count; i++)
-			MountTree(next[i], path.Child(i), patches);
-	}
-
-	static ChildKeys KeyMode(IReadOnlyList<Element> children)
-	{
-		if (children.Count == 0)
-			return ChildKeys.Empty;
-		var keyed = 0;
-		foreach (var child in children)
-		{
-			if (child.Key is not null)
-				keyed++;
-		}
-
-		if (keyed == 0)
-			return ChildKeys.Plain;
-		if (keyed == children.Count)
-			return ChildKeys.Keyed;
-		return ChildKeys.Mixed;
-	}
-
-	static void ReplaceChildren(
-		IReadOnlyList<Element> previous,
-		IReadOnlyList<Element> next,
-		NodePath path,
-		List<Patch> patches)
-	{
-		for (var i = previous.Count - 1; i >= 0; i--)
-			patches.Add(new Unmount(path.Child(i)));
-		for (var i = 0; i < next.Count; i++)
-			MountTree(next[i], path.Child(i), patches);
-	}
-
-	static void DiffKeyedChildren(
-		IReadOnlyList<Element> previous,
-		IReadOnlyList<Element> next,
-		NodePath path,
-		List<Patch> patches)
-	{
-		RequireKeys(previous);
-		RequireKeys(next);
-		var oldIndex = new Dictionary<string, int>(previous.Count);
-		for (var i = 0; i < previous.Count; i++)
-		{
-			var key = previous[i].Key!;
-			if (!oldIndex.TryAdd(key, i))
-				throw new InvalidOperationException("Duplicate child key.");
-		}
-		var seen = new HashSet<string>(next.Count);
-		var sources = new int[next.Count];
-		for (var i = 0; i < next.Count; i++)
-		{
-			var key = next[i].Key!;
-			if (!seen.Add(key))
-				throw new InvalidOperationException("Duplicate child key.");
-			sources[i] = oldIndex.TryGetValue(key, out var index) ? index : -1;
-		}
-
+		// Keyed children match by key. Unkeyed children match by position
+		// among the unkeyed children, not among every sibling.
 		if (previous.Count == 0)
 		{
 			for (var i = 0; i < next.Count; i++)
@@ -266,21 +175,42 @@ internal static class TreeDiff
 			return;
 		}
 
-		var moved = previous.Count != next.Count;
-		if (!moved)
+		var sources = MatchChildren(previous, next);
+		var shared = previous.Count < next.Count ? previous.Count : next.Count;
+		var stable = true;
+		for (var i = 0; i < shared; i++)
 		{
-			for (var i = 0; i < sources.Length; i++)
+			if (sources[i] != i)
 			{
-				if (sources[i] != i)
+				stable = false;
+				break;
+			}
+		}
+
+		if (stable)
+		{
+			for (var i = shared; i < next.Count; i++)
+			{
+				if (sources[i] != -1)
 				{
-					moved = true;
+					stable = false;
 					break;
 				}
 			}
 		}
-		if (moved)
-			patches.Add(new Reorder(path, sources));
 
+		if (stable)
+		{
+			for (var i = 0; i < shared; i++)
+				DiffNode(previous[i], next[i], path.Child(i), patches);
+			for (var i = previous.Count - 1; i >= shared; i--)
+				patches.Add(new Unmount(path.Child(i)));
+			for (var i = shared; i < next.Count; i++)
+				MountTree(next[i], path.Child(i), patches);
+			return;
+		}
+
+		patches.Add(new Reorder(path, sources));
 		for (var i = 0; i < next.Count; i++)
 		{
 			if (sources[i] < 0)
@@ -290,13 +220,37 @@ internal static class TreeDiff
 		}
 	}
 
-	static void RequireKeys(IReadOnlyList<Element> children)
+	static int[] MatchChildren(IReadOnlyList<Element> previous, IReadOnlyList<Element> next)
 	{
-		foreach (var child in children)
+		var oldKeyed = new Dictionary<string, int>(previous.Count);
+		var oldUnkeyed = new List<int>();
+		for (var i = 0; i < previous.Count; i++)
 		{
-			if (child.Key is null)
-				throw new InvalidOperationException("Keyed children cannot be mixed with unkeyed children.");
+			var key = previous[i].Key;
+			if (key is null)
+				oldUnkeyed.Add(i);
+			else if (!oldKeyed.TryAdd(key, i))
+				throw new InvalidOperationException("Duplicate child key.");
 		}
+
+		var seen = new HashSet<string>(next.Count);
+		var sources = new int[next.Count];
+		var unkeyed = 0;
+		for (var i = 0; i < next.Count; i++)
+		{
+			var key = next[i].Key;
+			if (key is null)
+			{
+				sources[i] = unkeyed < oldUnkeyed.Count ? oldUnkeyed[unkeyed++] : -1;
+				continue;
+			}
+
+			if (!seen.Add(key))
+				throw new InvalidOperationException("Duplicate child key.");
+			sources[i] = oldKeyed.TryGetValue(key, out var index) ? index : -1;
+		}
+
+		return sources;
 	}
 
 	static void ApplyProps(Element? previous, Element next, NodePath path, List<Patch> patches)

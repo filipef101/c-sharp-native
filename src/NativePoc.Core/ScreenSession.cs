@@ -9,7 +9,7 @@ internal sealed class ScreenSession : IPlatform
 	readonly List<string> _copies = new();
 	readonly List<string> _stack = new();
 	readonly List<string> _modules = new();
-	readonly HashSet<string> _opened = new(StringComparer.Ordinal);
+	string? _lastOpen;
 	Func<string, string, string[], string>? _reply;
 	bool _requested;
 	bool _rendering;
@@ -109,8 +109,9 @@ internal sealed class ScreenSession : IPlatform
 
 	public void OnOpen(string screen, Action open)
 	{
-		if (screen.Length == 0 || !_opened.Add(screen))
+		if (screen.Length == 0 || string.Equals(screen, _lastOpen, StringComparison.Ordinal))
 			return;
+		_lastOpen = screen;
 		open();
 	}
 

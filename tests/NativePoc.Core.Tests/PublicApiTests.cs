@@ -231,6 +231,7 @@ public sealed class PublicApiTests
 		["PersistRecord"] = "stable",
 		["PersistRows"] = "stable",
 		["Theme"] = "stable",
+		["ThemeMode"] = "stable",
 		["Http"] = "stable",
 		["Clipboard"] = "stable",
 		["Haptics"] = "stable",

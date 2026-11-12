@@ -1556,8 +1556,14 @@ internal static partial class RecordProgram
 				{
 					var list = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
 					var source = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					if (ip >= script.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var width = script[ip++];
+					var order = new int[width];
+					for (var index = 0; index < width; index++)
+						order[index] = TakeU16(script, ref ip, script.Length);
 					if (PersistRows.TryDecode(bag.ReadString(source), out var decoded))
-						bag.ReplaceRows(list, decoded);
+						bag.ReplaceRows(list, PersistRows.ApplyOrder(decoded, order));
 					break;
 				}
 				case ActTakeStr:
@@ -1850,6 +1856,8 @@ internal static partial class RecordProgram
 		public bool Watching;
 		public string? WatchList;
 		public int WatchStamp;
+		public string? SnapList;
+		public List<string[]>? SnapRows;
 		int _calls;
 		readonly int[][] _savedInts = new int[64][];
 		readonly double[][] _savedDoubles = new double[64][];
@@ -2014,11 +2022,29 @@ internal static partial class RecordProgram
 				1 => bag.ReadString(name),
 				2 => bag.ReadBool(name) ? "true" : "false",
 				3 => PersistRows.Encode(bag.Rows(name)),
+				4 => EncodeOrdered(bag, name),
 				_ => throw new InvalidOperationException("Rejected record program."),
 			};
 		}
 
 		return moduleArgs;
+	}
+
+	static string EncodeOrdered(Bag bag, string spec)
+	{
+		var split = spec.IndexOf('\n');
+		if (split < 0)
+			return PersistRows.Encode(bag.Rows(spec));
+		var list = spec[..split];
+		var parts = spec[(split + 1)..].Split(',');
+		var order = new int[parts.Length];
+		for (var index = 0; index < parts.Length; index++)
+		{
+			if (!int.TryParse(parts[index], NumberStyles.None, CultureInfo.InvariantCulture, out order[index]))
+				throw new InvalidOperationException("Rejected record program.");
+		}
+
+		return PersistRows.EncodeOrder(bag.Rows(list), order);
 	}
 
 	static string AwaitText(Task<string> task) =>
@@ -2581,6 +2607,32 @@ internal static partial class RecordProgram
 				if (_lists.TryGetValue(name, out var rows))
 					rows.Clear();
 				Touch(name);
+			}
+		}
+
+		public List<string[]> CopyRows(string name)
+		{
+			lock (_gate)
+			{
+				if (!_lists.TryGetValue(name, out var rows))
+					return new List<string[]>();
+				return new List<string[]>(rows);
+			}
+		}
+
+		public int IndexOfRow(string name, string[] cells)
+		{
+			lock (_gate)
+			{
+				if (!_lists.TryGetValue(name, out var rows))
+					return -1;
+				for (var index = 0; index < rows.Count; index++)
+				{
+					if (ReferenceEquals(rows[index], cells))
+						return index;
+				}
+
+				return -1;
 			}
 		}
 

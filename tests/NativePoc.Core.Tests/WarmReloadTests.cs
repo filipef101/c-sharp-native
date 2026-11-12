@@ -89,22 +89,31 @@ public sealed class WarmReloadTests
 	}
 
 	[Fact]
-	public void Mixed_keys_in_one_parent_are_still_refused()
+	public void Mixed_keys_match_by_key_and_unkeyed_match_by_position()
 	{
-		var mixed = new Column(
+		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
+		reconciler.Render(new Column(
 		[
-			new Text("a") { Key = "a" },
-			new Text("b"),
-		]);
-		var ex = Assert.Throws<InvalidOperationException>(() => TreeDiff.Diff(null, mixed));
-		Assert.Equal("Keyed children cannot be mixed with unkeyed children.", ex.Message);
-
-		var keyed = new Column(
+			new Text("Heading") { Key = "heading" },
+			new Text("one"),
+			new Text("two"),
+		]));
+		var heading = reconciler.Root!.Children[0];
+		var first = reconciler.Root.Children[1];
+		var second = reconciler.Root.Children[2];
+		reconciler.Render(new Column(
 		[
-			new Text("a") { Key = "a" },
-			new Text("b") { Key = "b" },
-		]);
-		var again = Assert.Throws<InvalidOperationException>(() => TreeDiff.Diff(keyed, mixed));
-		Assert.Equal("Keyed children cannot be mixed with unkeyed children.", again.Message);
+			new Text("one-b"),
+			new Text("Heading") { Key = "heading" },
+			new Text("two-b"),
+			new Text("extra"),
+		]));
+		Assert.Equal(heading.Identity, reconciler.Root.Children[1].Identity);
+		Assert.Equal(first.Identity, reconciler.Root.Children[0].Identity);
+		Assert.Equal("one-b", reconciler.Root.Children[0].Text);
+		Assert.Equal(second.Identity, reconciler.Root.Children[2].Identity);
+		Assert.Equal("two-b", reconciler.Root.Children[2].Text);
+		Assert.Equal("extra", reconciler.Root.Children[3].Text);
+		Assert.Equal(4, reconciler.Root.Children.Count);
 	}
 }

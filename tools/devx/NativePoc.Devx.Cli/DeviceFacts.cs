@@ -106,6 +106,7 @@ static class LaunchCommand
 		};
 		foreach (var relative in TokenFiles.RelativePaths)
 			commands.Add(new[] { "shell", "run-as", package, "rm", "-f", relative });
+		commands.Add(new[] { "shell", "run-as", package, "rm", "-f", "files/" + HotReloadAddress.SocketFile });
 		var start = new List<string> { "shell", "am", "start", "-n", component };
 		if (!string.IsNullOrEmpty(extras))
 		{

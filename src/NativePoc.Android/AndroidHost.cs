@@ -1527,7 +1527,7 @@ sealed class PlatformBridge : IPlatform
 
 	readonly CancellationTokenSource _calls = new();
 
-	readonly HashSet<string> _opened = new(StringComparer.Ordinal);
+	string? _lastOpen;
 
 	CancellationTokenSource _live;
 
@@ -1542,16 +1542,15 @@ sealed class PlatformBridge : IPlatform
 #endif
 		_live.Cancel();
 		_live = new CancellationTokenSource();
-		if (leaving.Length > 0)
-			_opened.Remove(leaving);
 		Log.Info(MainActivity.Tag, "http-cancel screen=" + leaving);
 		RequestRender();
 	}
 
 	public void OnOpen(string screen, System.Action open)
 	{
-		if (screen.Length == 0 || !_opened.Add(screen))
+		if (screen.Length == 0 || string.Equals(screen, _lastOpen, StringComparison.Ordinal))
 			return;
+		_lastOpen = screen;
 		open();
 	}
 

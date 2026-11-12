@@ -11,14 +11,18 @@ public sealed class HotReloadContractTests
 
 		Assert.StartsWith("#if DEBUG", server);
 		Assert.Contains("const string TokenFile = \"nativepoc-hotreload.token\"", server);
-		Assert.Contains("const string SocketName = \"npoc-hotreload\"", server);
-		Assert.Contains("new LocalServerSocket(SocketName)", server);
+		Assert.Contains("HotReloadAddress.SocketFor(context.PackageName)", server);
+		Assert.Contains("new LocalServerSocket(socketName)", server);
+		Assert.Contains("HotReloadAddress.SocketFile", server);
+		Assert.DoesNotContain("const string SocketName = \"npoc-hotreload\"", server);
 		Assert.DoesNotContain("npoc-\" + hex", server);
 		Assert.Contains("DeleteFile(\"hotreload.token\")", server);
 		Assert.Contains("Log.Info(MainActivity.Tag, \"hotreload-listen\")", server);
 		Assert.DoesNotContain("nativepoc_hotreload", server);
-		Assert.Contains("localabstract:npoc-hotreload", host);
-		Assert.DoesNotContain("localabstract:npoc-\" +", host);
+		Assert.Contains("HotReloadAddress.SocketFor", host);
+		Assert.Contains("HotReloadAddress.PortFor", host);
+		Assert.Contains("\"localabstract:\" + socket", host);
+		Assert.DoesNotContain("localabstract:npoc-hotreload", host);
 		Assert.DoesNotContain("localabstract:", server);
 		Assert.Contains("#if DEBUG", activity);
 		Assert.Contains("HotReloadServer.Start(this)", activity);

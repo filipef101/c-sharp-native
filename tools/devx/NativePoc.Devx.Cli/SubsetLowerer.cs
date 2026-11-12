@@ -27,7 +27,6 @@ public static partial class SubsetLowerer
 	public const string BadLambda = "subset.bad-lambda";
 	public const string BadForeach = "subset.bad-foreach";
 	public const string DuplicateKey = "subset.duplicate-key";
-	public const string MixedKeys = "subset.mixed-keys";
 	public const string UnknownType = "subset.unknown-type";
 
 	public static SubsetResult TryLower(string source, IReadOnlyList<string>? companions = null, IReadOnlyList<string>? callables = null, string? originFile = null)
@@ -2999,6 +2998,119 @@ public static partial class SubsetLowerer
 			return true;
 		}
 
+		static ExpressionSyntax? LambdaBody(LambdaExpressionSyntax lambda)
+		{
+			if (lambda.Body is ExpressionSyntax expression)
+				return expression;
+			if (lambda.Body is BlockSyntax block
+				&& block.Statements.Count == 1
+				&& block.Statements[0] is ReturnStatementSyntax returned)
+				return returned.Expression;
+			return null;
+		}
+
+		static bool TryEncodeOrder(ExpressionSyntax body, List<Field> fields, out int[] order)
+		{
+			order = [];
+			var elements = new List<ExpressionSyntax>();
+			if (!TryArrayElements(body, elements))
+				return false;
+			order = new int[elements.Count];
+			for (var index = 0; index < elements.Count; index++)
+			{
+				if (!TryFieldIndex(elements[index], fields, out order[index]))
+					return false;
+			}
+
+			return order.Length > 0;
+		}
+
+		static bool TryArrayElements(ExpressionSyntax expression, List<ExpressionSyntax> elements)
+		{
+			switch (expression)
+			{
+				case ImplicitArrayCreationExpressionSyntax array when array.Initializer is not null:
+					elements.AddRange(array.Initializer.Expressions);
+					return elements.Count > 0;
+				case ArrayCreationExpressionSyntax array when array.Initializer is not null:
+					elements.AddRange(array.Initializer.Expressions);
+					return elements.Count > 0;
+				case CollectionExpressionSyntax collection:
+					foreach (var item in collection.Elements)
+					{
+						if (item is not ExpressionElementSyntax expressionElement)
+							return false;
+						elements.Add(expressionElement.Expression);
+					}
+
+					return elements.Count > 0;
+				default:
+					return false;
+			}
+		}
+
+		static bool TryFillMap(ExpressionSyntax expression, List<Field> fields, out int[] map)
+		{
+			map = new int[fields.Count];
+			Array.Fill(map, -1);
+			if (expression is not ObjectCreationExpressionSyntax creation || creation.Initializer is null)
+				return false;
+			foreach (var item in creation.Initializer.Expressions)
+			{
+				if (item is not AssignmentExpressionSyntax assignment || assignment.Left is not IdentifierNameSyntax name)
+					return false;
+				if (!TryWireIndex(assignment.Right, out var wire))
+					return false;
+				var slot = fields.FindIndex(field => field.Name == name.Identifier.ValueText);
+				if (slot < 0)
+					return false;
+				map[slot] = wire;
+			}
+
+			foreach (var slot in map)
+			{
+				if (slot < 0)
+					return false;
+			}
+
+			return map.Length > 0;
+		}
+
+		static bool TryFieldIndex(ExpressionSyntax expression, List<Field> fields, out int index)
+		{
+			var access = expression;
+			if (expression is ConditionalExpressionSyntax conditional)
+				access = conditional.Condition;
+			if (access is not MemberAccessExpressionSyntax member)
+			{
+				index = -1;
+				return false;
+			}
+
+			index = fields.FindIndex(field => field.Name == member.Name.Identifier.ValueText);
+			return index >= 0;
+		}
+
+		static bool TryWireIndex(ExpressionSyntax expression, out int index)
+		{
+			switch (expression)
+			{
+				case ConditionalExpressionSyntax conditional:
+					return TryWireIndex(conditional.WhenTrue, out index);
+				case BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.EqualsExpression) || binary.IsKind(SyntaxKind.LogicalAndExpression):
+					return TryWireIndex(binary.Right, out index) || TryWireIndex(binary.Left, out index);
+				case ElementAccessExpressionSyntax access when access.ArgumentList.Arguments.Count == 1
+					&& access.ArgumentList.Arguments[0].Expression is LiteralExpressionSyntax literal
+					&& literal.Token.Value is int value
+					&& value >= 0:
+					index = value;
+					return true;
+				default:
+					index = -1;
+					return false;
+			}
+		}
+
 		bool FillRows(InvocationExpressionSyntax invocation, List<byte> script)
 		{
 			var args = invocation.ArgumentList.Arguments;
@@ -3011,9 +3123,25 @@ public static partial class SubsetLowerer
 				|| text.Kind != ValueKind.Str
 				|| (args.Count == 3 && args[2].Expression is not LambdaExpressionSyntax))
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			if (!_records.TryGetValue(list.Item, out var itemFields))
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			int[] map;
+			if (args.Count == 2)
+			{
+				map = new int[itemFields.Count];
+				for (var index = 0; index < map.Length; index++)
+					map[index] = index;
+			}
+			else if (args[2].Expression is not LambdaExpressionSyntax lambda || LambdaBody(lambda) is not { } body || !TryFillMap(body, itemFields, out map))
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			if (map.Length > byte.MaxValue)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			script.Add(RecordProgram.ActFillRows);
 			U16(script, _code.Intern(list.Name));
 			U16(script, _code.Intern(text.Name));
+			script.Add((byte)map.Length);
+			foreach (var slot in map)
+				U16(script, slot);
 			return true;
 		}
 
@@ -3030,7 +3158,35 @@ public static partial class SubsetLowerer
 				&& list.Kind == ValueKind.List
 				&& (encode.ArgumentList.Arguments.Count == 1 || encode.ArgumentList.Arguments[1].Expression is LambdaExpressionSyntax))
 			{
-				encoded.Add((3, _code.Intern(list.Name)));
+				if (encode.ArgumentList.Arguments.Count == 1)
+				{
+					encoded.Add((3, _code.Intern(list.Name)));
+					return true;
+				}
+
+				if (encode.ArgumentList.Arguments[1].Expression is not LambdaExpressionSyntax lambda
+					|| LambdaBody(lambda) is not { } body
+					|| !_records.TryGetValue(list.Item, out var itemFields)
+					|| !TryEncodeOrder(body, itemFields, out var order))
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", expression);
+				encoded.Add((4, _code.Intern(list.Name + "\n" + string.Join(',', order))));
+				return true;
+			}
+
+			if (expression is MemberAccessExpressionSyntax theme
+				&& theme.Expression is IdentifierNameSyntax themeType
+				&& themeType.Identifier.ValueText == "ThemeMode")
+			{
+				var text = theme.Name.Identifier.ValueText switch
+				{
+					"Dark" => "dark",
+					"Light" => "light",
+					"System" => "system",
+					_ => "",
+				};
+				if (text.Length == 0)
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", expression);
+				encoded.Add((0, _code.Intern(text)));
 				return true;
 			}
 
@@ -3261,26 +3417,9 @@ public static partial class SubsetLowerer
 	sealed class KeySet
 	{
 		readonly HashSet<string> _keys = new(StringComparer.Ordinal);
-		bool _keyed;
-		bool _plain;
-		int _count;
 
 		public bool Add(Lower lower, int key, bool dynamic, SyntaxNode node)
 		{
-			_count++;
-			if (dynamic || key != RecordProgram.NoKey)
-			{
-				_keyed = true;
-				if (_plain)
-					return lower.Fail(MixedKeys, "Keyed children cannot be mixed with unkeyed children.", node);
-			}
-			else
-			{
-				_plain = true;
-				if (_keyed)
-					return lower.Fail(MixedKeys, "Keyed children cannot be mixed with unkeyed children.", node);
-			}
-
 			if (!dynamic && key != RecordProgram.NoKey)
 			{
 				var text = node is ObjectCreationExpressionSyntax creation
@@ -3297,8 +3436,8 @@ public static partial class SubsetLowerer
 
 		public bool Close(Lower lower, SyntaxNode node)
 		{
-			if (_count > 0 && _keyed && _plain)
-				return lower.Fail(MixedKeys, "Keyed children cannot be mixed with unkeyed children.", node);
+			_ = lower;
+			_ = node;
 			return true;
 		}
 	}

@@ -64,7 +64,7 @@ public sealed class ActionParityTests
 		Check(hello.Replace("state.Count++;", "var missing = 0.0 / 0.0; state.Count = (int)missing;", StringComparison.Ordinal));
 		Check(ListScreen("state.Items.Add(new Note { Name = \"Lantern\", Packed = true });"));
 		Check(ListScreen("state.Items.Add(new Note { Name = \"2\" }); state.Items.Add(new Note { Name = \"4\" }); var sum = 0; foreach (var item in state.Items) sum += int.Parse(item.Name); state.Count = sum;"));
-		Stop(ListScreen("state.Items.Add(new Note { Name = \"Lantern\" }); state.Items.Add(new Note { Name = \"Rope\" }); foreach (var item in state.Items) if (item.Name == \"Lantern\") state.Items.Remove(item);"));
+		Check(ListScreen("state.Items.Add(new Note { Name = \"Lantern\" }); state.Items.Add(new Note { Name = \"Rope\" }); foreach (var item in state.Items) if (item.Name == \"Lantern\") state.Items.Remove(item);"));
 	}
 
 	[Fact]
@@ -163,7 +163,7 @@ public sealed class ActionParityTests
 	{
 		var text = "using System;\nusing System.Collections.Generic;\nusing NativePoc;\n" + source;
 		var parsed = CSharpSyntaxTree.ParseText(text, new CSharpParseOptions(LanguageVersion.Preview));
-		var tree = parsed.WithRootAndOptions(new ColumnArgs().Visit(parsed.GetRoot()), parsed.Options);
+		var tree = parsed.WithRootAndOptions(new SnapshotForeach().Visit(new ColumnArgs().Visit(parsed.GetRoot()))!, parsed.Options);
 		var compilation = CSharpCompilation.Create(
 			"parity-" + Guid.NewGuid().ToString("N"),
 			[tree],
@@ -302,6 +302,22 @@ public sealed class ActionParityTests
 			}
 
 			return builder.ToString();
+		}
+	}
+
+	sealed class SnapshotForeach : CSharpSyntaxRewriter
+	{
+		public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
+		{
+			var visited = (ForEachStatementSyntax)base.VisitForEachStatement(node)!;
+			if (visited.Expression is InvocationExpressionSyntax)
+				return visited;
+			var call = SyntaxFactory.InvocationExpression(
+				SyntaxFactory.MemberAccessExpression(
+					SyntaxKind.SimpleMemberAccessExpression,
+					visited.Expression,
+					SyntaxFactory.IdentifierName("ToArray")));
+			return visited.WithExpression(call);
 		}
 	}
 

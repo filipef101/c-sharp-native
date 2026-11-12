@@ -632,7 +632,7 @@ public sealed class SubsetLowererTests
 	}
 
 	[Fact]
-	public void Mixed_keys_are_refused_with_a_file_line()
+	public void Mixed_keys_lower_and_keep_the_keyed_child()
 	{
 		var source = """
 			namespace Demo;
@@ -647,25 +647,16 @@ public sealed class SubsetLowererTests
 					[
 						new Text("Keyed") { Key = "a" },
 						new Text("Plain"),
-					]);
+					]) { Key = "home" };
 			}
 			""";
 		var lowered = SubsetLowerer.TryLower(source);
-		Assert.False(lowered.Ok);
-		var diagnostic = lowered.Diagnostics[0];
-		Assert.Equal(SubsetLowerer.MixedKeys, diagnostic.Id);
-		Assert.Equal("Keyed children cannot be mixed with unkeyed children.", diagnostic.Message);
-		Assert.True(diagnostic.Line > 0);
-		Assert.Contains("Plain", source.Split('\n')[diagnostic.Line - 1], StringComparison.Ordinal);
-		var note = System.Text.Encoding.UTF8.GetString(ScreenQuery.FaultNote(
-			diagnostic.Id,
-			diagnostic.Message,
-			diagnostic.Start,
-			diagnostic.End,
-			diagnostic.Line,
-			diagnostic.Column,
-			"src/NativePoc.Screen/Screen.cs"));
-		Assert.Contains("src/NativePoc.Screen/Screen.cs:" + diagnostic.Line.ToString(System.Globalization.CultureInfo.InvariantCulture), note, StringComparison.Ordinal);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var session = ScreenSession.Open(lowered.Program!);
+		var column = Assert.IsType<Column>(session.Root);
+		Assert.Equal("a", column.Children[0].Key);
+		Assert.Null(column.Children[1].Key);
+		Assert.Equal("Plain", ((Text)column.Children[1]).Value);
 	}
 
 	[Fact]

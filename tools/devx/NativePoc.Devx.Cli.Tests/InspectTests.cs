@@ -249,6 +249,26 @@ public sealed class InspectTests
 	}
 
 	[Fact]
+	public void Inspect_fails_a_button_with_an_empty_label_or_action()
+	{
+		var emptyLabel = new Column(
+		[
+			new Text("Title") { Key = "title", Style = new Style { FontSize = 22 } },
+			new Button("Save", () => { }, "") { Key = "save" },
+		]);
+		var label = ScreenInspect.Format(emptyLabel);
+		Assert.Contains("button save has no accessibility label", label, StringComparison.Ordinal);
+
+		var emptyAction = new Column(
+		[
+			new Text("Title") { Key = "title", Style = new Style { FontSize = 22 } },
+			new Button("Save", null!, "Save") { Key = "save" },
+		]);
+		var action = ScreenInspect.Format(emptyAction);
+		Assert.Contains("button save has no action", action, StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void Inspect_fails_a_screen_with_no_heading()
 	{
 		var json = ScreenInspect.Format(new Text("Hello") { Key = "body" });

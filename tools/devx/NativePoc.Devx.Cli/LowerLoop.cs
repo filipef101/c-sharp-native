@@ -74,7 +74,7 @@ static class LowerLoop
 			return 0;
 		var resolved = AndroidLoop.ResolveSerial(serial);
 		var token = AndroidLoop.WaitToken(resolved);
-		using var connection = new HotReloadConnection(resolved, token.Hex);
+		using var connection = new HotReloadConnection(resolved, token.Hex, token.Socket, token.Port);
 		var reply = connection.Apply(result.Program!);
 		Console.WriteLine(reply.Text);
 		return reply.Ok ? 0 : 1;

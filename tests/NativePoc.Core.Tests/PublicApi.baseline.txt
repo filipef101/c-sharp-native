@@ -223,6 +223,9 @@ stable|F:NativePoc.Submit.Next
 stable|F:NativePoc.Submit.None
 stable|F:NativePoc.Submit.Search
 stable|F:NativePoc.Submit.Send
+stable|F:NativePoc.ThemeMode.Dark
+stable|F:NativePoc.ThemeMode.Light
+stable|F:NativePoc.ThemeMode.System
 stable|M:NativePoc.Animate.Play(NativePoc.IPlatform,System.String)
 stable|M:NativePoc.AppSession.#ctor()
 stable|M:NativePoc.AppState.#ctor()
@@ -421,6 +424,7 @@ stable|M:NativePoc.TextInput.GetHashCode()
 stable|M:NativePoc.TextInput.ToString()
 stable|M:NativePoc.TextInput.op_Equality(NativePoc.TextInput,NativePoc.TextInput)
 stable|M:NativePoc.TextInput.op_Inequality(NativePoc.TextInput,NativePoc.TextInput)
+stable|M:NativePoc.Theme.Mode(NativePoc.IPlatform,NativePoc.ThemeMode)
 stable|M:NativePoc.Theme.Mode(NativePoc.IPlatform,System.Boolean)
 stable|M:NativePoc.Theme.Mode(NativePoc.IPlatform,System.String)
 stable|M:NativePoc.Theme.Scale(NativePoc.IPlatform,System.Boolean)
@@ -570,4 +574,5 @@ stable|T:NativePoc.Text
 stable|T:NativePoc.TextField
 stable|T:NativePoc.TextInput
 stable|T:NativePoc.Theme
+stable|T:NativePoc.ThemeMode
 stable|T:NativePoc.Timer

@@ -578,7 +578,7 @@ public sealed class ReconcilerTests
 	}
 
 	[Fact]
-	public void Mixed_and_duplicate_keys_are_rejected()
+	public void Mixed_keys_reconcile_and_duplicate_keys_are_rejected()
 	{
 		var reconciler = new ViewReconciler<MemoryNode>(new MemoryHost());
 		reconciler.Render(new Column(
@@ -586,19 +586,23 @@ public sealed class ReconcilerTests
 			new Text("a") { Key = "a" },
 			new Text("b") { Key = "b" },
 		]));
+		var kept = reconciler.ViewAt(NodePath.Root.Child(0)).Identity;
 
-		Assert.Throws<InvalidOperationException>(() => reconciler.Render(new Column(
+		reconciler.Render(new Column(
 		[
 			new Text("a") { Key = "a" },
-			new Text("b"),
-		])));
+			new Text("plain"),
+		]));
+
+		Assert.Equal(kept, reconciler.ViewAt(NodePath.Root.Child(0)).Identity);
+		Assert.Equal("plain", reconciler.ViewAt(NodePath.Root.Child(1)).Text);
 		Assert.Throws<InvalidOperationException>(() => reconciler.Render(new Column(
 		[
 			new Text("a") { Key = "a" },
 			new Text("b") { Key = "a" },
 		])));
 		Assert.Equal("a", reconciler.ViewAt(NodePath.Root.Child(0)).Text);
-		Assert.Equal("b", reconciler.ViewAt(NodePath.Root.Child(1)).Text);
+		Assert.Equal("plain", reconciler.ViewAt(NodePath.Root.Child(1)).Text);
 	}
 
 	[Fact]

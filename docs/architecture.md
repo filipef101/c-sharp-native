@@ -68,13 +68,13 @@ flowchart TD
   diff --> host["IElementHost"]
   host --> android["Android widgets"]
   host --> uikit["UIKit mapping, authored"]
-  edit["cnative run android"] --> socket["localabstract:npoc-hotreload"]
+  edit["cnative run android"] --> socket["localabstract:npoc- plus the package"]
   socket --> apply["program bytes on the UI thread"]
   apply --> eval
   debug["Debug render"] --> file["files/nativepoc-state.bin"]
   file --> restore["read before the first frame"]
 ```
 
-Debug `cnative run android` builds for the device ABI, installs, and watches the screen files. A save that stays inside the subset is lowered again and sent on `localabstract:npoc-hotreload`. The token is a per-process file read with `run-as`. It is not a launch extra. The program-only listener applies the record and does not load an assembly. A change under `src/NativePoc.Core` or `src/NativePoc.Android` is a restart. A lowerable edit of `src/NativePoc.Screen/CounterService.cs` or `samples/NativePoc.Library` swaps that method body in the same process. A body that does not lower relaunches. A shared component under `samples/<name>` reloads every screen in that folder.
+Debug `cnative run android` builds for the device ABI, installs, and watches the screen files. A save that stays inside the subset is lowered again and sent on `localabstract:` plus `npoc-` and the package. The process writes that name to `files/nativepoc-hotreload.socket`. The CLI reads it with `run-as` and forwards a host port taken from the package, so two listener packages can watch at once. The token is a per-process file read with `run-as`. It is not a launch extra. The program-only listener applies the record and does not load an assembly. A change under `src/NativePoc.Core` or `src/NativePoc.Android` is a restart. A lowerable edit of `src/NativePoc.Screen/CounterService.cs` or `samples/NativePoc.Library` swaps that method body in the same process. A body that does not lower relaunches. A shared component under `samples/<name>` reloads every screen in that folder.
 
 A Debug process writes `files/nativepoc-state.bin` on each render and reads it before the first frame. The UI thread only queues that save. A worker copies the checkpoint and writes the latest bytes, and logs `state-save-us=` for the file write. An unchanged epoch does not queue another copy. `cnative run android` also captures the running checkpoint before a deploy and writes it back after launch. Release does not write that file. A Release force-stop returns to the seed state. The phase timings are in [devx/evidence/render-phases.txt](devx/evidence/render-phases.txt). The call table and the shared-component reload are in [devx/evidence/call-table.txt](devx/evidence/call-table.txt).

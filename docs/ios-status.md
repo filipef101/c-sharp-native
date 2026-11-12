@@ -38,7 +38,7 @@ Do not read the authored UIKit files as a successful iOS build. The recognizer c
 
 `PlatformConformance.Run` is the suite a screen platform has to pass: create, update, remove, text, a list, an accessibility label, a hot-reload `Apply`, a push, a pop, the heading key as the focus target, and a second `Apply` that leaves the stack at depth 2. On Linux it passes on `HeadlessHost`, on `ViewReconciler` with `MemoryHost`, and on `IosLogicSurface`. `IosLogicSurface` records that focus key. It does not construct UIKit. `IosLogicSurface` is the UIKit host's managed decisions (`HostPolicy` and `IosBridge`) on `ViewReconciler<IosView>`. `Android.Views` is not constructed here. `spikes/ios/NativePoc.iOS` (`net10.0-ios`) was not compiled. There is no iOS binary, simulator log, or device log.
 
-`HostPolicy` is the shared floor. `AndroidHost` calls it for hidden text, the 48 dp touch floor, headings (`FontSize` at least 20), and multiline fields. `UIKitHost` calls the same methods. `IosLogicHost` is the Linux stand-in and is what the tests construct.
+`HostPolicy` is the shared floor. `AndroidHost` calls it for hidden text, the 48 dp touch floor, headings (`FontSize` at least `ThemeTokens.HeadingSize`, 22), and multiline fields. `UIKitHost` calls the same methods. `IosLogicHost` is the Linux stand-in and is what the tests construct.
 
 Closed in portable code, and written through in the UIKit sources. The UIKit project was not built, so the `UIView` lines are authored, not run:
 

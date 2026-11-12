@@ -166,6 +166,119 @@ public sealed class TasksLowerTests
 		Assert.Contains("list Add/Remove", diagnostic.Message);
 	}
 
+	[Fact]
+	public void Encode_and_fill_follow_the_lambda_field_order()
+	{
+		var encoded = PersistRows.Encode(new List<string[]>
+		{
+			new[] { "true", "Rope" },
+		});
+		var session = ScreenSession.Open(Lowered(Ordered()), (module, method, _) =>
+			module == "persist" && method == "Get" ? encoded : "ok");
+		var opened = Assert.Single(session.Bag.Rows("Notes"));
+		Assert.Equal("Rope", opened[0]);
+		Assert.Equal("true", opened[1]);
+		session.Tap("notes/add");
+		var rows = session.Bag.Rows("Notes");
+		Assert.Equal("Milk", rows[1][0]);
+		Assert.Equal("false", rows[1][1]);
+		var call = Assert.Single(session.Modules, item => item.StartsWith("persist.Put notes ", StringComparison.Ordinal));
+		Assert.True(PersistRows.TryDecode(call["persist.Put notes ".Length..], out var decoded));
+		Assert.Equal("false", decoded[1][0]);
+		Assert.Equal("Milk", decoded[1][1]);
+	}
+
+	[Fact]
+	public void Theme_mode_enum_lowers_to_dark()
+	{
+		var program = Lowered(ThemeScreen());
+		var session = ScreenSession.Open(program);
+		session.Tap("home/theme");
+		Assert.Contains("theme.Mode", session.Modules);
+		Assert.Contains("dark", System.Text.Encoding.UTF8.GetString(program), StringComparison.Ordinal);
+	}
+
+	static string Ordered() =>
+		"""
+		namespace NativePoc.Tasks;
+
+		public sealed class Note
+		{
+			public string Name { get; set; } = "";
+			public bool Packed { get; set; }
+		}
+
+		public sealed class NotesState
+		{
+			public List<Note> Notes { get; set; } = new List<Note>();
+			public string Saved { get; set; } = "";
+		}
+
+		public static class NotesScreen
+		{
+			public const string ScreenId = "notes";
+
+			public static Element Render(NotesState state, IPlatform platform)
+			{
+				async void Save()
+				{
+					state.Saved = await Persist.Put(platform, "notes", PersistRows.Encode(state.Notes, static item => new[] { item.Packed ? "true" : "false", item.Name }));
+					platform.RequestRender();
+				}
+
+				async void Open()
+				{
+					state.Saved = await Persist.Get(platform, "notes");
+					PersistRows.Fill(state.Notes, state.Saved, static cells => new Note
+					{
+						Name = cells.Length > 1 ? cells[1] : "",
+						Packed = cells.Length > 0 && cells[0] == "true",
+					});
+				}
+
+				void Add()
+				{
+					state.Notes.Add(new Note { Name = "Milk", Packed = false });
+					Save();
+				}
+
+				platform.OnOpen(ScreenId, Open);
+				return new Column(
+					new Text("Notes") { Key = "title", Style = new Style { FontSize = 22 } },
+					new Button("Add", () => Add(), "Add") { Key = "add" }
+				) { Key = "notes" };
+			}
+		}
+		""";
+
+	static string ThemeScreen() =>
+		"""
+		namespace NativePoc.Tasks;
+
+		public sealed class HomeState
+		{
+		}
+
+		public static class HomeScreen
+		{
+			public const string ScreenId = "home";
+
+			public static Element Render(HomeState state, IPlatform platform)
+			{
+				void Apply()
+				{
+					Theme.Mode(platform, ThemeMode.Dark);
+					platform.RequestRender();
+				}
+
+				return new Column(
+					new Text("Home") { Key = "title", Style = new Style { FontSize = 22 } },
+					new Button("Theme", () => Apply(), "Theme") { Key = "theme" }
+				) { Key = "home" };
+			}
+		}
+		""";
+
 	static void AssertLower(string source)
 	{
 		var lowered = SubsetLowerer.TryLower(source);

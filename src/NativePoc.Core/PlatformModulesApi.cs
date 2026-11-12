@@ -77,6 +77,13 @@ public static class Animate
 	}
 }
 
+public enum ThemeMode
+{
+	System,
+	Light,
+	Dark,
+}
+
 public static class Theme
 {
 	public static void Mode(IPlatform platform, string mode)
@@ -86,6 +93,20 @@ public static class Theme
 	}
 
 	public static void Mode(IPlatform platform, bool dark) => Mode(platform, dark ? "true" : "false");
+
+	public static void Mode(IPlatform platform, ThemeMode mode)
+	{
+		ArgumentNullException.ThrowIfNull(platform);
+		Mode(platform, ModeText(mode));
+	}
+
+	static string ModeText(ThemeMode mode) => mode switch
+	{
+		ThemeMode.System => "system",
+		ThemeMode.Light => "light",
+		ThemeMode.Dark => "dark",
+		_ => throw new InvalidOperationException("Unknown theme mode."),
+	};
 
 	public static void Scale(IPlatform platform, bool large)
 	{

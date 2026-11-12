@@ -58,6 +58,9 @@ internal static partial class RecordProgram
 	public const byte VmLeave = 50;
 	public const byte VmEndFinally = 51;
 	public const byte VmLeaveTo = 52;
+	public const byte VmSnap = 53;
+	public const byte VmSnapCount = 54;
+	public const byte VmSnapEnd = 55;
 
 	public const string CollectionModified = "Collection was modified; enumeration operation may not execute.";
 
@@ -428,9 +431,31 @@ internal static partial class RecordProgram
 					var list = strings[RequireString(TakeU16(code, ref ip, end), strings)];
 					var slot = ReadSlot(code, ref ip);
 					var field = TakeU16(code, ref ip, end);
-					Push(stack, ref sp, Val.FromStr(bag.CellAt(list, frame.Ints[slot], field)));
+					var index = frame.Ints[slot];
+					if (frame.SnapList == list && frame.SnapRows is { } snap && (uint)index < (uint)snap.Count)
+					{
+						var cells = snap[index];
+						Push(stack, ref sp, Val.FromStr((uint)field < (uint)cells.Length ? cells[field] : ""));
+						break;
+					}
+
+					Push(stack, ref sp, Val.FromStr(bag.CellAt(list, index, field)));
 					break;
 				}
+				case VmSnap:
+				{
+					var list = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+					frame.SnapList = list;
+					frame.SnapRows = bag.CopyRows(list);
+					break;
+				}
+				case VmSnapCount:
+					Push(stack, ref sp, Val.FromInt(frame.SnapRows?.Count ?? 0));
+					break;
+				case VmSnapEnd:
+					frame.SnapList = null;
+					frame.SnapRows = null;
+					break;
 				case VmWatch:
 				{
 					var watched = strings[RequireString(TakeU16(code, ref ip, end), strings)];
@@ -449,13 +474,26 @@ internal static partial class RecordProgram
 					var list = strings[RequireString(TakeU16(code, ref ip, end), strings)];
 					var slot = ReadSlot(code, ref ip);
 					var index = frame.Ints[slot];
+					if (frame.SnapList == list && frame.SnapRows is { } snap && (uint)index < (uint)snap.Count)
+					{
+						var row = snap[index];
+						var live = bag.IndexOfRow(list, row);
+						if (op == VmRowRemove && live >= 0)
+							bag.RemoveAt(list, live);
+						if (op == VmRowIndex)
+							Push(stack, ref sp, Val.FromInt(live));
+						else
+							Push(stack, ref sp, Val.FromBool(live >= 0));
+						break;
+					}
+
 					var present = bag.RowInRange(list, index);
 					if (op == VmRowRemove && present)
 						bag.RemoveAt(list, index);
 					if (op == VmRowIndex)
 						Push(stack, ref sp, Val.FromInt(present ? index : -1));
 					else
-						Push(stack, ref sp, Val.FromBool(op == VmRowRemove ? present : present));
+						Push(stack, ref sp, Val.FromBool(present));
 					break;
 				}
 				case VmNest:

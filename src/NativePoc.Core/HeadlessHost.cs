@@ -12,7 +12,7 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 	readonly List<string> _copied = new();
 	readonly List<string> _pushed = new();
 	readonly List<string> _calls = new();
-	readonly HashSet<string> _opened = new(StringComparer.Ordinal);
+	string? _lastOpen;
 	readonly NavFocusState _nav = new();
 	Func<IPlatform, Element>? _render;
 	bool _painting;
@@ -87,11 +87,8 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 
 	public void Pop()
 	{
-		var leaving = _nav.Top;
 		Pops++;
 		_nav.Pop();
-		if (leaving.Length > 0)
-			_opened.Remove(leaving);
 		Paint();
 		_nav.FocusFrom(Tree);
 	}
@@ -99,8 +96,9 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 	public void OnOpen(string screen, Action open)
 	{
 		ArgumentNullException.ThrowIfNull(open);
-		if (screen.Length == 0 || !_opened.Add(screen))
+		if (screen.Length == 0 || string.Equals(screen, _lastOpen, StringComparison.Ordinal))
 			return;
+		_lastOpen = screen;
 		_calls.Add("open " + screen);
 		open();
 	}

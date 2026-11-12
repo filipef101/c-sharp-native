@@ -39,7 +39,7 @@ static class AgentLoop
 			if (invocation.Verb == "a11y")
 				return Accessibility(serial, invocation.Check);
 			var token = AndroidLoop.WaitToken(serial);
-			using var connection = new HotReloadConnection(serial, token.Hex);
+			using var connection = new HotReloadConnection(serial, token.Hex, token.Socket, token.Port);
 			var repo = RepoRoot.Find(Directory.GetCurrentDirectory());
 			var source = File.ReadAllText(Path.Combine(repo, ScreenCompiler.RelativePath.Replace('/', Path.DirectorySeparatorChar)));
 			var hash = ScreenProgram.SourceHash(source);

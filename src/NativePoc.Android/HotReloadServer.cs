@@ -19,7 +19,6 @@ static class HotReloadServer
 {
 	const int TokenBytes = 16;
 	const string TokenFile = "nativepoc-hotreload.token";
-	const string SocketName = "npoc-hotreload";
 
 	static readonly object Gate = new();
 
@@ -72,12 +71,23 @@ static class HotReloadServer
 		output.Flush();
 	}
 
+	static void WriteSocket(Context context, string name)
+	{
+		using var output = context.OpenFileOutput(HotReloadAddress.SocketFile, FileCreationMode.Private)
+			?? throw new InvalidOperationException("The hot reload socket file was not created.");
+		var encoded = Encoding.ASCII.GetBytes(name);
+		output.Write(encoded, 0, encoded.Length);
+		output.Flush();
+	}
+
 	static void Listen(Context context, string hex)
 	{
+		var socketName = HotReloadAddress.SocketFor(context.PackageName);
 		LocalServerSocket listener;
 		try
 		{
-			listener = new LocalServerSocket(SocketName);
+			listener = new LocalServerSocket(socketName);
+			WriteSocket(context, socketName);
 			WriteToken(context, hex);
 		}
 		catch (Exception ex)
@@ -88,6 +98,7 @@ static class HotReloadServer
 		}
 
 		Android.Util.Log.Info(MainActivity.Tag, "hotreload-listen");
+		Android.Util.Log.Info(MainActivity.Tag, "hotreload-listen socket=" + socketName);
 		while (true)
 		{
 			LocalSocket? client = null;

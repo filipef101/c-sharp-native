@@ -6,10 +6,12 @@ namespace NativePoc.Devx.Tests;
 public sealed class HotReloadHandshakeTests
 {
 	[Fact]
-	public void Socket_name_is_fixed_and_the_frame_still_starts_with_the_token()
+	public void Socket_name_is_the_package_and_the_frame_still_starts_with_the_token()
 	{
-		Assert.Equal("npoc-hotreload", HotReloadHandshake.AbstractSocketName);
-		Assert.DoesNotContain("0123456789abcdef", HotReloadHandshake.AbstractSocketName, StringComparison.Ordinal);
+		Assert.Equal("npoc-com.scratch.hello", HotReloadHandshake.SocketFor("com.scratch.hello"));
+		Assert.Equal("npoc-com.scratch.nativepoc", HotReloadHandshake.SocketFor("com.scratch.nativepoc"));
+		Assert.NotEqual(HotReloadHandshake.PortFor("com.scratch.hello"), HotReloadHandshake.PortFor("com.scratch.nativepoc"));
+		Assert.InRange(HotReloadHandshake.PortFor("com.scratch.hello"), 20000, 29999);
 		var token = HotReloadHandshake.Token("0123456789ABCDEF0123456789ABCDEF");
 		var frame = HotReloadHandshake.Frame(token, [1]);
 		Assert.Equal(token, frame[..16]);

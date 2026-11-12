@@ -308,7 +308,13 @@ public static partial class SubsetLowerer
 
 		bool VmForeachInto(ForEachStatementSyntax loop, string parameter, VmBuf buf)
 		{
-			if (loop.Expression is not MemberAccessExpressionSyntax member || !Member(member, out var list) || list.Kind != ValueKind.List)
+			var walked = loop.Expression;
+			if (walked is InvocationExpressionSyntax call
+				&& call.ArgumentList.Arguments.Count == 0
+				&& call.Expression is MemberAccessExpressionSyntax toArray
+				&& toArray.Name.Identifier.ValueText == "ToArray")
+				walked = toArray.Expression;
+			if (walked is not MemberAccessExpressionSyntax member || !Member(member, out var list) || list.Kind != ValueKind.List)
 				return Fail(BadLambda, ActionLimit, loop.Expression);
 			if (!_records.TryGetValue(list.Item, out var fields))
 				return Fail(BadLambda, ActionLimit, loop.Expression);
@@ -320,19 +326,18 @@ public static partial class SubsetLowerer
 			if (_boundRows.ContainsKey(name))
 				return Fail(BadLambda, ActionLimit, loop);
 			_boundRows[name] = new RowBind(list.Name, indexSlot, fields);
+			buf.Op(RecordProgram.VmSnap);
+			buf.U16(_code.Intern(list.Name));
 			buf.Op(RecordProgram.VmLitI);
 			buf.I32(0);
 			buf.Op(RecordProgram.VmStoreLocal);
 			buf.Raw(RecordProgram.VmKindInt);
 			buf.Raw(indexSlot);
 			var head = buf.Here;
-			buf.Op(RecordProgram.VmWatch);
-			buf.U16(_code.Intern(list.Name));
 			buf.Op(RecordProgram.VmLoadLocal);
 			buf.Raw(RecordProgram.VmKindInt);
 			buf.Raw(indexSlot);
-			buf.Op(RecordProgram.VmLoadCount);
-			buf.U16(_code.Intern(list.Name));
+			buf.Op(RecordProgram.VmSnapCount);
 			buf.Op(RecordProgram.VmLt);
 			var skip = buf.Reserve(RecordProgram.VmJumpIfFalse);
 			var wrote = WriteVmStatement(loop.Statement, parameter, buf);
@@ -345,6 +350,7 @@ public static partial class SubsetLowerer
 			buf.Op(RecordProgram.VmPop);
 			buf.Jump(head);
 			buf.Patch(skip);
+			buf.Op(RecordProgram.VmSnapEnd);
 			return true;
 		}
 

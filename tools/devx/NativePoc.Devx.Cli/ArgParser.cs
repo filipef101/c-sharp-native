@@ -90,7 +90,8 @@ static class ArgParser
 
 		  --device <serial>     adb serial. Default: the only online device.
 		  --abi <rid>           android-x64 or android-arm64. Default: the device ABI.
-		  --listener            publish the Debug NativeAOT listener for that ABI.
+		  --listener            required in this repo. Publishes the Debug NativeAOT listener.
+		                        Without it a fast Debug build has no assemblies and the process aborts.
 		  --debounce <ms>       quiet period before a reload. Default: 40.
 		  --restart-on-rude     relaunch when an edit cannot be applied.
 		                        A Core, Android, or call-table edit is rebuilt first.

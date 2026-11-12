@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using NativePoc.HotReload;
 
-const int Port = 18765;
+const string PackageName = "com.scratch.nativepoc";
 const int Samples = 20;
 if (args.Length != 1 || args[0] is not ("a" or "b" or "c" or "once"))
 {
@@ -296,7 +296,7 @@ static string Send(byte[] dll)
 	client.NoDelay = true;
 	client.ReceiveTimeout = 15000;
 	client.SendTimeout = 15000;
-	client.Connect(IPAddress.Loopback, Port);
+	client.Connect(IPAddress.Loopback, HotReloadAddress.PortFor(PackageName));
 	var stream = client.GetStream();
 	var header = new byte[4];
 	header[0] = (byte)dll.Length;
@@ -466,8 +466,12 @@ static void ReadDeviceToken()
 static void ForwardAbstract()
 {
 	LoadToken();
-	AdbAllowFail("forward", "--remove", "tcp:" + Port);
-	Adb("forward", "tcp:" + Port, "localabstract:npoc-hotreload");
+	var socket = AdbAllowFail("shell", "run-as", PackageName, "cat", "files/" + HotReloadAddress.SocketFile).Trim();
+	if (socket.Length == 0)
+		socket = HotReloadAddress.SocketFor(PackageName);
+	var port = HotReloadAddress.PortFor(PackageName);
+	AdbAllowFail("forward", "--remove", "tcp:" + port);
+	Adb("forward", "tcp:" + port, "localabstract:" + socket);
 }
 
 static string Pid()
@@ -546,4 +550,27 @@ static class HotReloadSession
 	public static string Hex { get; set; } = "";
 
 	public static string TokenPath => Path.Combine(Path.GetTempPath(), "nativepoc-hotreload.token");
+}
+
+static class HotReloadAddress
+{
+	public const string SocketFile = "nativepoc-hotreload.socket";
+
+	public static string SocketFor(string? package)
+	{
+		if (string.IsNullOrEmpty(package))
+			package = "app";
+		var name = "npoc-" + package;
+		return name.Length <= 100 ? name : "npoc-app";
+	}
+
+	public static int PortFor(string? package)
+	{
+		if (string.IsNullOrEmpty(package))
+			package = "app";
+		var hash = 2166136261u;
+		foreach (var ch in package)
+			hash = (hash ^ ch) * 16777619u;
+		return 20000 + (int)(hash % 10000);
+	}
 }
