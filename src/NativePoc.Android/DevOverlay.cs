@@ -24,7 +24,7 @@ static class DevOverlay
 		column.SetPadding(pad, pad, pad, pad);
 		var text = new TextView(activity)
 		{
-			Text = id + "\n" + message + "\n" + span,
+			Text = span + "\n" + message,
 		};
 		text.SetTextColor(Color.White);
 		text.ContentDescription = "dev-overlay-body";
@@ -36,7 +36,7 @@ static class DevOverlay
 		layer.AddView(column, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
 		activity.AddContentView(layer, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
 		_layer = layer;
-		Android.Util.Log.Info(MainActivity.Tag, "dev-overlay id=" + id + " span=" + span);
+		Android.Util.Log.Info(MainActivity.Tag, "dev-overlay id=" + id + " file=" + span + " message=" + message);
 	}
 
 	public static void Clear(Activity activity)

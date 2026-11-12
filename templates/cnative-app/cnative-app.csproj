@@ -17,6 +17,8 @@
 		<NativePocHttp Condition="'$(NativePocHttp)' == ''">false</NativePocHttp>
 		<NativePocRecycler Condition="'$(NativePocRecycler)' == ''">false</NativePocRecycler>
 		<NativePocLocation Condition="'$(NativePocLocation)' == ''">false</NativePocLocation>
+		<NativePocNav>CNATIVE_NAV</NativePocNav>
+		<NativePocPersist>CNATIVE_PERSIST</NativePocPersist>
 		<DefineConstants>$(DefineConstants);NATIVEPOC_ROOT_HOME</DefineConstants>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
 	</PropertyGroup>
@@ -51,6 +53,12 @@
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocLocation)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_LOCATION</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocNav)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_NAV</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocPersist)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_PERSIST</DefineConstants>
 	</PropertyGroup>
 	<Target Name="RefuseDevListenerInRelease" BeforeTargets="Build;Publish">
 		<Error

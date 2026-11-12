@@ -931,10 +931,8 @@ sealed class AndroidField : EditText
 				return true;
 			_done = true;
 			var focused = _field.IsFocused;
-			_field.FocusableInTouchMode = true;
-			if (OperatingSystem.IsAndroidVersionAtLeast(26))
-				_field.ImportantForAutofill = ImportantForAutofill.Auto;
 			_field.ViewTreeObserver?.RemoveOnPreDrawListener(this);
+			Enable(_field);
 			if (_loggedFocus)
 				return true;
 			_loggedFocus = true;
@@ -942,6 +940,13 @@ sealed class AndroidField : EditText
 				MainActivity.Tag,
 				"startup field-focus focused=" + (focused ? "1" : "0"));
 			return true;
+		}
+
+		static void Enable(AndroidField field)
+		{
+			field.FocusableInTouchMode = true;
+			if (OperatingSystem.IsAndroidVersionAtLeast(26))
+				field.ImportantForAutofill = ImportantForAutofill.Auto;
 		}
 	}
 }

@@ -148,9 +148,19 @@ public sealed class MainActivity : Activity
 		StartupMarks.Phase("nav");
 		StorageSeed.Apply(this);
 #if DEBUG
-		StateStore.TryLoad(this);
+		var stateStarted = SystemClock.ElapsedRealtime();
+		var loadedState = StateStore.TryLoad(this);
+		var stateMs = SystemClock.ElapsedRealtime() - stateStarted;
+		StartupMarks.Note("state-load", stateMs);
+		StartupMarks.Note("nav-restore", loadedState ? stateMs : 0);
 		ScreenNav.Shared.Prepare((program, bag) => RecordSession.Prepare(program, bag));
+#else
+		// Release cold start does not open nativepoc-state.bin or replay a nav checkpoint.
+		StartupMarks.Note("state-load", 0);
+		StartupMarks.Note("nav-restore", 0);
 #endif
+		// Notes render does not call Persist.Get. A read happens when a screen awaits one.
+		StartupMarks.Note("persist-read", 0);
 		if (string.Equals(Intent?.GetStringExtra("nativepoc_bench"), "tap10", StringComparison.Ordinal))
 		{
 			_traceTap = true;
@@ -356,6 +366,14 @@ public sealed class MainActivity : Activity
 		base.OnResume();
 		Current = this;
 		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
+		StartupMarks.Phase("resume");
+	}
+
+	public override void OnWindowFocusChanged(bool hasFocus)
+	{
+		base.OnWindowFocusChanged(hasFocus);
+		if (hasFocus)
+			StartupMarks.Phase("focus");
 	}
 
 	public void GoBack() => _platform?.Pop();

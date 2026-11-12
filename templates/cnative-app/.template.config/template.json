@@ -18,6 +18,44 @@
       "replaces": "CNATIVE_FEED",
       "defaultValue": "packages",
       "description": "Absolute path of the local NativePoc package folder."
+    },
+    "nav": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "Compile the navigation stack into the app."
+    },
+    "persist": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "Compile the file persist store into the app."
+    },
+    "navFlag": {
+      "type": "generated",
+      "generator": "switch",
+      "replaces": "CNATIVE_NAV",
+      "parameters": {
+        "evaluator": "C++2",
+        "datatype": "string",
+        "cases": [
+          { "condition": "(nav)", "value": "true" },
+          { "condition": "(!nav)", "value": "false" }
+        ]
+      }
+    },
+    "persistFlag": {
+      "type": "generated",
+      "generator": "switch",
+      "replaces": "CNATIVE_PERSIST",
+      "parameters": {
+        "evaluator": "C++2",
+        "datatype": "string",
+        "cases": [
+          { "condition": "(persist)", "value": "true" },
+          { "condition": "(!persist)", "value": "false" }
+        ]
+      }
     }
   }
 }

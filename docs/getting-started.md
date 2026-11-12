@@ -18,25 +18,27 @@ export PATH="$DOTNET_ROOT:$ANDROID_HOME/platform-tools:$PATH"
 The packages stay in a local folder. Nothing in this run was pushed to nuget.org. The feed path is absolute. A relative `nuget.config` entry would not resolve from the new directory.
 
 ```sh
-bash tools/pack/pack-local.sh /tmp/p41/packages
-dotnet new install /tmp/p41/packages/NativePoc.CnativeApp.0.3.0.nupkg
-dotnet new cnative-app -o /tmp/p41/clean/hello --feed /tmp/p41/packages
-dotnet tool install NativePoc.Devx.Cli --tool-path /tmp/p41/tools --add-source /tmp/p41/packages
+bash tools/pack/pack-local.sh /tmp/p44/packages
+dotnet new install /tmp/p44/packages/NativePoc.CnativeApp.0.3.0.nupkg
+dotnet new cnative-app -o /tmp/p44/clean/hello --feed /tmp/p44/packages
+dotnet tool install NativePoc.Devx.Cli --tool-path /tmp/p44/tools --add-source /tmp/p44/packages
 ```
 
-This run, seconds: pack 10.39, template install 0.356, `dotnet new` 0.53, tool install 0.59.
+This run, seconds: pack 10.574, template install 0.399, `dotnet new` 0.566, tool install 0.597.
 
-`/tmp/p41/clean/hello` has `cnative-app.csproj` and `screens/HomeScreen.cs`. The package id is `com.scratch.nativepoc`. Uninstall that package first when a repo build is already installed. This run ran `adb -s emulator-5554 uninstall com.scratch.nativepoc` before launch.
+`/tmp/p44/clean/hello` has `cnative-app.csproj` and `screens/HomeScreen.cs`. The package id is `com.scratch.nativepoc`. Uninstall that package first when a repo build is already installed. This run ran `adb -s emulator-5554 uninstall com.scratch.nativepoc` before launch. The generated project has `NativePocNav` false and `NativePocPersist` false.
+
+`--nav` and `--persist` are bool flags. A second empty folder, `dotnet new cnative-app -o /tmp/p44/flags/navpersist --feed /tmp/p44/packages --nav --persist`, took 0.521 s and wrote both properties as `true`. A third folder without the flags, `/tmp/p44/flags/plain`, took 0.492 s and wrote both as `false`. A Debug build of the flagged project compiled `PersistStore.cs` and `NavFocus.cs` and did not compile `FeedJson.cs`. The defines were `NATIVEPOC_NAV` and `NATIVEPOC_PERSIST`. The default listener `.so` from the run below has neither UTF-16 `persist-put` nor `nav-focus`. It is a Debug listener, so UTF-16 `dev-overlay` is present there. A Release `.so` does not have that string.
 
 ## Doctor
 
 From the new directory:
 
 ```sh
-/tmp/p41/tools/cnative doctor
+/tmp/p44/tools/cnative doctor
 ```
 
-That took 0.306 s and printed:
+That took 0.294 s and printed:
 
 ```text
 OK dotnet: 10.0.403
@@ -53,36 +55,37 @@ OK NativeAOT: /home/ubuntu/.nuget/packages/microsoft.dotnet.ilcompiler
 A directory with `cnative-app.csproj` is a template app. `cnative run android` publishes the Debug NativeAOT listener for the device ABI, installs it, and watches `screens/`.
 
 ```sh
-/tmp/p41/tools/cnative run android --device emulator-5554
+/tmp/p44/tools/cnative run android --device emulator-5554
 ```
 
-Wall clock from that command to `cnative: watching` was 25.085 s. The log shows a restore (280 ms), `Generating native code`, `ilc-stamp`, the launch, and the token read. The activity was `com.scratch.nativepoc/crc64e3b30822abfd5217.MainActivity`, pid 19670. The log also printed `warm lower 34.5 ms` and `watcher-wait 44 ms`.
+Wall clock from that command to `cnative: watching` was 23.813 s. The log shows a restore (222 ms), `Generating native code`, `ilc-stamp`, the launch, and the token read. The activity was `com.scratch.nativepoc/crc64e3b30822abfd5217.MainActivity`, pid 8287. The log also printed `warm lower 35.3 ms` and, on the edit, `watcher-wait 48 ms`.
 
 ## Hot reload
 
-In `screens/HomeScreen.cs`, change the `Title` initializer from `"Hello"` to `"Hiya"` and save. This run logged, still pid 19670:
+In `screens/HomeScreen.cs`, change the `Title` initializer from `"Hello"` to `"Howdy"` and save. This run logged, still pid 8287:
 
 ```text
-reloaded in 105.0 ms (lower 1.1 ms, apply 86.7 ms)
-Hiya program=1 present=1
+reloaded in 31.9 ms (lower 0.8 ms, apply 21.9 ms)
+Hello program=1
+state kept Title="Hello" (initializer "Howdy"). cnative reset-state present=1
 ```
 
-The watcher printed no `state kept` line. The script that wrote the file saw those two lines 1.032 s later. That wall clock includes a 1 s poll. The reload time is the `reloaded in` line.
+The process had already written the title, so the bag kept Hello. `cnative reset-state --device emulator-5554` printed `state reset`. The uiautomator dump then showed Howdy and Count 0. The reload time is the `reloaded in` line.
 
 ## Inspect
 
 ```sh
-/tmp/p41/tools/cnative inspect screens/HomeScreen.cs
+/tmp/p44/tools/cnative inspect screens/HomeScreen.cs
 ```
 
-Exit 0 in 0.105 s. `lint` was empty. The heading row was `home/title`, role `text`, text `Hiya`. The title style is `FontSize` 22, which is the shared heading floor.
+Exit 0 in 0.096 s. `lint` was empty. The heading row was `home/title`, role `text`, text `Howdy`. The generated title style is `FontSize` 22, which is the shared heading floor.
 
 ## tools/check.sh
 
-Stop the watcher before another publish. This run stopped it, then started the check with the working directory `/tmp/p41/clean`:
+Stop the watcher before another publish. This run stopped it, then started the check with the working directory `/tmp/p44/clean`:
 
 ```sh
 bash tools/check.sh
 ```
 
-The script changes to the repo from its own path. Exit 0 in 22.307 s. core 87 passed, devx 152 passed, packing 14 passed, iOS managed-host 6 passed, inspect clean, and the mac-bench, scroll-bench, cold-start, guest-env, and portable self-tests passed. `passed=11 failed=0`, `check: pass`. Those self-tests ran on Linux. `mac-bench.sh --self-test` and `scroll-bench.sh --self-test` from `d3c8487` passed on macOS `/bin/bash` 3.2. This page has no new Mac timing.
+The script changes to the repo from its own path. Exit 0 in 20.384 s. core 88 passed, devx 152 passed, packing 14 passed, iOS managed-host 6 passed, inspect clean, and the mac-bench, scroll-bench, cold-start, guest-env, and portable self-tests passed. `passed=11 failed=0`, `check: pass`. Those self-tests ran on Linux. `mac-bench.sh --self-test` and `scroll-bench.sh --self-test` passed on macOS `/bin/bash` 3.2. The Mac emulator is still off. This page has no new Mac timing.

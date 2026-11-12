@@ -41,6 +41,7 @@ static class NavMotion
 			_stage.AddView(mounted, Fill());
 			_current = mounted;
 			Android.Util.Log.Info(MainActivity.Tag, "set-content-view");
+			StartupMarks.Phase("content-view");
 			return;
 		}
 
@@ -53,6 +54,7 @@ static class NavMotion
 			_stage.AddView(mounted, Fill());
 			_current = mounted;
 			Android.Util.Log.Info(MainActivity.Tag, "set-content-view");
+			StartupMarks.Phase("content-view");
 			return;
 		}
 

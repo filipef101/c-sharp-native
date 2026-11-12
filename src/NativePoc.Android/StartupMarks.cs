@@ -194,23 +194,7 @@ static class StartupMarks
 			PhaseAt("draw", now);
 			LogGc("present");
 #endif
-			if (MainActivity.Current is Activity activity)
-			{
-				try
-				{
-					activity.ReportFullyDrawn();
-#if NATIVEPOC_STARTUP_MARKS
-					var drawn = SystemClock.ElapsedRealtime() - _process;
-					Mark("startup mark=report-fully-drawn since-process-ms=" + drawn.ToString(CultureInfo.InvariantCulture));
-#endif
-				}
-				catch (Exception)
-				{
-					Mark("startup report-fully-drawn failed");
-				}
-			}
-			else
-				Mark("startup report-fully-drawn skipped");
+			ReportDrawn();
 			var queue = Looper.MainLooper?.Queue;
 			if (queue is not null)
 				queue.AddIdleHandler(new IdleFlush(_afterPresent));
@@ -224,16 +208,38 @@ static class StartupMarks
 		}
 	}
 
-	// ActivityThread's Idler reports the launch. The system server records that
-	// a few milliseconds after the client idle handler returns, so work on the
-	// very next frame can still land inside TotalTime. Skip one frame, then
-	// warm and flush.
+	static void ReportDrawn()
+	{
+		if (MainActivity.Current is not Activity activity)
+		{
+			Mark("startup report-fully-drawn skipped");
+			return;
+		}
+
+		try
+		{
+			activity.ReportFullyDrawn();
+#if NATIVEPOC_STARTUP_MARKS
+			var drawn = SystemClock.ElapsedRealtime() - _process;
+			Mark("startup mark=report-fully-drawn since-process-ms=" + drawn.ToString(CultureInfo.InvariantCulture));
+#endif
+		}
+		catch (Exception)
+		{
+			Mark("startup report-fully-drawn failed");
+		}
+	}
+
 	sealed class IdleFlush : Java.Lang.Object, MessageQueue.IIdleHandler
 	{
 		readonly Action? _flush;
 
 		public IdleFlush(Action? flush) => _flush = flush;
 
+		// ActivityThread's Idler reports the launch. The system server records that
+		// a few milliseconds after the client idle handler returns, so work on the
+		// very next frame can still land inside TotalTime. Skip one frame, then
+		// warm and flush.
 		public bool QueueIdle()
 		{
 			Phase("idle");

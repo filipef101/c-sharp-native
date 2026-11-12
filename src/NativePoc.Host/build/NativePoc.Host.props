@@ -2,12 +2,16 @@
 	<PropertyGroup>
 		<NativePocHostDir>$(MSBuildThisFileDirectory)..\content\host\</NativePocHostDir>
 	</PropertyGroup>
-	<ItemGroup Condition="'$(NativePocHttp)' != 'true'">
-		<Compile Include="$(NativePocHostDir)*.cs" Exclude="$(NativePocHostDir)FeedJson.cs" />
-	</ItemGroup>
-	<ItemGroup Condition="'$(NativePocHttp)' == 'true'">
-		<Compile Include="$(NativePocHostDir)*.cs" />
-	</ItemGroup>
+	<!-- Package props are imported before the app sets NativePocNav and
+	     NativePocPersist, so the choice has to run as a target. -->
+	<Target Name="SelectHostModules" BeforeTargets="CoreCompile">
+		<ItemGroup>
+			<Compile Include="$(NativePocHostDir)*.cs" />
+			<Compile Remove="$(NativePocHostDir)FeedJson.cs" Condition="'$(NativePocHttp)' != 'true'" />
+			<Compile Remove="$(NativePocHostDir)PersistStore.cs" Condition="'$(NativePocPersist)' != 'true'" />
+			<Compile Remove="$(NativePocHostDir)NavFocus.cs" Condition="'$(NativePocNav)' != 'true'" />
+		</ItemGroup>
+	</Target>
 	<ItemGroup>
 		<AndroidResource Include="$(NativePocHostDir)Resources\**\*">
 			<Link>Resources\%(RecursiveDir)%(Filename)%(Extension)</Link>
