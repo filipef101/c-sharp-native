@@ -63,6 +63,7 @@ public sealed class PublicApiTests
 		{
 			"CompiledScreenGenerator",
 			"FeedModule",
+			"ForeachSnapshotAnalyzer",
 			"JniBindingGenerator",
 			"MainActivity",
 			"PackingActivity",

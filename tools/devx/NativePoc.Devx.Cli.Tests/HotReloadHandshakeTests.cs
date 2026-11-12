@@ -49,6 +49,38 @@ public sealed class HotReloadHandshakeTests
 	}
 
 	[Fact]
+	public void Stale_owned_forwards_drop_the_retired_socket_and_keep_the_other_package()
+	{
+		var listing = """
+			emulator-5554 tcp:18765 localabstract:npoc-hotreload
+			emulator-5554 tcp:21639 localabstract:npoc-com.scratch.nativepoc
+			emulator-5554 tcp:22268 localabstract:npoc-com.scratch.hello
+			emulator-5554 tcp:19991 localabstract:keep-me
+			""";
+		var stale = HotReloadForwards.StalePorts(listing, "emulator-5554", 21639, "npoc-com.scratch.nativepoc");
+		Assert.Equal(new[] { 18765 }, stale);
+
+		var devices = ProcessRunner.Run("adb", ["devices"]);
+		if (devices.Code != 0 || !devices.Stdout.Contains("emulator-5554\tdevice", StringComparison.Ordinal))
+			return;
+		ProcessRunner.Run("adb", ["-s", "emulator-5554", "forward", "tcp:18765", "localabstract:npoc-hotreload"]);
+		ProcessRunner.Run("adb", ["-s", "emulator-5554", "forward", "tcp:19991", "localabstract:keep-me"]);
+		try
+		{
+			HotReloadHandshake.DropStaleForwards("emulator-5554", 21639, "npoc-com.scratch.nativepoc");
+			var after = ProcessRunner.Run("adb", ["-s", "emulator-5554", "forward", "--list"]);
+			Assert.Equal(0, after.Code);
+			Assert.DoesNotContain("tcp:18765", after.Stdout, StringComparison.Ordinal);
+			Assert.DoesNotContain("npoc-hotreload", after.Stdout, StringComparison.Ordinal);
+			Assert.Contains("localabstract:keep-me", after.Stdout, StringComparison.Ordinal);
+		}
+		finally
+		{
+			ProcessRunner.Run("adb", ["-s", "emulator-5554", "forward", "--remove", "tcp:19991"]);
+		}
+	}
+
+	[Fact]
 	public void Today_the_device_closes_the_socket_after_one_exchange()
 	{
 		Assert.Equal(HotReloadExchange.OneShot, HotReloadHandshake.Exchange);

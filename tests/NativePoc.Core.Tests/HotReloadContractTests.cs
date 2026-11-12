@@ -21,6 +21,7 @@ public sealed class HotReloadContractTests
 		Assert.DoesNotContain("nativepoc_hotreload", server);
 		Assert.Contains("HotReloadAddress.SocketFor", host);
 		Assert.Contains("HotReloadAddress.PortFor", host);
+		Assert.DoesNotContain("static class HotReloadAddress", host);
 		Assert.Contains("\"localabstract:\" + socket", host);
 		Assert.DoesNotContain("localabstract:npoc-hotreload", host);
 		Assert.DoesNotContain("localabstract:", server);

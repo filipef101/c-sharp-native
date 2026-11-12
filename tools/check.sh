@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # One local gate for Linux and macOS. bash 3.2.
 # Runs the core, devx, packing, and iOS managed-host tests, cnative inspect
-# on every sample screen and the counter, then the bench self-tests. Prints PASS or FAIL
+# on every sample screen and the counter, the bench self-tests, then a
+# build-only Release publish of the showcase for android-x64 and android-arm64.
+# Prints PASS or FAIL
 # for each step. Exits 0 only when every step passed.
 #
 #   tools/check.sh
@@ -56,6 +58,29 @@ run scroll-bench bash tools/bench/scroll-bench.sh --self-test
 run cold-start bash tools/bench/cold-start.sh --self-test
 run guest-env bash tools/bench/guest-env.sh --self-test
 run portable bash tools/bench/portable.sh --self-test
+
+publish_showcase() {
+	rid="$1"
+	echo "-- publish showcase $rid"
+	dotnet publish src/NativePoc.Android/NativePoc.Android.csproj -c Release -f net10.0-android -r "$rid" \
+		-p:NativePocShowcase=true -p:NativePocNav=true -p:NativePocPersist=true \
+		-p:NativePocTransition=true -p:NativePocStartupMarks=true \
+		--nologo -nodeReuse:false
+	apk="src/NativePoc.Android/bin/Release/net10.0-android/$rid/publish/com.scratch.nativepoc.showcase-Signed.apk"
+	if [ ! -f "$apk" ]; then
+		echo "missing $apk" >&2
+		return 1
+	fi
+	bytes=$(wc -c < "$apk" | tr -d ' ')
+	echo "showcase $rid $bytes $apk"
+	if [ "$bytes" -lt 1000000 ]; then
+		echo "showcase apk is too small" >&2
+		return 1
+	fi
+}
+
+run showcase-x64 publish_showcase android-x64
+run showcase-arm64 publish_showcase android-arm64
 
 echo
 echo "passed=$pass failed=$fail"

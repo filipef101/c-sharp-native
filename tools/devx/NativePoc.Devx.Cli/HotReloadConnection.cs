@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -24,6 +25,18 @@ static class HotReloadHandshake
 	public static string SocketFor(string package) => HotReloadAddress.SocketFor(package);
 
 	public static int PortFor(string package) => HotReloadAddress.PortFor(package);
+
+	public static void DropStaleForwards(string serial, int keepPort, string socketName)
+	{
+		var listed = ProcessRunner.Run("adb", ["-s", serial, "forward", "--list"]);
+		if (listed.Code != 0)
+			return;
+		foreach (var port in HotReloadForwards.StalePorts(listed.Stdout, serial, keepPort, socketName))
+		{
+			ProcessRunner.Run("adb", ["-s", serial, "forward", "--remove", "tcp:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+			Console.WriteLine("cnative: removed stale forward tcp:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		}
+	}
 
 	public static byte[] Token(string tokenHex)
 	{
@@ -89,6 +102,7 @@ sealed class HotReloadConnection : IDisposable
 		var package = LaunchCommand.Package;
 		SocketName = socketName is { Length: > 0 } ? socketName : HotReloadHandshake.SocketFor(package);
 		_port = port > 0 ? port : HotReloadHandshake.PortFor(package);
+		HotReloadHandshake.DropStaleForwards(_serial, _port, SocketName);
 	}
 
 	public string SocketName { get; }
@@ -100,6 +114,7 @@ sealed class HotReloadConnection : IDisposable
 		ObjectDisposedException.ThrowIf(_disposed, this);
 		if (_forwarded)
 			return;
+		HotReloadHandshake.DropStaleForwards(_serial, _port, SocketName);
 		ProcessRunner.Run("adb", ["-s", _serial, "forward", "--remove", "tcp:" + _port]);
 		var added = ProcessRunner.Run(
 			"adb",
@@ -158,5 +173,39 @@ sealed class HotReloadConnection : IDisposable
 		{
 			throw new InvalidOperationException("Hot reload reply failed: " + ex.Message);
 		}
+	}
+}
+
+static class HotReloadForwards
+{
+	public const string RetiredSocket = "npoc-hotreload";
+	public const int RetiredPort = 18765;
+
+	public static IReadOnlyList<int> StalePorts(string listing, string serial, int keepPort, string socketName)
+	{
+		var ports = new List<int>();
+		var owned = "localabstract:" + socketName;
+		var retired = "localabstract:" + RetiredSocket;
+		foreach (var raw in listing.Split('\n'))
+		{
+			var line = raw.Trim();
+			if (line.Length == 0)
+				continue;
+			var parts = line.Split(' ');
+			if (parts.Length < 3 || !string.Equals(parts[0], serial, StringComparison.Ordinal))
+				continue;
+			if (!parts[1].StartsWith("tcp:", StringComparison.Ordinal))
+				continue;
+			if (!int.TryParse(parts[1].AsSpan(4), NumberStyles.None, CultureInfo.InvariantCulture, out var port) || port == keepPort)
+				continue;
+			var target = parts[2];
+			var mine = target == owned
+				|| target == retired
+				|| (port == RetiredPort && target.StartsWith("localabstract:npoc-", StringComparison.Ordinal));
+			if (mine)
+				ports.Add(port);
+		}
+
+		return ports;
 	}
 }

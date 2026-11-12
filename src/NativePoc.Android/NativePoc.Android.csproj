@@ -283,6 +283,7 @@
 		<ProjectReference Include="..\..\samples\NativePoc.Packing\NativePoc.Packing.csproj" />
 		<ProjectReference Include="..\..\samples\NativePoc.Library\NativePoc.Library.csproj" />
 		<ProjectReference Include="..\NativePoc.ReloadGen\NativePoc.ReloadGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\NativePoc.ReloadGen.CodeFixes\NativePoc.ReloadGen.CodeFixes.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" Condition="'$(DesignTimeBuild)' == 'true'" />
 	</ItemGroup>
 	<PropertyGroup Condition="'$(NativePocStartupMarks)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_STARTUP_MARKS</DefineConstants>

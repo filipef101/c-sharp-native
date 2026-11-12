@@ -915,7 +915,7 @@ public static partial class SubsetLowerer
 					return false;
 				if (!consumed && !TryOpen(statements[index], out consumed))
 					return false;
-				if (!consumed && !TryNote(statements[index], out consumed))
+				if (!consumed && !TryLocalCall(statements[index], out consumed))
 					return false;
 				if (!consumed)
 					break;
@@ -975,8 +975,7 @@ public static partial class SubsetLowerer
 				return true;
 			if (!_bindings.Contains(owner.Identifier.ValueText + "." + member.Name.Identifier.ValueText))
 				return true;
-			consumed = true;
-			return true;
+			return Fail(BadLambda, "The call " + owner.Identifier.ValueText + "." + member.Name.Identifier.ValueText + "() is compiled into the binary. The reload program does not skip it.", invocation);
 		}
 
 		bool TryEffect(StatementSyntax statement, out bool consumed)
@@ -1094,16 +1093,32 @@ public static partial class SubsetLowerer
 			return true;
 		}
 
-		bool TryNote(StatementSyntax statement, out bool consumed)
+		bool TryLocalCall(StatementSyntax statement, out bool consumed)
 		{
 			consumed = false;
 			if (statement is not ExpressionStatementSyntax expr || expr.Expression is not InvocationExpressionSyntax invocation)
 				return true;
-			if (invocation.Expression is not IdentifierNameSyntax called || called.Identifier.ValueText != "Load")
+			if (invocation.Expression is not IdentifierNameSyntax called)
 				return true;
-			consumed = true;
+			var name = called.Identifier.ValueText;
+			if (!_localFns.TryGetValue(name, out var body))
+				return Fail(BadLambda, "The call " + name + "() is not a local function in this screen. The reload program does not skip it.", invocation);
 			if (invocation.ArgumentList.Arguments.Count != 0)
-				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+				return Fail(BadLambda, "The call " + name + "() takes arguments the screen subset cannot pass.", invocation);
+			var script = new List<byte>();
+			foreach (var line in body.Statements)
+			{
+				if (!Statement(line, "", script))
+					return false;
+			}
+
+			if (script.Count > ushort.MaxValue)
+				return Fail(BadLambda, "The call " + name + "() is too large to lower.", invocation);
+			consumed = true;
+			_code.Op(RecordProgram.OpRun);
+			_code.U16(script.Count);
+			if (script.Count > 0)
+				_code.Bytes(script.ToArray());
 			return true;
 		}
 

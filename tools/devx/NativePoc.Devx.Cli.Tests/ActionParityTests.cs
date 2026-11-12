@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using NativePoc;
+using NativePoc.ReloadGen;
 
 namespace NativePoc.Devx.Tests;
 
@@ -163,7 +164,8 @@ public sealed class ActionParityTests
 	{
 		var text = "using System;\nusing System.Collections.Generic;\nusing NativePoc;\n" + source;
 		var parsed = CSharpSyntaxTree.ParseText(text, new CSharpParseOptions(LanguageVersion.Preview));
-		var tree = parsed.WithRootAndOptions(new SnapshotForeach().Visit(new ColumnArgs().Visit(parsed.GetRoot()))!, parsed.Options);
+		var shaped = new ColumnArgs().Visit(parsed.GetRoot())!.ToFullString();
+		var tree = CSharpSyntaxTree.ParseText(ForeachSnapshot.RewriteSource(shaped), (CSharpParseOptions)parsed.Options);
 		var compilation = CSharpCompilation.Create(
 			"parity-" + Guid.NewGuid().ToString("N"),
 			[tree],
@@ -302,22 +304,6 @@ public sealed class ActionParityTests
 			}
 
 			return builder.ToString();
-		}
-	}
-
-	sealed class SnapshotForeach : CSharpSyntaxRewriter
-	{
-		public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
-		{
-			var visited = (ForEachStatementSyntax)base.VisitForEachStatement(node)!;
-			if (visited.Expression is InvocationExpressionSyntax)
-				return visited;
-			var call = SyntaxFactory.InvocationExpression(
-				SyntaxFactory.MemberAccessExpression(
-					SyntaxKind.SimpleMemberAccessExpression,
-					visited.Expression,
-					SyntaxFactory.IdentifierName("ToArray")));
-			return visited.WithExpression(call);
 		}
 	}
 

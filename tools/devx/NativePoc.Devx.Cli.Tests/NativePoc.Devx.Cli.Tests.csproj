@@ -13,6 +13,9 @@
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
 		<PackageReference Include="xunit" Version="2.9.3" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0">
+			<ExcludeAssets>compile</ExcludeAssets>
+		</PackageReference>
 	</ItemGroup>
 	<ItemGroup>
 		<Using Include="Xunit" />
@@ -20,6 +23,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\NativePoc.Devx.Cli\NativePoc.Devx.Cli.csproj" />
 		<ProjectReference Include="..\..\..\src\NativePoc.ReloadGen\NativePoc.ReloadGen.csproj" />
+		<ProjectReference Include="..\..\..\src\NativePoc.ReloadGen.CodeFixes\NativePoc.ReloadGen.CodeFixes.csproj" />
 		<ProjectReference Include="..\..\..\src\NativePoc.Screen\NativePoc.Screen.csproj" />
 		<ProjectReference Include="..\..\..\samples\NativePoc.Packing\NativePoc.Packing.csproj" />
 		<ProjectReference Include="..\..\NativePoc.HotReload.Host\NativePoc.HotReload.Host.csproj" />
