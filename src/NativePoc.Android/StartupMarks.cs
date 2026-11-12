@@ -12,6 +12,7 @@ static class StartupMarks
 	static bool _present;
 	static bool _armed;
 	static Action? _afterPresent;
+	static readonly List<Action> _after = new();
 #if NATIVEPOC_STARTUP_MARKS
 	static long _managed;
 	static bool _render;
@@ -19,11 +20,43 @@ static class StartupMarks
 	static long _gradientUs;
 	static long _shadowUs;
 	static bool _drawablesFlushed;
+	static bool _spansFlushed;
+	static long _presentStamp;
+	static readonly Dictionary<string, long> _spans = new();
+	static readonly string[] SpanNames =
+	[
+		"typeface",
+		"outline",
+		"views-hero",
+		"views-page",
+		"views-stats",
+		"views-pieces",
+		"views-kept",
+		"views-kiln",
+		"views-shelf",
+		"views-room",
+	];
 #endif
 
 	public static bool Presented => _present;
 
-	public static void AfterPresent(Action flush) => _afterPresent = flush;
+	public static void AfterPresent(Action flush)
+	{
+		for (var index = 0; index < _after.Count; index++)
+		{
+			if (_after[index] == flush)
+				return;
+		}
+
+		_after.Add(flush);
+		_afterPresent = RunAfter;
+	}
+
+	static void RunAfter()
+	{
+		foreach (var flush in _after)
+			flush();
+	}
 
 #pragma warning disable CA2255
 	[ModuleInitializer]
@@ -113,6 +146,25 @@ static class StartupMarks
 	}
 
 	[System.Diagnostics.Conditional("NATIVEPOC_STARTUP_MARKS")]
+	public static void ReportUs(string name, long us)
+	{
+#if NATIVEPOC_STARTUP_MARKS
+		TookUs(name, us);
+#endif
+	}
+
+	[System.Diagnostics.Conditional("NATIVEPOC_STARTUP_MARKS")]
+	public static void AddSpan(string name, long us)
+	{
+#if NATIVEPOC_STARTUP_MARKS
+		if (us < 0)
+			us = 0;
+		_spans.TryGetValue(name, out var soFar);
+		_spans[name] = soFar + us;
+#endif
+	}
+
+	[System.Diagnostics.Conditional("NATIVEPOC_STARTUP_MARKS")]
 	public static void AddDrawable(bool gradient, bool shadow, long us)
 	{
 #if NATIVEPOC_STARTUP_MARKS
@@ -132,12 +184,25 @@ static class StartupMarks
 		if (_drawablesFlushed)
 			return;
 		_drawablesFlushed = true;
+		FlushSpans();
 		TookUs("gradient-create", _gradientUs);
 		TookUs("shadow-create", _shadowUs);
 #endif
 	}
 
 #if NATIVEPOC_STARTUP_MARKS
+	static void FlushSpans()
+	{
+		if (_spansFlushed)
+			return;
+		_spansFlushed = true;
+		foreach (var name in SpanNames)
+		{
+			_spans.TryGetValue(name, out var us);
+			TookUs(name, us);
+		}
+	}
+
 	static void TookUs(string name, long us)
 	{
 		if (us < 0)
@@ -246,6 +311,7 @@ static class StartupMarks
 				return true;
 			_present = true;
 #if NATIVEPOC_STARTUP_MARKS
+			_presentStamp = System.Diagnostics.Stopwatch.GetTimestamp();
 			var now = SystemClock.ElapsedRealtime();
 			Mark("startup mark=first-present since-process-ms=" + (now - _process).ToString(CultureInfo.InvariantCulture));
 			PhaseAt("draw", now);
@@ -299,6 +365,10 @@ static class StartupMarks
 		// warm and flush.
 		public bool QueueIdle()
 		{
+#if NATIVEPOC_STARTUP_MARKS
+			if (_presentStamp != 0)
+				Took("present-to-idle", _presentStamp);
+#endif
 			Phase("idle");
 			var choreographer = Choreographer.Instance;
 			if (choreographer is not null)

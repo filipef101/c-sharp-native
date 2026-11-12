@@ -108,7 +108,7 @@ tools/bench/mac-bench.sh --device emulator-5554 --n 12 --repeat 4 --quiesce warn
   --run floor:widgetfloor.apk:com.scratch.nativepoc.widgetfloor/crc64ee53024f7ed0aa60.MainActivity
 ```
 
-The activity class is the same on both packages. The CRC is of the C# namespace. `IlcDehydrate` stays at the Release default, true. The block delta is showcase TotalTime p50 minus floor TotalTime p50 for each of the four blocks. Hyndman-Fan type 7, bootstrap B=1000, seed 8946. The README records the n=48 run on this emulator.
+The activity class is the same on both packages. The CRC is of the C# namespace. `IlcDehydrate` stays at the Release default, true. The block delta is showcase TotalTime p50 minus floor TotalTime p50 for each of the four blocks. Hyndman-Fan type 7, bootstrap B=1000, seed 8946. The command above is the emulator config. The README records the canonical n=48 floor run on that config, TotalTime p50/p90 showcase 946.0/1031.7 and floor 647.5/748.3, block-delta median 333.2, interval 216.0–386.5, and the later attribution of that gap. In the attribution session the block-delta median was 353.2 ms, interval 305.5–400.5, and 347.2 ms of it was the wait from the first pre-draw to the launch idle handler. Creating the gradient, shadow, and outline on the callback two frames after that handler brought the same-session interval to 41.5–134.5, median 91.0.
 
 ## tools/check.sh
 

@@ -830,6 +830,9 @@ public sealed class MainActivity : Activity
 		{
 			StartupMarks.Note("eval", evalUs / 1000);
 			StartupMarks.Note("mount", reconcileUs / 1000);
+			StartupMarks.ReportUs("tree-build", evalUs);
+			StartupMarks.ReportUs("tree-diff", diffUs);
+			StartupMarks.ReportUs("view-create", reconcileUs);
 			var rows = 0;
 			var built = 0;
 			Describe(tree, ref rows, ref built);

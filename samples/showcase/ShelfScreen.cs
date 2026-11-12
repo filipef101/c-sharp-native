@@ -82,7 +82,7 @@ public static class ShelfScreen
 							platform.Push("piece", state.Pieces[0]);
 							platform.RequestRender();
 						},
-						"Harbor bowl")
+						"Harbor bowl, Mist")
 					{
 						Key = "swatch",
 						Style = new Style { Background = 0xFF6E97A0, Wash = 0xFFD5E6EA, Color = 0xFF143028, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
@@ -102,7 +102,7 @@ public static class ShelfScreen
 							platform.Push("piece", state.Pieces[1]);
 							platform.RequestRender();
 						},
-						"Kiln door")
+						"Kiln door, Iron")
 					{
 						Key = "swatch",
 						Style = new Style { Background = 0xFF4A4038, Wash = 0xFF8A7B6E, Color = 0xFFF7F4EF, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
@@ -129,7 +129,7 @@ public static class ShelfScreen
 							platform.Push("piece", state.Pieces[2]);
 							platform.RequestRender();
 						},
-						"Cedar tray")
+						"Cedar tray, Ash")
 					{
 						Key = "swatch",
 						Style = new Style { Background = 0xFFA89886, Wash = 0xFFE4D9CC, Color = 0xFF143028, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
@@ -149,7 +149,7 @@ public static class ShelfScreen
 							platform.Push("piece", state.Pieces[3]);
 							platform.RequestRender();
 						},
-						"Night cup")
+						"Night cup, Cobalt")
 					{
 						Key = "swatch",
 						Style = new Style { Background = 0xFF163A5C, Wash = 0xFF3E78B0, Color = 0xFFF7F4EF, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
@@ -176,7 +176,7 @@ public static class ShelfScreen
 							platform.Push("piece", state.Pieces[4]);
 							platform.RequestRender();
 						},
-						"Field plate")
+						"Field plate, Straw")
 					{
 						Key = "swatch",
 						Style = new Style { Background = 0xFFC4923A, Wash = 0xFFF0D48A, Color = 0xFF143028, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
@@ -196,7 +196,7 @@ public static class ShelfScreen
 							platform.Push("piece", state.Pieces[5]);
 							platform.RequestRender();
 						},
-						"Rain jar")
+						"Rain jar, Slate")
 					{
 						Key = "swatch",
 						Style = new Style { Background = 0xFF3E4850, Wash = 0xFF8A969E, Color = 0xFFF7F4EF, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
@@ -223,7 +223,7 @@ public static class ShelfScreen
 							platform.Push("piece", state.Pieces[6]);
 							platform.RequestRender();
 						},
-						"Linen vase")
+						"Linen vase, Bone")
 					{
 						Key = "swatch",
 						Style = new Style { Background = 0xFFC9C0B0, Wash = 0xFFF3EFE6, Color = 0xFF143028, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
@@ -243,7 +243,7 @@ public static class ShelfScreen
 							platform.Push("piece", state.Pieces[7]);
 							platform.RequestRender();
 						},
-						"Moss tile")
+						"Moss tile, Copper")
 					{
 						Key = "swatch",
 						Style = new Style { Background = 0xFF8C4A34, Wash = 0xFFD4A090, Color = 0xFFF7F4EF, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },

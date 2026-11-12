@@ -157,6 +157,91 @@ public sealed class NorthroomConformanceTests
 		Assert.Empty(page.Children);
 	}
 
+	[Fact]
+	public void Northroom_accessibility_labels_name_every_screen()
+	{
+		var host = new HeadlessHost();
+		host.Show(platform => HomeScreen.Render(new HomeState(), platform));
+		var home = host.Tree!;
+		Assert.Equal("8 pieces", Speech.Of(ElementIds.Require(home, "scroll/page/stats/pieces")));
+		Assert.Equal("3 kept", Speech.Of(ElementIds.Require(home, "scroll/page/stats/kept")));
+		Assert.Equal("Thu kiln", Speech.Of(ElementIds.Require(home, "scroll/page/stats/kiln")));
+		Assert.Null(Speech.Of(ElementIds.Require(home, "scroll/page/hero")));
+		AssertBefore(home, "scroll/page/hero/heading", "scroll/page/stats/pieces");
+		AssertBefore(home, "scroll/page/stats/pieces", "scroll/page/stats/kept");
+		AssertBefore(home, "scroll/page/stats/kept", "scroll/page/stats/kiln");
+		AssertBefore(home, "scroll/page/stats/kiln", "scroll/page/shelf");
+		AssertBefore(home, "scroll/page/shelf", "scroll/page/room");
+
+		host.Show(platform => ShelfScreen.Render(new ShelfState(), platform));
+		var shelf = host.Tree!;
+		AssertSpoken(shelf, "scroll/list/back-row/back", "Back");
+		AssertSpoken(shelf, "scroll/list/row-0/harbor/swatch", "Harbor bowl, Mist");
+		AssertSpoken(shelf, "scroll/list/row-0/kiln/swatch", "Kiln door, Iron");
+		AssertSpoken(shelf, "scroll/list/row-1/cedar/swatch", "Cedar tray, Ash");
+		AssertSpoken(shelf, "scroll/list/row-1/night/swatch", "Night cup, Cobalt");
+		AssertSpoken(shelf, "scroll/list/row-2/field/swatch", "Field plate, Straw");
+		AssertSpoken(shelf, "scroll/list/row-2/rain/swatch", "Rain jar, Slate");
+		AssertSpoken(shelf, "scroll/list/row-3/linen/swatch", "Linen vase, Bone");
+		AssertSpoken(shelf, "scroll/list/row-3/moss/swatch", "Moss tile, Copper");
+		Assert.Equal("Harbor bowl, Mist", Speech.Of(ElementIds.Require(shelf, "scroll/list/row-0/harbor")));
+		Assert.Equal("Mist", Assert.IsType<Button>(ElementIds.Require(shelf, "scroll/list/row-0/harbor/swatch")).Title);
+		Assert.Equal("Harbor bowl", Assert.IsType<Text>(ElementIds.Require(shelf, "scroll/list/row-0/harbor/name")).Value);
+		AssertBefore(shelf, "scroll/list/back-row/back", "scroll/list/head/heading");
+		AssertBefore(shelf, "scroll/list/head/heading", "scroll/list/row-0/harbor/swatch");
+
+		var pieceState = new PieceState { Id = "harbor", Title = "Harbor bowl", Tone = "Mist" };
+		host.Show(platform => PieceScreen.Render(pieceState, platform));
+		var piece = host.Tree!;
+		AssertSpoken(piece, "scroll/page/back-row/back", "Back");
+		var keep = Assert.IsType<Button>(ElementIds.Require(piece, "scroll/page/keep"));
+		Assert.Equal("Keep", keep.Title);
+		Assert.Equal("Keep", keep.AccessibilityLabel);
+		Assert.Null(Speech.KeepChange("", "Keep"));
+		Assert.Equal("Kept", Speech.KeepChange("Keep", "Kept"));
+		Assert.Null(Speech.KeepChange("Kept", "Kept"));
+		Assert.Equal("Keep", Speech.KeepChange("Kept", "Keep"));
+		AssertBefore(piece, "scroll/page/back-row/back", "scroll/page/title");
+		AssertBefore(piece, "scroll/page/title", "scroll/page/keep");
+
+		host.Show(platform => RoomScreen.Render(new RoomState(), platform));
+		var room = host.Tree!;
+		AssertSpoken(room, "scroll/page/back-row/back", "Back");
+		AssertSpoken(room, "scroll/page/card/night", "Night");
+		AssertSpoken(room, "scroll/page/card/large", "Large type");
+		AssertBefore(room, "scroll/page/back-row/back", "scroll/page/heading");
+		AssertBefore(room, "scroll/page/heading", "scroll/page/card/night");
+		AssertBefore(room, "scroll/page/card/night", "scroll/page/card/large");
+	}
+
+	static void AssertSpoken(Element tree, string id, string label)
+	{
+		var element = ElementIds.Require(tree, id);
+		var spoken = element switch
+		{
+			Button button => button.AccessibilityLabel,
+			Switch toggle => toggle.AccessibilityLabel,
+			_ => throw new InvalidOperationException(element.GetType().Name),
+		};
+		Assert.Equal(label, spoken);
+	}
+
+	static void AssertBefore(Element tree, string earlier, string later)
+	{
+		var nodes = ElementIds.Flatten(tree);
+		var first = -1;
+		var second = -1;
+		for (var index = 0; index < nodes.Count; index++)
+		{
+			if (string.Equals(nodes[index].Id, earlier, StringComparison.Ordinal))
+				first = index;
+			if (string.Equals(nodes[index].Id, later, StringComparison.Ordinal))
+				second = index;
+		}
+
+		Assert.True(first >= 0 && second > first);
+	}
+
 	static void Press(HeadlessHost host, string id)
 	{
 		Assert.NotNull(host.Tree);

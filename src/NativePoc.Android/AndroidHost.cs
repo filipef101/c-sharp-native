@@ -23,6 +23,9 @@ sealed class AndroidHost : IElementHost<View>
 	readonly HashSet<View> _gone = new();
 	bool _applyingText;
 	bool _applyingSwitch;
+	bool _chromeReady;
+	bool _chromeArmed;
+	readonly List<(View View, Style Style)> _deferredChrome = new();
 
 	public AndroidHost(Activity activity, Func<Element?> current)
 	{
@@ -109,6 +112,7 @@ sealed class AndroidHost : IElementHost<View>
 		text.Visibility = HostPolicy.TextIsHidden(value) ? ViewStates.Gone : ViewStates.Visible;
 		if (text.Parent is LinearLayout across && across.Orientation == Orientation.Horizontal)
 			LayoutAcross(across);
+		ApplySpeech(view);
 		if (value.Length == 0 || string.Equals(previous, value, StringComparison.Ordinal))
 			return;
 		if (!_paths.TryGetValue(view, out var path) || CurrentElement(path) is not Text spoken)
@@ -127,6 +131,7 @@ sealed class AndroidHost : IElementHost<View>
 	{
 		if (view is not AndroidButton button)
 			throw new InvalidOperationException("Button patch targeted a non-button view.");
+		var previous = button.Text?.ToString() ?? "";
 		button.Text = title;
 		button.TransformationMethod = null;
 		button.ContentDescription = accessibilityLabel;
@@ -146,6 +151,21 @@ sealed class AndroidHost : IElementHost<View>
 			ClearChrome();
 			button.Post(ClearChrome);
 		}
+
+		if (_paths.TryGetValue(view, out var keepPath) && string.Equals(CurrentElement(keepPath)?.Key, "keep", StringComparison.Ordinal))
+		{
+			var spoken = Speech.KeepChange(previous, title);
+			if (spoken is not null)
+			{
+				button.AccessibilityLiveRegion = AccessibilityLiveRegion.Polite;
+#pragma warning disable CA1422
+				button.AnnounceForAccessibility(spoken);
+#pragma warning restore CA1422
+				Log.Info(MainActivity.Tag, "a11y-announce text=" + spoken);
+			}
+		}
+
+		ApplySpeech(view);
 	}
 
 	public void RestoreFocus(View root) => FieldFocus.Restore(root);
@@ -238,6 +258,9 @@ sealed class AndroidHost : IElementHost<View>
 
 	public void SetStyle(View view, Style style)
 	{
+#if NATIVEPOC_STARTUP_MARKS
+		var styleStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+#endif
 		if (view is ViewGroup styledGroup)
 			styledGroup.SetClipChildren(false);
 		var density = _activity.Resources?.DisplayMetrics?.Density ?? 1f;
@@ -329,7 +352,15 @@ sealed class AndroidHost : IElementHost<View>
 				text.SetAccessibilityDelegate(HeadingMark.Instance);
 			}
 			if (style.Weight == FontWeight.Bold)
+			{
+#if NATIVEPOC_STARTUP_MARKS
+				var typefaceStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+#endif
 				text.SetTypeface(Typeface.DefaultBold, TypefaceStyle.Bold);
+#if NATIVEPOC_STARTUP_MARKS
+				StartupMarks.AddSpan("typeface", SpanUs(typefaceStarted));
+#endif
+			}
 			ThemeRuntime.NoteColor(view, style.Color);
 			text.SetTextColor(style.Color == 0
 				? new Android.Graphics.Color(unchecked((int)ThemeTokens.Text(ThemeRuntime.IsDark(_activity))))
@@ -338,57 +369,168 @@ sealed class AndroidHost : IElementHost<View>
 
 		if (style.Background != 0 || style.Wash != 0 || style.Radius > 0 || style.Stroke != 0)
 		{
-			var gradient = style.Wash != 0 && style.Background != 0;
-			if (gradient)
-				StartupMarks.Phase("gradient");
-#if NATIVEPOC_STARTUP_MARKS
-			var drawableStarted = System.Diagnostics.Stopwatch.GetTimestamp();
-#endif
-			var drawable = new GradientDrawable();
-			drawable.SetCornerRadius(Px(style.Radius));
-			if (style.Background != 0 && style.Wash != 0)
-			{
-				drawable.SetOrientation(GradientDrawable.Orientation.TopBottom);
-				drawable.SetColors(new[] { unchecked((int)style.Background), unchecked((int)style.Wash) });
-			}
+			if (_chromeReady)
+				ApplyChrome(view, style);
 			else
 			{
-				drawable.SetColor(style.Background == 0
-					? Android.Graphics.Color.Transparent
-					: new Android.Graphics.Color(unchecked((int)style.Background)));
+				view.Background = null;
+				view.Elevation = 0;
+				if (view is AndroidButton plain)
+					plain.BackgroundTintList = null;
+				_deferredChrome.Add((view, style));
+				ArmChrome();
 			}
-
-			if (style.Stroke != 0)
-				drawable.SetStroke(Math.Max(1, Px(2)), new Android.Graphics.Color(unchecked((int)style.Stroke)));
-			view.Background = drawable;
-			if (view is AndroidButton tinted)
-			{
-				tinted.BackgroundTintList = style.Background == 0 && style.Wash == 0
-					? Android.Content.Res.ColorStateList.ValueOf(Android.Graphics.Color.Transparent)
-					: null;
-			}
-			if (style.Radius > 0)
-			{
-				view.OutlineProvider = new CardOutline(Px(style.Radius));
-				view.ClipToOutline = true;
-			}
-
-			var shadow = style.Background != 0 && style.Radius > 0;
-			view.Elevation = shadow ? Px(3) : 0;
-			if (shadow)
-			{
-				StartupMarks.Phase("shadow");
-				view.Post(() =>
-				{
-					for (var parent = view.Parent; parent is ViewGroup group; parent = group.Parent)
-						group.SetClipChildren(false);
-				});
-			}
-#if NATIVEPOC_STARTUP_MARKS
-			var drawableUs = (System.Diagnostics.Stopwatch.GetTimestamp() - drawableStarted) * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
-			StartupMarks.AddDrawable(gradient, shadow, drawableUs);
-#endif
 		}
+#if NATIVEPOC_STARTUP_MARKS
+		var bucket = ViewBucket(view);
+		if (bucket is not null)
+			StartupMarks.AddSpan(bucket, SpanUs(styleStarted));
+#endif
+		ApplySpeech(view);
+	}
+
+	void ApplySpeech(View view)
+	{
+		if (view.Parent is not View parent)
+			return;
+		if (!_paths.TryGetValue(parent, out var path))
+			return;
+		var element = CurrentElement(path);
+		if (element is not Column column)
+			return;
+		var spoken = Speech.Of(column);
+		if (spoken is null || parent is not ViewGroup group)
+			return;
+		var statCard = column.Key is "pieces" or "kept" or "kiln"
+			&& column.Children.Count == 2
+			&& column.Children[0] is Text
+			&& column.Children[1] is Text;
+		if (statCard)
+		{
+			parent.ContentDescription = spoken;
+			parent.ImportantForAccessibility = ImportantForAccessibility.Yes;
+			for (var index = 0; index < group.ChildCount; index++)
+			{
+				var child = group.GetChildAt(index);
+				if (child is not null)
+					child.ImportantForAccessibility = ImportantForAccessibility.No;
+			}
+
+			return;
+		}
+
+		for (var index = 0; index < group.ChildCount; index++)
+		{
+			var child = group.GetChildAt(index);
+			if (child is not TextView text || child is AndroidButton)
+				continue;
+			if (!_paths.TryGetValue(child, out var childPath) || CurrentElement(childPath) is not Text)
+				continue;
+			text.ImportantForAccessibility = ImportantForAccessibility.No;
+		}
+	}
+
+	string? ViewBucket(View view)
+	{
+		for (View? current = view; current is not null; current = current.Parent as View)
+		{
+			if (!_paths.TryGetValue(current, out var path))
+				continue;
+			var key = CurrentElement(path)?.Key;
+			if (key is "hero" or "page" or "stats" or "pieces" or "kept" or "kiln" or "shelf" or "room")
+				return "views-" + key;
+		}
+
+		return null;
+	}
+
+#if NATIVEPOC_STARTUP_MARKS
+	static long SpanUs(long started) =>
+		(System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
+#endif
+
+	void ArmChrome()
+	{
+		if (_chromeArmed)
+			return;
+		_chromeArmed = true;
+		StartupMarks.AfterPresent(FlushChrome);
+	}
+
+	void FlushChrome()
+	{
+		_chromeReady = true;
+		var pending = _deferredChrome.ToArray();
+		_deferredChrome.Clear();
+		foreach (var (view, style) in pending)
+		{
+			if (view.Handle == IntPtr.Zero)
+				continue;
+			ApplyChrome(view, style);
+		}
+
+		_activity.Window?.DecorView?.Invalidate();
+	}
+
+	void ApplyChrome(View view, Style style)
+	{
+		var gradient = style.Wash != 0 && style.Background != 0;
+		if (gradient)
+			StartupMarks.Phase("gradient");
+#if NATIVEPOC_STARTUP_MARKS
+		var drawableStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+#endif
+		var drawable = new GradientDrawable();
+		drawable.SetCornerRadius(Dp(style.Radius));
+		if (style.Background != 0 && style.Wash != 0)
+		{
+			drawable.SetOrientation(GradientDrawable.Orientation.TopBottom);
+			drawable.SetColors(new[] { unchecked((int)style.Background), unchecked((int)style.Wash) });
+		}
+		else
+		{
+			drawable.SetColor(style.Background == 0
+				? Android.Graphics.Color.Transparent
+				: new Android.Graphics.Color(unchecked((int)style.Background)));
+		}
+
+#if NATIVEPOC_STARTUP_MARKS
+		var outlineStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+#endif
+		if (style.Stroke != 0)
+			drawable.SetStroke(Math.Max(1, Dp(2)), new Android.Graphics.Color(unchecked((int)style.Stroke)));
+		view.Background = drawable;
+		if (view is AndroidButton tinted)
+		{
+			tinted.BackgroundTintList = style.Background == 0 && style.Wash == 0
+				? Android.Content.Res.ColorStateList.ValueOf(Android.Graphics.Color.Transparent)
+				: null;
+		}
+		if (style.Radius > 0)
+		{
+			view.OutlineProvider = new CardOutline(Dp(style.Radius));
+			view.ClipToOutline = true;
+		}
+
+		var shadow = style.Background != 0 && style.Radius > 0;
+		view.Elevation = shadow ? Dp(3) : 0;
+#if NATIVEPOC_STARTUP_MARKS
+		if (style.Stroke != 0 || style.Radius > 0)
+			StartupMarks.AddSpan("outline", SpanUs(outlineStarted));
+#endif
+		if (shadow)
+		{
+			StartupMarks.Phase("shadow");
+			view.Post(() =>
+			{
+				for (var parent = view.Parent; parent is ViewGroup group; parent = group.Parent)
+					group.SetClipChildren(false);
+			});
+		}
+#if NATIVEPOC_STARTUP_MARKS
+		var drawableUs = (System.Diagnostics.Stopwatch.GetTimestamp() - drawableStarted) * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
+		StartupMarks.AddDrawable(gradient, shadow, drawableUs);
+#endif
 	}
 
 	void LayoutAcross(LinearLayout row)
