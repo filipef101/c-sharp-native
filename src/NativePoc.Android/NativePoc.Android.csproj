@@ -115,6 +115,9 @@
 	<PropertyGroup Condition="'$(NativePocLocation)' != 'true'">
 		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\where\**</NativePocSampleExclude>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocHttp)' != 'true' Or '$(NativePocLocation)' != 'true'">
+		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\visit\**</NativePocSampleExclude>
+	</PropertyGroup>
 	<Target Name="RefuseDevListenerInRelease" BeforeTargets="Build;Publish">
 		<Error
 			Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' == 'Release'"
@@ -132,7 +135,13 @@
 		<MetadataUpdaterSupport>false</MetadataUpdaterSupport>
 		<DebuggerSupport>false</DebuggerSupport>
 		<UseSystemResourceKeys>true</UseSystemResourceKeys>
-		<IlcGenerateDebugInfo>false</IlcGenerateDebugInfo>
+		<!-- Portable sequence points stay out of the APK. ILC -g writes them into
+		     NativePoc.Android.so.dbg, and strip removes .debug_* from the shipped .so.
+		     AndroidIncludeDebugSymbols stays false, so the runtime type map does not change. -->
+		<DebugSymbols>true</DebugSymbols>
+		<DebugType>portable</DebugType>
+		<NativeDebugSymbols>true</NativeDebugSymbols>
+		<IlcGenerateDebugInfo>true</IlcGenerateDebugInfo>
 		<StackTraceSupport>true</StackTraceSupport>
 		<IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
 		<MetricsSupport>false</MetricsSupport>
@@ -188,4 +197,20 @@
 	<ItemGroup Condition="'$(NativePocAotProfile)' != ''">
 		<AndroidAotProfile Include="$(NativePocAotProfile)" />
 	</ItemGroup>
+	<!-- DebugSymbols emits the portable pdb. The Android NativeAOT targets turn
+	     StripSymbols off when that property is set, which would ship the debug
+	     sections. Put them back before the link, and keep the pdb for ILC only. -->
+	<Target Name="KeepSequencePointsForDbg" AfterTargets="_PrepareLinking" BeforeTargets="LinkNative" Condition="'$(Configuration)' == 'Release'">
+		<PropertyGroup>
+			<TrimmerRemoveSymbols>false</TrimmerRemoveSymbols>
+			<StripSymbols>true</StripSymbols>
+			<NativeDebugSymbols>true</NativeDebugSymbols>
+		</PropertyGroup>
+	</Target>
+	<Target Name="DropPdbFromPackage" AfterTargets="ILLink" Condition="'$(Configuration)' == 'Release'">
+		<ItemGroup>
+			<ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+			<_LinkedResolvedFileToPublish Remove="@(_LinkedResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+		</ItemGroup>
+	</Target>
 </Project>

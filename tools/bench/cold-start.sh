@@ -13,6 +13,8 @@
 #   tools/bench/cold-start.sh --floor --name floor --out /tmp/bench
 set -euo pipefail
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/guest-env.sh"
+
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 device=""
 samples=20
@@ -124,6 +126,7 @@ if [[ "$self_test" -eq 1 ]]; then
 	[[ "$c90" == "844.9" ]] || { echo "counter p90 $c90" >&2; fail=1; }
 	[[ "$p50" == "457.0" ]] || { echo "packing p50 $p50" >&2; fail=1; }
 	[[ "$p90" == "619.2" ]] || { echo "packing p90 $p90" >&2; fail=1; }
+	bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/guest-env.sh" --self-test >/dev/null
 	if [[ "$fail" -ne 0 ]]; then
 		exit 1
 	fi
@@ -191,6 +194,7 @@ if [[ -z "$out" ]]; then
 	out="$root/tools/bench/out/$name"
 fi
 mkdir -p "$out"
+package_background "${component%%/*}" "$out/package.txt"
 
 one_start() {
 	adb_cmd shell am start -W -S -n "$component" "${am_extra[@]}"
@@ -226,11 +230,14 @@ for ((i = 0; i < samples; i++)); do
 		exit 1
 	fi
 	totals+=("$total")
+	guest_line="$(capture_guest "$out/$name-guest-$i.txt")"
+	printf '%s\n' "$guest_line" >>"$out/guest.txt"
 	{
 		echo "SAMPLE $i"
+		printf '%s\n' "$guest_line"
 		printf '%s\n' "$text"
 	} >>"$raw"
-	echo "$name $i $total" >&2
+	echo "$name $i $total $guest_line" >&2
 done
 
 adb_cmd logcat -d -v epoch >"$out/$name-logcat.txt"
@@ -241,6 +248,10 @@ p90="$(printf '%s\n' "${totals[@]}" | percentile 0.90)"
 	echo "$name n=$samples sorted=$ordered"
 	echo "p50 $p50 p90 $p90"
 	echo "method=am start -W -S LaunchState=COLD warmup=1 discarded percentile=Hyndman-Fan-7"
+	echo "guest samples are in guest.txt. A guest_load at or above 2.0 is a warning. The sample stays."
+	if [[ -f "$out/guest.txt" ]]; then
+		cat "$out/guest.txt"
+	fi
 } | tee "$out/$name-summary.txt"
 
 awk -v expected="$samples" -v dest="$out/$name-marks.txt" '

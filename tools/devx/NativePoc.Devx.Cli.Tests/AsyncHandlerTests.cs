@@ -246,6 +246,41 @@ public sealed class AsyncHandlerTests
 		Assert.Equal(37.8, Location.Parse(bag.ReadString("Label")).Latitude);
 	}
 
+	[Fact]
+	public void The_visit_form_lowers_and_the_stop_screen_fetches()
+	{
+		var root = Repo();
+		var visit = SubsetLowerer.TryLower(
+			File.ReadAllText(Path.Combine(root, "samples", "visit", "VisitScreen.cs")),
+			originFile: "samples/visit/VisitScreen.cs");
+		Assert.True(visit.Ok, visit.Diagnostics.Count == 0 ? "" : visit.Diagnostics[0].Message);
+		var stop = SubsetLowerer.TryLower(
+			File.ReadAllText(Path.Combine(root, "samples", "visit", "StopScreen.cs")),
+			originFile: "samples/visit/StopScreen.cs");
+		Assert.True(stop.Ok, stop.Diagnostics.Count == 0 ? "" : stop.Diagnostics[0].Message);
+		var bag = new RecordProgram.Bag();
+		var bound = RecordProgram.Bind(visit.Program!, bag);
+		var platform = new AsyncPlatform();
+		var tree = bound.Render(platform);
+		Assert.Equal(22, Assert.IsType<Text>(ElementIds.Require(tree, "scroll/list/heading")).Style!.Value.FontSize);
+		ElementIds.Submit(tree, "scroll/list/when");
+		Assert.Equal("Place is required", bag.ReadString("Error"));
+		ElementIds.Invoke(tree, "scroll/list/place", "Pier");
+		ElementIds.Invoke(tree, "scroll/list/when", "Friday");
+		ElementIds.Submit(tree, "scroll/list/when");
+		Assert.Contains(platform.Calls, call => call == "http.GetJson");
+		platform.Release("{\"place\":\"Pier\"}");
+		Assert.Equal("", bag.ReadString("Error"));
+		Assert.Equal("{\"place\":\"Pier\"}", bag.ReadString("Body"));
+		Assert.Equal("button", ScreenSnapshot.Role(ElementIds.Require(bound.Render(platform), "scroll/list/Pier/open")));
+		ElementIds.Invoke(bound.Render(platform), "scroll/list/locate", null);
+		Assert.Contains(platform.Calls, call => call == "location.Read");
+		var detail = RecordProgram.Bind(stop.Program!, new RecordProgram.Bag());
+		var lookup = new AsyncPlatform();
+		ElementIds.Invoke(detail.Render(lookup), "stop/lookup", null);
+		Assert.Contains(lookup.Calls, call => call == "http.GetJson");
+	}
+
 	static string Repo()
 	{
 		var dir = new DirectoryInfo(AppContext.BaseDirectory);

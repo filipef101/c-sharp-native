@@ -17,13 +17,17 @@
 # APK. mac-bench.sh refuses one package installed from two APK paths. The
 # Java floor is a different package, so it can sit in the same run. The
 # summary prints TotalTime and, when the log has them, since-process p50 for
-# runtime, render, attach, bind, draw, and list-first. The serial is the
+# runtime, render, attach, bind, draw, and list-first. Each round also
+# records guest loadavg, top, whether dex2oat is running, and the GLES
+# renderer. Guest load at or above 2.0 prints a warning. The serial is the
 # pixel_8 emulator.
 #   tools/bench/mac-bench.sh --device <pixel_8> --n 10 --out /tmp/feed-cold \
 #     --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
 #     --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
 #     --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
 set -euo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/guest-env.sh"
 
 samples=20
 out=""
@@ -209,6 +213,7 @@ if [[ "$self_test" -eq 1 ]]; then
 	none="$(contended_rounds "$flag_dir/quiet" "$flag_dir/load")"
 	[[ -z "$none" ]] || { echo "quiet flag $none" >&2; fail=1; }
 	rm -rf "$flag_dir"
+	bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/guest-env.sh" --self-test >/dev/null
 	if [[ "$fail" -ne 0 ]]; then
 		exit 1
 	fi
@@ -287,6 +292,7 @@ for ((s = 0; s < ${#labels[@]}; s++)); do
 		exit 1
 	fi
 	installed[$pkg]="${apks[$s]}"
+	package_background "$pkg" "$out/package-$pkg.txt"
 done
 
 one_start() {
@@ -336,7 +342,9 @@ done
 for ((round = 0; round < samples; round++)); do
 	load="$(host_load)"
 	printf '%s\n' "$load" >>"$out/round-load.txt"
-	echo "round $round load=$load" >&2
+	guest_line="$(capture_guest "$out/round-$round-guest.txt")"
+	printf '%s\n' "$guest_line" >>"$out/guest.txt"
+	echo "round $round load=$load $guest_line" >&2
 	for ((s = 0; s < ${#labels[@]}; s++)); do
 		label="${labels[$s]}"
 		adb_cmd logcat -c >/dev/null || true
@@ -352,6 +360,7 @@ for ((round = 0; round < samples; round++)); do
 		{
 			echo "ROUND $round"
 			echo "load=$load"
+			printf '%s\n' "$guest_line"
 			printf '%s\n' "$text"
 		} >>"$out/$label-starts.txt"
 		echo "$total" >>"$out/$label-totals.txt"
@@ -504,6 +513,10 @@ done
 			echo "startup clock is SystemClock.elapsedRealtime. process t is Process.startElapsedRealtime. list is the first list-first= line."
 			echo "method=am start -W -S LaunchState=COLD warmup=1 discarded per series interleaved=1 percentile=Hyndman-Fan-7"
 			echo "load=$(tr '\n' ' ' <"$out/round-load.txt" | sed 's/ $//')"
+			echo "guest rounds are in guest.txt. A guest_load at or above 2.0 is a warning. The sample stays."
+			if [[ -f "$out/guest.txt" ]]; then
+				cat "$out/guest.txt"
+			fi
 		} >"$out/$label-summary.txt"
 		echo "startup_since_process_p50 $label runtime=$runtime_p50 render=$render_p50 attach=$attach_p50 bind=$bind_p50 draw=$draw_phase_p50 list=$list_p50"
 		echo "startup_breakdown_p50 $label before=$before_p50 managed=$managed_p50 after=$after_p50 oncreate=$oncreate_p50 layout=$layout_p50 idle=$idle_p50 flush=$flush_p50"

@@ -544,6 +544,7 @@ sealed class AndroidHost : IElementHost<View>
 		{
 			Button button => (button.SourceFile, button.SourceLine),
 			TextField field => (field.SourceFile, field.SourceLine),
+			TextInput input => (input.SourceFile, input.SourceLine),
 			Switch toggle => (toggle.SourceFile, toggle.SourceLine),
 			_ => ("", 0),
 		};
@@ -593,22 +594,46 @@ sealed class AndroidHost : IElementHost<View>
 				return;
 			if (edit is AndroidField marked && marked.Key is not null && !FieldFocus.Frozen)
 				FieldFocus.Note(marked.Key, marked.SelectionStart, marked.SelectionEnd);
-			if (CurrentElement(path) is TextField field)
+			var text = args.Text?.ToString() ?? "";
+			switch (CurrentElement(path))
 			{
+				case TextField field:
 #if DEBUG
-				var text = args.Text?.ToString() ?? "";
-				Guard(field, () => field.OnChange(text));
+					Guard(field, () => field.OnChange(text));
 #else
-				field.OnChange(args.Text?.ToString() ?? "");
+					field.OnChange(text);
 #endif
+					break;
+				case TextInput input:
+#if DEBUG
+					Guard(input, () => input.OnChange(text));
+#else
+					input.OnChange(text);
+#endif
+					break;
+				default:
+					break;
 			}
 		};
 		edit.TextChanged += handler;
 		EventHandler<TextView.EditorActionEventArgs> editor = (_, args) =>
 		{
-			if (CurrentElement(path) is not TextField current || current.OnSubmit is null)
+			var current = CurrentElement(path);
+			var submit = current switch
+			{
+				TextField field => field.OnSubmit,
+				TextInput input => input.OnSubmit,
+				_ => null,
+			};
+			var kind = current switch
+			{
+				TextField field => field.Submit,
+				TextInput input => input.Submit,
+				_ => Submit.None,
+			};
+			if (submit is null || current is not (TextField or TextInput))
 				return;
-			var expected = current.Submit switch
+			var expected = kind switch
 			{
 				Submit.Next => ImeAction.Next,
 				Submit.Send => ImeAction.Send,
@@ -629,9 +654,9 @@ sealed class AndroidHost : IElementHost<View>
 				gate.LastSubmit = now;
 			}
 #if DEBUG
-			Guard(current, current.OnSubmit);
+			Guard(current, submit);
 #else
-			current.OnSubmit();
+			submit();
 #endif
 			args.Handled = true;
 		};

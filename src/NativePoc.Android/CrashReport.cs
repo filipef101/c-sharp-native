@@ -5,9 +5,9 @@ using Android.Widget;
 namespace NativePoc;
 
 // Release keeps StackTraceSupport so the stack names C# methods.
-// The frames are "at Type.Method() + offset" with no file:line.
-// IlcGenerateDebugInfo stays false, so the APK has no native symbol file.
-// The managed pdb stays under obj and is not packaged.
+// A frame is "at Type.Method() + 0xoffset" or "BaseAddress+0xoffset".
+// The log has no file:line. tools/devx/symbolicate-stack.sh reads
+// NativePoc.Android.so.dbg, which is kept beside the build and is not in the APK.
 static class CrashReport
 {
 	static bool _installed;

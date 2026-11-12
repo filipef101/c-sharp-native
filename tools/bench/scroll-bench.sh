@@ -4,6 +4,8 @@
 # list-first=, then resets gfxinfo so frames from earlier screens are
 # not in the window. Swipes, then reports frames, janky percent, and
 # p50/p90/p99 frame time from framestats. Host load is `uptime`.
+# Each round also records guest loadavg, top, whether dex2oat is running,
+# and the GLES renderer. Guest load at or above 2.0 prints a warning.
 # Percentiles are Hyndman-Fan type 7, the same function as mac-bench.sh.
 #
 # Frame time is FrameCompleted - IntendedVsync. That includes the wait from
@@ -24,6 +26,8 @@
 #     --run feed:feed.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
 #     --run floor:list-floor.apk:com.scratch.listfloor/.ListFloorActivity
 set -euo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/guest-env.sh"
 
 serial=""
 apk=""
@@ -328,6 +332,7 @@ EOF
 	fi
 	rounds=1
 	labels=()
+	bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/guest-env.sh" --self-test >/dev/null
 	echo "scroll-bench self-test ok"
 }
 
@@ -406,6 +411,7 @@ while [[ "$index" -lt "${#labels[@]}" ]]; do
 		echo "Install failed: ${labels[$index]}" >&2
 		exit 1
 	fi
+	package_background "${components[$index]%%/*}" "$out/package-${labels[$index]}.txt"
 	: >"$out/frames-${labels[$index]}.txt"
 	: >"$out/work-${labels[$index]}.txt"
 	: >"$out/vsync-${labels[$index]}.txt"
@@ -505,6 +511,7 @@ one_round() {
 	fi
 	{
 		echo "label=$label apk=$apk_path round=$round load=$load size=${width}x${height} swipe=${x},${y1},${x},${y2},250"
+		echo "guest ${guest_line:-none}"
 		echo "list=${list_line:-none}"
 		echo "summary_frames=${summary_frames:-none}"
 		echo "summary_janky=${summary_janky:-none}"
@@ -522,7 +529,11 @@ one_round() {
 }
 
 round=0
+: >"$out/guest.txt"
 while [[ "$round" -lt "$rounds" ]]; do
+	guest_line="$(capture_guest "$out/round-$round-guest.txt")"
+	printf '%s\n' "round=$round $guest_line" >>"$out/guest.txt"
+	echo "round $round $guest_line" >&2
 	index=0
 	while [[ "$index" -lt "${#labels[@]}" ]]; do
 		one_round "$round" "${labels[$index]}" "${apks[$index]}" "${components[$index]}" "${extras[$index]}"
@@ -546,4 +557,8 @@ done
 		index=$((index + 1))
 	done
 	echo "load=$(tr '\n' ' ' <"$out/loads.txt" | sed 's/ $//')"
+	echo "guest rounds are in guest.txt. A guest_load at or above 2.0 is a warning. The sample stays."
+	if [[ -f "$out/guest.txt" ]]; then
+		cat "$out/guest.txt"
+	fi
 } | tee "$out/summary.txt"

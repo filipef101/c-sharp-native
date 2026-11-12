@@ -293,3 +293,93 @@ Counter and feed in that command are the feed APK, which has the phase logs. The
 ## Action log race
 
 `Recursion_stops_at_the_call_depth` reads `ActionLog.LastStop` after the tap. `LastStop`, `LastSteps`, and `LastMicros` were process-global. xUnit runs test classes in parallel, and another test's `Note` replaced them before the assert. The callbacks stay process-global, because the activity sets them on the UI thread and a later Java callback does not keep an `AsyncLocal` from `OnCreate`. The three result fields are an `AsyncLocal`. `Parallel_notes_keep_their_own_stop` writes two stops on two threads, waits until both writes have happened, and checks each thread still sees its own. Core tests: 75 passed. Packing tests: 14 passed. Devx tests: 139 passed, including `Recursion_stops_at_the_call_depth`. `mac-bench.sh --self-test` passed.
+
+## Mac cold start after 91baaf3
+
+Maintainer-measured, not measured in this workspace. arm64 pixel_8 emulator, host GPU, host load 9.5-12.4, n=20 interleaved, Hyndman-Fan type 7. Feed APK sha256 `998a2cfa6ee6bb6f7e9064ca473fd0604338219aea06031b2dc8f344ff49de1c`. List floor sha256 `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1`, the same bytes as the run 45 minutes earlier.
+
+TotalTime p50/p90: counter 123.0/152.2, feed 132.5/180.7, floor 125.5/220.3. Feed minus floor is 7 ms at p50. The flush is after TotalTime.
+
+Since-process p50, feed: runtime 29, render 37, bind 64, draw 67, hold 90.5, idle 92, flush 119, direction 114.5, warm 115.5. Counter: java_attach 7, java 14, jni 21.5, enter 23, runtime 24, draw 61.5. Floor: onCreate 13, draw 58.5.
+
+Every absolute fell by about 3x against that earlier run. The floor went from 397 to 125.5 on the byte-identical list floor APK, the same emulator process, the same uptime, and the same bench script apart from the new split line. The guest load average just after the run was 1.13. The earlier Mac absolutes were inflated by something in the guest. Same-run relatives are the numbers to keep. This run's 7 ms gap replaces the earlier 49.5 ms gap.
+
+## Guest load in the benches
+
+`tools/bench/guest-env.sh` is sourced by `mac-bench.sh`, `cold-start.sh`, and `scroll-bench.sh`. Each round records `/proc/loadavg`, the first `top -n 1 -b` process that is not the probe itself, whether `dex2oat`, `odrefresh`, or `dexoptanalyzer` is in `ps`, the `BackgroundDexoptJobService` Ready line from `dumpsys jobscheduler`, and the SurfaceFlinger GLES line. SwiftShader is `gpu=swiftshader`. Any other GLES line is `gpu=host`. A 1-minute load at or above 2.0 prints `warning: guest load … is high` and the sample stays in the series. 1.13 does not warn. The benches do not run `pm bg-dexopt-job` without `--cancel`, because that starts the job.
+
+After install, the bench writes the package's activity, receiver, service, and content-provider lines, and any live process. On the Release APK that dump is one activity, `NativeAotRuntimeProvider`, `service none`, `receiver none`, and `processes: none` once `am start -S` has returned and the process has exited. The manifest has no service and no receiver. `RecreateReceiver` and the hot-reload listener are `#if DEBUG`. Release refuses `NativePocDevListener`. Nothing is `START_STICKY`. `CrashReport` calls `KillProcess` after the crash screen. The stripped counter `.so` has no `HotReload` or `DevListener` string. A Debug listener left running would keep a process. A Release APK does not. Installing an APK can start dexopt, and the bench records that instead of assuming the guest is idle.
+
+Emulator-run, emulator-5554, API 34, swiftshader. The warning fired. One counter series climbed from guest load 0.74 to 3.36 with the top CPU on `android.hardware.graphics.composer3-service.ranchu`, dexopt idle. The app was not the process sitting between samples.
+
+## Release file:line
+
+`NativeDebugSymbols` is the switch that passes `-g` to ILC. `DebugSymbols` is also true so the portable pdb is emitted. The Android NativeAOT targets turn `StripSymbols` off when `DebugSymbols` is true, which would ship the debug sections. `KeepSequencePointsForDbg` runs after `_PrepareLinking` and sets `StripSymbols` back to true and `TrimmerRemoveSymbols` to false. `IlcGenerateDebugInfo` is not read by the ILCompiler targets. `AndroidIncludeDebugSymbols` stays false, so the runtime type map does not change. `DropPdbFromPackage` removes `.pdb` files from the package. The APK zip is `classes.dex` and `lib/<abi>/libNativePoc.Android.so`. The `.so` has a `.gnu_debuglink` and no `.debug_line`. `NativePoc.Android.so.dbg` is written beside the build.
+
+`tools/devx/symbolicate-stack.sh` takes that `.dbg` and a log line. A frame is `at Type.Method() + 0xoffset`, `BaseAddress+0xoffset`, or a tombstone `pc` in `libNativePoc.Android.so`. It finds the native symbol and prints `file:line`.
+
+Emulator-run on the shipped counter x64 APK below. `am start` with `nativepoc_crash=throw` logged `at NativePoc.CrashReport.ThrowNow() + 0x27` and `at NativePoc.CrashReport.ThrowSoon.Run() + 0x6`. The script printed `CrashReport.cs:45` and `CrashReport.cs:41`. Line 45 is the `throw`. Line 41 is `Run() => ThrowNow()`. The same two lines resolve for that text against the `.dbg`. Not a phone. Not iOS.
+
+## Live accessibility
+
+Emulator-run, emulator-5554, API 34, x86_64, swiftshader, density 420, font scale 1.0. `uiautomator dump` plus `cnative agent a11y --check`. TalkBack was not used. 48 dp is 126 px at this density. The checker reported `violations=0`, `headings=0`, `heading-attribute=absent` for counter, feed, and packing. The host logged `a11y-heading` when the node was built. The API 34 dump has no `heading` attribute, so a client that only reads that XML does not see the heading.
+
+Counter, top to bottom: TextView "Counter 0", EditText "Name" height 126, Button "Save name" height 126, Text "Enter a name" height 51, Button "Packing" height 126. Focusable order follows that. No reversal.
+
+Feed, the parent feed x64 APK (`a5d8aa6d`), the feed screen is unchanged in this patch. Buttons Refresh, Post, and Back are height 126 with matching descriptions. The list's description is "List". Row titles have text `• Row 0000` and an empty content description. Images are described as `feed_mark` or the `http://10.0.2.2:8094/img/…` URL. The last image is clipped by the list to height 98 px, about 37 dp, and it is not clickable.
+
+Packing, the real list, not `packing1000`. Heading "Packing". Row names are clickable TextViews of height 126, not Buttons. Switches "Packed …" and Edit buttons are height 126 except the last switch, "Packed Water bladder", clipped to 87 px on the scroll edge. The checker skips that clip. Failed images are 63 px, about 24 dp, description "Image failed", not clickable.
+
+## Visit
+
+`samples/visit` is a form. Empty Place sets the error "Place is required". Otherwise Save awaits `Http.GetJson` and pushes the row. Locate awaits `Location.Read`. Open pushes `stop` with that row. The stop screen awaits the same URL. The screen is compiled only when `NativePocHttp` and `NativePocLocation` are both true, so a counter Release does not contain it. The listener publish passes `-p:NativePocLocation=true` along with http and the recycler, so a listener can reload it. A listener publish was not run on the emulator for this screen. Hot reload of visit on a device is unverified. The lowerer test `The_visit_form_lowers_and_the_stop_screen_fetches` passed.
+
+`TextInput` and `TextField` are different elements and both lower to an `EditText`. The Android host was calling `OnChange` and `OnSubmit` only for `TextField`, so a typed Visit place stayed in the widget and Save still saw an empty string. The host now calls both. The counter uses `TextField` and was already updating.
+
+Emulator-run on the visit x64 APK below. Not a phone. Not iOS. Empty Save showed "Place is required". After `geo fix`, Locate showed `granted 38.5 -121.5 5`. pier / friday, then Save, fetched `http://10.0.2.2:8094/visit` and showed the row and Open. The stop screen showed pier, friday, and after Lookup the body `{"stop":"pier"}`.
+
+Cold start, emulator-5554, API 34, swiftshader, n=10, one warmup discarded, Hyndman-Fan type 7, sequential because the two APKs share a package. Not interleaved. Not a phone.
+
+Counter, guest load 0.00 to 1.82, no warning, dexopt idle, gpu swiftshader. TotalTime p50/p90 745.5/822.7. Sorted 699 726 732 745 745 746 778 810 822 829.
+
+Visit, started at guest load 1.68 and climbed to 2.60. The warning fired from the fourth sample. Dexopt idle. The top CPU was the emulator composer, except one sample at 21.4% in `com.scratch.nativepoc` just after that launch returned. TotalTime p50/p90 750.0/886.7. Sorted 669 676 701 740 743 757 759 798 884 911. p50 is 4.5 ms above the counter. The visit p90 includes samples taken after the warning, so that tail is not a clean module cost. The `.so` sizes below are the stable comparison.
+
+An earlier pair on the same emulator, taken while the guest was already hot, warned the whole way: counter p50/p90 750.5/817.2 at load 0.74 to 3.36, visit 786.5/921.1 at load 3.49 to 4.76. Those absolutes are the case the warning is for.
+
+## Sizes
+
+Stripped Release. The `.dbg` is not in the APK. Counter dex is the same hash as the 91baaf3 counter. Feed dex is the same hash as the 91baaf3 feed. The native library grew by the `TextInput` handler and the debug link.
+
+| build | APK bytes | APK sha256 | .so bytes | .so sha256 | dex bytes |
+| --- | --- | --- | --- | --- | --- |
+| counter x64, emulator-run | 3,040,117 | `67434db151f517580d75e4d290b98d087bd964e1b8badd5d16441431f5eb2897` | 7,005,456 | `9c6c67562064889b3199d9f49cec45d44ad6f717b3b07de6c545ba9685297fbf` | 49,132 |
+| visit x64, emulator-run | 3,130,229 | `889e4b6df4e82ec2e051ff393db5cd0c62e2d469d13b13388c457fa21ee8d7b3` | 7,217,408 | `d5a5253b86543498568a115634ca78ed4a7a23e1d616c09b20155f9e0a2c4946` | 51,488 |
+| counter arm64, built, not run | 2,884,472 | `082dfc8c03db91b9688905a4502b9d9a9642113ae7c55f7ed0f0e56d1e53e446` | 7,226,816 | `aa74d83f0963a5cdb741f52593649d5c5f7894b3228693dac8e6d84b65a9501b` | 49,132 |
+| feed arm64, built, not run, marks on | 3,112,687 | `f4112d9c12f1d780f5b7db84400fef8fa72da5708f0d0e77122a64da49e225da` | 7,390,328 | `e6f80a21785838fc5157cb3d1d44f9419d81784819415204795c64281b6bc632` | 324,696 |
+| visit arm64, built, not run | 2,966,392 | `7450ff37c46d9009dfc325e3a4c496fe65850f629dbf526b023658f1b0f44eec` | 7,450,104 | `6fc83a6152861a8efadfcdccfe1edcc6626b77c18864e7eebdce023f1b77ee95` | 51,488 |
+
+Counter and visit dex sha256: counter `9dfcb4050caa2180e13dfdfd8ec09df6b4c729e318d507d1fa34f4ceab421cf7`, visit `3c8367147d5d281d755b9f2ade72b90853b40e0a7b6ea26ee46d930811f36899`, same hash on both ABIs. Feed dex sha256 `f6871145b29abd2bd6fcbee42647472fc20b370c00ca0a859af3aec90524b150`. List floor unchanged, both ABIs, 531,381 sha256 `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1`.
+
+Visit x64 `.so` is 211,952 bytes above the counter x64 `.so`. Visit arm64 `.so` is 223,288 bytes above the counter arm64 `.so`. That is http, location, and `samples/visit`. The counter does not contain them.
+
+```
+tools/bench/mac-bench.sh --device <pixel_8> --n 20 --out /tmp/feed-cold \
+  --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+```
+tools/bench/scroll-bench.sh --serial <pixel_8> --swipes 8 --rounds 5 \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+```
+tools/bench/cold-start.sh --device emulator-5554 --n 10 --name visit --out /tmp/cold-visit \
+  --apk nativepoc-visit-android-arm64.apk \
+  --component com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  -- --es nativepoc_root visit
+```
+
+Counter and feed in the Mac command are the feed APK, which has the phase logs. The smaller counter APK has the probes compiled out. Visit is a third APK, http and location on, probes off. Core tests: 75 passed. Packing tests: 14 passed. Devx tests: 142 passed. `guest-env.sh --self-test`, `symbolicate-stack.sh --self-test`, `mac-bench.sh --self-test`, `cold-start.sh --self-test`, and `scroll-bench.sh --self-test` passed.
