@@ -6,6 +6,7 @@ This table is generated from the subset rules. A test lowers each row that has a
 | --- | --- | --- |
 | Text, keys, and button labels | yes | The screen file lowers again and the same process applies the program. |
 | A local function after the return | yes | Render hoists every local function before the rest of the body. |
+| An expression-bodied local function nested in another | yes | Render hoists every local function, and an expression body lowers as that function. |
 | platform.OnOpen after the markup | yes | OnOpen is hoisted and runs when the screen id changes. |
 | await into a string local | yes | The result is a string slot, not a state field. |
 | A JNI binding call in a button | yes | The call is the jni module through JniRegistry, or a diagnostic on that call. |

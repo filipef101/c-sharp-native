@@ -30,6 +30,8 @@ public static partial class SubsetLowerer
 					return Throw(thrown, script);
 				case TryStatementSyntax tried:
 					return TryStatement(tried, parameter, script);
+				case LocalFunctionStatementSyntax:
+					return true;
 				default:
 					return Fail(BadLambda, ActionLimit, statement);
 			}

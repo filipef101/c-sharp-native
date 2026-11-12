@@ -43,9 +43,9 @@ public static partial class SubsetLowerer
 					continue;
 				}
 
-				if (pair.Key.Contains('.', StringComparison.Ordinal))
+				if (pair.Key.StartsWith(_stateType + ".", StringComparison.Ordinal))
 					state.Add(pair.Value);
-				else
+				else if (!pair.Key.Contains('.', StringComparison.Ordinal))
 					screen.Add(pair.Value);
 			}
 

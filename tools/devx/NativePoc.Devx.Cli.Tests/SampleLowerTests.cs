@@ -272,6 +272,172 @@ public sealed class SampleLowerTests
 	}
 
 	[Fact]
+	public void An_expression_bodied_local_function_runs_after_the_return()
+	{
+		const string source = """
+			namespace NativePoc.Notes;
+			public sealed class NotesState
+			{
+				public string Title { get; set; } = "";
+			}
+			public static class NotesScreen
+			{
+				public static Element Render(NotesState state, IPlatform platform)
+				{
+					return new Button("Go", () => Mark(), "Go") { Key = "go" };
+					void Mark() => state.Title = "marked";
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var session = ScreenSession.Open(lowered.Program!);
+		session.Tap("go");
+		Assert.Equal("marked", session.Bag.ReadString("Title"));
+	}
+
+	[Fact]
+	public void A_nested_local_function_is_hoisted_and_runs()
+	{
+		const string source = """
+			namespace NativePoc.Notes;
+			public sealed class NotesState
+			{
+				public string Title { get; set; } = "";
+			}
+			public static class NotesScreen
+			{
+				public static Element Render(NotesState state, IPlatform platform)
+				{
+					return new Button("Go", () => Outer(), "Go") { Key = "go" };
+					void Outer()
+					{
+						Inner();
+						void Inner() => state.Title = "nested";
+					}
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var session = ScreenSession.Open(lowered.Program!);
+		session.Tap("go");
+		Assert.Equal("nested", session.Bag.ReadString("Title"));
+	}
+
+	[Fact]
+	public void A_companion_data_class_is_recorded_and_a_foreign_member_is_reported()
+	{
+		var root = Repo();
+		var file = Path.Combine(root, "samples", "NativePoc.Packing", "PackingScreen.cs");
+		var source = File.ReadAllText(file);
+		var companions = Directory.EnumerateFiles(Path.GetDirectoryName(file)!, "*.cs")
+			.Where(item => !string.Equals(item, file, StringComparison.Ordinal))
+			.Select(File.ReadAllText)
+			.ToArray();
+		var lowered = SubsetLowerer.TryLower(source, companions, originFile: "samples/NativePoc.Packing/PackingScreen.cs");
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		Assert.Contains("PackingState", lowered.Types, StringComparer.Ordinal);
+		Assert.Contains("PackingRoute", lowered.Types, StringComparer.Ordinal);
+		Assert.Contains("PackingItem", lowered.Types, StringComparer.Ordinal);
+		var reported = Assert.Single(lowered.Reported, diagnostic => diagnostic.Message.Contains("PackingSession", StringComparison.Ordinal));
+		Assert.Contains("Change", reported.Message, StringComparison.Ordinal);
+		Assert.True(reported.Line > 0);
+		Assert.True(reported.Column > 0);
+	}
+
+	[Fact]
+	public void Every_referenced_type_is_in_the_program_or_reported()
+	{
+		var root = Repo();
+		var files = Directory.EnumerateFiles(Path.Combine(root, "samples"), "*Screen.cs", SearchOption.AllDirectories)
+			.Append(Path.Combine(root, "src", "NativePoc.Screen", "Screen.cs"))
+			.OrderBy(path => path, StringComparer.Ordinal);
+		foreach (var file in files)
+		{
+			var source = File.ReadAllText(file);
+			var dir = Path.GetDirectoryName(file)!;
+			var companions = Directory.EnumerateFiles(dir, "*.cs")
+				.Where(item => !string.Equals(item, file, StringComparison.Ordinal))
+				.Select(File.ReadAllText)
+				.ToArray();
+			var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+			var lowered = SubsetLowerer.TryLower(source, companions, originFile: relative);
+			Assert.True(lowered.Ok, relative);
+			var names = new HashSet<string>(StringComparer.Ordinal);
+			CollectTypes(source, names);
+			foreach (var companion in companions)
+				CollectTypes(companion, names);
+			var screen = StaticClass(source);
+			if (screen is not null)
+				names.Remove(screen);
+			foreach (var name in names)
+			{
+				if (!Uses(source, name))
+					continue;
+				var recorded = lowered.Types.Contains(name, StringComparer.Ordinal);
+				var reported = lowered.Reported.Any(diagnostic => diagnostic.Line > 0 && diagnostic.Message.Contains(name, StringComparison.Ordinal));
+				Assert.True(recorded || reported, relative + " " + name);
+			}
+		}
+	}
+
+	static void CollectTypes(string source, HashSet<string> names)
+	{
+		foreach (var token in new[] { "class ", "record ", "enum ", "interface " })
+		{
+			var index = 0;
+			while ((index = source.IndexOf(token, index, StringComparison.Ordinal)) >= 0)
+			{
+				var start = index + token.Length;
+				while (start < source.Length && char.IsWhiteSpace(source[start]))
+					start++;
+				if (source.AsSpan(start).StartsWith("class ") || source.AsSpan(start).StartsWith("struct "))
+				{
+					index = start;
+					continue;
+				}
+
+				var end = start;
+				while (end < source.Length && (char.IsLetterOrDigit(source[end]) || source[end] == '_'))
+					end++;
+				if (end > start)
+					names.Add(source[start..end]);
+				index = end;
+			}
+		}
+	}
+
+	static string? StaticClass(string source)
+	{
+		const string token = "static class ";
+		var index = source.IndexOf(token, StringComparison.Ordinal);
+		if (index < 0)
+			return null;
+		var start = index + token.Length;
+		var end = start;
+		while (end < source.Length && (char.IsLetterOrDigit(source[end]) || source[end] == '_'))
+			end++;
+		return end > start ? source[start..end] : null;
+	}
+
+	static bool Uses(string source, string name)
+	{
+		var index = 0;
+		while ((index = source.IndexOf(name, index, StringComparison.Ordinal)) >= 0)
+		{
+			var before = index == 0 || (!char.IsLetterOrDigit(source[index - 1]) && source[index - 1] != '_');
+			var afterAt = index + name.Length;
+			var after = afterAt >= source.Length || (!char.IsLetterOrDigit(source[afterAt]) && source[afterAt] != '_');
+			if (before && after)
+				return true;
+			index = afterAt;
+		}
+
+		return false;
+	}
+
+	[Fact]
 	public void A_telemetry_increment_is_a_module_call()
 	{
 		const string source = """

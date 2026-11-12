@@ -11,7 +11,7 @@ These files exist and name the current program and record contract. They are not
 | `spikes/ios/NativePoc.iOS/NativePoc.iOS.csproj` | `net10.0-ios` project. Debug uses the interpreter. Release leaves `PublishAot` off. |
 | `spikes/ios/NativePoc.iOS/UIKitHost.cs` | `IElementHost<UIView>` for Column, Text, Button, TextField, Switch, Scroll, List, Image, and Host. Applies `Style`, `Motion`, and the gesture mask. Host is a `UIView`. This file is still not compiled. |
 | `spikes/ios/NativePoc.iOS/ScreenController.cs` | Renders `ScreenNav.Shared.Top()` through the same reconciler, and falls back to `Screen.Render`. |
-| `spikes/ios/NativePoc.iOS/PlatformBridge.cs` | `IPlatform` for nav, effects, and the five modules (`clipboard`, `haptics`, `share`, `storage`, `theme`). |
+| `spikes/ios/NativePoc.iOS/PlatformBridge.cs` | `IPlatform` for nav, effects, and the modules. `jni` and `telemetry` go through the same `IosBridge` switch as Android. This file is not compiled for device. |
 | `spikes/ios/NativePoc.iOS/IosCatalog.cs` | `RecordProgram.ScreenId` plus `ScreenNav.Shared.Register` / `ShowRoot`. |
 | `spikes/ios/NativePoc.iOS/AppDelegate.cs` | Window and root controller. |
 
@@ -35,6 +35,8 @@ The gesture mask uses `UITapGestureRecognizer`, `UILongPressGestureRecognizer`, 
 Do not read the authored UIKit files as a successful iOS build. The recognizer constructors, `UIImage.FromBundle`, and the app entry point are written to the current contract and have not been type-checked by the iOS SDK.
 
 ## Conformance
+
+The managed host runs the same reload program Android does for a `jni` binding call and a `telemetry` increment. `IosBridge.Module` calls `JniRegistry` and `ModuleTelemetry`. That test is on `net10.0`. `spikes/ios/NativePoc.iOS` (`net10.0-ios`) was not compiled for device. There is no iOS binary, simulator log, or device log.
 
 `PlatformConformance.Run` is the suite a screen platform has to pass: create, update, remove, text, a list, an accessibility label, a hot-reload `Apply`, a push, a pop, the heading key as the focus target, and a second `Apply` that leaves the stack at depth 2. On Linux it passes on `HeadlessHost`, on `ViewReconciler` with `MemoryHost`, and on `IosLogicSurface`. `IosLogicSurface` records that focus key. It does not construct UIKit. `IosLogicSurface` is the UIKit host's managed decisions (`HostPolicy` and `IosBridge`) on `ViewReconciler<IosView>`. `Android.Views` is not constructed here. `spikes/ios/NativePoc.iOS` (`net10.0-ios`) was not compiled. There is no iOS binary, simulator log, or device log.
 

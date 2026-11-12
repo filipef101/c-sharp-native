@@ -39,6 +39,9 @@ public static class IosBridge
 		"http.GetJson",
 		"http.PostJson",
 		"location.Read",
+		"jni.Call",
+		"telemetry.FieldDeliveries",
+		"telemetry.SwitchDeliveries",
 	];
 
 	public static void CopyText(IIosServices services, string label, string text)
@@ -76,6 +79,19 @@ public static class IosBridge
 
 	public static void Module(IIosServices services, string module, string method, string[] args)
 	{
+		switch (module, method, args.Length)
+		{
+			case ("jni", _, _):
+				JniRegistry.Call(method, args);
+				return;
+			case ("telemetry", "FieldDeliveries", 0):
+				ModuleTelemetry.FieldDeliveries++;
+				return;
+			case ("telemetry", "SwitchDeliveries", 0):
+				ModuleTelemetry.SwitchDeliveries++;
+				return;
+		}
+
 		ArgumentNullException.ThrowIfNull(services);
 		switch (module, method)
 		{

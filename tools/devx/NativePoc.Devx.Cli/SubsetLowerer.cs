@@ -15,10 +15,15 @@ public sealed record SubsetResult(byte[]? Program, IReadOnlyList<SubsetDiagnosti
 
 	public IReadOnlyList<(bool Works, int Length)> Actions { get; init; } = [];
 
-	public static SubsetResult Ready(byte[] program, IReadOnlyList<(bool Works, int Length)>? actions = null) =>
-		new(program, Array.Empty<SubsetDiagnostic>()) { Actions = actions ?? [] };
+	public IReadOnlyList<string> Types { get; init; } = [];
 
-	public static SubsetResult Refuse(SubsetDiagnostic diagnostic) => new(null, [diagnostic]);
+	public IReadOnlyList<SubsetDiagnostic> Reported { get; init; } = [];
+
+	public static SubsetResult Ready(byte[] program, IReadOnlyList<(bool Works, int Length)>? actions = null, IReadOnlyList<string>? types = null, IReadOnlyList<SubsetDiagnostic>? reported = null) =>
+		new(program, Array.Empty<SubsetDiagnostic>()) { Actions = actions ?? [], Types = types ?? [], Reported = reported ?? [] };
+
+	public static SubsetResult Refuse(SubsetDiagnostic diagnostic, IReadOnlyList<string>? types = null, IReadOnlyList<SubsetDiagnostic>? reported = null) =>
+		new(null, [diagnostic]) { Types = types ?? [], Reported = reported ?? [] };
 }
 
 public static partial class SubsetLowerer
@@ -49,13 +54,24 @@ public static partial class SubsetLowerer
 
 		var records = new Dictionary<string, List<Field>>(StringComparer.Ordinal);
 		var methods = new Dictionary<string, MethodDeclarationSyntax>(StringComparer.Ordinal);
+		var enums = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
+		foreach (var member in members)
+		{
+			if (member is not EnumDeclarationSyntax enumerated)
+				continue;
+			if (!RecordEnum(enumerated, enums, records, source, out var enumError))
+				return SubsetResult.Refuse(enumError!);
+		}
+
 		ClassDeclarationSyntax? screen = null;
 		foreach (var member in members)
 		{
 			switch (member)
 			{
+				case EnumDeclarationSyntax:
+					break;
 				case RecordDeclarationSyntax record:
-					if (!RecordFields(record, records, methods, source, out var recordError))
+					if (!RecordFields(record, records, methods, enums, null, source, out var recordError))
 						return SubsetResult.Refuse(recordError!);
 					break;
 				case ClassDeclarationSyntax type when type.Modifiers.Any(SyntaxKind.StaticKeyword):
@@ -64,7 +80,7 @@ public static partial class SubsetLowerer
 					screen = type;
 					break;
 				case ClassDeclarationSyntax type:
-					if (!RecordFields(type, records, methods, source, out var classError))
+					if (!RecordFields(type, records, methods, enums, null, source, out var classError))
 						return SubsetResult.Refuse(classError!);
 					break;
 				default:
@@ -105,8 +121,9 @@ public static partial class SubsetLowerer
 
 		if (render is null || !IsRender(render, out var stateName, out var stateType, out var platformName))
 			return SubsetResult.Refuse(At(NotAScreen, "A subset screen is a static class with Render(state, IPlatform).", render ?? (SyntaxNode)screen, source));
-		if (!CompanionRecords(companions, records, methods, stateType, out var companionError))
-			return SubsetResult.Refuse(companionError!);
+		var reported = new List<SubsetDiagnostic>();
+		if (!CompanionRecords(companions, records, methods, enums, stateType, reported, out var companionError))
+			return SubsetResult.Refuse(companionError!, TypeNames(records), reported);
 		if (!records.TryGetValue(stateType, out var fields))
 		{
 			if (!Infer(render, stateName, source, out fields, out var inferred))
@@ -125,7 +142,7 @@ public static partial class SubsetLowerer
 		{
 			if (!lower.Body(render))
 				return new SubsetResult(null, lower.Errors);
-			return SubsetResult.Ready(lower.Finish(), lower.Actions);
+			return SubsetResult.Ready(lower.Finish(), lower.Actions, TypeNames(records), reported);
 		}
 		catch (InvalidOperationException ex)
 		{
@@ -340,41 +357,147 @@ public static partial class SubsetLowerer
 		return false;
 	}
 
+	static string[] TypeNames(Dictionary<string, List<Field>> records)
+	{
+		var names = records.Keys.ToArray();
+		Array.Sort(names, StringComparer.Ordinal);
+		return names;
+	}
+
 	static bool CompanionRecords(
 		IReadOnlyList<string>? companions,
 		Dictionary<string, List<Field>> records,
 		Dictionary<string, MethodDeclarationSyntax> methods,
+		Dictionary<string, Dictionary<string, int>> enums,
 		string stateType,
+		List<SubsetDiagnostic> reported,
 		out SubsetDiagnostic? error)
 	{
 		error = null;
 		if (companions is null)
 			return true;
+		var waiting = new List<(TypeDeclarationSyntax Type, string Source)>();
 		foreach (var companion in companions)
 		{
 			if (!ParseMembers(companion, out var members, out error))
 				return false;
 			foreach (var member in members)
 			{
-				if (member is not ClassDeclarationSyntax type || type.Modifiers.Any(SyntaxKind.StaticKeyword))
-					continue;
-				if (!RecordFields(type, records, methods, companion, out error))
+				switch (member)
 				{
-					var prefix = type.Identifier.ValueText + ".";
-					foreach (var key in methods.Keys.Where(key => key.StartsWith(prefix, StringComparison.Ordinal)).ToArray())
-						methods.Remove(key);
-					records.Remove(type.Identifier.ValueText);
-					if (type.Identifier.ValueText == stateType)
-						return false;
-					error = null;
+					case EnumDeclarationSyntax enumerated:
+						if (!RecordEnum(enumerated, enums, records, companion, out error))
+							return false;
+						break;
+					case InterfaceDeclarationSyntax face:
+						reported.Add(At(UnknownType, face.Identifier.ValueText + " is an interface. Change " + face.Identifier.ValueText + " to a class or record of string, bool, int, or list properties, or stop using " + face.Identifier.ValueText + " from the screen.", face, companion));
+						break;
+					case TypeDeclarationSyntax type when type.Modifiers.Any(SyntaxKind.StaticKeyword):
+						reported.Add(At(UnknownType, type.Identifier.ValueText + " is static. Change " + type.Identifier.ValueText + " to a class or record of string, bool, int, or list properties, or stop using " + type.Identifier.ValueText + " from the screen.", type, companion));
+						break;
+					case TypeDeclarationSyntax type:
+						waiting.Add((type, companion));
+						break;
+					default:
+						reported.Add(At(UnknownMember, MemberName(member) + " is not a data class, record, or enum. Change it, or stop using it from the screen.", member, companion));
+						break;
 				}
+			}
+		}
+
+		var pending = waiting;
+		while (pending.Count > 0)
+		{
+			var next = new List<(TypeDeclarationSyntax Type, string Source)>();
+			var recorded = 0;
+			foreach (var (type, source) in pending)
+			{
+				if (RecordFields(type, records, methods, enums, type.Identifier.ValueText, source, out var typeError))
+				{
+					recorded++;
+					continue;
+				}
+
+				DropType(type.Identifier.ValueText, records, methods);
+				next.Add((type, source));
+				error = typeError;
+			}
+
+			if (recorded == 0)
+				break;
+			pending = next;
+		}
+
+		foreach (var (type, source) in pending)
+		{
+			DropType(type.Identifier.ValueText, records, methods);
+			if (!RecordFields(type, records, methods, enums, type.Identifier.ValueText, source, out error))
+			{
+				DropType(type.Identifier.ValueText, records, methods);
+				if (error is null)
+					error = At(UnknownType, type.Identifier.ValueText + " was not recorded. Change it to string, bool, int, or list properties, or stop using " + type.Identifier.ValueText + " from the screen.", type, source);
+				if (type.Identifier.ValueText == stateType)
+					return false;
+				reported.Add(error);
+				error = null;
 			}
 		}
 
 		return true;
 	}
 
-	static bool RecordFields(TypeDeclarationSyntax type, Dictionary<string, List<Field>> records, Dictionary<string, MethodDeclarationSyntax> methods, string source, out SubsetDiagnostic? error)
+	static void DropType(string name, Dictionary<string, List<Field>> records, Dictionary<string, MethodDeclarationSyntax> methods)
+	{
+		var prefix = name + ".";
+		foreach (var key in methods.Keys.Where(key => key.StartsWith(prefix, StringComparison.Ordinal)).ToArray())
+			methods.Remove(key);
+		records.Remove(name);
+	}
+
+	static bool RecordEnum(
+		EnumDeclarationSyntax enumerated,
+		Dictionary<string, Dictionary<string, int>> enums,
+		Dictionary<string, List<Field>> records,
+		string source,
+		out SubsetDiagnostic? error)
+	{
+		error = null;
+		var name = enumerated.Identifier.ValueText;
+		var values = new Dictionary<string, int>(StringComparer.Ordinal);
+		var next = 0;
+		foreach (var member in enumerated.Members)
+		{
+			if (member.EqualsValue is null)
+			{
+				values[member.Identifier.ValueText] = next;
+				next++;
+				continue;
+			}
+
+			if (member.EqualsValue.Value is LiteralExpressionSyntax literal
+				&& literal.IsKind(SyntaxKind.NumericLiteralExpression)
+				&& literal.Token.Value is int number)
+			{
+				next = number;
+				values[member.Identifier.ValueText] = next;
+				next++;
+				continue;
+			}
+
+			error = At(UnknownType, name + "." + member.Identifier.ValueText + " is not an int constant. Change " + member.Identifier.ValueText + " to an int, or stop using " + name + " from the screen.", member, source);
+			return false;
+		}
+
+		if (!enums.TryAdd(name, values) || !records.TryAdd(name, new List<Field>()))
+		{
+			error = At(UnknownMember, name + " is already recorded. Change the duplicate, or stop using " + name + " from the screen.", enumerated, source);
+			return false;
+		}
+
+		return true;
+	}
+
+	static bool RecordFields(TypeDeclarationSyntax type, Dictionary<string, List<Field>> records, Dictionary<string, MethodDeclarationSyntax> methods, IReadOnlyDictionary<string, Dictionary<string, int>> enums, string? owner, string source, out SubsetDiagnostic? error)
 	{
 		error = null;
 		var fields = new List<Field>();
@@ -394,11 +517,14 @@ public static partial class SubsetLowerer
 
 			if (member is not PropertyDeclarationSyntax property)
 			{
-				error = At(UnknownMember, "The screen subset does not include " + MemberName(member) + ".", member, source);
+				var memberName = MemberName(member);
+				error = owner is null
+					? At(UnknownMember, "The screen subset does not include " + memberName + ".", member, source)
+					: At(UnknownMember, owner + "." + memberName + " is not a property. Change " + memberName + " to a string, bool, int, or list property, or stop using " + owner + " from the screen.", member, source);
 				return false;
 			}
 
-			if (!Property(property, records, source, out var field, out error) || field is null)
+			if (!Property(property, records, enums, owner, source, out var field, out error) || field is null)
 				return false;
 			fields.Add(field);
 		}
@@ -432,7 +558,7 @@ public static partial class SubsetLowerer
 		return true;
 	}
 
-	static bool Property(PropertyDeclarationSyntax property, Dictionary<string, List<Field>> records, string source, out Field? field, out SubsetDiagnostic? error)
+	static bool Property(PropertyDeclarationSyntax property, Dictionary<string, List<Field>> records, IReadOnlyDictionary<string, Dictionary<string, int>> enums, string? owner, string source, out Field? field, out SubsetDiagnostic? error)
 	{
 		field = null;
 		error = null;
@@ -441,7 +567,7 @@ public static partial class SubsetLowerer
 		{
 			if (!records.ContainsKey(itemType))
 			{
-				error = At(UnknownType, "A screen property is a string, a bool, an int, or a list of records.", property, source);
+				error = PlainType(property, owner, source);
 				return false;
 			}
 
@@ -451,10 +577,10 @@ public static partial class SubsetLowerer
 			return true;
 		}
 
-		var kind = KindOf(property.Type);
+		var kind = KindOf(property.Type, enums);
 		if (kind is null)
 		{
-			error = At(UnknownType, "A screen property is a string, a bool, an int, or a list of records.", property, source);
+			error = PlainType(property, owner, source);
 			return false;
 		}
 
@@ -472,7 +598,7 @@ public static partial class SubsetLowerer
 				return true;
 			}
 
-			error = At(UnknownType, "A screen property is a string, a bool, an int, or a list of records.", property, source);
+			error = PlainType(property, owner, source);
 			return false;
 		}
 
@@ -510,8 +636,28 @@ public static partial class SubsetLowerer
 			}
 		}
 
-		error = At(UnknownExpression, "The screen subset does not include this expression.", literal, source);
+		if (kind == ValueKind.Int
+			&& literal is MemberAccessExpressionSyntax access
+			&& access.Expression is IdentifierNameSyntax enumName
+			&& enums.TryGetValue(enumName.Identifier.ValueText, out var values)
+			&& values.TryGetValue(access.Name.Identifier.ValueText, out var enumValue))
+		{
+			field = Field.Scalar(name, kind.Value, "", false, enumValue);
+			return true;
+		}
+
+		error = owner is null
+			? At(UnknownExpression, "The screen subset does not include this expression.", literal, source)
+			: At(UnknownExpression, owner + "." + name + " starts with an expression the subset cannot record. Change " + name + " to a literal, or stop using " + owner + " from the screen.", literal, source);
 		return false;
+	}
+
+	static SubsetDiagnostic PlainType(PropertyDeclarationSyntax property, string? owner, string source)
+	{
+		if (owner is null)
+			return At(UnknownType, "A screen property is a string, a bool, an int, or a list of records.", property, source);
+		var name = property.Identifier.ValueText;
+		return At(UnknownType, owner + "." + name + " is not a string, a bool, an int, or a list of records. Change " + name + ", or stop using " + owner + " from the screen.", property, source);
 	}
 
 	static bool Rows(ExpressionSyntax? expression, List<Field> fields, string source, out List<string[]>? rows, out SubsetDiagnostic? error)
@@ -627,6 +773,8 @@ public static partial class SubsetLowerer
 			}
 			case ObjectCreationExpressionSyntax creation when creation.Initializer is null && IsList(creation.Type, out _):
 				return Array.Empty<ExpressionSyntax>();
+			case ImplicitObjectCreationExpressionSyntax created when created.Initializer is null:
+				return Array.Empty<ExpressionSyntax>();
 			case ImplicitArrayCreationExpressionSyntax array when array.Initializer is not null:
 				return array.Initializer.Expressions;
 			default:
@@ -655,14 +803,23 @@ public static partial class SubsetLowerer
 			&& list.Accessors[0].IsKind(SyntaxKind.GetAccessorDeclaration);
 	}
 
-	static ValueKind? KindOf(TypeSyntax type) =>
-		type.ToString() switch
+	static ValueKind? KindOf(TypeSyntax type, IReadOnlyDictionary<string, Dictionary<string, int>> enums)
+	{
+		var text = type.ToString();
+		switch (text)
 		{
-			"string" or "string?" => ValueKind.Str,
-			"bool" => ValueKind.Bool,
-			"int" => ValueKind.Int,
-			_ => null,
-		};
+			case "string" or "string?":
+				return ValueKind.Str;
+			case "bool" or "bool?":
+				return ValueKind.Bool;
+			case "int":
+				return ValueKind.Int;
+			default:
+				if (enums.ContainsKey(text) || (text.EndsWith('?') && enums.ContainsKey(text[..^1])))
+					return ValueKind.Int;
+				return null;
+		}
+	}
 
 	static SyntaxList<MemberDeclarationSyntax>? MembersOf(CompilationUnitSyntax root)
 	{
@@ -786,7 +943,7 @@ public static partial class SubsetLowerer
 		bool _pendingAutofill;
 		byte[]? _pendingSubmitScript;
 		string _listName = "";
-		readonly Dictionary<string, BlockSyntax> _localFns = new(StringComparer.Ordinal);
+		readonly Dictionary<string, LocalFn> _localFns = new(StringComparer.Ordinal);
 		readonly HashSet<string> _bindings = new(StringComparer.Ordinal);
 		readonly List<(bool Works, int Length)> _actions = new();
 		string _originFile = "src/NativePoc.Screen/Screen.cs";
@@ -919,19 +1076,61 @@ public static partial class SubsetLowerer
 			return Errors.Count == 0;
 		}
 
+		readonly struct LocalFn
+		{
+			public LocalFn(LocalFunctionStatementSyntax syntax)
+			{
+				Block = syntax.Body;
+				Expression = syntax.ExpressionBody?.Expression;
+			}
+
+			public BlockSyntax? Block { get; }
+
+			public ExpressionSyntax? Expression { get; }
+		}
+
+		bool HoistLocals(SyntaxNode root)
+		{
+			foreach (var localFn in root.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
+			{
+				if (localFn.Body is null && localFn.ExpressionBody is null)
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", localFn);
+				var name = localFn.Identifier.ValueText;
+				if (_localFns.ContainsKey(name))
+					return Fail(BadLambda, "The local function " + name + " is already in this screen.", localFn);
+				_localFns.Add(name, new LocalFn(localFn));
+			}
+
+			return true;
+		}
+
+		bool EmitLocal(LocalFn function, string parameter, List<byte> script, SyntaxNode anchor)
+		{
+			EnsureLocals();
+			if (function.Expression is not null)
+				return Action(function.Expression, parameter, script);
+			if (function.Block is null)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", anchor);
+			foreach (var statement in function.Block.Statements)
+			{
+				if (statement is LocalFunctionStatementSyntax)
+					continue;
+				if (!Keep(statement, parameter, script))
+					return false;
+			}
+
+			return true;
+		}
+
 		bool Block(BlockSyntax block)
 		{
+			if (!HoistLocals(block))
+				return false;
 			var statements = new List<StatementSyntax>();
 			foreach (var statement in block.Statements)
 			{
-				if (statement is LocalFunctionStatementSyntax localFn)
-				{
-					if (localFn.Body is null)
-						return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", localFn);
-					_localFns[localFn.Identifier.ValueText] = localFn.Body;
+				if (statement is LocalFunctionStatementSyntax)
 					continue;
-				}
-
 				statements.Add(statement);
 			}
 
@@ -1117,12 +1316,8 @@ public static partial class SubsetLowerer
 			if (args[1].Expression is not IdentifierNameSyntax called || !_localFns.TryGetValue(called.Identifier.ValueText, out var body))
 				return Fail(BadLambda, "OnOpen takes the screen id and a local function.", args[1]);
 			var script = new List<byte>();
-			EnsureLocals();
-			foreach (var line in body.Statements)
-			{
-				if (!Keep(line, "", script))
-					return false;
-			}
+			if (!EmitLocal(body, "", script, args[1]))
+				return false;
 
 			if (script.Count > ushort.MaxValue)
 				return Fail(BadLambda, "OnOpen takes the screen id and a local function.", invocation);
@@ -1146,12 +1341,8 @@ public static partial class SubsetLowerer
 			if (invocation.ArgumentList.Arguments.Count != 0)
 				return Fail(BadLambda, "The call " + name + "() takes arguments the screen subset cannot pass.", invocation);
 			var script = new List<byte>();
-			EnsureLocals();
-			foreach (var line in body.Statements)
-			{
-				if (!Keep(line, "", script))
-					return false;
-			}
+			if (!EmitLocal(body, "", script, invocation))
+				return false;
 
 			if (script.Count > ushort.MaxValue)
 				return Fail(BadLambda, "The call " + name + "() is too large to lower.", invocation);
@@ -1401,8 +1592,11 @@ public static partial class SubsetLowerer
 				&& localArg.Identifier.ValueText == _item
 				&& _item.Length > 0)
 			{
-				if (localBody.Statements.Count != 1
-					|| localBody.Statements[0] is not ReturnStatementSyntax localReturn
+				if (localBody.Expression is not null)
+					return Element(localBody.Expression, keys);
+				if (localBody.Block is null
+					|| localBody.Block.Statements.Count != 1
+					|| localBody.Block.Statements[0] is not ReturnStatementSyntax localReturn
 					|| localReturn.Expression is null)
 					return Fail(UnknownElement, "The screen subset does not include " + localName.Identifier.ValueText + ".", localRow);
 				return Element(localReturn.Expression, keys);
@@ -2764,16 +2958,7 @@ public static partial class SubsetLowerer
 			if (invocation.Expression is IdentifierNameSyntax localCall
 				&& invocation.ArgumentList.Arguments.Count == 0
 				&& _localFns.TryGetValue(localCall.Identifier.ValueText, out var localBody))
-			{
-				EnsureLocals();
-				foreach (var statement in localBody.Statements)
-				{
-					if (!Keep(statement, "", script))
-						return false;
-				}
-
-				return true;
-			}
+				return EmitLocal(localBody, "", script, invocation);
 
 			if (UserCall(invocation, out _))
 				return false;

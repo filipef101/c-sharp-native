@@ -45,6 +45,7 @@ static class AndroidBuild
 		"-p:NativePocLocation=true",
 		"-p:NativePocPersist=true",
 		"-p:NativePocNav=true",
+		"-p:NativePocJni=true",
 	];
 
 	public static string PublishDirectory(string repo, string configuration, string rid) =>

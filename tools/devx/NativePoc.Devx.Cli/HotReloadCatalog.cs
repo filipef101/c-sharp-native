@@ -22,6 +22,14 @@ internal static class HotReloadCatalog
 				state.Title = "later";
 			}
 		""")),
+		new("An expression-bodied local function nested in another", true, "Render hoists every local function, and an expression body lowers as that function.", Screen("""
+			return new Button("Go", () => Outer(), "Go") { Key = "go" };
+			void Outer()
+			{
+				void Inner() => state.Title = "nested";
+				Inner();
+			}
+		""")),
 		new("platform.OnOpen after the markup", true, "OnOpen is hoisted and runs when the screen id changes.", Screen("""
 			return new Text(state.Title) { Key = "title" };
 			platform.OnOpen(ScreenId, Open);

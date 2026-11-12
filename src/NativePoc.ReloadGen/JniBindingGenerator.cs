@@ -164,7 +164,10 @@ public sealed class JniBindingGenerator : IIncrementalGenerator
 
 		builder.AppendLine("\t\tif (jniMethod == System.IntPtr.Zero)");
 		builder.Append("\t\t\tthrow new System.InvalidOperationException(\"jni-bind miss method=").Append(Escape(name)).AppendLine("\");");
-		builder.Append("\t\tAndroid.Util.Log.Info(\"NativePoc\", \"jni-bind class=").Append(Escape(jniClass)).Append(" method=").Append(Escape(name)).AppendLine("\");");
+		builder.Append("\t\tAndroid.Util.Log.Info(\"NativePoc\", \"jni-bind class=").Append(Escape(jniClass)).Append(" method=").Append(Escape(name)).Append('"');
+		for (var index = 0; index < names.Count; index++)
+			builder.Append(" + \" ").Append(names[index]).Append("=\" + ").Append(names[index]);
+		builder.AppendLine(");");
 		if (ret == "V")
 		{
 			if (instance)

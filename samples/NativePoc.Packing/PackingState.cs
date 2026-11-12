@@ -83,7 +83,15 @@ public sealed class PackingSession
 
 public static class PackingTelemetry
 {
-	public static int SwitchDeliveries { get; set; }
+	public static int SwitchDeliveries
+	{
+		get => ModuleTelemetry.SwitchDeliveries;
+		set => ModuleTelemetry.SwitchDeliveries = value;
+	}
 
-	public static int FieldDeliveries { get; set; }
+	public static int FieldDeliveries
+	{
+		get => ModuleTelemetry.FieldDeliveries;
+		set => ModuleTelemetry.FieldDeliveries = value;
+	}
 }

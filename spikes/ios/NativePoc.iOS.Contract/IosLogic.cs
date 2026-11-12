@@ -141,6 +141,7 @@ public sealed class IosLogicSurface : IPlatform, IPlatformSurface
 	readonly ViewReconciler<IosView> _reconciler;
 	readonly IosLogicHost _host = new();
 	readonly NavFocusState _nav = new();
+	readonly QuietServices _services = new();
 	Func<IPlatform, Element>? _render;
 	bool _painting;
 
@@ -203,7 +204,12 @@ public sealed class IosLogicSurface : IPlatform, IPlatformSurface
 		}
 
 		if (module == "nav" && method == "Pop")
+		{
 			Pop();
+			return;
+		}
+
+		IosBridge.Module(_services, module, method, args);
 	}
 
 	public void RequestRender() => Paint();
@@ -221,6 +227,67 @@ public sealed class IosLogicSurface : IPlatform, IPlatformSurface
 		finally
 		{
 			_painting = false;
+		}
+	}
+
+	sealed class QuietServices : IIosServices
+	{
+		public void Copy(string label, string text)
+		{
+			_ = label;
+			_ = text;
+		}
+
+		public void Haptic()
+		{
+		}
+
+		public void Share(string text)
+		{
+			_ = text;
+		}
+
+		public void Set(string key, string value)
+		{
+			_ = key;
+			_ = value;
+		}
+
+		public string Get(string key)
+		{
+			_ = key;
+			return "";
+		}
+
+		public void Theme(string mode)
+		{
+			_ = mode;
+		}
+
+		public void Play(string key)
+		{
+			_ = key;
+		}
+
+		public string Http(string method, string url, string? body)
+		{
+			_ = method;
+			_ = url;
+			_ = body;
+			return "";
+		}
+
+		public string Location() => "";
+
+		public void RememberRow(string screen, object row)
+		{
+			_ = screen;
+			_ = row;
+		}
+
+		public void WriteBack(string screen)
+		{
+			_ = screen;
 		}
 	}
 }

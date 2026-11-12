@@ -195,6 +195,41 @@ public sealed class IosStatusTests
 		Assert.StartsWith("http-error: unknown", await IosBridge.ModuleAsync(services, "missing", "No", []), StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public void The_managed_host_runs_the_same_jni_and_telemetry_program()
+	{
+		var seen = "";
+		JniRegistry.Add("Probe.Ping", args => seen = args.Length == 0 ? "" : args[0]);
+		var before = ModuleTelemetry.FieldDeliveries;
+		IPlatformSurface surface = new IosLogicSurface();
+		var tree = surface.Apply(PulseProgram(), new RecordProgram.Bag());
+		ElementIds.Invoke(tree, "pulse", null);
+		Assert.Equal("40", seen);
+		Assert.Equal(before + 1, ModuleTelemetry.FieldDeliveries);
+		Assert.Contains("net10.0-ios is not compiled", File.ReadAllText(Path.Combine(RepoRoot(), "spikes", "ios", "NativePoc.iOS", "UIKitHost.cs")), StringComparison.Ordinal);
+	}
+
+	static byte[] PulseProgram()
+	{
+		string[] strings = ["Pulse", "pulse", "jni", "Probe.Ping", "40", "telemetry", "FieldDeliveries"];
+		var script = new byte[]
+		{
+			RecordProgram.ActModule, 2, 0, 3, 0, 1, 0, 4, 0,
+			RecordProgram.ActModule, 5, 0, 6, 0, 0,
+		};
+		var code = new byte[]
+		{
+			RecordProgram.OpPushStr, 0, 0,
+			RecordProgram.OpPushStr, 0, 0,
+			RecordProgram.OpMakeButton, 1, 0, (byte)script.Length, 0,
+		};
+		var body = new byte[code.Length + script.Length + 1];
+		code.CopyTo(body, 0);
+		script.CopyTo(body, code.Length);
+		body[^1] = RecordProgram.OpReturn;
+		return RecordProgram.Encode(strings, [], body, "ios-jni");
+	}
+
 	static string RepoRoot()
 	{
 		var dir = new DirectoryInfo(AppContext.BaseDirectory);

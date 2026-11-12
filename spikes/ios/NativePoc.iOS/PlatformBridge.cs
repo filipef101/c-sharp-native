@@ -153,6 +153,7 @@ sealed class IosPlatform : IPlatform
 	public void Every(string property) => Console.WriteLine("NativePoc every " + property);
 
 	public void Module(string module, string method, string[] args) =>
+		/* jni and telemetry use the same switch as Android. This UIKit host is not compiled for device. */
 		IosBridge.Module(_services, module, method, args);
 
 	public Task<string> ModuleAsync(string module, string method, string[] args) =>
