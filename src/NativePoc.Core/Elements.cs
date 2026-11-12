@@ -291,9 +291,20 @@ public sealed record Column(IReadOnlyList<Element> Children) : Element;
 
 public sealed record Text(string Value) : Element;
 
-public sealed record Button(string Title, Action OnPress, string AccessibilityLabel) : Element;
+public sealed record Button(
+	string Title,
+	Action OnPress,
+	string AccessibilityLabel,
+	[global::System.Runtime.CompilerServices.CallerFilePath] string SourceFile = "",
+	[global::System.Runtime.CompilerServices.CallerLineNumber] int SourceLine = 0) : Element;
 
-public sealed record TextField(string Value, Action<string> OnChange, string Placeholder, string AccessibilityLabel) : Element
+public sealed record TextField(
+	string Value,
+	Action<string> OnChange,
+	string Placeholder,
+	string AccessibilityLabel,
+	[global::System.Runtime.CompilerServices.CallerFilePath] string SourceFile = "",
+	[global::System.Runtime.CompilerServices.CallerLineNumber] int SourceLine = 0) : Element
 {
 	public Keyboard Keyboard { get; init; }
 
@@ -304,7 +315,12 @@ public sealed record TextField(string Value, Action<string> OnChange, string Pla
 	public Action? OnSubmit { get; init; }
 }
 
-public sealed record Switch(bool Value, Action<bool> OnChange, string AccessibilityLabel) : Element;
+public sealed record Switch(
+	bool Value,
+	Action<bool> OnChange,
+	string AccessibilityLabel,
+	[global::System.Runtime.CompilerServices.CallerFilePath] string SourceFile = "",
+	[global::System.Runtime.CompilerServices.CallerLineNumber] int SourceLine = 0) : Element;
 
 public sealed record ScrollView(Element Child) : Element;
 

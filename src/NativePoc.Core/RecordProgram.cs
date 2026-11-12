@@ -86,6 +86,8 @@ public static partial class RecordProgram
 	public const byte ActVm = 34;
 	public const byte ActPushRow = 35;
 	public const byte ActWriteBack = 36;
+	public const byte ActThrow = 37;
+	public const byte ActSource = 38;
 
 	public const int ActionStepBudget = 100_000;
 
@@ -1231,16 +1233,32 @@ public static partial class RecordProgram
 		EffectContext.Bag = bag;
 		var frame = new HandlerFrame();
 		string? stop = null;
+		var origin = 0;
+		var limit = script.Length;
+		var source = "";
+		if (script.Length >= 3 && script[0] == ActSource)
+		{
+			var id = script[1] | (script[2] << 8);
+			if ((uint)id < (uint)strings.Length)
+				source = strings[id];
+			origin = 3;
+			limit = script.Length - 3;
+		}
+
 		TapTrace.Script();
 		var clock = System.Diagnostics.Stopwatch.StartNew();
 		try
 		{
-			RunSteps(script, strings, bag, platform, text, flag, rowId, frame, 0);
+			RunSteps(script, strings, bag, platform, text, flag, rowId, frame, 0, origin, limit);
 		}
 		catch (ActionStoppedException ex)
 		{
 			stop = ex.Message;
 			platform.RequestRender();
+		}
+		catch (Exception ex) when (ActionLog.OnFault is not null)
+		{
+			ActionLog.OnFault(source.Length == 0 ? "screen" : source, ex.Message);
 		}
 		finally
 		{
@@ -1359,6 +1377,8 @@ public static partial class RecordProgram
 				case ActWriteBack:
 					ScreenNav.Shared.WriteBack();
 					break;
+				case ActThrow:
+					throw new InvalidOperationException(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]);
 				case ActPop:
 					platform.Pop();
 					break;

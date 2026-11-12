@@ -46,7 +46,31 @@ public sealed class MainActivity : Activity
 			var tap = TapTrace.Line(micros);
 			if (tap.Length > 0)
 				Log.Info(Tag, tap);
+			var phase = TapTrace.TakePhase();
+			var deferred = TapTrace.TakeDeferred();
+			if (phase.Length > 0)
+				deferred = deferred.Length == 0 ? phase : deferred + " | " + phase;
+			if (deferred.Length > 0)
+			{
+				var logStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+				Log.Info(Tag, deferred);
+				var phaselog = (System.Diagnostics.Stopwatch.GetTimestamp() - logStarted) * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
+				Log.Info(Tag, "phaselog-us=" + phaselog.ToString(CultureInfo.InvariantCulture));
+			}
+
+			if (_traceTap && Looper.MainLooper?.IsCurrentThread == true)
+			{
+				var started = System.Diagnostics.Stopwatch.GetTimestamp();
+				Choreographer.Instance?.PostFrameCallback(new FrameWait(started));
+			}
 		};
+#if DEBUG
+		ActionLog.OnFault = (span, message) =>
+		{
+			DevOverlay.Show(this, "handler", message, span);
+			Log.Info(Tag, "handler-fault span=" + span);
+		};
+#endif
 		StartupMarks.Activity();
 		ThemeRuntime.Load(this);
 		ThemeRuntime.ApplyWindow(this);
@@ -174,13 +198,35 @@ public sealed class MainActivity : Activity
 		TapTrace.Enabled = true;
 		if (_reconciler?.Root is not View root || _platform is null)
 			return;
-		for (var round = 0; round < 10; round++)
+		ThemeRuntime.Paint(this, root);
+		_painted = true;
+		_paintedRoot = root;
+		_paintedDark = ThemeRuntime.IsDark(this);
+		GC.Collect(0, GCCollectionMode.Forced, blocking: true);
+		for (var warm = 0; warm < 8; warm++)
+			RecordProgram.RunRenderRequest(_platform);
+		Choreographer.Instance?.PostFrameCallback(new RunOnce(() => PostTapSeries(root)));
+	}
+
+	void PostTapSeries(View root)
+	{
+		if (_platform is not null)
 		{
+			for (var warm = 0; warm < 4; warm++)
+				RecordProgram.RunRenderRequest(_platform);
+		}
+
+		Log.Info(Tag, "tap-bench-begin");
+		if (_platform is not null)
+			RecordProgram.RunRenderRequest(_platform);
+		for (var round = 1; round < 10; round++)
+		{
+			var delay = round * 40;
 			root.PostDelayed(() =>
 			{
 				if (_platform is not null)
 					RecordProgram.RunRenderRequest(_platform);
-			}, round * 40);
+			}, delay);
 		}
 
 		root.PostDelayed(() => Log.Info(Tag, "tap-single-begin"), 520);
@@ -290,11 +336,6 @@ public sealed class MainActivity : Activity
 			Log.Info(Tag, "state-handoff-us=" + handoff.ToString(CultureInfo.InvariantCulture));
 		}
 #endif
-		if (_traceTap && Looper.MainLooper?.IsCurrentThread == true)
-		{
-			var started = System.Diagnostics.Stopwatch.GetTimestamp();
-			Choreographer.Instance?.PostFrameCallback(new FrameWait(started));
-		}
 	}
 
 	void WaitForUi(Action run)
@@ -453,6 +494,14 @@ public sealed class MainActivity : Activity
 #else
 				throw new InvalidOperationException("Unknown screen query.");
 #endif
+			case ScreenQuery.VmBody:
+#if DEBUG
+				var installed = RecordProgram.InstallReplacement(payload.AsSpan(6));
+				Log.Info(Tag, "vm-body " + installed);
+				return "vm-body " + installed;
+#else
+				throw new InvalidOperationException("Unknown screen query.");
+#endif
 			default:
 				throw new InvalidOperationException("Unknown screen query.");
 		}
@@ -488,6 +537,8 @@ public sealed class MainActivity : Activity
 			return;
 		}
 
+		var gc0 = GC.CollectionCount(0);
+		var alloc0 = GC.GetTotalAllocatedBytes(false);
 		var prep = System.Diagnostics.Stopwatch.StartNew();
 		var previousRoot = _reconciler.Root;
 		var state = AppSession.Shared.State;
@@ -608,12 +659,15 @@ public sealed class MainActivity : Activity
 		mounted.Invalidate();
 		var invalidateUs = TakeUs(clock);
 		var dark = ThemeRuntime.IsDark(this);
+		var themeUs = TakeUs(clock);
+		var paintRan = 0;
 		if (!_painted || !ReferenceEquals(_paintedRoot, mounted) || _paintedDark != dark)
 		{
 			ThemeRuntime.Paint(this, mounted);
 			_paintedRoot = mounted;
 			_paintedDark = dark;
 			_painted = true;
+			paintRan = 1;
 		}
 
 		var paintUs = TakeUs(clock);
@@ -637,12 +691,42 @@ public sealed class MainActivity : Activity
 		if (Structural(patches) || !ReferenceEquals(previousRoot, mounted))
 			LogTree();
 #endif
-		Log.Info(Tag, "rendered count=" + state.Count + " name-length=" + state.Name.Length + " title=" + LastTitle);
-		var logUs = TakeUs(clock);
-		var afterUs = dirUs + contentUs + titleUs + focusUs + logUs;
-		var saveUs = TakeUs(clock);
-		if (_traceRender)
+		var afterUs = dirUs + contentUs + titleUs + focusUs;
+		var gcDelta = GC.CollectionCount(0) - gc0;
+		var allocDelta = GC.GetTotalAllocatedBytes(false) - alloc0;
+		if (TapTrace.Enabled)
 		{
+			TapTrace.NotePhase(
+				state.Count,
+				state.Name.Length,
+				LastTitle,
+				evalUs,
+				diffUs,
+				reconcileUs,
+				layoutUs,
+				invalidateUs,
+				themeUs,
+				paintUs,
+				paintRan,
+				bookUs,
+				prepUs,
+				dirUs,
+				contentUs,
+				titleUs,
+				focusUs,
+				0,
+				afterUs,
+				0,
+				gcDelta,
+				allocDelta);
+		}
+		else if (_traceRender)
+		{
+			var rendered = "rendered count=" + state.Count.ToString(CultureInfo.InvariantCulture) + " name-length=" + state.Name.Length.ToString(CultureInfo.InvariantCulture) + " title=" + LastTitle;
+			var logUs = TakeUs(clock);
+			afterUs += logUs;
+			var saveUs = TakeUs(clock);
+			Log.Info(Tag, rendered);
 			Log.Info(
 				Tag,
 				"render-phase eval=" + evalUs.ToString(CultureInfo.InvariantCulture)
@@ -650,7 +734,9 @@ public sealed class MainActivity : Activity
 				+ " reconcile=" + reconcileUs.ToString(CultureInfo.InvariantCulture)
 				+ " layout=" + layoutUs.ToString(CultureInfo.InvariantCulture)
 				+ " invalidate=" + invalidateUs.ToString(CultureInfo.InvariantCulture)
+				+ " theme=" + themeUs.ToString(CultureInfo.InvariantCulture)
 				+ " paint=" + paintUs.ToString(CultureInfo.InvariantCulture)
+				+ " paint-ran=" + paintRan.ToString(CultureInfo.InvariantCulture)
 				+ " book=" + bookUs.ToString(CultureInfo.InvariantCulture)
 				+ " prep=" + prepUs.ToString(CultureInfo.InvariantCulture)
 				+ " dir=" + dirUs.ToString(CultureInfo.InvariantCulture)
@@ -659,8 +745,12 @@ public sealed class MainActivity : Activity
 				+ " focus=" + focusUs.ToString(CultureInfo.InvariantCulture)
 				+ " log=" + logUs.ToString(CultureInfo.InvariantCulture)
 				+ " after=" + afterUs.ToString(CultureInfo.InvariantCulture)
-				+ " save=" + saveUs.ToString(CultureInfo.InvariantCulture));
+				+ " save=" + saveUs.ToString(CultureInfo.InvariantCulture)
+				+ " gc0=" + gcDelta.ToString(CultureInfo.InvariantCulture)
+				+ " alloc=" + allocDelta.ToString(CultureInfo.InvariantCulture));
 		}
+		else
+			Log.Info(Tag, "rendered count=" + state.Count.ToString(CultureInfo.InvariantCulture) + " name-length=" + state.Name.Length.ToString(CultureInfo.InvariantCulture) + " title=" + LastTitle);
 	}
 
 	static bool Structural(IReadOnlyList<Patch> patches)
@@ -757,6 +847,15 @@ public sealed class MainActivity : Activity
 
 	static InvalidOperationException Unknown(Element element) =>
 		new("Unknown element.");
+}
+
+sealed class RunOnce : Java.Lang.Object, Choreographer.IFrameCallback
+{
+	readonly Action _run;
+
+	public RunOnce(Action run) => _run = run;
+
+	public void DoFrame(long frameTimeNanos) => _run();
 }
 
 sealed class FrameWait : Java.Lang.Object, Choreographer.IFrameCallback

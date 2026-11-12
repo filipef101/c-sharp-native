@@ -30,7 +30,7 @@ public static partial class SubsetLowerer
 	public const string MixedKeys = "subset.mixed-keys";
 	public const string UnknownType = "subset.unknown-type";
 
-	public static SubsetResult TryLower(string source, IReadOnlyList<string>? companions = null, IReadOnlyList<string>? callables = null)
+	public static SubsetResult TryLower(string source, IReadOnlyList<string>? companions = null, IReadOnlyList<string>? callables = null, string? originFile = null)
 	{
 		ArgumentNullException.ThrowIfNull(source);
 		var tree = CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Preview));
@@ -115,6 +115,7 @@ public static partial class SubsetLowerer
 		if (!CollectExtras(companions, callables, components, calls, source, out var extraError))
 			return SubsetResult.Refuse(extraError!);
 		var lower = new Lower(source, stateName, platformName, fields, records, consts, methods, stateType, components, calls);
+		lower.SetOrigin(originFile);
 		try
 		{
 			if (!lower.Body(render))
@@ -692,6 +693,7 @@ public static partial class SubsetLowerer
 		Submit _pendingSubmit;
 		byte[]? _pendingSubmitScript;
 		string _listName = "";
+		string _originFile = "src/NativePoc.Screen/Screen.cs";
 		Dictionary<string, (byte Slot, ValueKind Kind)>? _locals;
 		byte _localSlots;
 
@@ -720,6 +722,12 @@ public static partial class SubsetLowerer
 			_callTypes = new HashSet<string>(StringComparer.Ordinal);
 			foreach (var call in _calls.Values)
 				_callTypes.Add(call.Type);
+		}
+
+		public void SetOrigin(string? path)
+		{
+			if (!string.IsNullOrEmpty(path))
+				_originFile = path.Replace('\\', '/');
 		}
 
 		public List<SubsetDiagnostic> Errors { get; } = new();
@@ -1238,6 +1246,19 @@ public static partial class SubsetLowerer
 			return FinishControl(creation, keys, op, script);
 		}
 
+		byte[] Stamp(byte[] script, SyntaxNode node)
+		{
+			var line = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+			var text = _originFile + ":" + line.ToString(CultureInfo.InvariantCulture);
+			var id = _code.Intern(text);
+			var stamped = new byte[script.Length + 3];
+			stamped[0] = RecordProgram.ActSource;
+			stamped[1] = (byte)id;
+			stamped[2] = (byte)(id >> 8);
+			script.CopyTo(stamped, 3);
+			return stamped;
+		}
+
 		bool FinishControl(ObjectCreationExpressionSyntax creation, KeySet keys, byte op, byte[] script)
 		{
 			if (!KeyOf(creation, out var key, out var dynamic, out _))
@@ -1248,6 +1269,7 @@ public static partial class SubsetLowerer
 				return false;
 			if (script.Length == 0)
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", creation);
+			script = Stamp(script, creation);
 			_code.Op(op);
 			_code.U16(key);
 			_code.U16(script.Length);

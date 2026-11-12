@@ -144,6 +144,9 @@ public sealed class CallTableTests
 		Assert.Equal(
 			ChangeEffect.RestartRequired,
 			ChangeEffectRules.Classify(["samples/board/HomeScreen.cs", "samples/NativePoc.Library/LibraryFormat.cs"]));
+		Assert.True(ChangeEffectRules.IsHostEdit("src/NativePoc.Core/RecordProgram.cs"));
+		Assert.False(ChangeEffectRules.IsHostEdit("src/NativePoc.Android/obj/Debug/generated.cs"));
+		Assert.False(ChangeEffectRules.IsHostEdit("src/NativePoc.Screen/CounterService.cs"));
 	}
 
 	static string Screen(string id, string title) =>

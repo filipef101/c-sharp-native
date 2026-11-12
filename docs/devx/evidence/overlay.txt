@@ -1,0 +1,40 @@
+# Error overlay
+
+Emulator-run. AVD poc34, API 34, x86_64, serial emulator-5554.
+Boot id 56815464-4bc4-4f4c-a503-944cb91ab31f.
+Listener pid 17466. IsDynamicCodeSupported=False.
+The three PNGs are screencaps from that process. The sources were restored after the run.
+
+## Handler
+
+docs/devx/evidence/overlay-handler.png
+
+The notes Add handler threw. The overlay reads:
+
+handler
+save broke
+samples/notes/NotesScreen.cs:56
+
+That line is the screen source. The app stayed up: the draft field shows swapped, the error text shows next-other, and Dismiss is on screen. The span comes from the ActSource prefix on the interpreted handler (opcode 38). A compiled Button, TextField, or Switch records the same file and line with CallerFilePath and CallerLineNumber, and AndroidHost.Guard shows that span in Debug. The compiled path was not given its own screencap in this run.
+
+## Compile error
+
+docs/devx/evidence/overlay-compile.png
+
+Screen.cs was saved with a syntax error. cnative printed:
+
+src/NativePoc.Screen/Screen.cs:9:23: error CS1525: Invalid expression term ';'
+
+The overlay reads:
+
+CS1525
+Invalid expression term ';'
+src/NativePoc.Screen/Screen.cs:9
+
+The notes screen stayed visible behind it.
+
+## Cleared
+
+docs/devx/evidence/overlay-cleared.png
+
+The next save restored a valid Screen.cs. That apply printed reloaded in 57.0 ms (apply 25.7 ms) and the overlay is gone. The title is Day. The draft and the error text are still swapped and next-other.

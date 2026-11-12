@@ -26,6 +26,8 @@ public static partial class SubsetLowerer
 					return VmFor(loop, parameter, script);
 				case ForEachStatementSyntax loop:
 					return VmForeach(loop, parameter, script);
+				case ThrowStatementSyntax thrown:
+					return Throw(thrown, script);
 				default:
 					return Fail(BadLambda, ActionLimit, statement);
 			}
@@ -51,6 +53,18 @@ public static partial class SubsetLowerer
 			U16(script, elseScript.Count);
 			script.AddRange(elseScript);
 			return true;
+		}
+
+		bool Throw(ThrowStatementSyntax thrown, List<byte> script)
+		{
+			if (thrown.Expression is not ObjectCreationExpressionSyntax creation
+				|| creation.ArgumentList is not { Arguments: [{ Expression: LiteralExpressionSyntax literal }] }
+				|| !literal.IsKind(SyntaxKind.StringLiteralExpression))
+				return Fail(BadLambda, ActionLimit, thrown);
+			var type = creation.Type.ToString();
+			if (type is not ("InvalidOperationException" or "Exception" or "System.InvalidOperationException" or "System.Exception"))
+				return Fail(BadLambda, ActionLimit, thrown);
+			return Act(script, RecordProgram.ActThrow, _code.Intern(literal.Token.ValueText));
 		}
 
 		bool Branch(StatementSyntax statement, string parameter, List<byte> script)

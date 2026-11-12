@@ -147,6 +147,10 @@ public sealed class ReloadDispatchGenerator : IIncrementalGenerator
 		builder.AppendLine();
 		builder.AppendLine("\t\tinternal static RecordProgram.AppValue Call(string typeName, string methodName, RecordProgram.AppValue[] args)");
 		builder.AppendLine("\t\t{");
+		builder.AppendLine("#if DEBUG");
+		builder.AppendLine("\t\t\tif (RecordProgram.TryRunReplacement(typeName, methodName, args, out var replaced))");
+		builder.AppendLine("\t\t\t\treturn replaced;");
+		builder.AppendLine("#endif");
 		var simpleCounts = methods.GroupBy(method => method.SimpleType).ToDictionary(group => group.Key, group => group.Select(method => method.FullType).Distinct().Count());
 		foreach (var method in methods)
 			EmitArm(builder, method, simpleCounts[method.SimpleType] == 1);

@@ -64,3 +64,29 @@ The UI thread now only queues the save. The worker copies the checkpoint and wri
 The first tap's `paint` bucket is 18668 µs. That is the first draw inside the tap, and its handoff is 1. The 5422 µs sample's named buckets are a few hundred microseconds (eval 41, diff 10, layout 31, invalidate 89, paint 16, log 237) and its handoff is 1. The rest of that sample is a pause inside the render clock, outside those buckets. It is in the p90, not the p50.
 
 A steady tap, `action-us=527`: `input=2 vm=15 prep=38 render=383 tail=218`. `dir=0`. The `log` bucket on that frame is 137. On pid 7727 the steady render was 118 and the log was 14. The phase line is longer now, and layout plus invalidate are still inside the action. Tail is stamped after the action clock stops, so it is not part of the 527. p50 is not back to 201.0 µs. The handoff is no longer the reason.
+
+## Paint, log, and the configuration read off the tap
+
+Emulator-run. Same boot `56815464-4bc4-4f4c-a503-944cb91ab31f`. Hyndman-Fan type 7. n=10. Nothing dropped. Host load is the 1-minute load from `/proc/loadavg`.
+
+The 18668 µs `paint` on pid 16001 was the first `ThemeRuntime.Paint` inside the tap. The bench now paints once before the series, and a later frame skips `SetTextColor` and `SetBackgroundColor` when the cached page color and text color match. `paint-ran=0` and `paint=0` on every timed sample below.
+
+The phase line and the `rendered count` line are formatted after `clock.Stop`. `phaselog-us` is that log I/O. It is not inside `action-us`. `gc0` is `GC.CollectionCount(0)` across the render. A gen0 collection increments it. The timed samples below are `gc0=0`.
+
+`ThemeRuntime.IsDark` used to read `Resources.Configuration.UiMode` on every frame. On pid 18190, before that read was cached, one of the ten taps was `theme=35160` inside `action-us=35731`. `Load` now reads the night bit once. A later tap reads the cached bit. `theme` on the series below is 0 or 1.
+
+`GC.Collect(0)` runs before the warmup renders. Eight warmup renders run, then one frame, then four more warmup renders, then the first timed `RequestRender` in that same turn. The other nine are posted 40 ms apart. The first posted callback on the previous binary (pid 18259) waited in `prep` for 16845 µs with `bind=hit` and `gc0=0`. That wait is the lock around `ScreenNav.Top`, after the frame callback returned. It is not in this series.
+
+### Listener
+
+pid 18395. Listener `.so` sha256 `4e198c30a5393f57894acb7989af666376e885f4bb10bff493f1ea669b802779` (10,287,104 bytes). The same bytes are `lib/x86_64/libNativePoc.Android.so` inside the signed APK sha256 `0131dbd3f02c9b7dab5747302de49e34c5993b35a0b556821c0eef5d43183441` (3,896,243 bytes). `IsDynamicCodeSupported=False`. The screen is Counter 0. Host load 0.58 at the start and 0.69 after the series. `startup direction decor=137 root=539 text=4412 layout=185` is the probe, before `tap-bench-begin`.
+
+`action-us` in order: 113 317 422 266 314 156 1034 263 671 1150. Sorted: 113 156 263 266 314 317 422 671 1034 1150. First tap 113 µs. p50 315.5 µs. p90 1045.6 µs.
+
+`paint=0` and `gc0=0` on all ten. `theme` is 0 or 1. The 1150 µs sample's named buckets are a few hundred microseconds (`eval=76 diff=13 layout=47 invalidate=98 prep=58`). The rest of that sample is outside those buckets. It stays in the p90.
+
+### Release
+
+pid 18507. Release `.so` sha256 `8ad3a712a4b39dccd87368b6965335a2a2e78b265cfcc39c2855c1dee210e6bd` (6,703,488 bytes). The same bytes are inside the signed APK sha256 `e43abce3381c0879d4db786ed9591e478cc8cb1148a67530cd90ddddf01af741` (2,900,781 bytes). `IsDynamicCodeSupported=False`. The ASCII `TryRunReplacement` and `npoc-hotreload` are absent from that `.so`. The screen is Counter 0. Host load 1.18 at the start and 1.89 after the series.
+
+`action-us` in order: 108 216 141 103 68 62 123 208 189 237. Sorted: 62 68 103 108 123 141 189 208 216 237. First tap 108 µs. p50 132.0 µs. p90 218.1 µs. `paint=0`, `theme` 0 or 1, `gc0=0` on all ten.

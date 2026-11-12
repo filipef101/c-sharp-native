@@ -33,6 +33,17 @@ static class ChangeEffectRules
 		return effect;
 	}
 
+	public static bool IsHostEdit(string relativePath)
+	{
+		var normalized = Normalize(relativePath);
+		if (!normalized.EndsWith(".cs", StringComparison.Ordinal))
+			return false;
+		if (normalized.Contains("/bin/", StringComparison.Ordinal) || normalized.Contains("/obj/", StringComparison.Ordinal))
+			return false;
+		return normalized.StartsWith("src/NativePoc.Core/", StringComparison.Ordinal)
+			|| normalized.StartsWith("src/NativePoc.Android/", StringComparison.Ordinal);
+	}
+
 	public static bool IsHostScreen(string relativePath) =>
 		Normalize(relativePath) == "src/NativePoc.Screen/Screen.cs";
 

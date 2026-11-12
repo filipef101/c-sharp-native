@@ -74,3 +74,31 @@ One earlier devx run failed three ScreenCompilerTests because DOTNET_ROOT
 was /home/ubuntu and the net10.0 ref pack lives under /home/ubuntu/.dotnet.
 The rerun with DOTNET_ROOT=/home/ubuntu/.dotnet passed. The product code
 was the same.
+
+## Body swap in one process
+
+Emulator-run. Same boot. Listener pid 17466. IsDynamicCodeSupported=False.
+The committed bodies are CounterService.Next = count + 5 and
+LibraryFormat.Label = name.Length == 0 ? "empty" : name.Trim().
+
+Saving the two files on that pid printed:
+swapped vm-body NativePoc.CounterService.Next in this process
+body-swap 15.4 ms
+edit-to-reply 60 ms
+swapped vm-body NativePoc.Library.LibraryFormat.Label in this process
+body-swap 5.8 ms
+edit-to-reply 48 ms
+The notes screen then reloaded in 21.1 ms (apply 17.4 ms) and kept
+Draft="swapped" and Error="next-other". Those strings are on
+docs/devx/evidence/overlay-cleared.png. The sources were restored after
+the run. The committed bodies are the trim and the +5 again.
+
+A later edit of Next that was not one expression printed:
+NativePoc.CounterService.Next could not be lowered into the action VM. The new body is not a single expression of int, bool, or string. Relaunching.
+--restart-on-rude published again and launched pid 17633. The refusal
+relaunches. The slot is not in the checkpoint.
+
+Release call. ReloadDispatch.g.cs emits the slot check inside #if DEBUG.
+The listener .so above contains the ASCII TryRunReplacement.
+The Release .so sha256 8ad3a712a4b39dccd87368b6965335a2a2e78b265cfcc39c2855c1dee210e6bd
+does not. Built and checked on that file. The Release tap is in tap-phases.txt.

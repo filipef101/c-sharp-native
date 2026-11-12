@@ -1,6 +1,27 @@
-# C# native widgets
+# C# Native
 
-**Write a screen as a C# element tree. A keyed diff reconciles it onto real Android widgets, Release publishes with NativeAOT, and a resident compiler hot-reloads that screen in the same process.**
+C# Native is a small UI runtime. A C# function returns an `Element` tree. A keyed diff reconciles it onto real Android widgets. Release publishes with NativeAOT. The Debug listener applies a screen edit, and a lowerable `[ReloadCallable]` method body, in the same process.
+
+The Android dev loop, from a machine that already has the SDK in [`global.json`](global.json), the `android` workload, a JDK, and an online emulator:
+
+```sh
+tools/devx/cnative doctor
+tools/devx/cnative new hello
+tools/devx/cnative run android --listener
+tools/devx/cnative reset-state
+```
+
+`doctor` checks the SDK, the workload, `adb`, a device, and the IL compiler. `new hello` writes `samples/hello/HelloScreen.cs`. `run android --listener` publishes the Debug NativeAOT listener and watches that file. Saving the screen reloads it in the same process. `reset-state` clears the kept bags and shows the initializers again. The walkthrough is [docs/getting-started.md](docs/getting-started.md).
+
+Startup, measured on the x86_64 API 34 emulator in this workspace. `tools/bench/mac-bench.sh --n 20`, `am start -W -S`, LaunchState COLD, Hyndman-Fan type 7. Release APK sha256 `066e572bcdee253bd561f10c012fbd28ae94b6c9fe12850fc63b6bada2da3eec`. Counter TotalTime p50 778.5 ms, p90 876.7 ms. Empty Java floor p50 750.0 ms. The lists are [docs/devx/evidence/cold-start.txt](docs/devx/evidence/cold-start.txt). This page did not remeasure that series.
+
+Reload, measured. Screen edit to the reply, n=20, one pid, Hyndman-Fan type 7: edit-to-screen p50 59.8246 ms, p90 74.8963 ms. [docs/devx/evidence/fixed-socket-percentiles.txt](docs/devx/evidence/fixed-socket-percentiles.txt). A lowerable edit of `CounterService.Next` and `LibraryFormat.Label` on listener pid 17466 swapped in that process in 15.4 ms and 5.8 ms. [docs/devx/evidence/call-table.txt](docs/devx/evidence/call-table.txt). One `RequestRender` on the counter, n=10: listener pid 18395 first tap 113 µs, p90 1045.6 µs; Release pid 18507 first tap 108 µs, p90 218.1 µs. [docs/devx/evidence/tap-phases.txt](docs/devx/evidence/tap-phases.txt).
+
+iOS is authored only. The UIKit host is in `spikes/ios` and is not in the solution this tree builds. [docs/ios-status.md](docs/ios-status.md). Unverified as a build.
+
+<img src="docs/media/notes-demo.gif" width="200" alt="Notes on an Android emulator: add Milk, then Oats">
+
+Notes, Release NativeAOT, emulator-recorded on the x86_64 API 34 emulator. Add writes Milk, then Oats.
 
 > [!TIP]
 > **Try it with a coding agent.** On a machine with the .NET SDK pinned in [`global.json`](global.json) (10.0.403), the `android` workload, a JDK, and an Android SDK, give the agent this prompt:
