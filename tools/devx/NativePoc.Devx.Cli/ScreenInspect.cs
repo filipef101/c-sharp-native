@@ -169,6 +169,8 @@ static class ScreenInspect
 				findings.Add(contrast);
 			if (ImageAccess(node.Element, node.Id) is { } imageAccess)
 				findings.Add(imageAccess);
+			if (node.Element is ListView grid && grid.Style is { Across: >= 2 })
+				findings.AddRange(Grid(node, nodes, boxes));
 			if (FixedHeight(node, nodes, boxes, scaled) is { } fixedHeight)
 				findings.Add(fixedHeight);
 			if (node.Element is Button && boxes.TryGetValue(node.Id, out var buttonBox) && HostPolicy.ButtonLabel(buttonBox.Height, node.Id) is { } buttonLabel)
@@ -310,6 +312,86 @@ static class ScreenInspect
 			"overflow",
 			id,
 			"Child " + id + " extends outside " + parentId + where + " and is clipped.");
+	}
+
+	static List<Finding> Grid(
+		ElementIds.Node list,
+		IReadOnlyList<ElementIds.Node> nodes,
+		Dictionary<string, HeadlessLayout.Box> boxes)
+	{
+		var findings = new List<Finding>();
+		if (list.Element is not ListView view || view.Style is not { Across: >= 2 } style)
+			return findings;
+		var rows = new List<ElementIds.Node>();
+		foreach (var node in nodes)
+		{
+			if (node.Path.Length == list.Path.Length + 1 && node.Path.Parent().Equals(list.Path))
+				rows.Add(node);
+		}
+
+		var span = style.Across;
+		var column = 0;
+		var rowTop = int.MinValue;
+		var previousLeft = int.MinValue;
+		foreach (var row in rows)
+		{
+			if (!LabelHasTitle(row.Element))
+				findings.Add(new Finding("grid-label", row.Id, "Grid row " + row.Id + " label does not include its title."));
+			if (!boxes.TryGetValue(row.Id, out var box))
+			{
+				column++;
+				if (column == span)
+					column = 0;
+				continue;
+			}
+
+			if (column == 0)
+			{
+				if (box.Top < rowTop)
+					findings.Add(new Finding("grid-order", row.Id, "Grid row " + row.Id + " is above the previous row."));
+				rowTop = box.Top;
+				previousLeft = box.Left;
+			}
+			else if (box.Top != rowTop || box.Left <= previousLeft)
+			{
+				findings.Add(new Finding("grid-order", row.Id, "Grid row " + row.Id + " is not the next cell in reading order."));
+				previousLeft = box.Left;
+			}
+			else
+				previousLeft = box.Left;
+			column++;
+			if (column == span)
+				column = 0;
+		}
+
+		return findings;
+	}
+
+	static bool LabelHasTitle(Element element)
+	{
+		if (element is not Column column)
+			return true;
+		string? title = null;
+		string? spoken = null;
+		foreach (var child in column.Children)
+		{
+			switch (child)
+			{
+				case Text text when title is null:
+					title = text.Value;
+					break;
+				case Image image when image.Description.Length > 0:
+					spoken = image.Description;
+					break;
+				case Button button:
+					spoken = button.AccessibilityLabel.Length > 0 ? button.AccessibilityLabel : button.Title;
+					break;
+			}
+		}
+
+		if (title is null || title.Length == 0)
+			return true;
+		return spoken is not null && spoken.Contains(title, StringComparison.Ordinal);
 	}
 
 	static Finding? ImageAccess(Element element, string id)

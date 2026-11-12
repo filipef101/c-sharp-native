@@ -22,6 +22,7 @@
 		<NativePocImage Condition="'$(NativePocImage)' == ''">false</NativePocImage>
 		<NativePocJni Condition="'$(NativePocJni)' == ''">false</NativePocJni>
 		<NativePocShowcase Condition="'$(NativePocShowcase)' == ''">false</NativePocShowcase>
+		<NativePocStress Condition="'$(NativePocStress)' == ''">false</NativePocStress>
 		<NativePocWidgetFloor Condition="'$(NativePocWidgetFloor)' == ''">false</NativePocWidgetFloor>
 		<NativePocHydratePrefetch Condition="'$(NativePocHydratePrefetch)' == ''">false</NativePocHydratePrefetch>
 		<NativePocStartupMarks Condition="'$(NativePocStartupMarks)' == ''">false</NativePocStartupMarks>
@@ -157,6 +158,9 @@
 	<PropertyGroup Condition="'$(NativePocJni)' != 'true'">
 		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\bind\**</NativePocSampleExclude>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocStress)' == 'true'">
+		<NativePocShowcase>true</NativePocShowcase>
+	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocShowcase)' != 'true'">
 		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\showcase\**</NativePocSampleExclude>
 	</PropertyGroup>
@@ -168,6 +172,9 @@
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocShowcase)' == 'true' And '$(NativePocWidgetFloor)' != 'true' And '$(Configuration)' == 'Release'">
 		<AndroidLinkTool>r8</AndroidLinkTool>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocStress)' == 'true'">
+		<ApplicationId>com.scratch.nativepoc.stress</ApplicationId>
 	</PropertyGroup>
 	<ItemGroup Condition="'$(NativePocShowcase)' == 'true' And '$(NativePocWidgetFloor)' != 'true'">
 		<AndroidJavaSource Remove="Java\nativepoc\KeyedList.java" />
@@ -250,6 +257,7 @@
 	<ItemGroup>
 		<Using Include="NativePoc" />
 		<Compile Include="..\..\samples\*\*.cs" Exclude="..\..\samples\NativePoc.*\**;**\bin\**;**\obj\**;$(NativePocSampleExclude)" />
+		<Compile Remove="..\..\samples\showcase\StressScreen.cs" Condition="'$(NativePocStress)' != 'true'" />
 		<Compile Remove="FeedJson.cs" Condition="'$(NativePocHttp)' != 'true'" />
 		<Compile Remove="PersistStore.cs" Condition="'$(NativePocPersist)' != 'true'" />
 		<Compile Remove="NavFocus.cs" Condition="'$(NativePocNav)' != 'true'" />

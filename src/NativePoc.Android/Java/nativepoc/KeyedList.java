@@ -44,6 +44,7 @@ public final class KeyedList extends RecyclerView {
 	boolean rowFitPosted;
 	int measures;
 	boolean dismissLogged;
+	long announced;
 	static final int ACTION_DISMISS = 0x0000c0de;
 	static final int ACTION_UNDO = 0x0000c0df;
 
@@ -207,8 +208,10 @@ public final class KeyedList extends RecyclerView {
 	public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
 		super.onInitializeAccessibilityNodeInfo(info);
 		int count = peer == 0 ? 0 : (int) nativeSignal(peer, OP_COUNT, 0);
+		int span = columns < 1 ? 1 : columns;
+		int rowCount = count <= 0 ? 0 : (count + span - 1) / span;
 		info.setClassName("androidx.recyclerview.widget.RecyclerView");
-		info.setCollectionInfo(AccessibilityNodeInfo.CollectionInfo.obtain(count, columns < 1 ? 1 : columns, false));
+		info.setCollectionInfo(AccessibilityNodeInfo.CollectionInfo.obtain(rowCount, span, false));
 		info.setScrollable(true);
 		info.setContentDescription("List");
 		if (!undo)
@@ -298,6 +301,7 @@ public final class KeyedList extends RecyclerView {
 			cell.subtitle.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
 			cell.picture.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
 			cell.itemView.setAccessibilityDelegate(new RowAccess(cell));
+			android.util.Log.i("NativePoc", "holder-new type=" + viewType + " id=" + System.identityHashCode(cell));
 			cell.itemView.setOnFocusChangeListener(new View.OnFocusChangeListener() {
 				@Override
 				public void onFocusChange(View view, boolean hasFocus) {
@@ -323,8 +327,24 @@ public final class KeyedList extends RecyclerView {
 		}
 
 		void showRow(Cell holder) {
+			CharSequence existing = holder.itemView.getContentDescription();
 			CharSequence text = holder.title.getText();
-			holder.itemView.setContentDescription(text == null ? "" : text);
+			String title = text == null ? "" : text.toString();
+			String spoken = existing == null ? "" : existing.toString();
+			if (title.length() > 0 && !spoken.contains(title))
+				spoken = title;
+			int pos = holder.getBindingAdapterPosition();
+			int count = getItemCount();
+			if (pos != NO_POSITION && count > 0) {
+				String place = (pos + 1) + " of " + count;
+				if (!spoken.contains(place))
+					spoken = spoken.length() == 0 ? place : spoken + ", " + place;
+			}
+			holder.itemView.setContentDescription(spoken);
+			if (pos >= 0 && pos < 64 && (announced & (1L << pos)) == 0) {
+				announced |= 1L << pos;
+				android.util.Log.i("NativePoc", "a11y-cell pos=" + (pos + 1) + " of=" + count + " label=" + spoken);
+			}
 		}
 	}
 

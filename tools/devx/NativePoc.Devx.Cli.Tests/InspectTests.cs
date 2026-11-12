@@ -33,6 +33,18 @@ public sealed class InspectTests
 	}
 
 	[Fact]
+	public void Inspect_shelf_grid_keeps_row_major_order_and_titles()
+	{
+		var root = RepoRoot.Find(AppContext.BaseDirectory);
+		var json = ScreenInspect.FormatFile(Path.Combine(root, "samples", "showcase", "ShelfScreen.cs"));
+		Assert.True(ScreenInspect.Violations(json) == 0, json);
+		var harbor = json.IndexOf("\"id\":\"page/grid/harbor\"", StringComparison.Ordinal);
+		var kiln = json.IndexOf("\"id\":\"page/grid/kiln\"", StringComparison.Ordinal);
+		var cedar = json.IndexOf("\"id\":\"page/grid/cedar\"", StringComparison.Ordinal);
+		Assert.True(harbor >= 0 && kiln > harbor && cedar > kiln, json);
+	}
+
+	[Fact]
 	public void Inspect_is_clean_on_counter_feed_visit_and_packing()
 	{
 		var root = RepoRoot.Find(AppContext.BaseDirectory);

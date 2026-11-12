@@ -14,7 +14,11 @@ static class ImageModule
 	static readonly LruCache<Bitmap> Cache = new(Capacity);
 	static readonly LruCache<Bitmap> Baked = new(Capacity);
 	static readonly ConditionalWeakTable<ImageView, ImageSlot> Slots = new();
+	static readonly Queue<PendingPresent> Presents = new();
 	static readonly object Gate = new();
+	static int _presenting;
+
+	readonly record struct PendingPresent(ImageView Image, ImageSlot Slot, int Token, Bitmap Bitmap, string Source);
 
 	public static void Show(ImageView image, string source, Context context, string description, bool decorative, int radiusDp)
 	{
@@ -109,7 +113,7 @@ static class ImageModule
 			if (source.StartsWith("gen:", StringComparison.Ordinal))
 			{
 				image.SetScaleType(ImageView.ScaleType.Center);
-				image.SetImageBitmap(bitmap);
+				ShowBitmap(image, bitmap);
 				image.Visibility = ViewStates.Visible;
 				Android.Util.Log.Info(MainActivity.Tag, "image-bitmap reuse source=" + source + " px=" + bitmap.Width.ToString(System.Globalization.CultureInfo.InvariantCulture));
 				return;
@@ -117,62 +121,150 @@ static class ImageModule
 
 			var width = image.Width > 0 ? image.Width : target;
 			var height = image.Height > 0 ? image.Height : target;
-			var drawn = Fit(bitmap, width, height);
-			Android.Util.Log.Info(
-				MainActivity.Tag,
-				"image-bitmap drawn=" + drawn.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
-				+ "x" + drawn.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)
-				+ " radius=" + radiusDp.ToString(System.Globalization.CultureInfo.InvariantCulture));
-			if (radiusDp > 0)
+			if (radiusDp <= 0)
 			{
-				var density = image.Resources?.DisplayMetrics?.Density ?? 1f;
-				if (density <= 0)
-					density = 1f;
-				var bakeKey = source + "@" + width.ToString(System.Globalization.CultureInfo.InvariantCulture)
-					+ "x" + height.ToString(System.Globalization.CultureInfo.InvariantCulture)
-					+ "r" + radiusDp.ToString(System.Globalization.CultureInfo.InvariantCulture);
-				Bitmap? shared = null;
+				ShowBitmap(image, Fit(bitmap, width, height));
+				image.Visibility = ViewStates.Visible;
+				Android.Util.Log.Info(
+					MainActivity.Tag,
+					"image-placed source=" + source
+					+ " view=" + image.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+					+ "x" + image.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)
+					+ " clip=" + (image.ClipToOutline ? "1" : "0")
+					+ " elevation=" + image.Elevation.ToString(System.Globalization.CultureInfo.InvariantCulture));
+				return;
+			}
+
+			var density = image.Resources?.DisplayMetrics?.Density ?? 1f;
+			if (density <= 0)
+				density = 1f;
+			var bakeKey = source + "@" + width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+				+ "x" + height.ToString(System.Globalization.CultureInfo.InvariantCulture)
+				+ "r" + radiusDp.ToString(System.Globalization.CultureInfo.InvariantCulture);
+			Bitmap? ready = null;
+			lock (Gate)
+			{
+				if (Baked.TryGet(bakeKey, out var hit))
+					ready = hit;
+			}
+
+			if (ready is not null)
+			{
+				ShowBitmap(image, ready);
+				image.SetScaleType(ImageView.ScaleType.FitXy);
+				image.Visibility = ViewStates.Visible;
+				Android.Util.Log.Info(
+					MainActivity.Tag,
+					"image-bitmap reuse source=" + source
+					+ " px=" + ready.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+					+ "x" + ready.Height.ToString(System.Globalization.CultureInfo.InvariantCulture));
+				return;
+			}
+
+			var sourceBitmap = bitmap;
+			var radius = radiusDp * density;
+			ThreadPool.QueueUserWorkItem(_ =>
+			{
+				if (!slot.Current(token))
+					return;
+				var drawn = Fit(sourceBitmap, width, height);
+				var baked = Bake(drawn, width, height, radius);
+				Bitmap shared;
+				var created = false;
 				lock (Gate)
 				{
-					if (Baked.TryGet(bakeKey, out var hit))
+					if (Baked.TryGet(bakeKey, out var hit) && hit is not null)
 						shared = hit;
+					else
+					{
+						Baked.Add(bakeKey, baked);
+						shared = baked;
+						created = true;
+					}
 				}
 
-				if (shared is null)
+				if (created)
 				{
-					shared = Bake(drawn, width, height, radiusDp * density);
-					lock (Gate)
-						Baked.Add(bakeKey, shared);
+					Android.Util.Log.Info(
+						MainActivity.Tag,
+						"image-bitmap drawn=" + drawn.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+						+ "x" + drawn.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)
+						+ " radius=" + radiusDp.ToString(System.Globalization.CultureInfo.InvariantCulture));
 					Android.Util.Log.Info(
 						MainActivity.Tag,
 						"image-bitmap baked=" + shared.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
 						+ "x" + shared.Height.ToString(System.Globalization.CultureInfo.InvariantCulture));
 				}
-				else
-				{
-					Android.Util.Log.Info(
-						MainActivity.Tag,
-						"image-bitmap reuse source=" + source
-						+ " px=" + shared.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
-						+ "x" + shared.Height.ToString(System.Globalization.CultureInfo.InvariantCulture));
-				}
 
-				image.SetScaleType(ImageView.ScaleType.FitXy);
-				image.SetImageBitmap(shared);
-			}
-			else
-				image.SetImageBitmap(drawn);
-			image.Visibility = ViewStates.Visible;
-			Android.Util.Log.Info(
-				MainActivity.Tag,
-				"image-placed source=" + source
-				+ " view=" + image.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
-				+ "x" + image.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)
-				+ " clip=" + (image.ClipToOutline ? "1" : "0")
-				+ " elevation=" + image.Elevation.ToString(System.Globalization.CultureInfo.InvariantCulture));
+				Present(image, slot, token, shared, source);
+			});
 		}
 
 		image.Post(Draw);
+	}
+
+	static void ShowBitmap(ImageView image, Bitmap bitmap)
+	{
+		if (image.Drawable is BitmapDrawable current && ReferenceEquals(current.Bitmap, bitmap))
+			return;
+		image.SetImageBitmap(bitmap);
+	}
+
+	static void Present(ImageView image, ImageSlot slot, int token, Bitmap bitmap, string source)
+	{
+		var start = false;
+		lock (Gate)
+		{
+			Presents.Enqueue(new PendingPresent(image, slot, token, bitmap, source));
+			if (_presenting == 0)
+			{
+				_presenting = 1;
+				start = true;
+			}
+		}
+
+		if (start)
+			image.PostOnAnimation(new Java.Lang.Runnable(DrainPresent));
+	}
+
+	static void DrainPresent()
+	{
+		PendingPresent item;
+		lock (Gate)
+		{
+			if (Presents.Count == 0)
+			{
+				_presenting = 0;
+				return;
+			}
+
+			item = Presents.Dequeue();
+		}
+
+		if (item.Image.Handle != IntPtr.Zero && item.Slot.Current(item.Token))
+		{
+			ShowBitmap(item.Image, item.Bitmap);
+			item.Image.SetScaleType(ImageView.ScaleType.FitXy);
+			item.Image.Visibility = ViewStates.Visible;
+			Android.Util.Log.Info(
+				MainActivity.Tag,
+				"image-placed source=" + item.Source
+				+ " view=" + item.Image.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+				+ "x" + item.Image.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)
+				+ " clip=" + (item.Image.ClipToOutline ? "1" : "0")
+				+ " elevation=" + item.Image.Elevation.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		}
+
+		ImageView? next = null;
+		lock (Gate)
+		{
+			if (Presents.Count == 0)
+				_presenting = 0;
+			else
+				next = Presents.Peek().Image;
+		}
+
+		next?.PostOnAnimation(new Java.Lang.Runnable(DrainPresent));
 	}
 
 	static Bitmap Bake(Bitmap source, int width, int height, float radius)
