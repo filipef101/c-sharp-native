@@ -36,7 +36,13 @@ public sealed class HotReloadContractTests
 		Assert.Contains("GetStringExtra(\"nativepoc_location\")", activity);
 		Assert.Contains("GetStringExtra(\"nativepoc_a11y\")", activity);
 		Assert.DoesNotContain("GetStringExtra(\"nativepoc_hotreload\")", activity);
-		Assert.Equal(11, CountOf(activity, "GetStringExtra"));
+		Assert.Equal(12, CountOf(activity, "GetStringExtra"));
+		Assert.Contains("startup root warm id=", activity);
+		Assert.Equal(1, CountOf(activity, "ClaimRoot("));
+		var warm = activity.IndexOf("startup root warm id=", StringComparison.Ordinal);
+		var onNew = activity.IndexOf("void OnNewIntent", StringComparison.Ordinal);
+		Assert.True(warm > onNew);
+		Assert.Contains("_platform?.Push(warmRoot)", activity);
 	}
 
 	[Fact]

@@ -5,6 +5,7 @@ enum ChangeEffect
 	Ignore,
 	ReloadScreen,
 	RestartRequired,
+	RepublishBinding,
 }
 
 static class ChangeEffectRules
@@ -23,6 +24,13 @@ static class ChangeEffectRules
 				|| normalized.StartsWith("src/NativePoc.Android/", StringComparison.Ordinal)
 				|| IsCallableSource(normalized))
 				return ChangeEffect.RestartRequired;
+			if (IsBindingSource(normalized))
+			{
+				effect = ChangeEffect.RepublishBinding;
+				continue;
+			}
+			if (effect == ChangeEffect.RepublishBinding)
+				continue;
 			if (normalized.StartsWith("src/NativePoc.Screen/", StringComparison.Ordinal)
 				|| normalized.StartsWith("samples/NativePoc.Packing/", StringComparison.Ordinal)
 				|| IsAppScreen(normalized)
@@ -82,6 +90,17 @@ static class ChangeEffectRules
 			return false;
 		var parts = normalized.Split('/');
 		return parts.Length == 3 && NewLoop.IsName(parts[1]);
+	}
+
+	public static bool IsBindingSource(string relativePath)
+	{
+		var normalized = Normalize(relativePath);
+		if (!normalized.StartsWith("samples/", StringComparison.Ordinal) || !normalized.EndsWith(".cs", StringComparison.Ordinal))
+			return false;
+		if (normalized.Contains("/bin/", StringComparison.Ordinal) || normalized.Contains("/obj/", StringComparison.Ordinal))
+			return false;
+		var name = normalized[(normalized.LastIndexOf('/') + 1)..];
+		return name.StartsWith("Device", StringComparison.Ordinal) && name.Length > "Device.cs".Length;
 	}
 
 	public static bool IsCallableSource(string relativePath)

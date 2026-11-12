@@ -4,7 +4,7 @@ using Android.Util;
 namespace NativePoc;
 
 [JniType("android/content/ClipboardManager")]
-static class DeviceClipboard
+static partial class DeviceClipboard
 {
 	[JniMethod("setPrimaryClip", "(Ljava/lang/String;Ljava/lang/String;)V", Instance = true, Service = "clipboard")]
 	public static void Set(string label, string text)
@@ -21,19 +21,6 @@ static class DeviceClipboard
 		Log.Info("NativePoc", "jni-bind class=android/content/ClipboardManager method=getPrimaryClip text=" + text);
 		return text;
 	}
-
-#pragma warning disable CA2255
-	[System.Runtime.CompilerServices.ModuleInitializer]
-	internal static void RegisterJni()
-	{
-		JniRegistry.Add("DeviceClipboard.Set", args => Set(args.Length > 0 ? args[0] : "", args.Length > 1 ? args[1] : ""));
-		JniRegistry.Add("DeviceClipboard.Get", args =>
-		{
-			_ = args;
-			return Get();
-		});
-	}
-#pragma warning restore CA2255
 
 	static ClipboardManager Manager()
 	{

@@ -199,6 +199,16 @@ static class AndroidLoop
 				case ChangeEffect.ReloadScreen:
 					ApplyScreens(session, repo, rid, serial, options, kept, batch.Paths, batch.FirstMs);
 					break;
+				case ChangeEffect.RepublishBinding:
+					Console.WriteLine(BindingNotice.Line);
+					foreach (var path in batch.Paths)
+					{
+						if (ChangeEffectRules.IsBindingSource(path))
+							Console.WriteLine(ChangeEffectRules.Normalize(path));
+					}
+
+					OfferBindingRepublish(session, repo, rid, serial, options, kept);
+					break;
 				case ChangeEffect.RestartRequired:
 					if (batch.Paths.Any(ChangeEffectRules.IsHostEdit))
 					{
@@ -251,6 +261,7 @@ static class AndroidLoop
 			ChangeEffect.Ignore => new InvalidOperationException("Ignore is handled."),
 			ChangeEffect.ReloadScreen => new InvalidOperationException("ReloadScreen is handled."),
 			ChangeEffect.RestartRequired => new InvalidOperationException("RestartRequired is handled."),
+			ChangeEffect.RepublishBinding => new InvalidOperationException("RepublishBinding is handled."),
 		};
 
 	static List<string> CallablePaths(IReadOnlyList<string> paths)
@@ -298,7 +309,12 @@ static class AndroidLoop
 			Console.WriteLine("cnative: reload " + relative);
 			var startedApp = Stopwatch.GetTimestamp();
 			var sent = SendSource(session, repo, relative, kept);
-			if (!ReportApplied(relative, sent, firstMs, startedApp) && (sent.Refused || HostOutput.IsRude(sent.Text)))
+			if (ReportApplied(relative, sent, firstMs, startedApp))
+			{
+				if (BindingNotice.Calls(sent.Text) || BindingNotice.CallsFile(repo, relative))
+					Console.WriteLine(BindingNotice.Line);
+			}
+			else if (sent.Refused || HostOutput.IsRude(sent.Text))
 				OfferRestart(session, repo, rid, serial, options, kept, sent.Refused);
 		}
 
@@ -949,6 +965,39 @@ static class AndroidLoop
 			throw new InvalidOperationException("Install failed: " + again.Stderr + again.Stdout + installed.Stderr + installed.Stdout);
 	}
 
+	static void OfferBindingRepublish(ReloadSession session, string repo, string rid, string serial, CliOptions options, KeptPrograms kept)
+	{
+		var interactive = Interactive();
+		var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
+		var follow = ReloadConsole.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude));
+		if (follow is not null)
+			Console.WriteLine(follow);
+		if (restarting)
+			Relaunch(session, repo, rid, serial, options.Listener, kept, options.Root);
+	}
+
+	static string RequireListenerApk(string repo, string rid)
+	{
+		var apk = AndroidBuild.RequireSignedApk(AndroidBuild.ListenerOutput(repo, rid));
+		if (AndroidBuild.DexHasRuntimeProvider(apk))
+			return apk;
+		Console.WriteLine("cnative: NativeAotRuntimeProvider is missing from the listener apk. Cleaning the listener output and publishing again.");
+		AndroidBuild.CleanListenerOutput(repo);
+		var project = Path.Combine(repo, "src", "NativePoc.Android", "NativePoc.Android.csproj");
+		var again = ProcessRunner.Run(
+			"dotnet",
+			AndroidBuild.ListenerPublish(project, rid),
+			repo,
+			Console.WriteLine,
+			Console.Error.WriteLine);
+		if (again.Code != 0)
+			throw new InvalidOperationException("Listener publish exited " + again.Code + ".");
+		apk = AndroidBuild.RequireSignedApk(AndroidBuild.ListenerOutput(repo, rid));
+		if (!AndroidBuild.DexHasRuntimeProvider(apk))
+			throw new InvalidOperationException("The listener apk is missing NativeAotRuntimeProvider after a clean publish.");
+		return apk;
+	}
+
 	static string? LaunchRootExtra(string? root) =>
 		string.IsNullOrEmpty(root) ? null : "--es nativepoc_root " + root;
 
@@ -966,7 +1015,7 @@ static class AndroidLoop
 				Console.Error.WriteLine);
 			if (published.Code != 0)
 				throw new InvalidOperationException("Listener publish exited " + published.Code + ".");
-			var apk = AndroidBuild.RequireSignedApk(AndroidBuild.PublishDirectory(repo, "Debug", rid));
+			var apk = RequireListenerApk(repo, rid);
 			if (!reuseRunning)
 			{
 				InstallApk(serial, apk);

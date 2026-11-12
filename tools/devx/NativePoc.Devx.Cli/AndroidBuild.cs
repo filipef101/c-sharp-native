@@ -1,3 +1,5 @@
+using System.IO.Compression;
+
 namespace NativePoc.Devx;
 
 static class AndroidBuild
@@ -50,6 +52,32 @@ static class AndroidBuild
 
 	public static string PublishDirectory(string repo, string configuration, string rid) =>
 		Path.Combine(repo, "src", "NativePoc.Android", "bin", configuration, "net10.0-android", rid, "publish");
+
+	public static string ListenerOutput(string repo, string rid) =>
+		Path.Combine(repo, "src", "NativePoc.Android", "bin", "listener", "Debug", "net10.0-android", rid, "publish");
+
+	public static void CleanListenerOutput(string repo)
+	{
+		var root = Path.Combine(repo, "src", "NativePoc.Android");
+		foreach (var name in new[] { "bin", "obj" })
+		{
+			var path = Path.Combine(root, name, "listener");
+			if (Directory.Exists(path))
+				Directory.Delete(path, recursive: true);
+		}
+	}
+
+	public static bool DexHasRuntimeProvider(string apk)
+	{
+		using var zip = ZipFile.OpenRead(apk);
+		var dex = zip.GetEntry("classes.dex");
+		if (dex is null)
+			return false;
+		using var stream = dex.Open();
+		using var memory = new MemoryStream();
+		stream.CopyTo(memory);
+		return memory.GetBuffer().AsSpan(0, (int)memory.Length).IndexOf("NativeAotRuntimeProvider"u8) >= 0;
+	}
 
 	public static string DebugDirectory(string repo, string configuration, string rid) =>
 		Path.Combine(repo, "src", "NativePoc.Android", "bin", configuration, "net10.0-android", rid);

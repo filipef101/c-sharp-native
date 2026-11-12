@@ -58,4 +58,54 @@ public sealed class JniBindingTests
 		Assert.DoesNotContain("Type.GetType", generated, StringComparison.Ordinal);
 		Assert.DoesNotContain("Assembly.Load", generated, StringComparison.Ordinal);
 	}
+
+	[Fact]
+	public void A_method_with_a_body_registers_without_a_hand_written_initializer()
+	{
+		var source = """
+			using System;
+			namespace NativePoc
+			{
+				[AttributeUsage(AttributeTargets.Class)]
+				public sealed class JniTypeAttribute : Attribute
+				{
+					public JniTypeAttribute(string className) => ClassName = className;
+					public string ClassName { get; }
+				}
+
+				[AttributeUsage(AttributeTargets.Method)]
+				public sealed class JniMethodAttribute : Attribute
+				{
+					public JniMethodAttribute(string name, string signature)
+					{
+						Name = name;
+						Signature = signature;
+					}
+					public string Name { get; }
+					public string Signature { get; }
+				}
+
+				[JniType("android/widget/Toast")]
+				static partial class DeviceToast
+				{
+					[JniMethod("makeText", "(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;")]
+					public static void Show(string text)
+					{
+						_ = text;
+					}
+				}
+			}
+			""";
+		var tree = CSharpSyntaxTree.ParseText(source);
+		var compilation = CSharpCompilation.Create(
+			"toast-test",
+			[tree],
+			[MetadataReference.CreateFromFile(typeof(object).Assembly.Location), MetadataReference.CreateFromFile(typeof(Attribute).Assembly.Location)],
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+		var generated = JniBindingGenerator.Emit(compilation);
+		Assert.Contains("JniRegistry.Add(\"DeviceToast.Show\", args => Show(args.Length > 0 ? args[0] : \"\"));", generated, StringComparison.Ordinal);
+		Assert.Contains("RegisterJni()", generated, StringComparison.Ordinal);
+		Assert.DoesNotContain("JNIEnv.FindClass", generated, StringComparison.Ordinal);
+		Assert.DoesNotContain("public static void Show", generated, StringComparison.Ordinal);
+	}
 }

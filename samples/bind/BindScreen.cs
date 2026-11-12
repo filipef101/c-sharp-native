@@ -53,5 +53,18 @@ public static class BindScreen
 				Key = "share",
 				Style = new Style { Padding = 14, FontSize = 16 },
 			},
+			new Button(
+				"Toast",
+				() =>
+				{
+					DeviceToast.Show("pier");
+					state.Note = "toasted";
+					platform.RequestRender();
+				},
+				"Toast")
+			{
+				Key = "toast",
+				Style = new Style { Padding = 14, FontSize = 16 },
+			},
 		]);
 }

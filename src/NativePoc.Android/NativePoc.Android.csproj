@@ -229,6 +229,24 @@
 		<ApplicationId>com.scratch.nativepoc.blank</ApplicationId>
 		<DefineConstants>$(DefineConstants);NATIVEPOC_BLANK_CHROME</DefineConstants>
 	</PropertyGroup>
+	<!-- Generated outputs for another mode live under obj/. The SDK glob drops only
+	     the current BaseIntermediateOutputPath, so a listener tree would otherwise
+	     compile the Debug and Release stubs too. Live Java stubs are added later
+	     as _JavaStubFiles, and the live C# generator output is under IntermediateOutputPath. -->
+	<ItemGroup>
+		<AndroidJavaSource Remove="obj/**/*.java" />
+		<AndroidJavaSource Remove="obj\**\*.java" />
+		<Compile Remove="obj/**/*.cs" />
+		<Compile Remove="obj\**\*.cs" />
+		<Compile Remove="bin/**/*.cs" />
+		<Compile Remove="bin\**\*.cs" />
+		<EmbeddedResource Remove="obj/**/*" />
+		<EmbeddedResource Remove="bin/**/*" />
+		<AndroidNativeLibrary Remove="obj/**/*" />
+		<AndroidNativeLibrary Remove="bin/**/*" />
+		<AndroidLibrary Remove="obj/**/*" />
+		<AndroidLibrary Remove="bin/**/*" />
+	</ItemGroup>
 	<Target Name="RefuseDevListenerInRelease" BeforeTargets="Build;Publish">
 		<Error
 			Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' == 'Release'"

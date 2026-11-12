@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -25,6 +26,7 @@ public sealed class JniBindingGenerator : IIncrementalGenerator
 	public static string Emit(Compilation compilation)
 	{
 		var builder = new StringBuilder();
+		string? openNamespace = null;
 		foreach (var tree in compilation.SyntaxTrees)
 		{
 			var model = compilation.GetSemanticModel(tree);
@@ -42,13 +44,19 @@ public sealed class JniBindingGenerator : IIncrementalGenerator
 					if (model.GetDeclaredSymbol(method) is not IMethodSymbol member)
 						continue;
 					var body = Method(symbol, member, jni, out var register);
-					if (body is null)
+					if (body is not null)
+					{
+						methods.Add(body);
+						registers.Add(register);
 						continue;
-					methods.Add(body);
-					registers.Add(register);
+					}
+
+					var declared = BodyRegister(symbol, member);
+					if (declared is not null)
+						registers.Add(declared);
 				}
 
-				if (methods.Count == 0)
+				if (registers.Count == 0)
 					continue;
 				if (builder.Length == 0)
 				{
@@ -59,8 +67,15 @@ public sealed class JniBindingGenerator : IIncrementalGenerator
 					builder.AppendLine("using Java.Interop;");
 				}
 
-				builder.Append("namespace ").Append(symbol.ContainingNamespace.ToDisplayString()).AppendLine(";");
-				builder.AppendLine();
+				var namespaceName = symbol.ContainingNamespace.ToDisplayString();
+				if (!string.Equals(openNamespace, namespaceName, StringComparison.Ordinal))
+				{
+					if (openNamespace is not null)
+						builder.AppendLine("}");
+					builder.Append("namespace ").Append(namespaceName).AppendLine(" {");
+					openNamespace = namespaceName;
+				}
+
 				builder.Append("static partial class ").Append(symbol.Name).AppendLine();
 				builder.AppendLine("{");
 				foreach (var method in methods)
@@ -75,6 +90,8 @@ public sealed class JniBindingGenerator : IIncrementalGenerator
 			}
 		}
 
+		if (openNamespace is not null)
+			builder.AppendLine("}");
 		return builder.ToString();
 	}
 
@@ -199,6 +216,51 @@ public sealed class JniBindingGenerator : IIncrementalGenerator
 		registration.AppendLine("));");
 		register = registration.ToString();
 		return builder.ToString();
+	}
+
+	static string? BodyRegister(INamedTypeSymbol type, IMethodSymbol method)
+	{
+		if (method.IsPartialDefinition || !method.IsStatic || method.Name == "RegisterJni")
+			return null;
+		var declared = false;
+		foreach (var attribute in method.GetAttributes())
+		{
+			if (attribute.AttributeClass?.Name is ("JniMethodAttribute" or "JniMethod"))
+				declared = true;
+		}
+
+		if (!declared)
+			return null;
+		if (method.ReturnType.SpecialType is not (SpecialType.System_Void or SpecialType.System_String))
+			return null;
+		var args = new StringBuilder();
+		for (var index = 0; index < method.Parameters.Length; index++)
+		{
+			if (index > 0)
+				args.Append(", ");
+			var cell = ArgCell(method.Parameters[index].Type, index);
+			if (cell is null)
+				return null;
+			args.Append(cell);
+		}
+
+		return "\t\tNativePoc.JniRegistry.Add(\"" + type.Name + "." + method.Name + "\", args => " + method.Name + "(" + args + "));\n";
+	}
+
+	static string? ArgCell(ITypeSymbol type, int index)
+	{
+		var number = index.ToString(CultureInfo.InvariantCulture);
+		var present = "args.Length > " + number;
+		var cell = "args[" + number + "]";
+		if (type.SpecialType == SpecialType.System_String)
+			return present + " ? " + cell + " : \"\"";
+		if (type.SpecialType == SpecialType.System_Int32)
+			return "int.Parse(" + present + " ? " + cell + " : \"0\", CultureInfo.InvariantCulture)";
+		if (type.SpecialType == SpecialType.System_Int64)
+			return "long.Parse(" + present + " ? " + cell + " : \"0\", CultureInfo.InvariantCulture)";
+		if (type.SpecialType == SpecialType.System_Boolean)
+			return "(" + present + " ? " + cell + " : \"\") == \"true\"";
+		return null;
 	}
 
 	static string RegistryArg(string type, int index)

@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using NativePoc.Devx;
 
 namespace NativePoc.Devx.Tests;
@@ -284,6 +285,65 @@ public sealed class LoopRuleTests
 		{
 			root.Delete(true);
 		}
+	}
+
+	[Fact]
+	public void A_binding_file_asks_for_a_republish_and_a_screen_still_reloads()
+	{
+		Assert.Equal(ChangeEffect.RepublishBinding, ChangeEffectRules.Classify(["samples/bind/DeviceToast.cs"]));
+		Assert.Equal(ChangeEffect.ReloadScreen, ChangeEffectRules.Classify(["samples/bind/BindScreen.cs"]));
+		Assert.Equal(
+			ChangeEffect.RepublishBinding,
+			ChangeEffectRules.Classify(["samples/bind/BindScreen.cs", "samples/bind/DeviceToast.cs"]));
+		Assert.True(ChangeEffectRules.IsBindingSource("samples/bind/DeviceClipboard.cs"));
+		Assert.False(ChangeEffectRules.IsBindingSource("samples/bind/BindScreen.cs"));
+		Assert.Contains("a new binding needs a republish", BindingNotice.Line, StringComparison.Ordinal);
+		Assert.Contains("hot-reloads", BindingNotice.Line, StringComparison.Ordinal);
+		Assert.True(BindingNotice.Calls("DeviceToast.Show(\"pier\");"));
+		Assert.False(BindingNotice.Calls("state.Note = \"pier\";"));
+	}
+
+	[Fact]
+	public void Listener_output_does_not_share_the_debug_tree()
+	{
+		var repo = "/work/nativepoc";
+		var debug = AndroidBuild.DebugDirectory(repo, "Debug", "android-x64").Replace('\\', '/');
+		var listener = AndroidBuild.ListenerOutput(repo, "android-x64").Replace('\\', '/');
+		Assert.Contains("/bin/Debug/", debug, StringComparison.Ordinal);
+		Assert.Contains("/bin/listener/", listener, StringComparison.Ordinal);
+		Assert.DoesNotContain("/bin/listener/", debug, StringComparison.Ordinal);
+		Assert.DoesNotContain("/bin/Debug/", listener, StringComparison.Ordinal);
+		var props = RepoFile("src", "NativePoc.Android", "Directory.Build.props");
+		Assert.Contains("BaseOutputPath>bin/listener/</BaseOutputPath>", props, StringComparison.Ordinal);
+		Assert.Contains("NativePocDevListener", props, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void A_dex_without_the_runtime_provider_is_rejected()
+	{
+		var root = Directory.CreateTempSubdirectory("cnative-dex");
+		try
+		{
+			var missing = Path.Combine(root.FullName, "missing.apk");
+			var present = Path.Combine(root.FullName, "present.apk");
+			WriteDex(missing, "other");
+			WriteDex(present, "NativeAotRuntimeProvider");
+			Assert.False(AndroidBuild.DexHasRuntimeProvider(missing));
+			Assert.True(AndroidBuild.DexHasRuntimeProvider(present));
+		}
+		finally
+		{
+			root.Delete(true);
+		}
+	}
+
+	static void WriteDex(string path, string text)
+	{
+		using var zip = ZipFile.Open(path, ZipArchiveMode.Create);
+		var entry = zip.CreateEntry("classes.dex");
+		using var stream = entry.Open();
+		var bytes = System.Text.Encoding.UTF8.GetBytes(text);
+		stream.Write(bytes, 0, bytes.Length);
 	}
 
 	static string Boom() => throw new InvalidOperationException("readLine should not be called.");

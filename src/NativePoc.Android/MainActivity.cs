@@ -385,6 +385,21 @@ public sealed class MainActivity : Activity
 		if (intent is null)
 			return;
 		Intent = intent;
+		var warmRoot = intent.GetStringExtra("nativepoc_root");
+		if (!string.IsNullOrEmpty(warmRoot))
+		{
+			var before = ScreenNav.Shared.TopId();
+			var beforeDepth = ScreenNav.Shared.Depth;
+			_platform?.Push(warmRoot);
+			Log.Info(
+				Tag,
+				"startup root warm id=" + warmRoot
+				+ " top=" + ScreenNav.Shared.TopId()
+				+ " depth=" + ScreenNav.Shared.Depth.ToString(CultureInfo.InvariantCulture)
+				+ " from=" + before
+				+ " from-depth=" + beforeDepth.ToString(CultureInfo.InvariantCulture));
+			RequestRender();
+		}
 		if (string.Equals(intent.GetStringExtra("nativepoc_keyed_move"), "1", StringComparison.Ordinal))
 		{
 			AppSession.Shared.State.GreetingFirst = true;

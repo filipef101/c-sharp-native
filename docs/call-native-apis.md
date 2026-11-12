@@ -2,7 +2,7 @@
 
 A screen calls a static method. The compiled button runs that method. A hot reload of the same call goes through `JniRegistry`, which runs the same method. The registry name is `Type.Method`. Arguments travel as strings. A string result can be stored in a string field.
 
-The call is trim-safe. There is no reflection and no `Assembly.Load`. A `[JniMethod]` whose declaration is `partial` is generated as `JNIEnv` calls, and a module initializer registers it. A `[JniMethod]` with a body is the same registry entry, written by hand, and its module initializer registers it. The screen has to call the method so the trimmer keeps the body. Reload can change a literal argument, or which registered method the button calls. It cannot add a binding, or change the Java signature, until the next publish.
+The call is trim-safe. There is no reflection and no `Assembly.Load`. A `[JniMethod]` whose declaration is `partial` is generated as `JNIEnv` calls, and a module initializer registers it. A `[JniMethod]` with a body is the same registry entry: the generator writes the module initializer, so the binding is that one file. The screen has to call the method so the trimmer keeps the body. `cnative` says that a new binding needs a republish, and that a literal or a different registered method hot-reloads. A warm `am start --es nativepoc_root <id>` pushes that screen. Back pops.
 
 ## Vibrator
 
@@ -39,3 +39,13 @@ DeviceShare.Send("pier");
 ```
 
 The log line is `jni-bind class=android/content/Intent method=ACTION_SEND text=pier`, and the activity opens the share chooser. Changing the string and saving the screen changes the next share. The chooser title is `Share`.
+
+## Toast
+
+`samples/bind/DeviceToast.cs` is one file. The method has a body, the attribute names `makeText`, and the generator registers `DeviceToast.Show`.
+
+```csharp
+DeviceToast.Show("pier");
+```
+
+The log line is `jni-bind class=android/widget/Toast method=makeText text=pier`. Saving a new `Device*.cs` binding does not hot-reload it. `cnative` prints `a new binding needs a republish`.

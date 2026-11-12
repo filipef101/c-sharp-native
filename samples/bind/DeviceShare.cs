@@ -4,7 +4,7 @@ using Android.Util;
 namespace NativePoc;
 
 [JniType("android/content/Intent")]
-static class DeviceShare
+static partial class DeviceShare
 {
 	[JniMethod("ACTION_SEND", "(Ljava/lang/String;)V")]
 	public static void Send(string text)
@@ -16,12 +16,4 @@ static class DeviceShare
 		send.PutExtra(Intent.ExtraText, text);
 		activity.StartActivity(Intent.CreateChooser(send, "Share"));
 	}
-
-#pragma warning disable CA2255
-	[System.Runtime.CompilerServices.ModuleInitializer]
-	internal static void RegisterJni()
-	{
-		JniRegistry.Add("DeviceShare.Send", args => Send(args.Length == 0 ? "" : args[0]));
-	}
-#pragma warning restore CA2255
 }

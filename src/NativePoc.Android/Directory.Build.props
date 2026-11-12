@@ -1,0 +1,10 @@
+<Project>
+  <!-- A Debug build without the listener flag is non-AOT and stays in bin/Debug.
+       The listener publish is NativeAOT. Sharing obj/Debug and bin/Debug lets a
+       non-AOT classes.dex land in an apk whose manifest still names
+       NativeAotRuntimeProvider. -->
+  <PropertyGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
+    <BaseIntermediateOutputPath>obj/listener/</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin/listener/</BaseOutputPath>
+  </PropertyGroup>
+</Project>
