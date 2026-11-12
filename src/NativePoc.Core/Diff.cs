@@ -160,13 +160,36 @@ internal static class TreeDiff
 		DiffChildren(Array.Empty<Element>(), ChildrenOf(next), path, patches);
 	}
 
+	enum ChildKeys
+	{
+		Empty,
+		Plain,
+		Keyed,
+		Mixed,
+	}
+
 	static void DiffChildren(
 		IReadOnlyList<Element> previous,
 		IReadOnlyList<Element> next,
 		NodePath path,
 		List<Patch> patches)
 	{
-		if (UsesKeys(previous) || UsesKeys(next))
+		var previousMode = KeyMode(previous);
+		var nextMode = KeyMode(next);
+		// A parent that mixes keyed and unkeyed children is an invalid tree.
+		// A parent that is entirely keyed diffed against one that is entirely
+		// unkeyed is a valid edit: the warm column has no keys, and Screen.cs
+		// keys every child. Replace those children instead of refusing.
+		if (previousMode == ChildKeys.Mixed || nextMode == ChildKeys.Mixed)
+			throw new InvalidOperationException("Keyed children cannot be mixed with unkeyed children.");
+		if (previousMode == ChildKeys.Plain && nextMode == ChildKeys.Keyed
+			|| previousMode == ChildKeys.Keyed && nextMode == ChildKeys.Plain)
+		{
+			ReplaceChildren(previous, next, path, patches);
+			return;
+		}
+
+		if (previousMode == ChildKeys.Keyed || nextMode == ChildKeys.Keyed)
 		{
 			DiffKeyedChildren(previous, next, path, patches);
 			return;
@@ -181,14 +204,34 @@ internal static class TreeDiff
 			MountTree(next[i], path.Child(i), patches);
 	}
 
-	static bool UsesKeys(IReadOnlyList<Element> children)
+	static ChildKeys KeyMode(IReadOnlyList<Element> children)
 	{
+		if (children.Count == 0)
+			return ChildKeys.Empty;
+		var keyed = 0;
 		foreach (var child in children)
 		{
 			if (child.Key is not null)
-				return true;
+				keyed++;
 		}
-		return false;
+
+		if (keyed == 0)
+			return ChildKeys.Plain;
+		if (keyed == children.Count)
+			return ChildKeys.Keyed;
+		return ChildKeys.Mixed;
+	}
+
+	static void ReplaceChildren(
+		IReadOnlyList<Element> previous,
+		IReadOnlyList<Element> next,
+		NodePath path,
+		List<Patch> patches)
+	{
+		for (var i = previous.Count - 1; i >= 0; i--)
+			patches.Add(new Unmount(path.Child(i)));
+		for (var i = 0; i < next.Count; i++)
+			MountTree(next[i], path.Child(i), patches);
 	}
 
 	static void DiffKeyedChildren(

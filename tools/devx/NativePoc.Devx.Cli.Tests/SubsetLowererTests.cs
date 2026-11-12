@@ -616,6 +616,59 @@ public sealed class SubsetLowererTests
 	}
 
 	[Fact]
+	public void Lowered_counter_replaces_the_unkeyed_warm_tree()
+	{
+		var root = RepoRoot.Find(AppContext.BaseDirectory);
+		var source = File.ReadAllText(Path.Combine(root, "src", "NativePoc.Screen", "Screen.cs"));
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var platform = new Platform();
+		var warm = RecordProgram.Warm(platform);
+		var next = RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag()).Render(platform);
+		var column = Assert.IsType<Column>(next);
+		Assert.All(column.Children, child => Assert.False(string.IsNullOrEmpty(child.Key)));
+		var patches = TreeDiff.Diff(warm, next);
+		Assert.Contains(patches, patch => patch is SetText set && set.Value == "Counter 0");
+	}
+
+	[Fact]
+	public void Mixed_keys_are_refused_with_a_file_line()
+	{
+		var source = """
+			namespace Demo;
+			public sealed class HomeState
+			{
+			}
+			public static class HomeScreen
+			{
+				public const string ScreenId = "home";
+				public static Element Render(HomeState state, IPlatform platform) =>
+					new Column(
+					[
+						new Text("Keyed") { Key = "a" },
+						new Text("Plain"),
+					]);
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.False(lowered.Ok);
+		var diagnostic = lowered.Diagnostics[0];
+		Assert.Equal(SubsetLowerer.MixedKeys, diagnostic.Id);
+		Assert.Equal("Keyed children cannot be mixed with unkeyed children.", diagnostic.Message);
+		Assert.True(diagnostic.Line > 0);
+		Assert.Contains("Plain", source.Split('\n')[diagnostic.Line - 1], StringComparison.Ordinal);
+		var note = System.Text.Encoding.UTF8.GetString(ScreenQuery.FaultNote(
+			diagnostic.Id,
+			diagnostic.Message,
+			diagnostic.Start,
+			diagnostic.End,
+			diagnostic.Line,
+			diagnostic.Column,
+			"src/NativePoc.Screen/Screen.cs"));
+		Assert.Contains("src/NativePoc.Screen/Screen.cs:" + diagnostic.Line.ToString(System.Globalization.CultureInfo.InvariantCulture), note, StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void Opening_a_note_passes_the_row_and_save_writes_it_back()
 	{
 		var root = RepoRoot.Find(AppContext.BaseDirectory);

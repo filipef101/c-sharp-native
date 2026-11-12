@@ -24,7 +24,9 @@ sealed class GestureColumn : LinearLayout
 	readonly float _density;
 #if NATIVEPOC_STARTUP_MARKS
 	string? _startupKey;
-	bool _startupLogged;
+	bool _measureLogged;
+	bool _layoutLogged;
+	bool _drawLogged;
 #endif
 
 	public GestureColumn(Context context)
@@ -57,18 +59,42 @@ sealed class GestureColumn : LinearLayout
 	protected override void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
 	{
 #if NATIVEPOC_STARTUP_MARKS
-		var mark = _startupKey is not null && !_startupLogged;
+		var mark = _startupKey is not null && !_measureLogged;
 		var started = mark ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
 #endif
 		base.OnMeasure(widthMeasureSpec, heightMeasureSpec);
 #if NATIVEPOC_STARTUP_MARKS
 		if (mark)
 		{
-			_startupLogged = true;
-			StartupMarks.Took(_startupKey == "stats" ? "stat-measure" : "grid-measure", started);
+			_measureLogged = true;
+			StartupMarks.Took(StartupPhase.Name(_startupKey!, "measure"), started);
 		}
 #endif
 	}
+
+#if NATIVEPOC_STARTUP_MARKS
+	protected override void OnLayout(bool changed, int left, int top, int right, int bottom)
+	{
+		var mark = _startupKey is not null && !_layoutLogged;
+		var started = mark ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
+		base.OnLayout(changed, left, top, right, bottom);
+		if (!mark)
+			return;
+		_layoutLogged = true;
+		StartupMarks.Took(StartupPhase.Name(_startupKey!, "layout"), started);
+	}
+
+	protected override void DispatchDraw(Canvas canvas)
+	{
+		var mark = _startupKey is not null && !_drawLogged;
+		var started = mark ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
+		base.DispatchDraw(canvas);
+		if (!mark)
+			return;
+		_drawLogged = true;
+		StartupMarks.Took(StartupPhase.Name(_startupKey!, "draw"), started);
+	}
+#endif
 
 	public override bool OnInterceptTouchEvent(MotionEvent? ev)
 	{
@@ -204,6 +230,10 @@ sealed class RefreshScroll : AndroidWidget
 	bool _revealPosted;
 #if NATIVEPOC_STARTUP_MARKS
 	long _measureTick;
+	bool _measureLogged;
+	int _measurePasses;
+	bool _layoutLogged;
+	bool _drawLogged;
 	bool _traversalLogged;
 #endif
 
@@ -218,17 +248,39 @@ sealed class RefreshScroll : AndroidWidget
 	protected override void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
 	{
 #if NATIVEPOC_STARTUP_MARKS
-		if (_measureTick == 0)
-			_measureTick = System.Diagnostics.Stopwatch.GetTimestamp();
+		var mark = !_measureLogged;
+		var again = !mark && _measurePasses == 1;
+		var started = mark || again ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
+		if (mark)
+		{
+			_measureLogged = true;
+			if (_measureTick == 0)
+				_measureTick = started;
+		}
 #endif
 		base.OnMeasure(widthMeasureSpec, heightMeasureSpec);
+#if NATIVEPOC_STARTUP_MARKS
+		if (mark)
+			StartupMarks.Took("scroll-measure", started);
+		else if (again)
+			StartupMarks.Took("scroll-measure-again", started);
+		_measurePasses++;
+#endif
 	}
 
 	protected override void OnLayout(bool changed, int left, int top, int right, int bottom)
 	{
+#if NATIVEPOC_STARTUP_MARKS
+		var mark = !_layoutLogged;
+		var started = mark ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
+		if (mark)
+			_layoutLogged = true;
+#endif
 		base.OnLayout(changed, left, top, right, bottom);
 		StartupMarks.Phase("layout");
 #if NATIVEPOC_STARTUP_MARKS
+		if (mark)
+			StartupMarks.Took("scroll-layout", started);
 		if (!_traversalLogged && _measureTick != 0)
 		{
 			_traversalLogged = true;
@@ -243,6 +295,19 @@ sealed class RefreshScroll : AndroidWidget
 		// the bottom edge is scrolled until 48 dp of it is on screen.
 		PostDelayed(RevealClippedTargets, 400);
 	}
+
+#if NATIVEPOC_STARTUP_MARKS
+	protected override void DispatchDraw(Canvas canvas)
+	{
+		var mark = !_drawLogged;
+		var started = mark ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
+		if (mark)
+			_drawLogged = true;
+		base.DispatchDraw(canvas);
+		if (mark)
+			StartupMarks.Took("scroll-draw", started);
+	}
+#endif
 
 	void RevealClippedTargets()
 	{
@@ -374,4 +439,75 @@ sealed class RefreshScroll : AndroidWidget
 		OnReleased = null;
 		done?.Invoke();
 	}
+}
+
+static class StartupPhase
+{
+	public static string Name(string key, string part)
+	{
+		if (key == "stats")
+			return "stat-" + part;
+		if (key == "row-0")
+			return "grid-" + part;
+		return key + "-" + part;
+	}
+}
+
+sealed class StartupButton : Android.Widget.Button
+{
+	public StartupButton(Context context)
+		: base(context)
+	{
+	}
+
+#if NATIVEPOC_STARTUP_MARKS
+	string? _startupKey;
+	bool _measureLogged;
+	bool _layoutLogged;
+	bool _drawLogged;
+#endif
+
+	internal void MarkStartup(string key)
+	{
+#if NATIVEPOC_STARTUP_MARKS
+		_startupKey = key;
+#else
+		_ = key;
+#endif
+	}
+
+#if NATIVEPOC_STARTUP_MARKS
+	protected override void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
+	{
+		var mark = _startupKey is not null && !_measureLogged;
+		var started = mark ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
+		base.OnMeasure(widthMeasureSpec, heightMeasureSpec);
+		if (!mark)
+			return;
+		_measureLogged = true;
+		StartupMarks.Took(StartupPhase.Name(_startupKey!, "measure"), started);
+	}
+
+	protected override void OnLayout(bool changed, int left, int top, int right, int bottom)
+	{
+		var mark = _startupKey is not null && !_layoutLogged;
+		var started = mark ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
+		base.OnLayout(changed, left, top, right, bottom);
+		if (!mark)
+			return;
+		_layoutLogged = true;
+		StartupMarks.Took(StartupPhase.Name(_startupKey!, "layout"), started);
+	}
+
+	protected override void OnDraw(Canvas canvas)
+	{
+		var mark = _startupKey is not null && !_drawLogged;
+		var started = mark ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
+		base.OnDraw(canvas);
+		if (!mark)
+			return;
+		_drawLogged = true;
+		StartupMarks.Took(StartupPhase.Name(_startupKey!, "draw"), started);
+	}
+#endif
 }

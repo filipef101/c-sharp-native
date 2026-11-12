@@ -201,8 +201,8 @@ public sealed class MainActivity : Activity
 		_programSource = "";
 		var warmUs = (System.Diagnostics.Stopwatch.GetTimestamp() - warmStarted) * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
 		Log.Info(Tag, "reload-warm us=" + warmUs.ToString(CultureInfo.InvariantCulture));
-		// The warm tree is on screen. Diffing the counter onto it throws when the
-		// requested root has no program yet. Hold the warm screen until it arrives.
+		// The warm tree is on screen. Hold it until the requested root program
+		// arrives, so the compiled counter is not shown in its place.
 		var rootWaiting = ScreenNav.Shared.Depth == 0 && ScreenNav.Shared.LaunchRoot.Length > 0;
 		if (rootWaiting)
 			Log.Info(Tag, "startup root holding id=" + ScreenNav.Shared.LaunchRoot);
@@ -756,7 +756,7 @@ public sealed class MainActivity : Activity
 		var prepUs = TakeUs(prep);
 		TapTrace.PrepDone();
 		// A program-only launch can be waiting on its root. The warm tree is already
-		// mounted, and the counter does not diff onto it.
+		// mounted. Leave it until that root program arrives.
 		if (_record is null && topId.Length == 0 && previousRoot is not null && ScreenNav.Shared.LaunchRoot.Length > 0)
 			return;
 		Element tree;

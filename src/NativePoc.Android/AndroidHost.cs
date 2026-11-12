@@ -42,7 +42,7 @@ sealed class AndroidHost : IElementHost<View>
 			case ElementKind.Text:
 				return new TextView(_activity);
 			case ElementKind.Button:
-				return new AndroidButton(_activity);
+				return new StartupButton(_activity);
 			case ElementKind.TextField:
 				return new AndroidField(_activity);
 			case ElementKind.Switch:
@@ -545,9 +545,14 @@ sealed class AndroidHost : IElementHost<View>
 		if (view is GestureColumn column)
 		{
 			var key = CurrentElement(path)?.Key;
-			if (key is "stats" or "row-0")
+			if (key is "stats" or "row-0" or "hero" or "pieces" or "kept" or "kiln" or "page")
 				column.MarkStartup(key);
+			else if (string.IsNullOrEmpty(key) && path.Length == 1)
+				column.MarkStartup("page");
 		}
+
+		if (view is StartupButton timed && CurrentElement(path)?.Key is string buttonKey && (buttonKey == "shelf" || buttonKey == "room"))
+			timed.MarkStartup(buttonKey);
 
 		if (path.Length == 0)
 		{
