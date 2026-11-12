@@ -14,7 +14,8 @@ sealed record CliOptions(
 	string? Abi,
 	int DebounceMs,
 	bool RestartOnRude,
-	bool Listener)
+	bool Listener,
+	string? Root = null)
 {
 	public const int DefaultDebounceMs = 40;
 }
@@ -84,6 +85,7 @@ static class ArgParser
 		                        A Core, Android, or call-table edit is rebuilt first.
 		  --once                push the current screens once and exit.
 		                    A samples/<name> screen from cnative new is shown too.
+		  --root <name>         show that samples/<name> screen last, so it is the top frame.
 		  --help                show this text.
 		""";
 
@@ -103,6 +105,7 @@ static class ArgParser
 		var debounce = CliOptions.DefaultDebounceMs;
 		var restart = false;
 		var listener = false;
+		string? root = null;
 		for (var i = 2; i < args.Count; i++)
 		{
 			var arg = args[i];
@@ -131,6 +134,11 @@ static class ArgParser
 				case "--listener":
 					listener = true;
 					break;
+				case "--root":
+					root = Take(args, ref i, "--root");
+					if (!NewLoop.IsName(root))
+						throw new UsageException("--root must be a lowercase samples/<name>.");
+					break;
 				case "--debounce":
 					var text = Take(args, ref i, "--debounce");
 					if (!int.TryParse(text, out debounce) || debounce < 1 || debounce > 60_000)
@@ -141,7 +149,7 @@ static class ArgParser
 			}
 		}
 
-		return new CliOptions(help, once, serial, abi, debounce, restart, listener);
+		return new CliOptions(help, once, serial, abi, debounce, restart, listener, root);
 	}
 
 	static bool IsHelp(string arg) => arg is "--help" or "-h" or "help";

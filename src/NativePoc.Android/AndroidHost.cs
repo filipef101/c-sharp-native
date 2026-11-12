@@ -830,6 +830,7 @@ sealed class PlatformBridge : IPlatform
 	public PlatformBridge(MainActivity activity)
 	{
 		_activity = activity;
+		_live = _calls;
 	}
 
 	public void CopyNonce(string nonce)
@@ -854,7 +855,20 @@ sealed class PlatformBridge : IPlatform
 
 	public void WriteBack() => CompiledScreens.WriteBack(ScreenNav.Shared.TopId());
 
-	public void Pop() => ScreenNav.Shared.Pop();
+	readonly CancellationTokenSource _calls = new();
+
+	CancellationTokenSource _live;
+
+	public void Pop()
+	{
+		var leaving = ScreenNav.Shared.TopId();
+		if (!ScreenNav.Shared.Pop())
+			return;
+		_live.Cancel();
+		_live = new CancellationTokenSource();
+		Log.Info(MainActivity.Tag, "http-cancel screen=" + leaving);
+		RequestRender();
+	}
 
 	public void Effect(string property, string resource) =>
 		EffectRuntime.Start(_activity, property, resource, () => _activity.RequestRender());
@@ -863,4 +877,22 @@ sealed class PlatformBridge : IPlatform
 
 	public void Module(string module, string method, string[] args) =>
 		PlatformModules.Dispatch(_activity, module, method, args);
+
+	public Task<string> ModuleAsync(string module, string method, string[] args) =>
+		PlatformModules.DispatchAsync(_activity, module, method, args, _live.Token);
+
+	public void Continue(Task<string> task, Action<string> resume)
+	{
+		var generation = _live;
+		task.ContinueWith(done =>
+		{
+			var text = done.IsCompletedSuccessfully ? done.Result ?? "" : "http-error: " + (done.Exception?.GetBaseException().Message ?? "failed");
+			_activity.RunOnUiThread(() =>
+			{
+				if (!ReferenceEquals(generation, _live))
+					return;
+				resume(text);
+			});
+		});
+	}
 }

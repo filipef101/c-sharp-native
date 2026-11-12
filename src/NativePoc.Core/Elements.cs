@@ -381,6 +381,30 @@ public interface IPlatform
 	void Module(string module, string method, string[] args)
 	{
 	}
+
+	Task<string> ModuleAsync(string module, string method, string[] args)
+	{
+		_ = module;
+		_ = method;
+		_ = args;
+		return Task.FromResult("");
+	}
+
+	void Continue(Task<string> task, Action<string> resume)
+	{
+		ArgumentNullException.ThrowIfNull(task);
+		ArgumentNullException.ThrowIfNull(resume);
+		if (task.IsCompleted)
+		{
+			resume(AwaitText(task));
+			return;
+		}
+
+		task.ContinueWith(done => resume(AwaitText(done)));
+	}
+
+	static string AwaitText(Task<string> task) =>
+		task.IsCompletedSuccessfully ? task.Result ?? "" : "http-error: " + (task.Exception?.GetBaseException().Message ?? "failed");
 }
 
 public sealed class AppState

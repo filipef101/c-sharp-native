@@ -88,6 +88,7 @@ public static partial class RecordProgram
 	public const byte ActWriteBack = 36;
 	public const byte ActThrow = 37;
 	public const byte ActSource = 38;
+	public const byte ActAwait = 39;
 
 	public const int ActionStepBudget = 100_000;
 
@@ -115,6 +116,7 @@ public static partial class RecordProgram
 	public const byte CondStrNe = 9;
 	public const byte CondLocalIntEq = 10;
 	public const byte CondLit = 11;
+	public const byte CondPrefix = 12;
 
 	public const byte LocalInt = 1;
 	public const byte LocalStr = 2;
@@ -1247,9 +1249,14 @@ public static partial class RecordProgram
 
 		TapTrace.Script();
 		var clock = System.Diagnostics.Stopwatch.StartNew();
+		ActionSuspendException? suspended = null;
 		try
 		{
 			RunSteps(script, strings, bag, platform, text, flag, rowId, frame, 0, origin, limit);
+		}
+		catch (ActionSuspendException ex)
+		{
+			suspended = ex;
 		}
 		catch (ActionStoppedException ex)
 		{
@@ -1267,12 +1274,67 @@ public static partial class RecordProgram
 			var micros = clock.ElapsedTicks * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
 			ActionLog.Note(micros, frame.Steps, stop);
 		}
+
+		if (suspended is not null)
+			Arm(suspended, platform, bag, frame, source);
+	}
+
+	static void Arm(ActionSuspendException suspended, IPlatform platform, Bag bag, HandlerFrame frame, string source)
+	{
+		platform.Continue(suspended.Task, result =>
+		{
+			bag.WriteString(suspended.Dest, result);
+			Drive(suspended, platform, bag, frame, source);
+		});
+	}
+
+	static void Drive(ActionSuspendException suspended, IPlatform platform, Bag bag, HandlerFrame frame, string source)
+	{
+		frame.Steps = 0;
+		var previous = EffectContext.Bag;
+		EffectContext.Bag = bag;
+		var clock = System.Diagnostics.Stopwatch.StartNew();
+		string? stop = null;
+		ActionSuspendException? again = null;
+		try
+		{
+			RunSteps(suspended.Script, suspended.Strings, bag, platform, suspended.Text, suspended.Flag, suspended.RowId, frame, suspended.Depth, suspended.Ip, suspended.End - suspended.Ip, suspended.Follow);
+			var next = suspended.Follow;
+			while (next is not null)
+			{
+				RunSteps(next.Script, next.Strings, bag, platform, next.Text, next.Flag, next.RowId, frame, next.Depth, next.Ip, next.End - next.Ip, next.Next);
+				next = next.Next;
+			}
+		}
+		catch (ActionSuspendException ex)
+		{
+			again = ex;
+		}
+		catch (ActionStoppedException ex)
+		{
+			stop = ex.Message;
+			platform.RequestRender();
+		}
+		catch (Exception ex) when (ActionLog.OnFault is not null)
+		{
+			ActionLog.OnFault(source.Length == 0 ? "screen" : source, ex.Message);
+		}
+		finally
+		{
+			clock.Stop();
+			EffectContext.Bag = previous;
+			var micros = clock.ElapsedTicks * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
+			ActionLog.Note(micros, frame.Steps, stop);
+		}
+
+		if (again is not null)
+			Arm(again, platform, bag, frame, source);
 	}
 
 	static void RunSteps(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId, HandlerFrame frame, int depth) =>
 		RunSteps(script, strings, bag, platform, text, flag, rowId, frame, depth, 0, script.Length);
 
-	static void RunSteps(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId, HandlerFrame frame, int depth, int origin, int limit)
+	static void RunSteps(byte[] script, string[] strings, Bag bag, IPlatform platform, string? text, bool flag, string? rowId, HandlerFrame frame, int depth, int origin, int limit, Follow? follow = null)
 	{
 		if (depth > 8)
 			throw new InvalidOperationException("Rejected record program.");
@@ -1405,24 +1467,26 @@ public static partial class RecordProgram
 					if (ip >= script.Length)
 						throw new InvalidOperationException("Rejected record program.");
 					var count = script[ip++];
-					var moduleArgs = new string[count];
-					for (var index = 0; index < count; index++)
+					platform.Module(module, method, ReadModuleArgs(script, strings, bag, ref ip, count));
+					break;
+				}
+				case ActAwait:
+				{
+					var module = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var method = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					if (ip >= script.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					var count = script[ip++];
+					var moduleArgs = ReadModuleArgs(script, strings, bag, ref ip, count);
+					var dest = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+					var task = platform.ModuleAsync(module, method, moduleArgs);
+					if (task.IsCompleted)
 					{
-						if (ip >= script.Length)
-							throw new InvalidOperationException("Rejected record program.");
-						var kind = script[ip++];
-						var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
-						moduleArgs[index] = kind switch
-						{
-							0 => name,
-							1 => bag.ReadString(name),
-							2 => bag.ReadBool(name) ? "true" : "false",
-							_ => throw new InvalidOperationException("Rejected record program."),
-						};
+						bag.WriteString(dest, AwaitText(task));
+						break;
 					}
 
-					platform.Module(module, method, moduleArgs);
-					break;
+					throw new ActionSuspendException(task, dest, script, strings, ip, end, follow, text, flag, rowId, depth);
 				}
 				case ActDropRow:
 				{
@@ -1479,7 +1543,22 @@ public static partial class RecordProgram
 					var chosenAt = condition ? thenAt : elseAt;
 					var chosenLen = condition ? thenLen : elseLen;
 					if (chosenLen > 0)
-						RunSteps(script.AsSpan(chosenAt, chosenLen).ToArray(), strings, bag, platform, text, flag, rowId, frame, depth + 1);
+					{
+						var rest = new Follow
+						{
+							Script = script,
+							Strings = strings,
+							Ip = ip,
+							End = end,
+							Next = follow,
+							Text = text,
+							Flag = flag,
+							RowId = rowId,
+							Depth = depth,
+						};
+						RunSteps(script.AsSpan(chosenAt, chosenLen).ToArray(), strings, bag, platform, text, flag, rowId, frame, depth + 1, 0, chosenLen, rest);
+					}
+
 					break;
 				}
 				case ActSetInt:
@@ -1713,9 +1792,92 @@ public static partial class RecordProgram
 					throw new InvalidOperationException("Rejected record program.");
 				return bit == 1;
 			}
+			case CondPrefix:
+			{
+				var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+				var prefix = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+				return bag.ReadString(name).StartsWith(prefix, StringComparison.Ordinal);
+			}
 			default:
 				throw new InvalidOperationException("Rejected record program.");
 		}
+	}
+
+	static string[] ReadModuleArgs(byte[] script, string[] strings, Bag bag, ref int ip, int count)
+	{
+		var moduleArgs = new string[count];
+		for (var index = 0; index < count; index++)
+		{
+			if (ip >= script.Length)
+				throw new InvalidOperationException("Rejected record program.");
+			var kind = script[ip++];
+			var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+			moduleArgs[index] = kind switch
+			{
+				0 => name,
+				1 => bag.ReadString(name),
+				2 => bag.ReadBool(name) ? "true" : "false",
+				_ => throw new InvalidOperationException("Rejected record program."),
+			};
+		}
+
+		return moduleArgs;
+	}
+
+	static string AwaitText(Task<string> task) =>
+		task.IsCompletedSuccessfully ? task.Result ?? "" : "http-error: " + (task.Exception?.GetBaseException().Message ?? "failed");
+
+	sealed class Follow
+	{
+		public byte[] Script = [];
+		public string[] Strings = [];
+		public int Ip;
+		public int End;
+		public Follow? Next;
+		public string? Text;
+		public bool Flag;
+		public string? RowId;
+		public int Depth;
+	}
+
+	sealed class ActionSuspendException : Exception
+	{
+		public ActionSuspendException(Task<string> task, string dest, byte[] script, string[] strings, int ip, int end, Follow? follow, string? text, bool flag, string? rowId, int depth)
+		{
+			Task = task;
+			Dest = dest;
+			Script = script;
+			Strings = strings;
+			Ip = ip;
+			End = end;
+			Follow = follow;
+			Text = text;
+			Flag = flag;
+			RowId = rowId;
+			Depth = depth;
+		}
+
+		public Task<string> Task { get; }
+
+		public string Dest { get; }
+
+		public byte[] Script { get; }
+
+		public string[] Strings { get; }
+
+		public int Ip { get; }
+
+		public int End { get; }
+
+		public Follow? Follow { get; }
+
+		public string? Text { get; }
+
+		public bool Flag { get; }
+
+		public string? RowId { get; }
+
+		public int Depth { get; }
 	}
 
 	static int ReadI32(byte[] script, ref int ip)

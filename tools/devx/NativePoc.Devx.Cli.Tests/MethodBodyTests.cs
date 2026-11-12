@@ -27,7 +27,66 @@ public sealed class MethodBodyTests
 	}
 
 	[Fact]
-	public void A_body_that_is_not_one_expression_is_refused()
+	public void A_statement_body_with_locals_if_while_and_for_runs()
+	{
+		const string next = """
+			namespace NativePoc;
+			public static class CounterService
+			{
+				public static int Next(int count)
+				{
+					var step = 2;
+					if (count < 0)
+						return 0;
+					var total = count;
+					var i = 0;
+					while (i < step)
+					{
+						total = total + 4;
+						i = i + 1;
+					}
+					return total + 1;
+				}
+			}
+			""";
+		const string label = """
+			namespace NativePoc.Library;
+			public static class LibraryFormat
+			{
+				public static string Label(string name)
+				{
+					if (name.Length == 0)
+						return "blank";
+					var trimmed = name.Trim();
+					var n = 0;
+					for (var i = 0; i < 2; i = i + 1)
+						n = n + 1;
+					if (n < 2)
+						return "short";
+					return trimmed;
+				}
+			}
+			""";
+		Assert.True(MethodBody.TryLower(next, out var nextBodies, out var nextWhy), nextWhy);
+		Assert.True(MethodBody.TryLower(label, out var labelBodies, out var labelWhy), labelWhy);
+		RecordProgram.ClearReplacements();
+		var nextBody = Assert.Single(nextBodies);
+		var labelBody = Assert.Single(labelBodies);
+		Assert.Equal("vm-body NativePoc.CounterService.Next", Reply(ScreenQuery.ReplaceBody(nextBody.TypeName, nextBody.MethodName, nextBody.ReturnKind, nextBody.ArgKinds, nextBody.Code, nextBody.Strings)));
+		Assert.Equal("vm-body NativePoc.Library.LibraryFormat.Label", Reply(ScreenQuery.ReplaceBody(labelBody.TypeName, labelBody.MethodName, labelBody.ReturnKind, labelBody.ArgKinds, labelBody.Code, labelBody.Strings)));
+		Assert.True(RecordProgram.TryRunReplacement("CounterService", "Next", [RecordProgram.AppValue.FromInt(3)], out var added));
+		Assert.Equal(12, added.Int);
+		Assert.True(RecordProgram.TryRunReplacement("CounterService", "Next", [RecordProgram.AppValue.FromInt(-4)], out var stopped));
+		Assert.Equal(0, stopped.Int);
+		Assert.True(RecordProgram.TryRunReplacement("LibraryFormat", "Label", [RecordProgram.AppValue.FromStr("  Ada  ")], out var trimmed));
+		Assert.Equal("Ada", trimmed.Text);
+		Assert.True(RecordProgram.TryRunReplacement("LibraryFormat", "Label", [RecordProgram.AppValue.FromStr("")], out var empty));
+		Assert.Equal("blank", empty.Text);
+		RecordProgram.ClearReplacements();
+	}
+
+	[Fact]
+	public void A_body_that_cannot_be_lowered_is_refused()
 	{
 		const string source = """
 			namespace NativePoc;
@@ -35,8 +94,14 @@ public sealed class MethodBodyTests
 			{
 				public static int Next(int count)
 				{
-					var extra = count + 1;
-					return extra;
+					try
+					{
+						return count;
+					}
+					catch
+					{
+						return 0;
+					}
 				}
 			}
 			""";

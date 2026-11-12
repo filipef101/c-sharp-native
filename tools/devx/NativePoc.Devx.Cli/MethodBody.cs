@@ -18,7 +18,7 @@ internal static class MethodBody
 		{
 			if (diagnostic.Severity != DiagnosticSeverity.Error)
 				continue;
-			refusal = Describe(diagnostic) + " could not be lowered into the action VM. The new body is not a single expression of int, bool, or string. Relaunching.";
+			refusal = Describe(diagnostic) + " could not be lowered into the action VM. The new body is not locals, if, loops, and return of int, bool, or string. Relaunching.";
 			return false;
 		}
 
@@ -90,17 +90,29 @@ internal static class MethodBody
 				names[index] = parameter.Identifier.ValueText;
 			}
 
+			var buf = new Buf();
+			var nameList = new List<string>(names);
+			var kindList = new List<byte>(args);
 			ExpressionSyntax? body = method.ExpressionBody?.Expression;
 			if (body is null && method.Body is { Statements: [ReturnStatementSyntax returned] })
 				body = returned.Expression;
-			if (body is null)
+			if (body is not null)
 			{
-				refusal = Refuse(typeName, method.Identifier.ValueText);
-				return false;
+				if (!Write(body, names, args, buf, out var kind) || kind != ret)
+				{
+					refusal = Refuse(typeName, method.Identifier.ValueText);
+					return false;
+				}
 			}
-
-			var buf = new Buf();
-			if (!Write(body, names, args, buf, out var kind) || kind != ret)
+			else if (method.Body is not null)
+			{
+				if (!WriteBlock(method.Body, nameList, kindList, ret, buf, out var complete) || !complete)
+				{
+					refusal = Refuse(typeName, method.Identifier.ValueText);
+					return false;
+				}
+			}
+			else
 			{
 				refusal = Refuse(typeName, method.Identifier.ValueText);
 				return false;
@@ -113,7 +125,7 @@ internal static class MethodBody
 	}
 
 	static string Refuse(string typeName, string method) =>
-		typeName + "." + method + " could not be lowered into the action VM. The new body is not a single expression of int, bool, or string. Relaunching.";
+		typeName + "." + method + " could not be lowered into the action VM. The new body is not locals, if, loops, and return of int, bool, or string. Relaunching.";
 
 	static string Describe(Diagnostic diagnostic)
 	{
@@ -156,6 +168,192 @@ internal static class MethodBody
 			default:
 				return false;
 		}
+	}
+
+	static bool WriteBlock(BlockSyntax block, List<string> names, List<byte> kinds, byte ret, Buf buf, out bool complete)
+	{
+		var exits = new List<int>();
+		complete = false;
+		foreach (var statement in block.Statements)
+		{
+			if (complete)
+				return false;
+			if (!WriteStatement(statement, names, kinds, ret, buf, exits, ref complete))
+				return false;
+		}
+
+		foreach (var exit in exits)
+			buf.Patch(exit);
+		return true;
+	}
+
+	static bool WriteStatement(StatementSyntax statement, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits, ref bool complete)
+	{
+		switch (statement)
+		{
+			case BlockSyntax nested:
+				foreach (var child in nested.Statements)
+				{
+					if (complete)
+						return false;
+					if (!WriteStatement(child, names, kinds, ret, buf, exits, ref complete))
+						return false;
+				}
+
+				return true;
+			case LocalDeclarationStatementSyntax local:
+				return Declare(local, names, kinds, buf);
+			case IfStatementSyntax branch:
+				return WriteIf(branch, names, kinds, ret, buf, exits, ref complete);
+			case WhileStatementSyntax loop:
+				return WriteWhile(loop, names, kinds, ret, buf, exits);
+			case ForStatementSyntax loop:
+				return WriteFor(loop, names, kinds, ret, buf, exits);
+			case ReturnStatementSyntax returned:
+				if (returned.Expression is null || !Emit(returned.Expression, names, kinds, buf, out var kind) || kind != ret)
+					return false;
+				exits.Add(buf.Reserve(RecordProgram.VmJump));
+				complete = true;
+				return true;
+			case ExpressionStatementSyntax expression:
+				return WriteExpression(expression.Expression, names, kinds, buf);
+			default:
+				return false;
+		}
+	}
+
+	static bool Declare(LocalDeclarationStatementSyntax local, List<string> names, List<byte> kinds, Buf buf)
+	{
+		if (local.Declaration.Variables.Count != 1 || names.Count >= 8)
+			return false;
+		var variable = local.Declaration.Variables[0];
+		if (variable.Initializer is null || names.Contains(variable.Identifier.ValueText))
+			return false;
+		var declared = local.Declaration.Type?.ToString() ?? "";
+		if (declared == "var")
+		{
+			if (!Emit(variable.Initializer.Value, names, kinds, buf, out var inferred) || inferred == 0)
+				return false;
+			Store(buf, inferred, names.Count);
+			names.Add(variable.Identifier.ValueText);
+			kinds.Add(inferred);
+			return true;
+		}
+
+		if (!KindOf(local.Declaration.Type, out var kind) || kind == 0 || !Emit(variable.Initializer.Value, names, kinds, buf, out var got) || got != kind)
+			return false;
+		Store(buf, kind, names.Count);
+		names.Add(variable.Identifier.ValueText);
+		kinds.Add(kind);
+		return true;
+	}
+
+	static bool WriteIf(IfStatementSyntax branch, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits, ref bool complete)
+	{
+		if (!Emit(branch.Condition, names, kinds, buf, out var cond) || cond != RecordProgram.VmKindBool)
+			return false;
+		var skip = buf.Reserve(RecordProgram.VmJumpIfFalse);
+		var thenDone = false;
+		if (!WriteStatement(branch.Statement, names, kinds, ret, buf, exits, ref thenDone))
+			return false;
+		if (branch.Else is null)
+		{
+			buf.Patch(skip);
+			return true;
+		}
+
+		var end = buf.Reserve(RecordProgram.VmJump);
+		buf.Patch(skip);
+		var elseDone = false;
+		if (!WriteStatement(branch.Else.Statement, names, kinds, ret, buf, exits, ref elseDone))
+			return false;
+		buf.Patch(end);
+		complete = thenDone && elseDone;
+		return true;
+	}
+
+	static bool WriteWhile(WhileStatementSyntax loop, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits)
+	{
+		var start = buf.Bytes.Count;
+		if (!Emit(loop.Condition, names, kinds, buf, out var cond) || cond != RecordProgram.VmKindBool)
+			return false;
+		var skip = buf.Reserve(RecordProgram.VmJumpIfFalse);
+		var ignored = false;
+		if (!WriteStatement(loop.Statement, names, kinds, ret, buf, exits, ref ignored))
+			return false;
+		buf.Jump(start);
+		buf.Patch(skip);
+		return true;
+	}
+
+	static bool WriteFor(ForStatementSyntax loop, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits)
+	{
+		if (loop.Initializers.Count != 0 || loop.Declaration is not { Variables: [{ Initializer: not null } only] } || loop.Condition is null || loop.Incrementors.Count != 1)
+			return false;
+		var declared = loop.Declaration.Type?.ToString() ?? "";
+		byte kind;
+		if (declared == "var")
+		{
+			if (!Emit(only.Initializer!.Value, names, kinds, buf, out kind) || kind == 0)
+				return false;
+		}
+		else if (!KindOf(loop.Declaration.Type, out kind) || kind == 0 || !Emit(only.Initializer!.Value, names, kinds, buf, out var got) || got != kind)
+			return false;
+		if (names.Count >= 8 || names.Contains(only.Identifier.ValueText))
+			return false;
+		Store(buf, kind, names.Count);
+		names.Add(only.Identifier.ValueText);
+		kinds.Add(kind);
+		var header = SyntaxFactory.WhileStatement(loop.Condition, WithStep(loop.Statement, loop.Incrementors[0]));
+		return WriteWhile(header, names, kinds, ret, buf, exits);
+	}
+
+	static StatementSyntax WithStep(StatementSyntax body, ExpressionSyntax step)
+	{
+		var extra = SyntaxFactory.ExpressionStatement(step);
+		if (body is BlockSyntax block)
+		{
+			var statements = block.Statements.Add(extra);
+			return block.WithStatements(statements);
+		}
+
+		return SyntaxFactory.Block(body, extra);
+	}
+
+	static bool WriteExpression(ExpressionSyntax expression, List<string> names, List<byte> kinds, Buf buf)
+	{
+		if (expression is AssignmentExpressionSyntax assignment && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) && assignment.Left is IdentifierNameSyntax target)
+		{
+			var slot = names.IndexOf(target.Identifier.ValueText);
+			if (slot < 0 || !Emit(assignment.Right, names, kinds, buf, out var kind) || kind != kinds[slot])
+				return false;
+			Store(buf, kind, slot);
+			return true;
+		}
+
+		if (expression is PostfixUnaryExpressionSyntax postfix && postfix.IsKind(SyntaxKind.PostIncrementExpression) && postfix.Operand is IdentifierNameSyntax name)
+		{
+			var slot = names.IndexOf(name.Identifier.ValueText);
+			if (slot < 0 || kinds[slot] != RecordProgram.VmKindInt)
+				return false;
+			buf.Op(RecordProgram.VmIncLocal);
+			buf.Raw((byte)slot);
+			buf.Raw(RecordProgram.VmIncPost);
+			buf.Op(RecordProgram.VmPop);
+			return true;
+		}
+
+		return false;
+	}
+
+	static bool Emit(ExpressionSyntax expression, List<string> names, List<byte> kinds, Buf buf, out byte kind) =>
+		Write(expression, names.ToArray(), kinds.ToArray(), buf, out kind);
+
+	static void Store(Buf buf, byte kind, int slot)
+	{
+		buf.Op(RecordProgram.VmStoreLocal);
+		buf.Raw(kind);
+		buf.Raw((byte)slot);
 	}
 
 	static bool Write(ExpressionSyntax expression, string[] names, byte[] kinds, Buf buf, out byte kind)
@@ -375,6 +573,14 @@ internal static class MethodBody
 			var relative = Bytes.Count - (at + 2);
 			Bytes[at] = (byte)relative;
 			Bytes[at + 1] = (byte)(relative >> 8);
+		}
+
+		public void Jump(int target)
+		{
+			Op(RecordProgram.VmJump);
+			var relative = target - (Bytes.Count + 2);
+			Bytes.Add((byte)relative);
+			Bytes.Add((byte)(relative >> 8));
 		}
 	}
 }

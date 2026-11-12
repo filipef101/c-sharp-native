@@ -43,6 +43,14 @@ public sealed class ArgParserTests
 	}
 
 	[Fact]
+	public void Root_flag_names_the_screen_shown_last()
+	{
+		var options = ArgParser.Parse(["run", "android", "--root", "feed", "--listener"]);
+		Assert.Equal("feed", options.Root);
+		Assert.True(options.Listener);
+	}
+
+	[Fact]
 	public void Listener_flag_keeps_the_device_abi_default()
 	{
 		var options = ArgParser.Parse(["run", "android", "--listener"]);
