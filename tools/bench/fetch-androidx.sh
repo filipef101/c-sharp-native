@@ -3,6 +3,8 @@
 # Each line of deps.sha256 is: sha256  filename  url
 # A file already in the cache is kept only when its sha256 matches the pin.
 set -euo pipefail
+# shellcheck source=portable.sh
+source "$(cd "$(dirname "$0")" && pwd)/portable.sh"
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 pin="$root/tools/bench/list-floor/deps.sha256"
 cache="${NATIVEPOC_AAR_CACHE:-$root/tools/bench/list-floor/.cache}"
@@ -27,7 +29,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 	fi
 	dest="$cache/$name"
 	if [[ -f "$dest" ]]; then
-		got="$(sha256sum "$dest" | awk '{print $1}')"
+		got="$(portable_sha256 "$dest")"
 		if [[ "$got" == "$sum" ]]; then
 			continue
 		fi
@@ -40,7 +42,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 		echo "fetch failed for $name from $url" >&2
 		exit 1
 	fi
-	got="$(sha256sum "$tmp" | awk '{print $1}')"
+	got="$(portable_sha256 "$tmp")"
 	if [[ "$got" != "$sum" ]]; then
 		rm -f "$tmp"
 		echo "sha256 mismatch for $name: expected $sum got $got" >&2

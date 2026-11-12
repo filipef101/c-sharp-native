@@ -123,6 +123,14 @@ static class ScreenInspect
 		{
 			if (IsHeading(node.Element))
 				headings++;
+			if (node.Element is ListView list)
+			{
+				foreach (var row in list.Rows)
+				{
+					if (IsHeading(row))
+						headings++;
+				}
+			}
 			if (MissingLabel(node.Element))
 				findings.Add(new Finding("missing-label", node.Id, "Missing label on " + ScreenSnapshot.Role(node.Element) + " " + node.Id + "."));
 			if (IsTouch(node.Element))

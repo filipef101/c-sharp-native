@@ -899,3 +899,60 @@ tools/bench/mac-bench.sh --device emulator-5554 --n 6 --repeat 2 --quiesce warn 
 ```
 
 The treatment pair used the same command with `/tmp/p39/feed-treat.apk` and `--out /tmp/p39/bench-treat`.
+
+## Inspect, one check, and dehydration
+
+No new Mac result. The Mac emulator was not running for `a11y-dismiss` and `visit-ime`. This workspace did not wait for one.
+
+`tools/bench/visit-ime.sh` on this tree did not call `timeout`. `tools/bench/mac-bench.sh` used `declare -A`, which bash 3.2 on macOS rejects. `tools/bench/fetch-androidx.sh` called `sha256sum` only. `tools/bench/portable.sh` hashes with `sha256sum` or `shasum -a 256`, bounds a command without requiring `timeout` (it uses `timeout` or `gtimeout` when one of those exists, and otherwise kills the child), and records an installed package as `pkg<TAB>apk`. `visit-ime.sh` bounds `uiautomator dump` at 20 seconds through that helper. `portable.sh --self-test`, `mac-bench.sh --self-test`, `scroll-bench.sh --self-test`, `cold-start.sh --self-test`, and `guest-env.sh --self-test` passed on this Linux machine. They were not run on a Mac.
+
+`HeadlessLayout` gives a gesture target at least 48 dp of width and height. `AndroidHost.SetGesture` already calls `TouchTarget` for a nonzero mask. A plain text line stays 24. Packing's long-press name is no longer 336 by 24. `cnative inspect` is clean on the counter, feed, visit, packing, and the other `*Screen.cs` files under `samples/` and `src/NativePoc.Screen`. `InspectTests` fails if any of the four reports a lint code. Screens that had no heading now use `FontSize` 22, and a list row with that size counts as a heading. `tools/check.sh` runs core, devx, and packing tests, inspects those screens, and runs the bench self-tests. This run: core 85 passed, devx 152 passed, packing 14 passed, inspect clean, self-tests passed, `check: pass`.
+
+`PlatformConformance.Run` checks create, update, remove, text, list, an accessibility label, and a hot-reload apply. It passed on `HeadlessHost` and on `ViewReconciler` with `MemoryHost`. That reconciler is the managed side `AndroidHost` implements. `Android.Views` was not constructed. The UIKit project was not compiled. The gap is in `docs/ios-status.md`. There is no iOS binary.
+
+The feed x64 `.so` from the dehydrated publish is 7,225,280 bytes. Sections: `.rela.dyn` 81,096 bytes, `RELACOUNT` 3,377, `.rodata` 2,073,260, `.text` 796,738, `__managedcode` 2,828,750, `.eh_frame` 759,692, `.data` 73,440, `.hydrated` `NOBITS` 1,133,552. The rsp already had `System.Globalization.Invariant=true`, `System.Diagnostics.Tracing.EventSource.IsSupported=false`, `System.Text.Json.JsonSerializer.IsReflectionEnabledByDefault=false`, `System.Linq.Enumerable.IsSizeOptimized=true`, and `--stacktracedata`. `OptimizationPreference=Size` and `NativePocStartupTune` were already rejected. The open slice inside `System.loadLibrary` on the earlier emulator marks was `so_ctors` to `after`, which is `JNI_OnLoad`, where the runtime fills `.hydrated`. Turning dehydration off is `IlcDehydrate=false`. The rsp then has no `--dehydrate`. The `.hydrated` section is gone. `.rela.dyn` is 1,419,168 bytes, `RELACOUNT` 59,130, `.rodata` 1,464,028, `.data` 1,207,488, `__managedcode` still 2,828,750. The `.so` is 9,091,192 bytes.
+
+Emulator-run, emulator-5554, API 34, swiftshader, `--n 6 --repeat 2 --quiesce warn`. Not a phone. Not iOS. Not the Mac 44.5 ms. Guest load at or above 2, so only same-run relatives. The floor APK is `/opt/cursor/artifacts/nativepoc-listfloor-android-x64.apk`, 531,381 bytes, sha256 `d7ffd1727fe71891e53e1e4e5ef8f058bdc5de70f3047d45a8f7c742dbc97c88`. That is not the arm64 list floor.
+
+Dehydrated feed x64 APK 3,280,261 sha256 `e7fa1da43d35be50e17137ab62004eb30050385df31afa9bfdcb628bd8f1772b`. `.so` 7,225,280 sha256 `66c162a91304b7345a52d0b546db62d663fcb87ba2f212b655946fd5a85385c5`. Dex 289,700 sha256 `b4ad900946936a07a6ff20ef865d7768415aa361d2268233ea9ff1bc9f7d8249`. That dex is smaller than the clean feed dex below because this publish reused an incremental R8 output and dropped `GridLayoutManager` and `StaggeredGridLayoutManager`. guest_load_p50 counter/feed/thin/floor 6.3/6.9/7.0/7.0. TotalTime p50/p90 counter 980.5/1076.6, feed 942.0/1002.0, thin 694.0/707.9, floor 620.0/644.5. Block deltas 338.0 and 309.0, median 323.5, interval 309.0–338.0. Feed since-process p50: attach_end 43.0, class 44.5, before 48.0, so_reloc 49.0, so_ctors 50.0, after 62.0, java 70.0, java_end 71.0, layout 193.0. Before to so_reloc is 1 ms. so_ctors to after is 12 ms. Before to java_end is 23 ms.
+
+Dehydration off, the bench APK, 3,464,940 sha256 `7d32ad9562a7ce253e591481d83c3606947d1c4f2fb261ff7173288facb6a574`. `.so` 9,091,192 sha256 `9c6adc4ecf21ba1722040d6963200406b18fd241dfc9bb06b8d7ddf2068bae40`. Dex 289,700, same hash as the dehydrated bench dex. guest_load_p50 4.9/5.0/5.0/5.2. TotalTime p50/p90 counter 924.5/972.4, feed 825.5/882.9, thin 618.5/673.0, floor 553.0/591.4. Block deltas 248.5 and 280.0, median 264.2, interval 248.5–280.0. That interval sits under 309.0–338.0. Feed since-process p50: attach_end 56.5, class 60.5, before 68.5, so_reloc 75.0, so_ctors 77.5, after 87.0, java 89.0, java_end 90.5, layout 191.0. Before to so_reloc is 6.5 ms. so_ctors to after is 9.5 ms. Before to java_end is 22 ms. The absolute java_end did not fall. The floor TotalTime p50 fell from 620.0 to 553.0, and the feed fell from 942.0 to 825.5. Dehydration stays off because the block-delta interval cleared. The load slice on this emulator did not.
+
+The off build, still installed, pid 8962, extra `nativepoc_crash=throw`. `FATAL EXCEPTION: Thread-3`, `at NativePoc.CrashReport.ThrowNow() + 0x27`, `crash-java`, `crash-screen`. `StackTraceSupport` stays true. The `.dbg` is beside the build and is not in the APK.
+
+The shipped feed x64 is a clean republish. APK 3,485,420 sha256 `0bc0f040751e83485c0a27356e787a169897eed5b894aeb37b94c0e62538d952`. `.so` 9,091,192 sha256 `e58116ebbcbd71b2ba55025d3fb95e13d6eb27bc344fc1d565ee710b211c0649`. It is the same size and `RELACOUNT` 59,130 as the bench `.so`. Fifty-five bytes differ: the build id and a short embedded id. Dex 331,300 sha256 `93224637fbbb34b772e6971b68487ca1d3295ba9b588b5914ca19ebddd45c770`, the same hash as the arm64 feed and as the previous feed dex. `NativePocFastNatives` and `NativePocDeferNatives` stay false.
+
+| build | label | APK | APK sha256 | .so | .so sha256 | dex bytes |
+| --- | --- | --- | --- | --- | --- | --- |
+| counter x64 | built | 3,240,821 | `7cf064cd46e83e34493eea956eac215e37c8ca090f9b9893701d45c679fb9da9` | 8,853,992 | `9e58a67d36f613249f37a590c42d9f61c37aa7a5cbb8153e1e439c9f55b10c3c` | 50,424 |
+| counter arm64 | built | 3,081,080 | `3425ac923a666812ff5b381d862d35484bd4c250103c3506e42c05f5758d19dd` | 9,074,744 | `f537c9d670c6e1b3107630ed00de3412ce0052c6faa9442261791024656d6efc` | 50,424 |
+| feed x64, marks on | emulator-run, the bench `.so` differs by the build id | 3,485,420 | `0bc0f040751e83485c0a27356e787a169897eed5b894aeb37b94c0e62538d952` | 9,091,192 | `e58116ebbcbd71b2ba55025d3fb95e13d6eb27bc344fc1d565ee710b211c0649` | 331,300 |
+| feed arm64, marks on | built | 3,321,583 | `91e097b7431888c46c76fa5bd0cec97f18be4f84c0bf5e7d5fb8b24923d82069` | 9,320,672 | `915f8d525d1be390d64f6776fbe4fe91c40471c2ae05da82f475b9cb88d0328c` | 331,300 |
+| visit x64 | built | 3,339,125 | `6d740ba702748c914a02d6630fdb0c336bec1db18f64180a3895c34ce674137c` | 9,131,752 | `312ea3d44165bef1c058b7620f1402135c50707c698ef9933afe2cbf82824d4a` | 52,784 |
+| visit arm64 | built | 3,175,288 | `234d66d3cb882c44b68c8d223b0948829a605e46eeb44ee3fce12d80eb6d66b1` | 9,363,840 | `1db7d57ffc8c803db2d3dcdc28293aadde578841adf2ba2f413867587b956e78` | 52,784 |
+
+Dex sha256, both ABIs: counter `34dd8b002b1c9aa71ef53f1d1a8ddac7cddccbcb129a804ea51d92638b8c49b6`, feed `93224637fbbb34b772e6971b68487ca1d3295ba9b588b5914ca19ebddd45c770`, visit `884a3b5857654b8797fb35c77d2e5b9a872b60a31ac10c7f8e019dd01be6dae6`. List floor arm64 was not rebuilt: 531,381 bytes, sha256 `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1`.
+
+```
+tools/check.sh
+tools/bench/mac-bench.sh --device <pixel_8> --n 20 --repeat 5 --quiesce warn --out /tmp/feed-cold \
+  --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run thin:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/nativepoc.ThinActivity \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+tools/bench/a11y-dismiss.sh --apk nativepoc-feed-android-arm64.apk --serial <pixel_8>
+tools/bench/visit-ime.sh --serial <pixel_8>
+tools/devx/cnative inspect samples/NativePoc.Packing/PackingScreen.cs
+```
+
+The emulator pair was:
+
+```
+tools/bench/mac-bench.sh --device emulator-5554 --n 6 --repeat 2 --quiesce warn --out /tmp/p40/bench-base \
+  --run counter:/tmp/p40/feed-base.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:/tmp/p40/feed-base.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run thin:/tmp/p40/feed-base.apk:com.scratch.nativepoc/nativepoc.ThinActivity \
+  --run floor:/opt/cursor/artifacts/nativepoc-listfloor-android-x64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+The off pair used `/tmp/p40/feed-treat.apk` and `--out /tmp/p40/bench-treat`.

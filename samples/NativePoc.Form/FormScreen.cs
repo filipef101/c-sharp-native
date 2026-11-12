@@ -18,6 +18,7 @@ public static class FormScreen
 	public static Element Render(FormState state, IPlatform host)
 	{
 		return new Column(
+			new Text("Form") { Key = "title", Style = new Style { FontSize = 22 } },
 			new TextField(
 				state.Email,
 				value =>

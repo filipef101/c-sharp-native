@@ -12,7 +12,7 @@ public static class WebScreen
 	public static Element Render(WebState state, IPlatform platform) =>
 		new Column(
 		[
-			new Text(L.Get("Page")) { Key = "title" },
+			new Text(L.Get("Page")) { Key = "title", Style = new Style { FontSize = 22 } },
 			new HostView("webview", "url", state.Url)
 			{
 				Key = "page",

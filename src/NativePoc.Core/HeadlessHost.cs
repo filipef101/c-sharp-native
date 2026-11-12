@@ -7,7 +7,7 @@ namespace NativePoc;
    renders the tree, and reads the accessibility and layout dumps. Applying
    a program is the hot-reload edit: the same bytes the listener would
    bind, painted on the same bag. */
-public sealed class HeadlessHost : IPlatform
+public sealed class HeadlessHost : IPlatform, IPlatformSurface
 {
 	readonly List<string> _copied = new();
 	readonly List<string> _pushed = new();
@@ -124,6 +124,7 @@ public static class HeadlessLayout
 		if (children.Count == 0)
 		{
 			var height = LeafHeight(element) + (pad * 2);
+			Floor(element, ref width, ref height);
 			boxes.Add(new Box(id, left, top, width, height));
 			return height;
 		}
@@ -153,8 +154,19 @@ public static class HeadlessLayout
 		}
 
 		var total = content + (pad * 2);
+		Floor(element, ref width, ref total);
 		boxes.Insert(at, new Box(id, left, top, width, total));
 		return total;
+	}
+
+	static void Floor(Element element, ref int width, ref int height)
+	{
+		if (element.Gesture == 0 && element.OnTap is null && element.OnLongPress is null && element.OnSwipe is null && element.OnRefresh is null && element.OnUndo is null)
+			return;
+		if (width < 48)
+			width = 48;
+		if (height < 48)
+			height = 48;
 	}
 
 	static int LeafHeight(Element element)
@@ -163,7 +175,12 @@ public static class HeadlessLayout
 		{
 			case Text text:
 				var size = text.Style?.FontSize ?? 0;
-				return (size > 0 ? size : 16) + 8;
+				var line = (size > 0 ? size : 16) + 8;
+				// AndroidHost.SetGesture calls TouchTarget, a 48 dp minimum, when the
+				// gesture mask is nonzero. A long-press name is that view.
+				if (text.Gesture != 0 || text.OnTap is not null || text.OnLongPress is not null || text.OnSwipe is not null || text.OnRefresh is not null || text.OnUndo is not null)
+					return line > 48 ? line : 48;
+				return line;
 			case Button:
 			case TextField:
 			case TextInput:

@@ -145,6 +145,8 @@
 		<NativeDebugSymbols>true</NativeDebugSymbols>
 		<IlcGenerateDebugInfo>true</IlcGenerateDebugInfo>
 		<StackTraceSupport>true</StackTraceSupport>
+		<!-- The emulator repeat kept this off. Evidence is in scroll-floor.txt. -->
+		<IlcDehydrate>false</IlcDehydrate>
 		<IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
 		<MetricsSupport>false</MetricsSupport>
 		<StartupHookSupport>false</StartupHookSupport>

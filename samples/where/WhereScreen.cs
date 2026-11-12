@@ -19,6 +19,7 @@ public static class WhereScreen
 
 		return new Column(
 		[
+			new Text("Where") { Key = "title", Style = new Style { FontSize = 22 } },
 			new Text(state.Label) { Key = "fix" },
 			new Button("Read", () => Read(), "Read") { Key = "read" },
 		])

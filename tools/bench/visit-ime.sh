@@ -3,6 +3,8 @@
 # submits, the focused field stays above the keyboard, and an empty place is
 # announced. The visit build must already be installed.
 set -euo pipefail
+# shellcheck source=portable.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/portable.sh"
 serial="${ANDROID_SERIAL:-emulator-5554}"
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -15,7 +17,14 @@ adb() { command adb -s "$serial" "$@"; }
 
 bounds() {
 	local desc="$1"
-	adb shell uiautomator dump /sdcard/visit-ime.xml >/dev/null
+	local adb_bin
+	adb_bin="$(command -v adb)"
+	# uiautomator dump can sit forever. macOS has no timeout(1); portable_timeout
+	# uses it when it exists and otherwise kills the child from the shell.
+	if ! portable_timeout 20 "$adb_bin" -s "$serial" shell uiautomator dump /sdcard/visit-ime.xml >/dev/null; then
+		echo "uiautomator dump failed or passed 20s" >&2
+		exit 1
+	fi
 	adb pull /sdcard/visit-ime.xml /tmp/visit-ime.xml >/dev/null
 	python3 - "$desc" <<'PY'
 import sys, xml.etree.ElementTree as ET

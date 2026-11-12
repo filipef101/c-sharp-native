@@ -1023,7 +1023,7 @@ public static class LongScrollScreen
 	public static Element Render(LongState state, IPlatform platform)
 	{
 		var rows = new List<Element>();
-		rows.Add(new Text(state.Title) { Key = "title" });
+		rows.Add(new Text(state.Title) { Key = "title", Style = new Style { FontSize = 22 } });
 		foreach (var item in state.Items)
 			rows.Add(new Text(item.Name) { Key = item.Id });
 		return new ScrollView(new Column(rows) { Key = "list" }) { Key = "scroll" };

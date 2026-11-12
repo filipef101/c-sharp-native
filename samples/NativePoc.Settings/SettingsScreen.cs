@@ -16,6 +16,7 @@ public static class SettingsScreen
 	public static Element Render(SettingsState state, IPlatform platform) =>
 		new Column(
 		[
+			new Text("Settings") { Key = "title", Style = new Style { FontSize = 22 } },
 			new Text(state.Dark ? "Night" : "Day") { Key = "mode" },
 			new TextField(
 				state.Name,

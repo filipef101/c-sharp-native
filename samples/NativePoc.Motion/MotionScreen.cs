@@ -14,6 +14,7 @@ public static class MotionScreen
 			new Text(state.Label)
 			{
 				Key = "rise",
+				Style = new Style { FontSize = 22 },
 				Motion = new Motion
 				{
 					FromOpacity = 0,

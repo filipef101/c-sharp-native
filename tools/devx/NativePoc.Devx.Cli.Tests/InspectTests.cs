@@ -27,8 +27,27 @@ public sealed class InspectTests
 		var packing = ScreenInspect.FormatFile(Path.Combine(root, "samples", "NativePoc.Packing", "PackingScreen.cs"));
 		Assert.Contains("\"id\":\"scroll/list/title\"", packing, StringComparison.Ordinal);
 		Assert.Contains("\"text\":\"Packing\"", packing, StringComparison.Ordinal);
-		Assert.Contains("\"code\":\"touch-target\",\"id\":\"scroll/list/tent/name\",\"message\":\"Touch target scroll/list/tent/name is 336 by 24 dp, under 48 dp.\"", packing, StringComparison.Ordinal);
+		Assert.Contains("\"id\":\"scroll/list/tent/name\"", packing, StringComparison.Ordinal);
+		Assert.Contains("\"lint\": [\n  ],", packing, StringComparison.Ordinal);
 		Assert.Equal(counter, ScreenInspect.FormatFile(Path.Combine(root, "src", "NativePoc.Screen", "Screen.cs")));
+	}
+
+	[Fact]
+	public void Inspect_is_clean_on_counter_feed_visit_and_packing()
+	{
+		var root = RepoRoot.Find(AppContext.BaseDirectory);
+		var files = new (string Name, string Path)[]
+		{
+			("counter", Path.Combine(root, "src", "NativePoc.Screen", "Screen.cs")),
+			("feed", Path.Combine(root, "samples", "feed", "FeedScreen.cs")),
+			("visit", Path.Combine(root, "samples", "visit", "VisitScreen.cs")),
+			("packing", Path.Combine(root, "samples", "NativePoc.Packing", "PackingScreen.cs")),
+		};
+		foreach (var file in files)
+		{
+			var json = ScreenInspect.FormatFile(file.Path);
+			Assert.True(ScreenInspect.Violations(json) == 0, file.Name + "\n" + json);
+		}
 	}
 
 	[Fact]

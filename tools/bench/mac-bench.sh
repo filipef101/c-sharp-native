@@ -29,6 +29,7 @@
 set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/guest-env.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/portable.sh"
 
 samples=20
 repeat=1
@@ -375,14 +376,16 @@ if [[ -z "$out" ]]; then
 fi
 mkdir -p "$out"
 
-declare -A installed=()
+installed_file="$out/installed-packages.tsv"
+: >"$installed_file"
 for ((s = 0; s < ${#labels[@]}; s++)); do
 	pkg="${components[$s]%%/*}"
-	if [[ -n "${installed[$pkg]:-}" ]]; then
-		if [[ "${installed[$pkg]}" != "${apks[$s]}" ]]; then
-			echo "Package $pkg is installed from two APKs" >&2
-			exit 1
-		fi
+	state="$(installed_remember "$installed_file" "$pkg" "${apks[$s]}")"
+	if [[ "$state" == "conflict" ]]; then
+		echo "Package $pkg is installed from two APKs" >&2
+		exit 1
+	fi
+	if [[ "$state" == "same" ]]; then
 		continue
 	fi
 	adb_cmd uninstall "$pkg" >/dev/null 2>&1 || true
@@ -392,7 +395,6 @@ for ((s = 0; s < ${#labels[@]}; s++)); do
 		echo "Install failed for ${labels[$s]}" >&2
 		exit 1
 	fi
-	installed[$pkg]="${apks[$s]}"
 	package_background "$pkg" "$out/package-$pkg.txt"
 done
 
