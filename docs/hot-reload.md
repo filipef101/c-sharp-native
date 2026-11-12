@@ -17,6 +17,8 @@ This table is generated from the subset rules. A test lowers each row that has a
 | A new type | no | The running binary was compiled without it. Save a rude edit and relaunch. |
 | A change under src/NativePoc.Core or src/NativePoc.Android | no | That is a rude edit. The listener prints restart required. |
 
+A force-stop starts a new process and a new token file. The watcher reads that file after a rejected token or a dead socket and applies the next edit on the new process. The watch loop stays up.
+
 ## Loaded-host relatives
 
 These numbers are relatives. The host was already loaded. They are not a cold start and they are not a SwiftShader run.

@@ -10,7 +10,7 @@ using Android.Widget;
 
 namespace NativePoc;
 
-[Activity(Label = "@string/app_name", MainLauncher = true, Exported = true, LaunchMode = LaunchMode.SingleTop, Theme = "@style/NativePocTheme")]
+[Activity(Label = "@string/app_name", MainLauncher = true, Exported = true, LaunchMode = LaunchMode.SingleTop, Theme = "@style/NativePocTheme", ConfigurationChanges = ConfigChanges.UiMode)]
 public sealed class MainActivity : Activity
 {
 	public const string Tag = "NativePoc";
@@ -48,6 +48,7 @@ public sealed class MainActivity : Activity
 	bool _painted;
 	View? _paintedRoot;
 	bool _paintedDark;
+	bool _restyle;
 
 	protected override void AttachBaseContext(Context? context)
 	{
@@ -400,14 +401,28 @@ public sealed class MainActivity : Activity
 		{
 			var before = ScreenNav.Shared.TopId();
 			var beforeDepth = ScreenNav.Shared.Depth;
-			_platform?.Push(warmRoot);
-			Log.Info(
-				Tag,
-				"startup root warm id=" + warmRoot
-				+ " top=" + ScreenNav.Shared.TopId()
-				+ " depth=" + ScreenNav.Shared.Depth.ToString(CultureInfo.InvariantCulture)
-				+ " from=" + before
-				+ " from-depth=" + beforeDepth.ToString(CultureInfo.InvariantCulture));
+			if (WarmRoot.Same(before, warmRoot))
+			{
+				_platform?.RefreshTop(warmRoot);
+				Log.Info(
+					Tag,
+					"startup root warm same id=" + warmRoot
+					+ " top=" + ScreenNav.Shared.TopId()
+					+ " depth=" + ScreenNav.Shared.Depth.ToString(CultureInfo.InvariantCulture)
+					+ " slide=0");
+			}
+			else
+			{
+				_platform?.Push(warmRoot);
+				Log.Info(
+					Tag,
+					"startup root warm id=" + warmRoot
+					+ " top=" + ScreenNav.Shared.TopId()
+					+ " depth=" + ScreenNav.Shared.Depth.ToString(CultureInfo.InvariantCulture)
+					+ " from=" + before
+					+ " from-depth=" + beforeDepth.ToString(CultureInfo.InvariantCulture));
+			}
+
 			RequestRender();
 		}
 		if (string.Equals(intent.GetStringExtra("nativepoc_keyed_move"), "1", StringComparison.Ordinal))
@@ -438,16 +453,25 @@ public sealed class MainActivity : Activity
 		Current = this;
 		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
 		StartupMarks.Phase("resume");
-		var wasDark = ThemeRuntime.IsDark(this);
-		ThemeRuntime.ObserveNight(this);
-		if (wasDark != ThemeRuntime.IsDark(this))
+		if (ThemeRuntime.Follow(this, "resume"))
 		{
-			ThemeRuntime.ApplyWindow(this);
+			_restyle = true;
+			_painted = false;
 			RequestRender();
 		}
 
 		Log.Info(Tag, "lifecycle resume delivered=" + (ScreenSignals.Resume is null ? "0" : "1"));
 		ScreenSignals.FireResume();
+	}
+
+	public override void OnConfigurationChanged(Android.Content.Res.Configuration newConfig)
+	{
+		base.OnConfigurationChanged(newConfig);
+		if (!ThemeRuntime.Follow(this, "uimode"))
+			return;
+		_restyle = true;
+		_painted = false;
+		RequestRender();
 	}
 
 	public override void OnWindowFocusChanged(bool hasFocus)
@@ -945,6 +969,12 @@ public sealed class MainActivity : Activity
 
 		mounted.Invalidate();
 		var invalidateUs = TakeUs(clock);
+		if (_restyle)
+		{
+			_restyle = false;
+			_reconciler.Restyle();
+		}
+
 		var dark = ThemeRuntime.IsDark(this);
 		var themeUs = TakeUs(clock);
 		var paintRan = 0;

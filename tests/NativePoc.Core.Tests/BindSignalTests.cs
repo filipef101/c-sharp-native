@@ -26,6 +26,43 @@ public sealed class BindSignalTests
 	}
 
 	[Fact]
+	public void System_is_the_default_and_a_stored_mode_overrides_it()
+	{
+		Assert.Equal(ThemeMode.System, ThemeTokens.Choice(null));
+		Assert.Equal(ThemeMode.System, ThemeTokens.Choice(""));
+		Assert.Equal(ThemeMode.System, ThemeTokens.Choice("system"));
+		Assert.Equal(ThemeMode.Dark, ThemeTokens.Choice("dark"));
+		Assert.Equal(ThemeMode.Light, ThemeTokens.Choice("light"));
+		Assert.Equal("system", ThemeTokens.Name(ThemeMode.System));
+		Assert.True(ThemeTokens.Repaint(null, false, true));
+		Assert.False(ThemeTokens.Repaint("light", false, true));
+		Assert.False(ThemeTokens.Repaint("dark", true, false));
+		Assert.True(ThemeTokens.Repaint("system", false, true));
+		Assert.False(ThemeTokens.Repaint("system", true, true));
+	}
+
+	[Fact]
+	public void A_second_denial_or_a_fixed_permission_is_blocked()
+	{
+		Assert.Equal(PermissionResult.Granted, PermissionRules.Classify(true, false, false, 0));
+		Assert.Equal(PermissionResult.Denied, PermissionRules.Classify(false, true, false, 1));
+		Assert.Equal(PermissionResult.Blocked, PermissionRules.Classify(false, false, false, 1));
+		Assert.Equal(PermissionResult.Blocked, PermissionRules.Classify(false, true, true, 1));
+		Assert.Equal(PermissionResult.Blocked, PermissionRules.Classify(false, true, false, 2));
+		Assert.Equal("blocked", PermissionRules.Text(PermissionResult.Blocked));
+		Assert.Equal("denied", PermissionRules.Text(PermissionResult.Denied));
+		Assert.Equal("granted", PermissionRules.Text(PermissionResult.Granted));
+	}
+
+	[Fact]
+	public void A_warm_root_for_the_current_screen_is_the_same_screen()
+	{
+		Assert.True(WarmRoot.Same("bind", "bind"));
+		Assert.False(WarmRoot.Same("bind", "tasks"));
+		Assert.False(WarmRoot.Same("bind", ""));
+	}
+
+	[Fact]
 	public void Dark_mode_flips_only_the_light_tokens()
 	{
 		Assert.Equal(ThemeTokens.CardLight, ThemeTokens.Adapt(ThemeTokens.CardLight, false));

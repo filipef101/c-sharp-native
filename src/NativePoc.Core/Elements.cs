@@ -245,6 +245,21 @@ internal static class ThemeTokens
 {
 	public const int HeadingSize = 22;
 
+	public static ThemeMode Choice(string? stored) => stored switch
+	{
+		"dark" or "true" => ThemeMode.Dark,
+		"light" or "false" => ThemeMode.Light,
+		_ => ThemeMode.System,
+	};
+
+	public static string Name(ThemeMode mode) => mode switch
+	{
+		ThemeMode.Dark => "dark",
+		ThemeMode.Light => "light",
+		ThemeMode.System => "system",
+		_ => throw new InvalidOperationException("Unknown theme mode."),
+	};
+
 	public static bool ResolveDark(bool systemDark, string mode) =>
 		mode switch
 		{
@@ -255,6 +270,12 @@ internal static class ThemeTokens
 			"false" => false,
 			_ => throw new InvalidOperationException("Unknown theme mode."),
 		};
+
+	public static bool Repaint(string? stored, bool wasDark, bool systemDark)
+	{
+		var mode = Name(Choice(stored));
+		return ResolveDark(systemDark, mode) != wasDark;
+	}
 
 	public static string Persist(string mode) =>
 		mode switch

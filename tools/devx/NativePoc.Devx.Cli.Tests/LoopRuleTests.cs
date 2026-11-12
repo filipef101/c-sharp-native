@@ -114,6 +114,21 @@ public sealed class LoopRuleTests
 	}
 
 	[Fact]
+	public void A_rejected_token_refreshes_when_the_file_hex_changes()
+	{
+		Assert.True(TokenRefresh.Stale("UnauthorizedAccessException: Rejected hot reload token."));
+		Assert.True(TokenRefresh.Stale("Hot reload connect failed: Connection refused"));
+		Assert.True(TokenRefresh.Stale("Hot reload reply failed: closed"));
+		Assert.False(TokenRefresh.Stale("subset.not-a-screen"));
+		Assert.True(TokenRefresh.Replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+		Assert.False(TokenRefresh.Replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+		Assert.False(TokenRefresh.Replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ""));
+		var source = RepoFile("tools", "devx", "NativePoc.Devx.Cli", "AndroidLoop.cs");
+		Assert.Contains("cnative: hotreload token refreshed source=", source);
+		Assert.Contains("ApplyLive(session,", source);
+	}
+
+	[Fact]
 	public void Token_listings_keep_only_token_files()
 	{
 		var names = TokenText.TokenFileNames("profileInstalled\nnativepoc-hotreload.token\nsubdir/nope.token\n");

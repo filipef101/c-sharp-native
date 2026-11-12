@@ -1537,7 +1537,16 @@ sealed class PlatformBridge : IPlatform
 
 	string? _lastOpen;
 
+	string? _reopen;
+
 	CancellationTokenSource _live;
+
+	public void RefreshTop(string screen)
+	{
+		_reopen = screen;
+		StorageSeed.Refresh(_activity, screen);
+		Log.Info(MainActivity.Tag, "nav-refresh id=" + screen + " slide=0");
+	}
 
 	public void Pop()
 	{
@@ -1561,9 +1570,15 @@ sealed class PlatformBridge : IPlatform
 
 	public void OnOpen(string screen, System.Action open)
 	{
-		if (screen.Length == 0 || string.Equals(screen, _lastOpen, StringComparison.Ordinal))
+		if (screen.Length == 0)
 			return;
+		var again = string.Equals(screen, _reopen, StringComparison.Ordinal);
+		if (!again && string.Equals(screen, _lastOpen, StringComparison.Ordinal))
+			return;
+		if (again)
+			_reopen = null;
 		_lastOpen = screen;
+		Log.Info(MainActivity.Tag, "nav-open screen=" + screen + " again=" + (again ? "1" : "0"));
 		open();
 	}
 

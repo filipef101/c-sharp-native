@@ -150,6 +150,14 @@ public static class BindScreen
 				Style = new Style { Padding = 16, FontSize = 16, Radius = 16, Align = Align.Start, Background = ThemeTokens.CardLight, Color = ThemeTokens.TextLight },
 			},
 			new Button(
+				"Settings",
+				() => DeviceNotify.OpenSettings(),
+				"Settings")
+			{
+				Key = "settings",
+				Style = new Style { Padding = 16, FontSize = 16, Radius = 16, Align = Align.Start, Background = ThemeTokens.CardLight, Color = ThemeTokens.TextLight },
+			},
+			new Button(
 				"Bench",
 				() => DeviceBench.Measure(),
 				"Bench")

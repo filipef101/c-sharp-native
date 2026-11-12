@@ -72,13 +72,13 @@ DeviceClipboard.Listen("bind", "Note");
 
 ## Notification permission
 
-`samples/bind/DeviceNotify.cs` asks for `POST_NOTIFICATIONS` on API 33 and above, then posts `granted` or `denied` into the named field. The manifest overlay is `Properties/NotifyPermission.xml`, included when `NativePocJni` is set. Below API 33, and when the permission is already granted, `Ask` shows the notification and posts `granted` without a dialog. Otherwise `RequestPermissions` runs, and `OnRequestPermissionsResult` completes the same post. The log line is `method=requestPermission text=granted` or `text=denied`. A grant also logs `method=notify text=pier`. There is no reflection: the activity calls `DeviceNotify.OnResult`, and the screen calls `Ask`.
+`samples/bind/DeviceNotify.cs` asks for `POST_NOTIFICATIONS` on API 33 and above, then posts `granted`, `denied`, or `blocked` into the named field. The manifest overlay is `Properties/NotifyPermission.xml`, included when `NativePocJni` is set. Below API 33, and when the permission is already granted, `Ask` shows the notification and posts `granted` without a dialog. Otherwise `RequestPermissions` runs, and `OnRequestPermissionsResult` completes the same post. `PermissionRules` maps a grant to `granted`, a denial that can still show a rationale to `denied`, and `FLAG_PERMISSION_USER_FIXED`, `shouldShowRequestPermissionRationale` false, or a second denial to `blocked`. The log line is `method=requestPermission text=granted`, `text=denied`, or `text=blocked`, with `rationale=` and `fixed=`. A grant also logs `method=notify text=pier`. `OpenSettings` starts `ACTION_APPLICATION_DETAILS_SETTINGS` for this package and logs `method=ACTION_APPLICATION_DETAILS_SETTINGS`. There is no reflection: the activity calls `DeviceNotify.OnResult`, and the screen calls `Ask` and `OpenSettings`.
 
 ```csharp
 DeviceNotify.Ask("bind", "Note");
 ```
 
-`pm revoke` then the Notify button is the denied path. `pm grant` then the button is the granted path, and the shade shows the Bind notification.
+`pm revoke` then the Notify button is the denied path while the system still offers a rationale. A second denial, or a result with `shouldShowRequestPermissionRationale` false or `USER_FIXED`, posts `blocked`. The Settings button then opens the app details screen. `pm grant` then the Notify button is the granted path, and the shade shows the Bind notification.
 
 ## Pause and resume
 

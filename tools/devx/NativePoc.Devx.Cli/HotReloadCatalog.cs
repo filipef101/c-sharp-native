@@ -117,6 +117,7 @@ internal static class HotReloadCatalog
 			builder.Append("| ").Append(rule.Change).Append(" | ").Append(rule.Can ? "yes" : "no").Append(" | ").Append(rule.Why).Append(" |\n");
 		}
 
+		builder.Append("\nA force-stop starts a new process and a new token file. The watcher reads that file after a rejected token or a dead socket and applies the next edit on the new process. The watch loop stays up.\n");
 		builder.Append("\n## Loaded-host relatives\n\n");
 		builder.Append("These numbers are relatives. The host was already loaded. They are not a cold start and they are not a SwiftShader run.\n\n");
 		builder.Append("| | |\n");

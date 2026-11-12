@@ -22,12 +22,25 @@ sealed class ReloadSession : IDisposable
 
 	public string Root { get; private set; } = "";
 
+	public string Serial { get; private set; } = "";
+
 	public void Open(string repo, string serial)
 	{
 		Root = repo;
+		Serial = serial;
 		_connection?.Dispose();
 		_compiler = ScreenCompiler.Create(repo);
 		_connection = new HotReloadConnection(serial, _token.Hex, _token.Socket, _token.Port);
+	}
+
+	internal bool Rebind(FoundToken next)
+	{
+		if (!TokenRefresh.Replace(_token.Hex, next.Hex))
+			return false;
+		_token = next;
+		_connection?.Dispose();
+		_connection = new HotReloadConnection(Serial, next.Hex, next.Socket, next.Port);
+		return true;
 	}
 
 	public void Dispose()
@@ -48,6 +61,17 @@ static class TokenFiles
 }
 
 readonly record struct FoundToken(string Hex, string Source, string Socket = "", int Port = 0);
+
+internal static class TokenRefresh
+{
+	public static bool Stale(string text) =>
+		text.Contains("Rejected hot reload token", StringComparison.Ordinal)
+		|| text.Contains("Hot reload connect failed", StringComparison.Ordinal)
+		|| text.Contains("Hot reload reply failed", StringComparison.Ordinal);
+
+	public static bool Replace(string heldHex, string nextHex) =>
+		nextHex.Length == 32 && !string.Equals(heldHex, nextHex, StringComparison.OrdinalIgnoreCase);
+}
 
 static class AndroidLoop
 {
@@ -452,7 +476,7 @@ static class AndroidLoop
 		ApplyResult applied;
 		try
 		{
-			applied = session.Connection.Apply(lowered.Program);
+			applied = ApplyLive(session, lowered.Program);
 		}
 		catch (InvalidOperationException ex)
 		{
@@ -520,7 +544,7 @@ static class AndroidLoop
 			ShowRefusal(session, lowered, "src/NativePoc.Screen/Screen.cs");
 			return new ProgramPush(false, true, lowered.Diagnostics.Count == 0 ? "The screen is not a program this runtime can carry." : lowered.Diagnostics[0].Message);
 		}
-		var applied = session.Connection.Apply(lowered.Program);
+		var applied = ApplyLive(session, lowered.Program);
 		return new ProgramPush(applied.Ok, false, applied.Text);
 	}
 
@@ -595,7 +619,7 @@ static class AndroidLoop
 		}
 		try
 		{
-			var applied = session.Connection.Apply(lowered.Program);
+			var applied = ApplyLive(session, lowered.Program);
 			if (applied.Ok && kept is not null && relative is not null)
 				kept.Remember(relative, lowered.Program);
 			return new PackingSend(applied.Ok, false, applied.Text, applied.Milliseconds, LowerMilliseconds: lowerMs);
@@ -613,7 +637,7 @@ static class AndroidLoop
 		var diagnostic = lowered.Diagnostics[0];
 		try
 		{
-			session.Connection.Apply(ScreenQuery.FaultNote(diagnostic.Id, diagnostic.Message, diagnostic.Start, diagnostic.End, diagnostic.Line, diagnostic.Column, file));
+			ApplyLive(session, ScreenQuery.FaultNote(diagnostic.Id, diagnostic.Message, diagnostic.Start, diagnostic.End, diagnostic.Line, diagnostic.Column, file));
 		}
 		catch (Exception ex) when (ex is InvalidOperationException or IOException or TimeoutException)
 		{
@@ -625,7 +649,7 @@ static class AndroidLoop
 	{
 		try
 		{
-			session.Connection.Apply(ScreenQuery.FaultNote(error.Code, error.Message, 0, 0, error.Line, error.Column, error.File));
+			ApplyLive(session, ScreenQuery.FaultNote(error.Code, error.Message, 0, 0, error.Line, error.Column, error.File));
 		}
 		catch (Exception ex) when (ex is InvalidOperationException or IOException or TimeoutException)
 		{
@@ -672,7 +696,7 @@ static class AndroidLoop
 				ApplyResult applied;
 				try
 				{
-					applied = session.Connection.Apply(ScreenQuery.ReplaceBody(body.TypeName, body.MethodName, body.ReturnKind, body.ArgKinds, body.Code, body.Strings));
+					applied = ApplyLive(session, ScreenQuery.ReplaceBody(body.TypeName, body.MethodName, body.ReturnKind, body.ArgKinds, body.Code, body.Strings));
 				}
 				catch (Exception ex) when (ex is InvalidOperationException or IOException or TimeoutException)
 				{
@@ -860,7 +884,7 @@ static class AndroidLoop
 		var started = Stopwatch.GetTimestamp();
 		try
 		{
-			var applied = session.Connection.Apply(program);
+			var applied = ApplyLive(session, program);
 			if (!applied.Ok)
 			{
 				Console.WriteLine("cnative: last program was not restored " + relative);
@@ -912,7 +936,7 @@ static class AndroidLoop
 			return;
 		try
 		{
-			var restored = session.Connection.Apply(ScreenQuery.RestoreState(checkpoint));
+			var restored = ApplyLive(session, ScreenQuery.RestoreState(checkpoint));
 			if (!restored.Ok || restored.Text != "restored")
 				Console.WriteLine("state was not restored: " + restored.Text);
 			else
@@ -939,6 +963,32 @@ static class AndroidLoop
 		if (ScreenSnapshot.TryReadNavLine(reply.Text, out var readNav))
 			nav = readNav;
 		return StateCheckpoint.Write(state, packing, nav);
+	}
+
+	static ApplyResult ApplyLive(ReloadSession session, byte[] dll)
+	{
+		try
+		{
+			var applied = session.Connection.Apply(dll);
+			if (applied.Ok || !TokenRefresh.Stale(applied.Text) || !Rebind(session))
+				return applied;
+			Console.WriteLine("cnative: hotreload token refreshed source=" + session.Token.Source);
+			return session.Connection.Apply(dll);
+		}
+		catch (InvalidOperationException ex) when (TokenRefresh.Stale(ex.Message))
+		{
+			if (!Rebind(session))
+				throw;
+			Console.WriteLine("cnative: hotreload token refreshed source=" + session.Token.Source);
+			return session.Connection.Apply(dll);
+		}
+	}
+
+	static bool Rebind(ReloadSession session)
+	{
+		if (session.Serial.Length == 0)
+			return false;
+		return session.Rebind(ReadTokenOnce(session.Serial));
 	}
 
 	static FoundToken ReadTokenOnce(string serial)

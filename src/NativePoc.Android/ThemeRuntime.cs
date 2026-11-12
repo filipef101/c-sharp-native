@@ -15,16 +15,35 @@ static class ThemeRuntime
 	static readonly Color PageLight = new(unchecked((int)ThemeTokens.Page(false)));
 	static readonly Color PageDark = new(unchecked((int)ThemeTokens.Page(true)));
 
-	public static string Mode { get; private set; } = "system";
+	public static string Mode { get; private set; } = ThemeTokens.Name(ThemeMode.System);
 
 	static bool _nightKnown;
 	static bool _night;
 
 	public static void Load(Activity activity)
 	{
-		var stored = AppStorage.Get(activity, "theme");
-		Mode = stored is "dark" or "light" or "system" ? stored : "system";
+		Mode = ThemeTokens.Name(ThemeTokens.Choice(AppStorage.Get(activity, "theme")));
 		ObserveNight(activity);
+	}
+
+	public static bool Follow(Activity activity, string reason)
+	{
+		var wasDark = IsDark(activity);
+		ObserveNight(activity);
+		var dark = IsDark(activity);
+		var changed = wasDark != dark;
+		Android.Util.Log.Info(
+			MainActivity.Tag,
+			"theme follow reason=" + reason
+			+ " mode=" + Mode
+			+ " dark=" + (dark ? "1" : "0")
+			+ " changed=" + (changed ? "1" : "0")
+			+ " state=kept");
+		if (!changed)
+			return false;
+		Stamp(activity);
+		ApplyWindow(activity);
+		return true;
 	}
 
 	public static void ObserveNight(Activity activity)

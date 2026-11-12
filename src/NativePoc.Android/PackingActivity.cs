@@ -16,7 +16,8 @@ namespace NativePoc;
 	Label = "Packing",
 	Exported = true,
 	Name = "nativepoc.PackingActivity",
-	LaunchMode = LaunchMode.SingleTop)]
+	LaunchMode = LaunchMode.SingleTop,
+	ConfigurationChanges = ConfigChanges.UiMode)]
 public sealed class PackingActivity : Activity, IPackingHost
 {
 	public static PackingActivity? Current { get; private set; }

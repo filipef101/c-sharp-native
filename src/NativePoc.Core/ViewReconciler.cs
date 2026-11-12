@@ -344,6 +344,44 @@ internal sealed class ViewReconciler<TView>
 		return rewritten;
 	}
 
+	public void Restyle()
+	{
+		if (_current is null)
+			return;
+		RestyleAt(NodePath.Root, _current);
+	}
+
+	void RestyleAt(NodePath path, Element element)
+	{
+		if (element.Style is { } style && _views.TryGetValue(path, out var view))
+			_host.SetStyle(view, style);
+		var children = ChildElements(element);
+		for (var index = 0; index < children.Count; index++)
+			RestyleAt(path.Child(index), children[index]);
+	}
+
+	static IReadOnlyList<Element> ChildElements(Element element)
+	{
+		switch (element)
+		{
+			case Column column:
+				return column.Children;
+			case ScrollView scroll:
+				return [scroll.Child];
+			case ListView:
+			case Text:
+			case Button:
+			case TextField:
+			case TextInput:
+			case Switch:
+			case Image:
+			case HostView:
+				return Array.Empty<Element>();
+			default:
+				throw new InvalidOperationException("Unknown element.");
+		}
+	}
+
 	static InvalidOperationException Unknown(Patch patch) =>
 		new("Unknown patch.");
 }
