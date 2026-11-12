@@ -50,7 +50,7 @@ An action may:
 - call `Trim`, `ToUpper`, `ToLower`, `Contains`, `StartsWith`, `Substring`, and `Length` on a string. `ToUpper` and `ToLower` use the invariant culture. `Substring` past the end stops with the `ArgumentOutOfRangeException` message. A null receiver stops with the `NullReferenceException` message
 - call `Math.Min`, `Math.Max`, `Math.Abs`, and `Math.Round`. `Round` uses midpoint-to-even and returns a double. Storing a double in an int needs `(int)`
 - call `int.Parse` and `int.TryParse(text, out var name)`. A bad or overflowing parse stops with the `FormatException` or `OverflowException` message. `TryParse` is the one `out` the VM accepts. `(int)` of a double matches the C# cast, including NaN and values past `int.MaxValue`
-- call `platform.RequestRender()`, `platform.Pulse()`, `platform.CopyNonce` with a string literal, a string property, or `"poc-" + state.Count`, `platform.CopyText` with a literal label and the list text, `platform.Push("screen-id")`, `platform.Pop()`, and `platform.Effect`
+- call `platform.RequestRender()`, `platform.Pulse()`, `platform.CopyNonce` with a string literal, a string property, or `"poc-" + state.Count`, `platform.CopyText` with a literal label and the list text, `platform.Push("screen-id")`, `platform.Push("screen-id", item)` from the row a render `foreach` is visiting, `platform.WriteBack()`, `platform.Pop()`, and `platform.Effect`. `Push` of a row copies that row's fields onto the destination screen's properties of the same name and stores the route in the destination bag. `WriteBack` writes those properties back onto the source row. The route strings are part of the nav checkpoint, so a reload keeps them
 - call `state.Commit()` and, inside a foreach, `state.Drop(item)`
 - call a private static method or an instance method declared in the same file, with int, double, bool, or string parameters. The methods may call each other, and a method may call itself. Recursion stops after 64 calls with `action stopped after 64 calls`. A method that returns an `Element` is a render helper, not an action call
 - call `Haptics.Confirm`, `Share.Text`, `Clipboard.Copy`, `Storage.Set`, and `Theme.Mode` as in [platform-modules.md](platform-modules.md)
@@ -66,7 +66,7 @@ These stay refused. The VM has no arm for them, and a reload cannot invent one:
 
 A `public const string ScreenId` names the screen on the stack. Each id keeps its own record across a reload. A `PackingTelemetry` increment inside an action is a no-op in the program. The C# method still increments.
 
-`cnative agent tree` prints one `stack N id` line per frame, from the bottom of the stack. The stack is also the `NAV` trailer after the STC1 packing note. The version byte stays 1 or 2. A checkpoint without that trailer still loads. Bytes that are not the trailer are rejected.
+`cnative agent tree` prints one `stack N id` line per frame, from the bottom of the stack. `Show` updates the program. The stack gains a frame only when that id is not already on it, so a show of the top screen is a no-op and a show of a screen further down does not add a second copy. `Push` of an id that is not on the stack appends it. `Push` of an id already on the stack moves that frame to the top and leaves the other frames in order. It does not add a second copy. `Push` of the current top leaves the stack where it is. The stack is also the `NAV` trailer after the STC1 packing note. The version byte stays 1 or 2. A checkpoint without that trailer still loads. Bytes that are not the trailer are rejected.
 
 ## Refusal ids
 

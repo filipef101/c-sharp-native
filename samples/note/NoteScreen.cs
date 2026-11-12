@@ -2,7 +2,7 @@ namespace NativePoc.Note;
 
 public sealed class NoteState
 {
-	public string OpenId { get; set; } = "";
+	public string Id { get; set; } = "";
 
 	public string Title { get; set; } = "";
 
@@ -18,7 +18,8 @@ public static class NoteScreen
 	public static Element Render(NoteState state, IPlatform platform)
 	{
 		return new Column(
-			new Text(state.OpenId) { Key = "open" },
+		[
+			new Text(state.Id) { Key = "open" },
 			new TextField(
 				state.Title,
 				value =>
@@ -52,13 +53,15 @@ public static class NoteScreen
 					}
 
 					state.Error = "";
+					platform.WriteBack();
 					Storage.Set(platform, "notes-last", state.Title);
 					platform.Pop();
 					platform.RequestRender();
 				},
 				"Save")
 			{ Key = "save" },
-			new Button("Back", () => { platform.Pop(); platform.RequestRender(); }, "Back") { Key = "back" })
+			new Button("Back", () => { platform.Pop(); platform.RequestRender(); }, "Back") { Key = "back" },
+		])
 		{ Key = "note" };
 	}
 }

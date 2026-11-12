@@ -52,3 +52,15 @@ pid 8720. Same bench, `--es nativepoc_bench tap10`, steps=1, ten posts 40 ms apa
 `dir` on the ten bench frames: 1 1 1 0 1 1 1 0 0 0. p50 1.0 µs. No sample is the 69718 µs stall.
 
 The 33529 µs sample is `state-handoff-us=31159`. That is the UI-thread checkpoint serialize inside the tap, not the direction getter. Other handoffs in this series are 61 to 258 µs. The 43628 µs sample's phase buckets are a few hundred microseconds (eval 95, diff 11, layout 60, log 151). The rest of that sample is outside those buckets. Both stalls stay in the p50. They were not dropped.
+
+## Handoff off the UI thread
+
+pid 16001. Same bench, `--es nativepoc_bench tap10`, steps=1, ten posts 40 ms apart. Listener `.so` sha256 `d32e7a6f681d82d897247e8eb15ca7c10117ea4c1af06e1dc4ee2f85afefb3b7` (10,250,256 bytes), and the same bytes are inside the Debug APK. `IsDynamicCodeSupported=False`. Boot `56815464-4bc4-4f4c-a503-944cb91ab31f`. Host load 0.83 at the start and 1.41 after the series. The screen is Counter 0. Emulator-run.
+
+The UI thread now only queues the save. The worker copies the checkpoint and writes the file. An unchanged epoch does not queue another copy. `state-handoff-us` on all ten taps is 1. The 31159 µs serialize is not in this series.
+
+`action-us` in order: 23690 349 1814 557 527 455 5422 647 391 261. Sorted: 261 349 391 455 527 557 647 1814 5422 23690. First tap 23690 µs. p50 542.0 µs. p90 7248.8 µs. Hyndman-Fan type 7. Nothing was dropped.
+
+The first tap's `paint` bucket is 18668 µs. That is the first draw inside the tap, and its handoff is 1. The 5422 µs sample's named buckets are a few hundred microseconds (eval 41, diff 10, layout 31, invalidate 89, paint 16, log 237) and its handoff is 1. The rest of that sample is a pause inside the render clock, outside those buckets. It is in the p90, not the p50.
+
+A steady tap, `action-us=527`: `input=2 vm=15 prep=38 render=383 tail=218`. `dir=0`. The `log` bucket on that frame is 137. On pid 7727 the steady render was 118 and the log was 14. The phase line is longer now, and layout plus invalidate are still inside the action. Tail is stamped after the action clock stops, so it is not part of the 527. p50 is not back to 201.0 µs. The handoff is no longer the reason.

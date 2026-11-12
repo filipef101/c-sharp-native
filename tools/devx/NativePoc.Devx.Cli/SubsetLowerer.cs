@@ -2320,6 +2320,14 @@ public static partial class SubsetLowerer
 				return true;
 			}
 
+			if (member.Name.Identifier.ValueText == "Push" && invocation.ArgumentList.Arguments.Count == 2)
+				return PushRow(invocation, script);
+			if (member.Name.Identifier.ValueText == "WriteBack" && invocation.ArgumentList.Arguments.Count == 0)
+			{
+				script.Add(RecordProgram.ActWriteBack);
+				return true;
+			}
+
 			if (member.Name.Identifier.ValueText == "Pop" && invocation.ArgumentList.Arguments.Count == 0)
 			{
 				script.Add(RecordProgram.ActPop);
@@ -2330,6 +2338,54 @@ public static partial class SubsetLowerer
 				return EffectAction(invocation, script);
 
 			return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+		}
+
+		bool PushRow(InvocationExpressionSyntax invocation, List<byte> script)
+		{
+			var args = invocation.ArgumentList.Arguments;
+			if (args[0].Expression is not LiteralExpressionSyntax pushed
+				|| !pushed.IsKind(SyntaxKind.StringLiteralExpression)
+				|| pushed.Token.ValueText.Length == 0
+				|| args[1].Expression is not IdentifierNameSyntax item
+				|| item.Identifier.ValueText != _item
+				|| _item.Length == 0
+				|| _listName.Length == 0
+				|| _itemFields is null)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			var id = _itemFields.FindIndex(field => field.Name == "Id" && field.Kind == ValueKind.Str);
+			if (id < 0)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			var strings = new List<Field>();
+			var flags = new List<Field>();
+			foreach (var field in _itemFields)
+			{
+				if (field.Kind == ValueKind.Str)
+					strings.Add(field);
+				else if (field.Kind == ValueKind.Bool)
+					flags.Add(field);
+			}
+
+			if (strings.Count > byte.MaxValue || flags.Count > byte.MaxValue)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			script.Add(RecordProgram.ActPushRow);
+			U16(script, _code.Intern(pushed.Token.ValueText));
+			U16(script, _code.Intern(_listName));
+			U16(script, id);
+			script.Add((byte)strings.Count);
+			foreach (var field in strings)
+			{
+				U16(script, _itemFields.IndexOf(field));
+				U16(script, _code.Intern(field.Name));
+			}
+
+			script.Add((byte)flags.Count);
+			foreach (var field in flags)
+			{
+				U16(script, _itemFields.IndexOf(field));
+				U16(script, _code.Intern(field.Name));
+			}
+
+			return true;
 		}
 
 		bool DropRow(InvocationExpressionSyntax invocation, List<byte> script)

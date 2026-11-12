@@ -342,6 +342,14 @@ public interface IPlatform
 	{
 	}
 
+	void Push(string screen, object row)
+	{
+	}
+
+	void WriteBack()
+	{
+	}
+
 	void Pop()
 	{
 	}

@@ -66,6 +66,7 @@ public sealed class MainActivity : Activity
 		var requestedRoot = Intent?.GetStringExtra("nativepoc_root");
 		var wantsRoot = !string.IsNullOrEmpty(requestedRoot) && !string.Equals(requestedRoot, "counter", StringComparison.Ordinal);
 		var navStart = SystemClock.ElapsedRealtime();
+		CompiledScreens.Install(ScreenNav.Shared);
 		NavCatalog.InstallRoot();
 		if (Bench || wantsRoot)
 			NavCatalog.InstallRest();
@@ -490,6 +491,7 @@ public sealed class MainActivity : Activity
 		var prep = System.Diagnostics.Stopwatch.StartNew();
 		var previousRoot = _reconciler.Root;
 		var state = AppSession.Shared.State;
+		var topId = ScreenNav.Shared.TopId();
 		if (ScreenNav.Shared.Top() is { } top)
 		{
 			_record = top;
@@ -501,6 +503,11 @@ public sealed class MainActivity : Activity
 				Log.Info(Tag, "bench rows=1000 screen=" + top.SourceHash);
 			}
 		}
+		else if (topId.Length > 0 && CompiledScreens.Knows(topId))
+		{
+			_record = null;
+			_programSource = "compiled";
+		}
 
 		if (_record is { } bound)
 			RecordSession.Publish(bound);
@@ -510,7 +517,10 @@ public sealed class MainActivity : Activity
 		var clock = System.Diagnostics.Stopwatch.StartNew();
 		try
 		{
-			tree = _record is { } record ? record.Render(_platform) : _render(state, _platform);
+			if (topId.Length > 0 && _record is null && CompiledScreens.TryRender(topId, _platform, out var compiled))
+				tree = compiled;
+			else
+				tree = _record is { } record ? record.Render(_platform) : _render(state, _platform);
 		}
 		catch (Exception ex)
 		{

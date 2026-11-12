@@ -84,6 +84,8 @@ public static partial class RecordProgram
 	public const byte ActSetBoolSlot = 32;
 	public const byte ActNotSlot = 33;
 	public const byte ActVm = 34;
+	public const byte ActPushRow = 35;
+	public const byte ActWriteBack = 36;
 
 	public const int ActionStepBudget = 100_000;
 
@@ -1184,6 +1186,38 @@ public static partial class RecordProgram
 		}
 	}
 
+	static void DeliverRow(byte[] script, string[] strings, Bag bag, IPlatform platform, string? rowId, ref int ip)
+	{
+		var screen = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+		var list = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+		var idField = TakeU16(script, ref ip, script.Length);
+		if (ip >= script.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var count = script[ip++];
+		var fields = new (string Name, int Index, string Value)[count];
+		for (var index = 0; index < count; index++)
+		{
+			var cell = TakeU16(script, ref ip, script.Length);
+			var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+			fields[index] = (name, cell, bag.Cell(list, rowId ?? "", 0, cell));
+		}
+
+		if (ip >= script.Length)
+			throw new InvalidOperationException("Rejected record program.");
+		var flagCount = script[ip++];
+		var flags = new (string Name, int Index, bool Value)[flagCount];
+		for (var index = 0; index < flagCount; index++)
+		{
+			var cell = TakeU16(script, ref ip, script.Length);
+			var name = strings[RequireString(TakeU16(script, ref ip, script.Length), strings)];
+			flags[index] = (name, cell, bag.Cell(list, rowId ?? "", 0, cell) == "true");
+		}
+
+		var idValue = bag.Cell(list, rowId ?? "", 0, idField);
+		ScreenNav.Shared.DeliverRow(screen, list, idValue, idField, fields, flags);
+		platform.Push(screen);
+	}
+
 	public static void RunRenderRequest(IPlatform platform)
 	{
 		ArgumentNullException.ThrowIfNull(platform);
@@ -1318,6 +1352,12 @@ public static partial class RecordProgram
 					break;
 				case ActPush:
 					platform.Push(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]);
+					break;
+				case ActPushRow:
+					DeliverRow(script, strings, bag, platform, rowId, ref ip);
+					break;
+				case ActWriteBack:
+					ScreenNav.Shared.WriteBack();
 					break;
 				case ActPop:
 					platform.Pop();
@@ -1922,6 +1962,7 @@ public static partial class RecordProgram
 		void Touch(string name)
 		{
 			_stamps[name] = _stamps.TryGetValue(name, out var stamp) ? stamp + 1 : 1;
+			StateEpoch.Bump();
 		}
 
 		public void SeedString(string name, string value)
@@ -2009,18 +2050,21 @@ public static partial class RecordProgram
 		{
 			lock (_gate)
 				_strings[name] = value;
+			StateEpoch.Bump();
 		}
 
 		public void WriteBool(string name, bool value)
 		{
 			lock (_gate)
 				_flags[name] = value;
+			StateEpoch.Bump();
 		}
 
 		public void WriteInt(string name, int value)
 		{
 			lock (_gate)
 				_numbers[name] = value;
+			StateEpoch.Bump();
 		}
 
 		public void AddInt(string name, int delta)
@@ -2030,6 +2074,8 @@ public static partial class RecordProgram
 				_numbers.TryGetValue(name, out var value);
 				_numbers[name] = value + delta;
 			}
+
+			StateEpoch.Bump();
 		}
 
 		public IReadOnlyList<string[]> Rows(string name)
@@ -2088,6 +2134,7 @@ public static partial class RecordProgram
 					if ((uint)idField < (uint)row.Length && row[idField] == id && (uint)field < (uint)row.Length)
 					{
 						row[field] = value;
+						StateEpoch.Bump();
 						return;
 					}
 				}
@@ -2119,6 +2166,7 @@ public static partial class RecordProgram
 			ArgumentNullException.ThrowIfNull(rows);
 			lock (_gate)
 				_lists[name] = rows;
+			StateEpoch.Bump();
 		}
 
 		public void AddRow(string name, string[] cells)
@@ -2275,6 +2323,8 @@ public static partial class RecordProgram
 					_lists[name] = copy;
 				}
 			}
+
+			StateEpoch.Bump();
 		}
 	}
 }

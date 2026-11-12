@@ -39,6 +39,7 @@ static class PackingView
 		state.DraftNote = "";
 		state.DraftPacked = false;
 		state.NextNumber = seed.NextNumber;
+		StateEpoch.Bump();
 	}
 
 	public static void Apply(PackingCheckpoint checkpoint)
@@ -54,5 +55,6 @@ static class PackingView
 		state.EditingId = checkpoint.EditingId;
 		state.DraftName = checkpoint.DraftName;
 		state.DraftNote = checkpoint.DraftNote;
+		StateEpoch.Bump();
 	}
 }

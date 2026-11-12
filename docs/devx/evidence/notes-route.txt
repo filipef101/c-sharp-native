@@ -1,0 +1,37 @@
+# Notes route
+
+Emulator `emulator-5554`, boot `56815464-4bc4-4f4c-a503-944cb91ab31f`. `IsDynamicCodeSupported=False` on every pid below.
+
+## Listener
+
+pid 16153. Listener `.so` sha256 `d32e7a6f681d82d897247e8eb15ca7c10117ea4c1af06e1dc4ee2f85afefb3b7` (10,250,256 bytes). `cnative run android --listener` showed counter, packing, `samples/note/NoteScreen.cs`, then `samples/notes/NotesScreen.cs`. The tree was four frames, not a second copy of each:
+
+```
+stack 0 counter
+stack 1 packing
+stack 2 note
+stack 3 notes
+```
+
+Empty Add set `scroll/list/error` to `Title is required`. Entering Milk and Add added `scroll/list/Milk` with title Milk. Open showed:
+
+```
+text id="note/open" value="Milk"
+textfield id="note/title" value="Milk"
+stack 0 counter
+stack 1 packing
+stack 2 notes
+stack 3 note
+```
+
+`Push` of the note that was already on the stack moved that frame to the top. It did not add a second note. Entering `Oat milk` and Save popped back to notes, and `scroll/list/Milk/title` was `Oat milk`.
+
+Open again, then `am force-stop`, then `am start` with no extra. pid 16252 logged `state-loaded bytes=3378` and rendered title Milk. The tree was the note screen, open Milk, title field `Oat milk`, and the same four frames with note on top. The route survived the checkpoint. Emulator-run.
+
+## Release
+
+pid 16323. x64 Release `.so` sha256 `76387b015f18a86d8d2d46e4c841e2ab9bf4619614e5e017d5bde71109a38ab7`. No listener. Logcat has no `hotreload-listen` and no `state-save-us`. `am start --es nativepoc_root notes` rendered title `Day`.
+
+uiautomator: empty Add showed the text `Title is required`. The title field was set to Milk and Add created a row whose text was Milk. Open showed a text Milk and a title field Milk. The title field was changed to `Oat milk` and Save returned to the list. The row text was `Oat milk` and the screen title was `Day`. Emulator-run.
+
+The arm64 Release `.so` sha256 `ced6e3623892d1a69895531bcb5679549f63c6c418a7cb69aed4b41eed3b5f8a` was built and not run. `npoc-hotreload` is absent from both Release libraries. Built.

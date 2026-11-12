@@ -144,6 +144,7 @@ public sealed class PackingProgramAdapter : IPackingProgram
 	{
 		PackingTelemetry.SwitchDeliveries++;
 		_state.Items[index].Packed = packed;
+		NativePoc.StateEpoch.Bump();
 		_host.Native.Pulse();
 		_host.RequestRender();
 	}
@@ -156,6 +157,7 @@ public sealed class PackingProgramAdapter : IPackingProgram
 	{
 		PackingTelemetry.FieldDeliveries++;
 		_state.DraftName = name;
+		NativePoc.StateEpoch.Bump();
 		_host.RequestRender();
 	}
 
@@ -163,6 +165,7 @@ public sealed class PackingProgramAdapter : IPackingProgram
 	{
 		PackingTelemetry.SwitchDeliveries++;
 		_state.DraftPacked = packed;
+		NativePoc.StateEpoch.Bump();
 		_host.Native.Pulse();
 		_host.RequestRender();
 	}

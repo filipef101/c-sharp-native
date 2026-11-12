@@ -602,6 +602,49 @@ public sealed class SubsetLowererTests
 		Assert.Equal("page", reloaded.Key);
 	}
 
+	[Fact]
+	public void Opening_a_note_passes_the_row_and_save_writes_it_back()
+	{
+		var root = RepoRoot.Find(AppContext.BaseDirectory);
+		var notes = SubsetLowerer.TryLower(File.ReadAllText(Path.Combine(root, "samples", "notes", "NotesScreen.cs")));
+		var note = SubsetLowerer.TryLower(File.ReadAllText(Path.Combine(root, "samples", "note", "NoteScreen.cs")));
+		Assert.True(notes.Ok, notes.Diagnostics.Count == 0 ? "" : notes.Diagnostics[0].Message);
+		Assert.True(note.Ok, note.Diagnostics.Count == 0 ? "" : note.Diagnostics[0].Message);
+		var nav = ScreenNav.Shared;
+		nav.Restore(new NavCheckpoint());
+		try
+		{
+			nav.Show(notes.Program!);
+			nav.Show(note.Program!);
+			Assert.True(nav.Pop());
+			var shape = Assert.Single(RecordProgram.Lists(notes.Program!), item => item.Name == "Notes");
+			var idAt = Array.IndexOf(shape.Fields, "Id");
+			var titleAt = Array.IndexOf(shape.Fields, "Title");
+			var cells = new string[shape.Fields.Length];
+			cells[idAt] = "Milk";
+			cells[titleAt] = "Milk";
+			nav.Bag("notes").AddRow("Notes", cells);
+			var platform = new Platform();
+			var list = (nav.Top() ?? throw new InvalidOperationException("missing")).Render(platform);
+			Assert.IsType<Button>(ElementIds.Require(list, "scroll/list/Milk/open")).OnPress();
+			Assert.Equal("note", nav.TopId());
+			Assert.Equal("Milk", nav.Bag("note").ReadString("Title"));
+			Assert.Equal("notes", nav.Bag("note").ReadString("RouteScreen"));
+			var restored = new ScreenNav();
+			restored.Restore(nav.Checkpoint());
+			Assert.Equal("Milk", restored.Bag("note").ReadString("Title"));
+			nav.Bag("note").WriteString("Title", "Oat milk");
+			var detail = (nav.Top() ?? throw new InvalidOperationException("missing")).Render(platform);
+			Assert.Equal("Milk", TextValue(detail, "note/open"));
+			Assert.IsType<Button>(ElementIds.Require(detail, "note/save")).OnPress();
+			Assert.Equal("Oat milk", nav.Bag("notes").Cell("Notes", "Milk", idAt, titleAt));
+		}
+		finally
+		{
+			nav.Restore(new NavCheckpoint());
+		}
+	}
+
 	static string TextValue(Element root, string id) =>
 		Assert.IsType<Text>(ElementIds.Require(root, id)).Value;
 

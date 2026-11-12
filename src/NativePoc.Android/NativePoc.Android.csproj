@@ -61,6 +61,10 @@
 		<RunAOTCompilation>true</RunAOTCompilation>
 	</PropertyGroup>
 	<ItemGroup>
+		<Using Include="NativePoc" />
+		<Compile Include="..\..\samples\*\*.cs" Exclude="..\..\samples\NativePoc.*\**;**\bin\**;**\obj\**" />
+	</ItemGroup>
+	<ItemGroup>
 		<ProjectReference Include="..\NativePoc.Core\NativePoc.Core.csproj" />
 		<ProjectReference Include="..\NativePoc.Screen\NativePoc.Screen.csproj" />
 		<ProjectReference Include="..\..\samples\NativePoc.Packing\NativePoc.Packing.csproj" />

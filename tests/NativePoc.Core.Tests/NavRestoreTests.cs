@@ -100,6 +100,47 @@ public sealed class NavRestoreTests
 		Assert.Same(first.Render, second.Render);
 	}
 
+	[Fact]
+	public void A_show_of_a_screen_already_on_the_stack_does_not_add_another_frame()
+	{
+		var nav = new ScreenNav();
+		nav.Show(Program("counter", "Hello"));
+		nav.Show(Program("packing", "Pack"));
+		nav.Show(Program("counter", "Hello again"));
+		Assert.Equal("stack 0 counter\nstack 1 packing\n", nav.Format());
+		Assert.Equal("packing", nav.TopId());
+		Assert.True(nav.Push("counter"));
+		Assert.Equal("stack 0 packing\nstack 1 counter\n", nav.Format());
+		var top = nav.Top() ?? throw new InvalidOperationException("missing");
+		Assert.Equal("Hello again", Assert.IsType<Text>(top.Render.Invoke(new Quiet())).Value);
+	}
+
+	[Fact]
+	public void A_push_of_an_existing_screen_moves_that_frame_to_the_top()
+	{
+		var nav = new ScreenNav();
+		nav.Show(Program("counter", "Hello"));
+		nav.Show(Program("packing", "Pack"));
+		nav.Show(Program("notes", "Notes"));
+		Assert.True(nav.Push("packing"));
+		Assert.Equal("stack 0 counter\nstack 1 notes\nstack 2 packing\n", nav.Format());
+		Assert.True(nav.Push("packing"));
+		Assert.Equal("stack 0 counter\nstack 1 notes\nstack 2 packing\n", nav.Format());
+	}
+
+	[Fact]
+	public void A_compiled_screen_with_no_program_can_be_pushed()
+	{
+		var nav = new ScreenNav();
+		nav.Allow("notes");
+		Assert.True(nav.Push("notes"));
+		Assert.Equal("notes", nav.TopId());
+		Assert.False(nav.HasProgram("notes"));
+		Assert.Null(nav.Top());
+		Assert.True(nav.DropUnresolved());
+		Assert.Equal("notes", nav.TopId());
+	}
+
 	static byte[] Program(string id, string text)
 	{
 		return RecordProgram.Encode(

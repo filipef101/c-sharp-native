@@ -15,6 +15,7 @@ public static class PackingActions
 		state.DraftName = "";
 		state.DraftPacked = false;
 		state.Route = PackingRoute.Editor;
+		NativePoc.StateEpoch.Bump();
 		host.RequestRender();
 	}
 
@@ -25,6 +26,7 @@ public static class PackingActions
 		state.DraftName = item.Name;
 		state.DraftPacked = item.Packed;
 		state.Route = PackingRoute.Editor;
+		NativePoc.StateEpoch.Bump();
 		host.RequestRender();
 	}
 
@@ -45,12 +47,14 @@ public static class PackingActions
 			item.Packed = state.DraftPacked;
 		}
 		state.Route = PackingRoute.List;
+		NativePoc.StateEpoch.Bump();
 		host.RequestRender();
 	}
 
 	public static void Back(PackingState state, IPackingHost host)
 	{
 		state.Route = PackingRoute.List;
+		NativePoc.StateEpoch.Bump();
 		host.RequestRender();
 	}
 

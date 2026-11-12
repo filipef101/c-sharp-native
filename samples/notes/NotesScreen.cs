@@ -19,9 +19,9 @@ public sealed class NotesState
 
 	public bool Dark { get; set; }
 
-	public string OpenId { get; set; } = "";
-
 	public List<NoteItem> Notes { get; set; } = new List<NoteItem>();
+
+	public void Drop(NoteItem item) => Notes.Remove(item);
 }
 
 public static class NotesScreen
@@ -82,9 +82,7 @@ public static class NotesScreen
 					"Open",
 					() =>
 					{
-						state.OpenId = item.Id;
-						Storage.Set(platform, "notes-open", state.OpenId);
-						platform.Push("note");
+						platform.Push("note", item);
 						platform.RequestRender();
 					},
 					"Open")

@@ -10,9 +10,14 @@ static class StateStore
 	const string FileName = "nativepoc-state.bin";
 	static readonly object Gate = new();
 	static Context? _context;
-	static byte[]? _latest;
 	static byte[]? _written;
 	static int _writing;
+	static bool _dirty;
+	static bool _have;
+	static int _epoch;
+	static int _count;
+	static int _flags;
+	static string _name = "";
 
 	public static void Delete(Context context)
 	{
@@ -28,11 +33,17 @@ static class StateStore
 
 	public static void Save(Context context)
 	{
-		var bytes = StateCheckpoint.Write(AppSession.Shared.State, PackingView.Capture(), ScreenNav.Shared.Checkpoint());
+		var epoch = StateEpoch.Value;
+		var state = AppSession.Shared.State;
+		var count = state.Count;
+		var name = state.Name;
+		var flags = (state.GreetingFirst ? 1 : 0) | (state.PlainRoot ? 2 : 0);
 		lock (Gate)
 		{
+			if (_have && _writing == 0 && epoch == _epoch && count == _count && flags == _flags && name == _name)
+				return;
 			_context = context.ApplicationContext ?? context;
-			_latest = bytes;
+			_dirty = true;
 			if (_writing == 1)
 				return;
 			_writing = 1;
@@ -45,24 +56,54 @@ static class StateStore
 	{
 		while (true)
 		{
-			byte[]? bytes;
 			Context? context;
 			lock (Gate)
 			{
-				bytes = _latest;
 				context = _context;
-				_latest = null;
-				if (bytes is not null && _written is not null && bytes.AsSpan().SequenceEqual(_written))
-					bytes = null;
-				if (bytes is null || context is null)
+				if (!_dirty || context is null)
 				{
-					if (_latest is null)
-					{
-						_writing = 0;
-						return;
-					}
+					_writing = 0;
+					return;
+				}
 
-					continue;
+				_dirty = false;
+			}
+
+			var epoch = StateEpoch.Value;
+			var state = AppSession.Shared.State;
+			var count = state.Count;
+			var name = state.Name;
+			var flags = (state.GreetingFirst ? 1 : 0) | (state.PlainRoot ? 2 : 0);
+			byte[] bytes;
+			try
+			{
+				bytes = StateCheckpoint.Write(state, PackingView.Capture(), ScreenNav.Shared.Checkpoint());
+			}
+			catch (Exception ex) when (ex is IOException or InvalidOperationException)
+			{
+				Log.Warn(MainActivity.Tag, "state-save " + ex.GetType().Name);
+				lock (Gate)
+				{
+					_dirty = true;
+					_writing = 0;
+					return;
+				}
+			}
+
+			var moved = StateEpoch.Value != epoch || state.Count != count || state.Name != name
+				|| ((state.GreetingFirst ? 1 : 0) | (state.PlainRoot ? 2 : 0)) != flags;
+			lock (Gate)
+			{
+				if (moved)
+					_dirty = true;
+				if (_written is not null && bytes.AsSpan().SequenceEqual(_written))
+				{
+					if (!moved && !_dirty)
+						Remember(epoch, count, name, flags);
+					if (_dirty)
+						continue;
+					_writing = 0;
+					return;
 				}
 			}
 
@@ -82,21 +123,41 @@ static class StateStore
 			}
 
 			if (!wrote)
-				continue;
+			{
+				lock (Gate)
+				{
+					if (_dirty)
+						continue;
+					_writing = 0;
+					return;
+				}
+			}
+
 			var elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
 			var micros = elapsed * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
 			Log.Info(MainActivity.Tag, "state-save-us=" + micros.ToString(CultureInfo.InvariantCulture));
 			lock (Gate)
 			{
 				_written = bytes;
-				if (_latest is null || _latest.AsSpan().SequenceEqual(bytes))
-				{
-					_latest = null;
-					_writing = 0;
-					return;
-				}
+				if (!moved && !_dirty)
+					Remember(epoch, count, name, flags);
+				else
+					_dirty = true;
+				if (_dirty)
+					continue;
+				_writing = 0;
+				return;
 			}
 		}
+	}
+
+	static void Remember(int epoch, int count, string name, int flags)
+	{
+		_epoch = epoch;
+		_count = count;
+		_name = name;
+		_flags = flags;
+		_have = true;
 	}
 
 	public static bool TryLoad(Context context)

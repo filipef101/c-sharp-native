@@ -783,6 +783,14 @@ sealed class PlatformBridge : IPlatform
 		StorageSeed.Refresh(_activity, screen);
 	}
 
+	public void Push(string screen, object row)
+	{
+		CompiledScreens.Deliver(screen, row);
+		Push(screen);
+	}
+
+	public void WriteBack() => CompiledScreens.WriteBack(ScreenNav.Shared.TopId());
+
 	public void Pop() => ScreenNav.Shared.Pop();
 
 	public void Effect(string property, string resource) =>

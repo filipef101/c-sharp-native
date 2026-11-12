@@ -238,6 +238,7 @@ public sealed class ScreenNav
 	readonly Dictionary<string, byte[]> _programs = new(StringComparer.Ordinal);
 	readonly Dictionary<string, byte[]> _pending = new(StringComparer.Ordinal);
 	readonly Dictionary<string, RecordProgram.Bag> _bags = new(StringComparer.Ordinal);
+	readonly HashSet<string> _allowed = new(StringComparer.Ordinal);
 	byte[]? _topProgram;
 	RecordProgram.Bag? _topBag;
 	RecordProgram.Bound? _topBound;
@@ -320,6 +321,29 @@ public sealed class ScreenNav
 		}
 	}
 
+	public void Allow(string id)
+	{
+		if (id.Length == 0)
+			return;
+		lock (_gate)
+			_allowed.Add(id);
+	}
+
+	public string TopId()
+	{
+		lock (_gate)
+			return _stack.Count == 0 ? "" : _stack[^1];
+	}
+
+	public bool HasProgram(string id)
+	{
+		lock (_gate)
+		{
+			Ensure(id);
+			return _programs.ContainsKey(id);
+		}
+	}
+
 	public void Show(byte[] program)
 	{
 		ArgumentNullException.ThrowIfNull(program);
@@ -329,8 +353,9 @@ public sealed class ScreenNav
 			_programs[id] = program.ToArray();
 			_ = BagLocked(id);
 			DropCache();
-			if (_stack.Count == 0 || _stack[^1] != id)
+			if (!_stack.Contains(id))
 				_stack.Add(id);
+			StateEpoch.Bump();
 		}
 	}
 
@@ -341,16 +366,96 @@ public sealed class ScreenNav
 		lock (_gate)
 		{
 			Ensure(id);
-			if (!_programs.ContainsKey(id))
+			if (!_programs.ContainsKey(id) && !_allowed.Contains(id))
 				return false;
-			if (_stack.Count == 0 || _stack[^1] != id)
-			{
+			var at = _stack.IndexOf(id);
+			if (at < 0)
 				_stack.Add(id);
-				DropCache();
+			else if (at != _stack.Count - 1)
+			{
+				_stack.RemoveAt(at);
+				_stack.Add(id);
 			}
-
+			else
+				return true;
+			DropCache();
+			StateEpoch.Bump();
 			return true;
 		}
+	}
+
+	public void DeliverRow(
+		string screen,
+		string list,
+		string rowId,
+		int idField,
+		(string Name, int Index, string Value)[] fields,
+		(string Name, int Index, bool Value)[] flags)
+	{
+		ArgumentNullException.ThrowIfNull(fields);
+		ArgumentNullException.ThrowIfNull(flags);
+		var source = TopId();
+		if (!Push(screen))
+			return;
+		var bag = Bag(screen);
+		var map = new StringBuilder();
+		foreach (var field in fields)
+		{
+			bag.WriteString(field.Name, field.Value);
+			if (map.Length > 0)
+				map.Append('\n');
+			map.Append(field.Name).Append('=').Append(field.Index.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		}
+
+		var flagMap = new StringBuilder();
+		foreach (var field in flags)
+		{
+			bag.WriteBool(field.Name, field.Value);
+			if (flagMap.Length > 0)
+				flagMap.Append('\n');
+			flagMap.Append(field.Name).Append('=').Append(field.Index.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		}
+
+		bag.WriteString("RouteScreen", source);
+		bag.WriteString("RouteList", list);
+		bag.WriteString("RouteRow", rowId);
+		bag.WriteInt("RouteIdField", idField);
+		bag.WriteString("RouteMap", map.ToString());
+		bag.WriteString("RouteFlags", flagMap.ToString());
+	}
+
+	public bool WriteBack()
+	{
+		var id = TopId();
+		if (id.Length == 0)
+			return false;
+		var bag = Bag(id);
+		var source = bag.ReadString("RouteScreen");
+		var list = bag.ReadString("RouteList");
+		var row = bag.ReadString("RouteRow");
+		if (source.Length == 0 || list.Length == 0 || row.Length == 0 || !bag.TryReadInt("RouteIdField", out var idField))
+			return false;
+		var dest = Bag(source);
+		if (!ApplyMap(bag, dest, list, row, idField, bag.ReadString("RouteMap"), flag: false))
+			return false;
+		return ApplyMap(bag, dest, list, row, idField, bag.ReadString("RouteFlags"), flag: true);
+	}
+
+	static bool ApplyMap(RecordProgram.Bag source, RecordProgram.Bag dest, string list, string row, int idField, string map, bool flag)
+	{
+		if (map.Length == 0)
+			return true;
+		foreach (var line in map.Split('\n'))
+		{
+			var eq = line.IndexOf('=');
+			if (eq <= 0 || !int.TryParse(line[(eq + 1)..], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var index))
+				return false;
+			var name = line[..eq];
+			var value = flag ? (source.ReadBool(name) ? "true" : "false") : source.ReadString(name);
+			dest.WriteCell(list, row, idField, index, value);
+		}
+
+		return true;
 	}
 
 	public bool Pop()
@@ -361,6 +466,7 @@ public sealed class ScreenNav
 				return false;
 			_stack.RemoveAt(_stack.Count - 1);
 			DropCache();
+			StateEpoch.Bump();
 			return true;
 		}
 	}
@@ -400,7 +506,7 @@ public sealed class ScreenNav
 			{
 				var id = _stack[^1];
 				Ensure(id);
-				if (_programs.ContainsKey(id))
+				if (_programs.ContainsKey(id) || _allowed.Contains(id))
 					return true;
 				_stack.RemoveAt(_stack.Count - 1);
 			}
@@ -437,25 +543,33 @@ public sealed class ScreenNav
 
 	public NavCheckpoint Checkpoint()
 	{
+		List<(string Id, RecordProgram.Bag Bag, byte[] Program)> pairs;
+		string[] stack;
 		lock (_gate)
 		{
-			var screens = new List<NavScreen>(_bags.Count);
-			foreach (var pair in _bags.OrderBy(item => item.Key, StringComparer.Ordinal))
-			{
-				screens.Add(new NavScreen
-				{
-					Id = pair.Key,
-					State = pair.Value.Capture(),
-					Program = _programs.TryGetValue(pair.Key, out var program) ? program : [],
-				});
-			}
-
-			return new NavCheckpoint
-			{
-				Stack = _stack.ToArray(),
-				Screens = screens,
-			};
+			pairs = new List<(string, RecordProgram.Bag, byte[])>(_bags.Count);
+			foreach (var pair in _bags)
+				pairs.Add((pair.Key, pair.Value, _programs.TryGetValue(pair.Key, out var program) ? program : []));
+			stack = _stack.ToArray();
 		}
+
+		pairs.Sort(static (left, right) => string.CompareOrdinal(left.Id, right.Id));
+		var screens = new List<NavScreen>(pairs.Count);
+		foreach (var pair in pairs)
+		{
+			screens.Add(new NavScreen
+			{
+				Id = pair.Id,
+				State = pair.Bag.Capture(),
+				Program = pair.Program,
+			});
+		}
+
+		return new NavCheckpoint
+		{
+			Stack = stack,
+			Screens = screens,
+		};
 	}
 
 	public void ResetBags()
@@ -476,6 +590,7 @@ public sealed class ScreenNav
 			DropCache();
 			_stack.Clear();
 			_stack.AddRange(nav.Stack);
+			StateEpoch.Bump();
 			foreach (var screen in nav.Screens)
 			{
 				if (screen.Program is { Length: > 0 })

@@ -67,6 +67,29 @@ Not measured in this workspace. Same machine, AVD `pixel_8`, arm64, Android 16. 
 
 Rounds 0–11 were steady (counter about 378–430, floor about 354–388, packing about 305–505). Rounds 12–16 were noisy in every series, including the floor (floor 739, 1008, 789; counter 778, 1111, 688, 843). The p90 tail on this run is host contention. Counter is 61 ms over the floor at p50. This does not replace the earlier Mac table. Draw p50 here is 0.2 ms on the Mac GPU.
 
+## Coordinator-measured, third Mac run, host load about 10–12
+
+Not measured in this workspace. Same machine, AVD `pixel_8`, arm64, Android 16. `tools/bench/mac-bench.sh --n 20`, interleaved, all COLD. Arm64 APK sha256 `2a82538e59cb443c02828114f5d104ee14d7692b6f69680e3df1d62c38cb5d11`. Floor APK sha256 `7a8b6e2daa328c69a943211fdba85daac225017ff760409d964bbb49b5fefb1c`. Host load stayed about 10–12 because other work was running on the Mac. The script flagged contended rounds. Rounds 18 and 19 were slow in every series. Those rounds stay in the percentiles.
+
+| Series | n | total p50 | total p90 | present p50 | UI p50 | draw p50 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| counter | 20 | 385.5 | 560.2 | 217.0 | 21.2 | 0.2 |
+| floor | 20 | 338.5 | 559.2 | 183.5 | 19.6 | 0.1 |
+| packing | 20 | 356.5 | 601.5 | 202.0 | 22.4 | 0.2 |
+
+Counter is 47.0 ms over the floor at p50. The earlier Mac runs were 63.0 ms and 61.0 ms over the floor. packing1000 is 18.0 ms over the floor at p50. Draw p50 is 0.2 ms on the Mac GPU, the same as the second run. The x86 emulator's issue-draw-commands gap is swiftshader on that emulator. It is not this draw. This does not replace the earlier Mac tables. These Mac numbers are not the Release binaries below.
+
+## Release, notes compiled in, unpublished
+
+Built in this workspace. A normal Release publish, no listener. `npoc-hotreload` is absent from both `.so` files. `classes.dex` contains `NativeAotRuntimeProvider`. The x64 APK was installed on `emulator-5554` and the notes screen ran. The arm64 APK was not run.
+
+| ABI | APK sha256 | APK bytes | `.so` sha256 | `.so` bytes |
+| --- | --- | ---: | --- | ---: |
+| android-x64 | `a8e23856bbdd0d0fade11f4dda078312cf795ae974a0e26ea6bf4444ee49484f` | 2,892,589 | `76387b015f18a86d8d2d46e4c841e2ab9bf4619614e5e017d5bde71109a38ab7` | 6,683,616 |
+| android-arm64 | `f0ca67afb275fd6720b184ecd66119f087d982abe6a1c9fb4868f03e07e4459d` | 2,741,040 | `ced6e3623892d1a69895531bcb5679549f63c6c418a7cb69aed4b41eed3b5f8a` | 6,903,600 |
+
+The `.so` bytes inside each APK match the published `.so`. `notes` and `note` are direct calls. Counter, packing, settings, trips, trip, kit, and web stay record programs.
+
 ## Emulator-run, counter tail versus packing1000
 
 Measured in this workspace on the x86_64 API 34 emulator. Same interleaved method, n=20, all COLD, Hyndman-Fan type 7. Host load average 0.71 at the start. APK sha256 `0ac29e1248567a90377ba68d5c4c179145cf8a5f4f7dd2ff5e52e3e671a14da7`. `.so` 6,297,424 bytes.
