@@ -170,6 +170,12 @@
 		<ApplicationId>com.scratch.nativepoc.widgetfloor</ApplicationId>
 		<DefineConstants>$(DefineConstants);NATIVEPOC_WIDGET_FLOOR</DefineConstants>
 	</PropertyGroup>
+	<!-- Same Northroom screens with chrome on the first frame, and a third
+	     package so the bench can install it beside the deferred showcase. -->
+	<PropertyGroup Condition="'$(NativePocImmediateChrome)' == 'true' And '$(NativePocWidgetFloor)' != 'true'">
+		<ApplicationId>com.scratch.nativepoc.immediate</ApplicationId>
+		<DefineConstants>$(DefineConstants);NATIVEPOC_IMMEDIATE_CHROME</DefineConstants>
+	</PropertyGroup>
 	<Target Name="RefuseDevListenerInRelease" BeforeTargets="Build;Publish">
 		<Error
 			Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' == 'Release'"

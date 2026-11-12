@@ -11,6 +11,8 @@ static class StartupMarks
 	static bool _activity;
 	static bool _present;
 	static bool _armed;
+	static bool _chromeDeferred;
+	static bool _styledMarked;
 	static Action? _afterPresent;
 	static readonly List<Action> _after = new();
 #if NATIVEPOC_STARTUP_MARKS
@@ -39,6 +41,21 @@ static class StartupMarks
 #endif
 
 	public static bool Presented => _present;
+
+	public static void NoteChromeDeferred() => _chromeDeferred = true;
+
+	public static void ChromeApplied(View? anchor)
+	{
+		if (_styledMarked)
+			return;
+		if (anchor?.ViewTreeObserver is not { } observer)
+		{
+			ScheduleStyled();
+			return;
+		}
+
+		observer.AddOnPreDrawListener(new StyledMark(anchor));
+	}
 
 	public static void AfterPresent(Action flush)
 	{
@@ -317,7 +334,8 @@ static class StartupMarks
 			PhaseAt("draw", now);
 			LogGc("present");
 #endif
-			ReportDrawn();
+			if (!_chromeDeferred)
+				ScheduleStyled();
 			var queue = Looper.MainLooper?.Queue;
 			if (queue is not null)
 				queue.AddIdleHandler(new IdleFlush(_afterPresent));
@@ -327,6 +345,55 @@ static class StartupMarks
 				_afterPresent?.Invoke();
 			}
 
+			return true;
+		}
+	}
+
+	static void ScheduleStyled()
+	{
+		if (_styledMarked)
+			return;
+		var choreographer = Choreographer.Instance;
+		if (choreographer is not null)
+			choreographer.PostFrameCallback(new StyledCallback());
+		else
+			MarkStyled();
+	}
+
+	static void MarkStyled()
+	{
+		if (_styledMarked)
+			return;
+		_styledMarked = true;
+#if NATIVEPOC_STARTUP_MARKS
+		if (_process == 0)
+			_process = Process.StartElapsedRealtime;
+		var now = SystemClock.ElapsedRealtime();
+		Mark("startup mark=fully-styled since-process-ms=" + (now - _process).ToString(CultureInfo.InvariantCulture));
+		PhaseAt("fully-styled", now);
+#endif
+		ReportDrawn();
+	}
+
+	sealed class StyledCallback : Java.Lang.Object, Choreographer.IFrameCallback
+	{
+		public void DoFrame(long frameTimeNanos) => MarkStyled();
+	}
+
+	sealed class StyledMark : Java.Lang.Object, ViewTreeObserver.IOnPreDrawListener
+	{
+		readonly View _view;
+		bool _done;
+
+		public StyledMark(View view) => _view = view;
+
+		public bool OnPreDraw()
+		{
+			if (_done)
+				return true;
+			_done = true;
+			_view.ViewTreeObserver?.RemoveOnPreDrawListener(this);
+			ScheduleStyled();
 			return true;
 		}
 	}

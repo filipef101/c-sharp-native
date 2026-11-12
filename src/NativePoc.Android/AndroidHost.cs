@@ -23,7 +23,11 @@ sealed class AndroidHost : IElementHost<View>
 	readonly HashSet<View> _gone = new();
 	bool _applyingText;
 	bool _applyingSwitch;
+#if NATIVEPOC_IMMEDIATE_CHROME
+	bool _chromeReady = true;
+#else
 	bool _chromeReady;
+#endif
 	bool _chromeArmed;
 	readonly List<(View View, Style Style)> _deferredChrome = new();
 
@@ -454,6 +458,7 @@ sealed class AndroidHost : IElementHost<View>
 		if (_chromeArmed)
 			return;
 		_chromeArmed = true;
+		StartupMarks.NoteChromeDeferred();
 		StartupMarks.AfterPresent(FlushChrome);
 	}
 
@@ -469,7 +474,9 @@ sealed class AndroidHost : IElementHost<View>
 			ApplyChrome(view, style);
 		}
 
-		_activity.Window?.DecorView?.Invalidate();
+		var decor = _activity.Window?.DecorView;
+		decor?.Invalidate();
+		StartupMarks.ChromeApplied(decor);
 	}
 
 	void ApplyChrome(View view, Style style)
