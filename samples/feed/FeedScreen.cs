@@ -95,6 +95,7 @@ public static class FeedScreen
 
 		FeedModule.Generate(platform, state);
 		var rows = new List<Element>();
+		rows.Add(new Text("Feed") { Key = "heading", Style = new Style { FontSize = 22 } });
 		rows.Add(new Text(state.Loading ? "Loading feed" : state.Phase) { Key = "phase" });
 		rows.Add(new Text(state.Error) { Key = "error" });
 		rows.Add(new Button("Refresh", () => Load(), "Refresh") { Key = "refresh" });
@@ -102,8 +103,13 @@ public static class FeedScreen
 		rows.Add(new Button("Back", () => platform.Pop(), "Back") { Key = "back" });
 		foreach (var item in state.Generated)
 			rows.Add(Row(item));
-		return new Column(rows) { Key = "feed" };
+		return FeedRows.Window(rows, 6);
 	}
 
-	static Element Row(FeedItem item) => new Text("• " + item.Title) { Key = item.Id };
+	static Element Row(FeedItem item) => new Column(
+	[
+		new Text("• " + item.Title),
+		new Image(item.Id == "0000" ? "feed_mark" : "http://10.0.2.2:8094/img/" + item.Id),
+	])
+	{ Key = item.Id };
 }

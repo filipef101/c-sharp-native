@@ -36,6 +36,7 @@ public static class NoteScreen
 
 		return new Column(
 		[
+			new Text("Note") { Key = "heading", Style = new Style { FontSize = 22 } },
 			new Text(state.Id) { Key = "open" },
 			new TextInput(
 				state.Title,

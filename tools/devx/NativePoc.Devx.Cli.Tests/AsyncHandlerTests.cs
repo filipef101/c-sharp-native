@@ -77,13 +77,17 @@ public sealed class AsyncHandlerTests
 		var window = Assert.IsType<RecordProgram.WindowList>(list.Rows);
 		Assert.Equal(1000, window.Count);
 		Assert.Equal(0, window.Built);
-		var row = Assert.IsType<Text>(window[0]);
-		Assert.Equal("• Row 0000", row.Value);
+		var row = Assert.IsType<Column>(window[0]);
 		Assert.Equal("0000", row.Key);
+		Assert.Equal("• Row 0000", Assert.IsType<Text>(row.Children[0]).Value);
+		Assert.Equal("feed_mark", Assert.IsType<Image>(row.Children[1]).Source);
 		Assert.Equal(1, window.Built);
 		Assert.Equal("0001", window.Cell(1, 0));
 		Assert.Equal("Row 0001", window.Cell(1, 1));
 		Assert.Equal(1, window.Built);
+		var next = Assert.IsType<Column>(window[1]);
+		Assert.Equal("http://10.0.2.2:8094/img/0001", Assert.IsType<Image>(next.Children[1]).Source);
+		Assert.Equal(2, window.Built);
 	}
 
 	[Fact]

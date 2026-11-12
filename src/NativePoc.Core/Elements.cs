@@ -343,6 +343,28 @@ public sealed record ScrollView(Element Child) : Element;
 
 public sealed record ListView(IReadOnlyList<Element> Rows) : Element;
 
+public static class FeedRows
+{
+	public static Element Window(List<Element> rows, int headers)
+	{
+		ArgumentNullException.ThrowIfNull(rows);
+		if (headers < 0)
+			headers = 0;
+		if (headers > rows.Count)
+			headers = rows.Count;
+		if (rows.Count - headers <= 24)
+			return new Column(rows) { Key = "feed" };
+		var head = new List<Element>(headers + 1);
+		for (var index = 0; index < headers; index++)
+			head.Add(rows[index]);
+		var body = new List<Element>(rows.Count - headers);
+		for (var index = headers; index < rows.Count; index++)
+			body.Add(rows[index]);
+		head.Add(new ListView(body) { Key = "window" });
+		return new Column(head) { Key = "feed" };
+	}
+}
+
 public sealed record Image(string Source) : Element;
 
 public sealed record HostView(string Kind, string Prop, string Value) : Element

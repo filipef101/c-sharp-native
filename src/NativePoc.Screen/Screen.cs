@@ -9,7 +9,7 @@ public static class Screen
 	public static Element Render(AppState state, IPlatform platform)
 	{
 		if (state.PlainRoot)
-			return new Text(TitlePrefix + state.Count) { Key = "title" };
+			return new Text(TitlePrefix + state.Count) { Key = "title", Style = new Style { FontSize = 22 } };
 		if (state.GreetingFirst)
 			return new Column(
 			[
@@ -34,12 +34,12 @@ public static class Screen
 					},
 					"Save name")
 				{ Key = "save" },
-				new Text(TitlePrefix + state.Count) { Key = "title" },
+				new Text(TitlePrefix + state.Count) { Key = "title", Style = new Style { FontSize = 22 } },
 				new Button("Packing", () => { platform.Push("packing"); platform.RequestRender(); }, "Packing") { Key = "packing" },
 			]);
 		return new Column(
 		[
-			new Text(TitlePrefix + state.Count) { Key = "title" },
+			new Text(TitlePrefix + state.Count) { Key = "title", Style = new Style { FontSize = 22 } },
 			new TextField(
 				state.Name,
 				value =>

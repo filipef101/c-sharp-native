@@ -48,6 +48,7 @@ public static class NotesScreen
 		}
 
 		var rows = new List<Element>();
+		rows.Add(new Text("Notes") { Key = "heading", Style = new Style { FontSize = 22 } });
 		rows.Add(new Text(state.Dark ? "Night" : "Day") { Key = "mode" });
 		rows.Add(new Switch(
 			state.Dark,

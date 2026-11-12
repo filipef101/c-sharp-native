@@ -1051,6 +1051,25 @@ public static partial class SubsetLowerer
 
 		bool Gathered(ExpressionSyntax expression, KeySet keys)
 		{
+			if (expression is InvocationExpressionSyntax window
+				&& window.Expression is MemberAccessExpressionSyntax windowCall
+				&& windowCall.Name.Identifier.ValueText == "Window"
+				&& windowCall.Expression is IdentifierNameSyntax windowType
+				&& windowType.Identifier.ValueText == "FeedRows"
+				&& window.ArgumentList.Arguments.Count == 2
+				&& window.ArgumentList.Arguments[0].Expression is IdentifierNameSyntax windowRows
+				&& windowRows.Identifier.ValueText == _rows
+				&& window.ArgumentList.Arguments[1].Expression is LiteralExpressionSyntax windowCount
+				&& windowCount.IsKind(SyntaxKind.NumericLiteralExpression))
+			{
+				if (!keys.Close(this, window))
+					return false;
+				_code.Op(RecordProgram.OpGather);
+				_code.U16(_code.Intern("feed"));
+				EmitStyle();
+				return true;
+			}
+
 			if (expression is ObjectCreationExpressionSyntax creation && TypeName(creation) == "ScrollView")
 			{
 				if (creation.ArgumentList?.Arguments.Count != 1)

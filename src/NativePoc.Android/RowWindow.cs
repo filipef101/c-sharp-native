@@ -285,12 +285,7 @@ sealed class RowWindow : AndroidScroll
 				return;
 			}
 
-			var id = context?.Resources?.GetIdentifier(face.Picture, "drawable", context.PackageName) ?? 0;
-			if (id == 0)
-				throw new InvalidOperationException("Drawable " + face.Picture + " was not found.");
-			_picture.SetImageResource(id);
-			_picture.ContentDescription = face.Picture;
-			_picture.Visibility = ViewStates.Visible;
+			PictureBinder.Show(_picture, face.Picture, context ?? throw new InvalidOperationException("List row has no context."));
 			if (_picture.LayoutParameters is LayoutParams layout)
 			{
 				layout.Height = _image;

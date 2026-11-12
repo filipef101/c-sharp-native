@@ -4,6 +4,7 @@ using Android.Graphics.Drawables;
 using Android.Text;
 using Android.Util;
 using Android.Views;
+using Android.Views.Accessibility;
 using Android.Views.InputMethods;
 using Android.Widget;
 using AndroidButton = Android.Widget.Button;
@@ -52,7 +53,7 @@ sealed class AndroidHost : IElementHost<View>
 				};
 			case ElementKind.List:
 #if NATIVEPOC_RECYCLER
-				return new KeyedRecycler(_activity);
+				return KeyedList.Create(_activity);
 #else
 				return new RowWindow(_activity);
 #endif
@@ -73,7 +74,7 @@ sealed class AndroidHost : IElementHost<View>
 		if (parent is not ViewGroup group)
 			throw new InvalidOperationException("Parent is not a view group.");
 #if NATIVEPOC_RECYCLER
-		if (child is KeyedRecycler && parent is LinearLayout)
+		if (KeyedList.Is(child) && parent is LinearLayout)
 		{
 			child.LayoutParameters = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1f);
 			group.AddView(child, index);
@@ -158,6 +159,7 @@ sealed class AndroidHost : IElementHost<View>
 		if (!string.Equals(edit.Hint, placeholder, StringComparison.Ordinal))
 			edit.Hint = placeholder;
 		edit.ContentDescription = accessibilityLabel;
+		TouchTarget(edit);
 		var current = edit.Text ?? "";
 		if (string.Equals(current, value, StringComparison.Ordinal))
 			return;
@@ -259,8 +261,8 @@ sealed class AndroidHost : IElementHost<View>
 			};
 			if (style.FontSize > 0)
 				text.SetTextSize(ComplexUnitType.Sp, style.FontSize);
-			if (style.FontSize >= 20 && OperatingSystem.IsAndroidVersionAtLeast(28))
-				text.AccessibilityHeading = true;
+			if (style.FontSize >= 20 && (int)Android.OS.Build.VERSION.SdkInt >= 28)
+				text.SetAccessibilityDelegate(HeadingMark.Instance);
 			if (style.Weight == FontWeight.Bold)
 				text.SetTypeface(Typeface.DefaultBold, TypefaceStyle.Bold);
 			ThemeRuntime.NoteColor(view, style.Color);
@@ -314,12 +316,7 @@ sealed class AndroidHost : IElementHost<View>
 			return;
 		}
 
-		image.Visibility = ViewStates.Visible;
-		var id = _activity.Resources?.GetIdentifier(source, "drawable", _activity.PackageName) ?? 0;
-		if (id == 0)
-			throw new InvalidOperationException("Drawable " + source + " was not found.");
-		image.SetImageResource(id);
-		image.ContentDescription = source;
+		PictureBinder.Show(image, source, _activity);
 		if (image.LayoutParameters is ViewGroup.LayoutParams layout)
 		{
 			layout.Width = Dp(24);
@@ -344,9 +341,9 @@ sealed class AndroidHost : IElementHost<View>
 	public void SetList(View view, IReadOnlyList<Element> rows)
 	{
 #if NATIVEPOC_RECYCLER
-		if (view is KeyedRecycler recycler)
+		if (KeyedList.Is(view))
 		{
-			recycler.Bind(rows);
+			KeyedList.Bind(view, rows);
 			return;
 		}
 #endif
@@ -924,5 +921,21 @@ sealed class PlatformBridge : IPlatform
 				resume(text);
 			});
 		});
+	}
+}
+
+sealed class HeadingMark : View.AccessibilityDelegate
+{
+	public static readonly HeadingMark Instance = new();
+
+	public override void OnInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info)
+	{
+		base.OnInitializeAccessibilityNodeInfo(host, info);
+		if ((int)Android.OS.Build.VERSION.SdkInt < 28)
+			return;
+#pragma warning disable CA1416
+		info.Heading = true;
+#pragma warning restore CA1416
+		Log.Info(MainActivity.Tag, "a11y-heading");
 	}
 }

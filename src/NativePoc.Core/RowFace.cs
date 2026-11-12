@@ -33,7 +33,7 @@ public readonly record struct RowFace(string Key, string Title, string Subtitle,
 	{
 		var title = "";
 		var subtitle = "";
-				var pictureSource = "";
+		var pictureSource = "";
 		foreach (var child in column.Children)
 		{
 			switch (child)

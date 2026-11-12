@@ -1,0 +1,72 @@
+# JNI list, images, scroll bench, accessibility
+
+Emulator-run on `emulator-5554`, API 34, `x86_64`, boot `56815464-4bc4-4f4c-a503-944cb91ab31f`, `-gpu swiftshader_indirect`. Not a phone. Not iOS. arm64 was built and not run.
+
+The list is `nativepoc.KeyedList`, a Java `RecyclerView` compiled into the APK dex. C# registers two JNI methods, `nativeSignal` and `nativeBind`. The managed `Xamarin.AndroidX.RecyclerView` and `Xamarin.AndroidX.Core` assemblies are not referenced. The RecyclerView AAR stays in the dex because the Java class extends it. Kotlin stdlib and coroutines AARs are packed as dex only (`kotlin.jvm.internal.Intrinsics` is what `androidx.tracing` calls). The profileinstaller AAR is removed because its initializer needs `androidx.concurrent.futures` and crashed the process. The dex still contains the string `profileinstaller` once and `AbstractResolvableFuture` 14 times. The initializer is not in the APK.
+
+## Sizes, measured
+
+Binding feed, this unit's mstat rebuild, x64 `.so` 8,305,456 bytes, sha256 `86a6699646052ecdcc2719de1f1785a99dd0aaaaf956629d0f0c2593c4f29c28`. Same size as the unit 105 artifact sha256 `a9ca4e500d9ce577f381eb3ba8281e3bee9ec5eacbf72fbed4b86d2d4eccaadc`.
+
+mstat methods+gc+eh before, 3,771,623 bytes. Largest groups: `S_P_CoreLib` 1,249,788 (n=6696), `Mono.Android` 925,667 (n=4291), `Xamarin.AndroidX.RecyclerView` 449,675 (n=1711), `Java.Interop` 286,266, `Xamarin.AndroidX.Core` 270,715 (n=1018). Types 713,840. RecyclerView types 23,000. RecyclerView+Core methods and types together about 753,498 bytes.
+
+mstat after the JNI list, before the heading delegate: methods+gc+eh 3,004,300. RecyclerView 0. AndroidX.Core 0. `KeyedList` methods 6,653 (n=31) plus types 536. That mstat is not the final `.so`. The final binary adds the heading delegate and the restyled counter program.
+
+Final Release, x64, built. Feed `.so` 6,872,976 sha256 `03d055a8cf84e285685e670356c4b5c38e04bf8de8db5d4a5f59bcd4a6ae307c`. Signed APK 5,030,010 sha256 `fa9e7ea4249a9ec3b2f32557c294c77a9f851cc1a48189c1db753bb888b86f6c`. The `.so` inside the APK matches. `classes.dex` 6,029,136 sha256 `d3054c69a6a5f41229f2d5af5ae8d434404c84a5e5d6be6142b259519a53d42a`. Dex contains `kotlin/jvm/internal/Intrinsics` twice and `nativepoc/KeyedList` four times.
+
+Counter x64 `.so` 6,749,120 sha256 `574e7ff24a6eee9f33c7ce29df8ec9d44a32616a329e49f5ddfe387c69ead9c8`. Signed APK 2,925,429 sha256 `c71902069c3550fa259890bfa5431e94bbe55d3d7642bc68bfa2ade10fca07dd`. The `.so` inside matches. Dex 47,348. Strings in the counter `.so`: RecyclerView 0, KeyedList 0, HttpURLConnection 0, BitmapFactory 0, RemoteImages 0, FeedRows 0, kotlin 0.
+
+Feed `.so` minus counter `.so` is 123,856 bytes. That is HTTP, image decode, the feed screen, and the list together. The binding feed `.so` was 1,432,480 bytes larger than this feed `.so`. An earlier pair from this unit, before the heading delegate, was http-only `.so` 6,846,848 sha256 `48b7b70f76f7a7dd79b1356238ee0ef06a854b5922f0afeaa57af64f197bade7` and JNI feed `.so` 6,864,576 sha256 `d877c58285759c599fba78e34dff933d5a0305baf7ecba12706448aa9e7ecb70`. The list on that pair was 17,728 bytes. Both are under 0.5 MB (524,288).
+
+arm64, built, not run. Feed `.so` 7,101,520 sha256 `f4f4524786506995081df796a3561d994e31e68ec25e87f4926524adc7019cd2`. Signed APK 5,008,759 sha256 `5807877c3dd60ac70198f47105a8607758901bbf7756ef6aa8e9a2b661c34eee`. The `.so` inside the APK matches. Dex 6,029,020. KeyedList is in the `.so`. RecyclerView is not.
+
+Counter arm64 `.so` 6,970,464 sha256 `4c30f6e9922fdde4ebb201ce80a1090cea2a583f2c58d787e38ff34e61aeebcc`. Signed APK 2,769,784 sha256 `5776998d5256d1521a5c8489e3a4c496dd374aa8aaec2d1ee114721bbc910449`. The `.so` inside matches. Dex 47,348. KeyedList, HttpURLConnection, BitmapFactory, and RecyclerView are absent. Feed arm64 `.so` minus counter arm64 `.so` is 131,056 bytes.
+
+## List behaviour, emulator-run
+
+Listener pid 24848, `IsDynamicCodeSupported=False`, swiftshader. Command: `tools/devx/cnative run android --listener --device emulator-5554 --root feed`. No `--restart-on-rude`.
+
+First bind: `list-first=0 saved=0 restored=0 rows=1000 built=9 views=9`. `image-apply source=feed_mark`. Eight swipes: `list-first=60 saved=60 restored=0 rows=1000 built=71 views=10`. Scroll logged `image-drop` for URLs whose row had been rebound. Changing the row bullet and saving reloaded in 43.6 ms (apply 33.4 ms), edit-to-reply 84 ms, same pid, `list-first=60 saved=60 restored=0 rows=1000 built=10 views=10`. The bullet was restored to `• ` on that pid. The row-width fix in `KeyedList.java` came after this pid. It does not change the bind or scroll path.
+
+Release feed, pid 25124, same emulator: `list-first=0 saved=0 restored=0 rows=1000 built=1000 views=7` and `image-apply source=feed_mark`. `built=1000` is the C# `Render` prebuilding the row elements. The recycler view count stays at the visible rows. A later Release launch logged the same `list-first` shape.
+
+## Scroll bench
+
+`tools/bench/scroll-bench.sh` takes `--serial`, `--apk`, `--activity`, `--swipes`, `--rounds`, `--extra`, `--out`, `--wait`. It installs, launches, waits for logcat `list-first=`, then `dumpsys gfxinfo <package> reset`, swipes, and prints frames, janky percent, and p50/p90/p99 from framestats. Percentiles are Hyndman-Fan type 7. Host load is `uptime`. `--self-test` passed (`scroll-bench self-test ok`). The script is bash and does not use `declare -A` or `mapfile`.
+
+Emulator-run, swiftshader, font scale 1.0, the final x64 feed APK, 8 swipes, 1 round. Host load 0.22.
+
+```
+summary_frames=116
+summary_janky=66 (56.90%)
+framestats_rows=115 framestats_janky=68 framestats_janky_pct=59.13
+framestats_p50_ms=63.3 framestats_p90_ms=103.8 framestats_p99_ms=206.3
+```
+
+An earlier round on the same APK while a Release publish was running (load 1.51) was 103 frames, 72.82% janky, p50 77.6 ms, p90 110.6 ms, p99 145.5 ms. The jank is the software GPU. This was not a phone GPU.
+
+## Images
+
+`Image` takes a drawable name or an `http` URL. URL and bitmap resources decode on the thread pool. XML drawables stay on `SetImageResource`. The cache holds 32 bitmaps and does not call `Bitmap.recycle`. Placeholder and error are a new `ColorDrawable` per bind (`Loading image`, `Image failed`). A bind whose token is no longer current logs `image-drop` and does not set the bitmap.
+
+Feed row 0000 uses `feed_mark` (16x16 PNG in `Resources/drawable`). Other rows use `http://10.0.2.2:8094/img/` plus the id. The server is `/tmp/feed-server.py` on `0.0.0.0:8094`. It is not in the repo. GET `/feed` waits 2 seconds and returns two items. GET `/img/<id>` waits 0.3 seconds and returns those PNG bytes.
+
+The counter `.so` has no `BitmapFactory`, `HttpURLConnection`, or `RemoteImages`. The image path is behind `NativePocHttp`, the same flag as HTTP.
+
+## Accessibility
+
+Font scale 2.0 (`settings put system font_scale 2.0`), density 420. `cnative agent a11y --check` reported `violations=0` on the counter, notes, and feed. Dumps and screenshots: `a11y-counter-font2.xml`, `a11y-counter-font2.png`, `a11y-notes-font2.xml`, `a11y-notes-font2.png`, `a11y-feed-font2.xml`, `a11y-feed-font2.png`, and the matching `.txt` check reports.
+
+Measured bounds. Headings are 123px (`Counter 0`, `Notes`, `Feed`). Body lines are 91px (`Enter a name`, `Day`). Buttons are 141px. The notes switch is 126px, which is 48dp at 420 dpi. The name field is 161px and the note field is 161px. Row text is 98px and full width. Nothing in those dumps is under 48dp when it is clickable. Text is not clipped at the bottom of its line.
+
+Roles in the dump. Buttons are `android.widget.Button` with a content description. The name and note fields are `android.widget.EditText`. The dark control is `android.widget.Switch` with content description `Dark`. The feed list is `androidx.recyclerview.widget.RecyclerView`, content description `List`, focusable, scrollable. Images have the source as the content description, or the placeholder text while a bitmap is in flight.
+
+Focus order in the dump, top to bottom. Counter: name field, Save, Packing. Notes: the scroll view, the switch, the field, Add. Feed: Refresh, Post, Back, then the list.
+
+`headings=0` and `heading-attribute=absent` on this image. Measured: `/system/framework/uiautomator.jar` contains no `heading` string, so the dump cannot show the flag. The host sets it from an accessibility delegate when `FontSize` is 20 or more, and logcat printed `a11y-heading` during each of the three dumps. Font scale was put back to 1.0 after the screenshots. TalkBack was not run.
+
+The counter title is a heading only after the catalog program was lowered again. The previous catalog bytes drew `Counter 0` at body size. `Screen.Render` already had `FontSize` 22. The Release counter shows the catalog program, not that method.
+
+## Tests
+
+`dotnet test` on this tree, after the sources above were in place. Core 69 passed. Packing 14 passed. Devx 138 passed. That includes the feed lowerer, the image cache, `FeedRows.Window`, the accessibility role lowerer, and `scroll-bench.sh --self-test`. The iOS test project was not run.

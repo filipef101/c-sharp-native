@@ -52,9 +52,63 @@
 	<PropertyGroup Condition="'$(NativePocRecycler)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_RECYCLER</DefineConstants>
 	</PropertyGroup>
-	<ItemGroup Condition="'$(NativePocRecycler)' == 'true'">
-		<PackageReference Include="Xamarin.AndroidX.RecyclerView" Version="1.4.0.6" />
+	<ItemGroup Condition="'$(NativePocRecycler)' != 'true'">
+		<AndroidJavaSource Remove="Java\nativepoc\KeyedList.java" />
 	</ItemGroup>
+	<ItemGroup Condition="'$(NativePocRecycler)' == 'true'">
+		<PackageReference Include="Xamarin.AndroidX.RecyclerView" Version="1.4.0.6">
+			<IncludeAssets>build;buildTransitive;native;analyzers</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="Xamarin.Kotlin.StdLib" Version="2.4.0.1">
+			<IncludeAssets>none</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+			<GeneratePathProperty>true</GeneratePathProperty>
+		</PackageReference>
+		<PackageReference Include="Xamarin.KotlinX.Coroutines.Core.Jvm" Version="1.11.0.1">
+			<IncludeAssets>none</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+			<GeneratePathProperty>true</GeneratePathProperty>
+		</PackageReference>
+		<PackageReference Include="Xamarin.KotlinX.Coroutines.Android" Version="1.11.0.1">
+			<IncludeAssets>none</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+			<GeneratePathProperty>true</GeneratePathProperty>
+		</PackageReference>
+		<AndroidJavaSource Remove="Java\nativepoc\KeyedList.java" />
+		<AndroidJavaSource Include="Java\nativepoc\KeyedList.java">
+			<Bind>false</Bind>
+		</AndroidJavaSource>
+		<ProguardConfiguration Include="proguard-list.cfg" />
+	</ItemGroup>
+	<Target Name="DropProfileInstaller" BeforeTargets="_CategorizeAndroidLibraries" Condition="'$(NativePocRecycler)' == 'true'">
+		<ItemGroup>
+			<AndroidAarLibrary Remove="@(AndroidAarLibrary)" Condition="$([System.String]::Copy('%(Identity)').Contains('profileinstaller'))" />
+		</ItemGroup>
+	</Target>
+	<Target Name="AddKotlinAars" BeforeTargets="_CategorizeAndroidLibraries" Condition="'$(NativePocRecycler)' == 'true'">
+		<Error Condition="!Exists('$(PkgXamarin_Kotlin_StdLib)/lib/net10.0-android36.0/Xamarin.Kotlin.StdLib.aar')" Text="Kotlin stdlib AAR was not restored at $(PkgXamarin_Kotlin_StdLib)." />
+		<Error Condition="!Exists('$(PkgXamarin_KotlinX_Coroutines_Core_Jvm)/lib/net10.0-android36.0/Xamarin.KotlinX.Coroutines.Core.Jvm.aar')" Text="Kotlin coroutines AAR was not restored." />
+		<Error Condition="!Exists('$(PkgXamarin_KotlinX_Coroutines_Android)/lib/net10.0-android36.0/Xamarin.KotlinX.Coroutines.Android.aar')" Text="Kotlin coroutines Android AAR was not restored." />
+		<ItemGroup>
+			<AndroidAarLibrary Include="$(PkgXamarin_Kotlin_StdLib)/lib/net10.0-android36.0/Xamarin.Kotlin.StdLib.aar" />
+			<AndroidAarLibrary Include="$(PkgXamarin_KotlinX_Coroutines_Core_Jvm)/lib/net10.0-android36.0/Xamarin.KotlinX.Coroutines.Core.Jvm.aar" />
+			<AndroidAarLibrary Include="$(PkgXamarin_KotlinX_Coroutines_Android)/lib/net10.0-android36.0/Xamarin.KotlinX.Coroutines.Android.aar" />
+		</ItemGroup>
+	</Target>
+	<Target Name="SkipAndroidXManagedBindings" BeforeTargets="GenerateBindings" Condition="'$(NativePocRecycler)' == 'true'">
+		<ItemGroup>
+			<AndroidAarLibrary Update="@(AndroidAarLibrary)">
+				<Bind>false</Bind>
+			</AndroidAarLibrary>
+		</ItemGroup>
+	</Target>
+	<Target Name="RefuseRecyclerBinding" AfterTargets="ResolveAssemblyReferences" Condition="'$(NativePocRecycler)' == 'true'">
+		<ItemGroup>
+			<_RecyclerDll Include="@(ReferencePath)" Condition="'%(Filename)' == 'Xamarin.AndroidX.RecyclerView' Or '%(Filename)' == 'Xamarin.AndroidX.Core' Or '%(Filename)' == 'Xamarin.Kotlin.StdLib' Or '%(Filename)' == 'Xamarin.KotlinX.Coroutines.Core.Jvm' Or '%(Filename)' == 'Xamarin.KotlinX.Coroutines.Android'" />
+		</ItemGroup>
+		<Error Condition="'@(_RecyclerDll)' != ''" Text="AndroidX managed bindings are referenced: @(_RecyclerDll)" />
+	</Target>
 	<PropertyGroup Condition="'$(NativePocHttp)' != 'true'">
 		<NativePocSampleExclude>..\..\samples\feed\**</NativePocSampleExclude>
 	</PropertyGroup>
