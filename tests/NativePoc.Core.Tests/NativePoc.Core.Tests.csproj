@@ -21,6 +21,7 @@
 		<Compile Include="..\..\samples\showcase\ShelfScreen.cs" />
 		<Compile Include="..\..\samples\showcase\PieceScreen.cs" />
 		<Compile Include="..\..\samples\showcase\RoomScreen.cs" />
+		<Compile Include="..\..\samples\showcase\WidgetFloor.cs" />
 		<ProjectReference Include="..\..\src\NativePoc.Core\NativePoc.Core.csproj" />
 		<ProjectReference Include="..\..\src\NativePoc.Screen\NativePoc.Screen.csproj" />
 	</ItemGroup>

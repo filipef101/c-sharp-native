@@ -61,3 +61,25 @@ Still not a build:
 - Nav transitions, night mode, and font scale are Android. `NavTransition.cs` is compiled only when `NativePocTransition` is true. The UIKit host has no `Slide` transition and does not read `fontScale`. `net10.0-ios` was not compiled.
 - A declared Android binding is `[JniType]` and `[JniMethod]` on a partial class. `JniBindingGenerator` emits `JNIEnv` calls. The iOS shape is the same declaration with an `[ObjcType]` / `[ObjcMethod]` generator that would emit `objc_msgSend`. That generator is not written. `net10.0-ios` was not compiled. This iOS shape is unverified.
 - Northroom's four screens render on `HeadlessHost`. `Every_Northroom_screen_runs_on_the_headless_host` checks the 24 dp inset, the shared back arrow, Keep, and font scale 2. The UIKit host was not compiled. `net10.0-ios` was not compiled.
+
+## Northroom widgets
+
+This table is the UIKit host for the widgets Northroom actually builds. It was written from `samples/showcase` and `spikes/ios/NativePoc.iOS/UIKitHost.cs`. The UIKit project was not compiled. `net10.0-ios` was not compiled. There is no iOS binary.
+
+| Northroom | UIKit view the host creates | Missing in that host |
+| --- | --- | --- |
+| `ScrollView` on home, the shelf, the piece, and the room | `UIScrollView` | `LayoutScroll` places subviews again and does not keep `ContentOffset`. A keyed insert or delete on Android leaves the scroll view in place. |
+| `Column` | `UIStackView`, vertical | Padding is not applied. `HeadlessLayout` does apply it. |
+| `Column` with `Style.Across` (the stats row, each shelf row, the back arrow row) | the same vertical `UIStackView` | `SetStyle` does not read `Across`, so the row stays vertical. `HeadlessLayout` splits that row across the width. |
+| `Text` | `UILabel` | Bold, color, size, and the heading trait are set. |
+| `Button` | `UIButton` (`UIButtonType.System`) | `Style.Wash` (the second gradient stop), `Style.Stroke` (the Keep outline), and elevation are not set. `Style.Radius` is `CornerRadius`. |
+| `Switch` on the room (Night, Large type) | `UISwitch` | The host sets the value. Night mode and font scale are not read here. |
+| `Style.Wash` on the home banner and the shelf tiles | no layer | No gradient layer. The style value stays on the element. `Northroom_wash_stroke_and_across_remain_on_the_headless_host` reads it. |
+| `Style.Stroke` on Keep before it is kept | no border | No stroke. The same headless test reads `0xFF0F6E56`. |
+| `Style.Radius` on cards and the pill | `Layer.CornerRadius`, clips | No shadow. |
+| System-bar inset, 24 dp | none | The host does not pad for bars. `HeadlessLayout.MeasureBelowBars` shifts the tree. |
+| `Theme.Mode` and `Theme.Scale` | none | Android repaints and recreates for scale. The UIKit host has no `fontScale` read. |
+| `Nav.Push` / `Nav.Pop` | `IosPlatform.Push` and `Pop`, authored | The project was not compiled. |
+| `Persist.Put` for `northroom.keep` | not this call | `IosBridge` has storage set and get. It does not write `nativepoc-persist`. |
+
+`Keyed_shelf_insert_delete_and_rename_keep_the_scroll` is the portable half of the scroll row: the scroll view and a tile whose key stays are the same objects, and a scroll offset stored on that view stays, after a delete, an insert, and a key rename. The renamed tile is a new view. That test does not construct UIKit.

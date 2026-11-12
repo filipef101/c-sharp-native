@@ -55,6 +55,8 @@ sealed class MemoryNode
 
 	public bool Deferred { get; set; }
 
+	public int ScrollY { get; set; }
+
 	public List<MemoryNode> Children { get; } = new();
 }
 

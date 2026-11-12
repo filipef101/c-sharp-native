@@ -230,6 +230,7 @@ sealed class RefreshScroll : AndroidWidget
 	bool _revealPosted;
 #if NATIVEPOC_STARTUP_MARKS
 	long _measureTick;
+	long _measureEnd;
 	bool _measureLogged;
 	int _measurePasses;
 	bool _layoutLogged;
@@ -261,7 +262,10 @@ sealed class RefreshScroll : AndroidWidget
 		base.OnMeasure(widthMeasureSpec, heightMeasureSpec);
 #if NATIVEPOC_STARTUP_MARKS
 		if (mark)
+		{
 			StartupMarks.Took("scroll-measure", started);
+			_measureEnd = System.Diagnostics.Stopwatch.GetTimestamp();
+		}
 		else if (again)
 			StartupMarks.Took("scroll-measure-again", started);
 		_measurePasses++;
@@ -275,6 +279,8 @@ sealed class RefreshScroll : AndroidWidget
 		var started = mark ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
 		if (mark)
 			_layoutLogged = true;
+		if (mark && _measureEnd != 0)
+			StartupMarks.Took("relayout-gap", _measureEnd);
 #endif
 		base.OnLayout(changed, left, top, right, bottom);
 		StartupMarks.Phase("layout");

@@ -90,6 +90,26 @@ This section is not another timed run of the empty folder above. The template fl
 
 The notes and visit stills for light, dark, and font scale 2.0 are artifacts, not files in this repo: `/opt/cursor/artifacts/progress45/notes-light.png`, `notes-dark.png`, `notes-font2.png`, `visit-light.png`, `visit-dark.png`, and `visit-font2.png`. Northroom, the showcase, uses the same nav, transition, theme, and font scale. Its stills and clip are `/opt/cursor/artifacts/progress49/showcase/`. The hot-reload clip, taken while Harbor bowl stayed kept, is `/opt/cursor/artifacts/progress50/showcase/northroom-reload.mp4`, and the edited home is `/opt/cursor/artifacts/progress50/showcase/northroom-after.mp4`. A later clip at screenrecord frame rate, with the title change on that kept piece and the edited home, is `/opt/cursor/artifacts/progress51/showcase/northroom-reload.mp4`. The README records the emulator-run sizes and the cold start. This page does not add a timing.
 
+## Showcase floor
+
+Northroom's cold-start delta uses one floor. It is an empty native column, package `com.scratch.nativepoc.widgetfloor`, screen id `floor`. The publish is the showcase Release with the same flags plus `-p:NativePocWidgetFloor=true`, which keeps the Northroom screens in the binary and launches the empty column instead of home. The Java list floor is a different app and is not this comparison.
+
+The emulator is the one already running in this workspace: serial `emulator-5554`, AVD `poc34`, API 34, `x86_64`, 1080x2400, density 420, SwiftShader. It was started as `emulator -avd poc34 -accel on -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 2048 -cores 2`.
+
+```sh
+dotnet publish src/NativePoc.Android/NativePoc.Android.csproj -c Release -f net10.0-android -r android-x64 \
+  -p:NativePocShowcase=true -p:NativePocNav=true -p:NativePocPersist=true \
+  -p:NativePocTransition=true -p:NativePocStartupMarks=true
+dotnet publish src/NativePoc.Android/NativePoc.Android.csproj -c Release -f net10.0-android -r android-x64 \
+  -p:NativePocShowcase=true -p:NativePocNav=true -p:NativePocPersist=true \
+  -p:NativePocTransition=true -p:NativePocStartupMarks=true -p:NativePocWidgetFloor=true
+tools/bench/mac-bench.sh --device emulator-5554 --n 12 --repeat 4 --quiesce warn --out /tmp/showcase-floor \
+  --run showcase:showcase.apk:com.scratch.nativepoc.showcase/crc64ee53024f7ed0aa60.MainActivity \
+  --run floor:widgetfloor.apk:com.scratch.nativepoc.widgetfloor/crc64ee53024f7ed0aa60.MainActivity
+```
+
+The activity class is the same on both packages. The CRC is of the C# namespace. `IlcDehydrate` stays at the Release default, true. The block delta is showcase TotalTime p50 minus floor TotalTime p50 for each of the four blocks. Hyndman-Fan type 7, bootstrap B=1000, seed 8946. The README records the n=48 run on this emulator.
+
 ## tools/check.sh
 
 Stop the watcher before another publish. This run stopped it, then started the check with the working directory `/tmp/p44/clean`:
