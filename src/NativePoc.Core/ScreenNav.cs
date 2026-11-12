@@ -401,6 +401,21 @@ public sealed class ScreenNav
 		}
 	}
 
+	public bool ClaimRoot(string id)
+	{
+		if (ReplaceRoot(id))
+			return true;
+		if (id.Length == 0)
+			return false;
+		lock (_gate)
+		{
+			_stack.Clear();
+			DropCache();
+			StateEpoch.Bump();
+			return false;
+		}
+	}
+
 	public void Show(byte[] program)
 	{
 		ArgumentNullException.ThrowIfNull(program);

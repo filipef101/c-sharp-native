@@ -340,10 +340,115 @@ public sealed class SampleLowerTests
 		Assert.Contains("PackingState", lowered.Types, StringComparer.Ordinal);
 		Assert.Contains("PackingRoute", lowered.Types, StringComparer.Ordinal);
 		Assert.Contains("PackingItem", lowered.Types, StringComparer.Ordinal);
-		var reported = Assert.Single(lowered.Reported, diagnostic => diagnostic.Message.Contains("PackingSession", StringComparison.Ordinal));
+		var reported = Assert.Single(lowered.Reported, diagnostic => diagnostic.Message.Contains("PackingTelemetry", StringComparison.Ordinal));
 		Assert.Contains("Change", reported.Message, StringComparison.Ordinal);
 		Assert.True(reported.Line > 0);
 		Assert.True(reported.Column > 0);
+		Assert.DoesNotContain(lowered.Reported, diagnostic => diagnostic.Message.Contains("PackingSession", StringComparison.Ordinal));
+		Assert.DoesNotContain(lowered.Reported, diagnostic => diagnostic.Message.Contains("IPackingHost", StringComparison.Ordinal));
+		Assert.DoesNotContain(lowered.Reported, diagnostic => diagnostic.Message.Contains("PackingActions", StringComparison.Ordinal));
+		Assert.DoesNotContain(lowered.Reported, diagnostic => diagnostic.Message.Contains("PackingNavigation", StringComparison.Ordinal));
+	}
+
+	[Fact]
+	public void A_byte_long_or_explicit_enum_lowers_as_an_int()
+	{
+		const string source = """
+			namespace NativePoc.Notes;
+			public enum Width : byte
+			{
+				Narrow = 1,
+				Wide = 4,
+			}
+			public enum Span : long
+			{
+				Short = 2L,
+				Tall = 9L,
+			}
+			public enum Mark
+			{
+				None,
+				Flag = 3,
+				Also = Flag,
+			}
+			public sealed class NotesState
+			{
+				public Width Size { get; set; } = Width.Wide;
+				public Span Reach { get; set; } = Span.Tall;
+				public Mark Tag { get; set; } = Mark.Also;
+			}
+			public static class NotesScreen
+			{
+				public static Element Render(NotesState state, IPlatform platform)
+				{
+					return new Text("notes") { Key = "size" };
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		Assert.Contains("Width", lowered.Types, StringComparer.Ordinal);
+		Assert.Contains("Span", lowered.Types, StringComparer.Ordinal);
+		Assert.Contains("Mark", lowered.Types, StringComparer.Ordinal);
+		var session = ScreenSession.Open(lowered.Program!);
+		Assert.Equal(4, session.Bag.ReadInt("Size"));
+		Assert.Equal(9, session.Bag.ReadInt("Reach"));
+		Assert.Equal(3, session.Bag.ReadInt("Tag"));
+	}
+
+	[Fact]
+	public void Clipboard_and_share_lower_through_the_binding_registry()
+	{
+		const string bindings = """
+			namespace NativePoc;
+			[JniType("android/content/ClipboardManager")]
+			static class DeviceClipboard
+			{
+				[JniMethod("setPrimaryClip", "(Ljava/lang/String;Ljava/lang/String;)V", Instance = true, Service = "clipboard")]
+				public static void Set(string label, string text) { }
+				[JniMethod("getPrimaryClip", "()Ljava/lang/String;")]
+				public static string Get() => "";
+			}
+			[JniType("android/content/Intent")]
+			static class DeviceShare
+			{
+				[JniMethod("ACTION_SEND", "(Ljava/lang/String;)V")]
+				public static void Send(string text) { }
+			}
+			""";
+		const string source = """
+			namespace NativePoc.Notes;
+			public sealed class NotesState
+			{
+				public string Note { get; set; } = "ready";
+			}
+			public static class NotesScreen
+			{
+				public static Element Render(NotesState state, IPlatform platform)
+				{
+					return new Column(
+					[
+						new Text(state.Note) { Key = "note" },
+						new Button("Copy", () => { DeviceClipboard.Set("bind", "pier"); state.Note = DeviceClipboard.Get(); platform.RequestRender(); }, "Copy") { Key = "copy" },
+						new Button("Share", () => { DeviceShare.Send("pier"); state.Note = "shared"; platform.RequestRender(); }, "Share") { Key = "share" },
+					]);
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source, [bindings]);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var session = ScreenSession.Open(lowered.Program!, (module, method, args) =>
+		{
+			Assert.Equal("jni", module);
+			return method == "DeviceClipboard.Get" ? "pier" : "ok";
+		});
+		session.Tap("copy");
+		Assert.Equal("pier", session.Bag.ReadString("Note"));
+		Assert.Contains(session.Modules, line => line.StartsWith("jni.DeviceClipboard.Set", StringComparison.Ordinal));
+		Assert.Contains(session.Modules, line => line.StartsWith("jni.DeviceClipboard.Get", StringComparison.Ordinal));
+		session.Tap("share");
+		Assert.Equal("shared", session.Bag.ReadString("Note"));
+		Assert.Contains(session.Modules, line => line.StartsWith("jni.DeviceShare.Send", StringComparison.Ordinal));
 	}
 
 	[Fact]

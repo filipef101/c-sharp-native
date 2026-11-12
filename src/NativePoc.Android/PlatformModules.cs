@@ -87,6 +87,8 @@ static class PlatformModules
 		{
 			switch (module, method, args.Length)
 			{
+				case ("jni", _, _):
+					return JniRegistry.Call(method, args);
 #if NATIVEPOC_HTTP
 				case ("http", "GetJson", 1):
 					return await Task.Run(() => HttpTransport.Send("GET", args[0], null, cancel), cancel);

@@ -189,6 +189,38 @@ public sealed class NavRestoreTests
 	}
 
 	[Fact]
+	public void An_explicit_root_replaces_the_restored_stack_and_keeps_the_bags()
+	{
+		var nav = new ScreenNav();
+		nav.Show(Program("tasks", "Tasks"));
+		nav.Show(Program("bind", "Bind"));
+		Assert.True(nav.Push("tasks"));
+		nav.Bag("tasks").WriteString("Draft", "GT ");
+		nav.Bag("tasks").WriteString("Saved", "marked");
+		nav.Bag("bind").WriteString("Note", "sent");
+		var checkpoint = nav.Checkpoint();
+
+		var restored = new ScreenNav { LaunchRoot = "bind" };
+		restored.Restore(checkpoint);
+		Assert.Equal("tasks", restored.TopId());
+		Assert.True(restored.ClaimRoot("bind"));
+		Assert.Equal("bind", restored.TopId());
+		Assert.Equal(1, restored.Depth);
+		Assert.Equal("sent", restored.Bag("bind").ReadString("Note"));
+		Assert.Equal("GT ", restored.Bag("tasks").ReadString("Draft"));
+		Assert.Equal("marked", restored.Bag("tasks").ReadString("Saved"));
+
+		var waiting = new ScreenNav { LaunchRoot = "piece" };
+		waiting.Restore(checkpoint);
+		Assert.False(waiting.ClaimRoot("piece"));
+		Assert.Equal("", waiting.TopId());
+		Assert.Equal("sent", waiting.Bag("bind").ReadString("Note"));
+		waiting.Show(Program("piece", "Piece"));
+		Assert.Equal("piece", waiting.TopId());
+		Assert.Equal("sent", waiting.Bag("bind").ReadString("Note"));
+	}
+
+	[Fact]
 	public void A_compiled_screen_with_no_program_can_be_pushed()
 	{
 		var nav = new ScreenNav();

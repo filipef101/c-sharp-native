@@ -46,7 +46,9 @@ public sealed class HotReloadContractTests
 		var packing = Source("src", "NativePoc.Android", "PackingActivity.cs");
 		var store = Source("src", "NativePoc.Android", "StateStore.cs");
 		var load = activity.IndexOf("StateStore.TryLoad(this)", StringComparison.Ordinal);
+		var claim = activity.IndexOf("ClaimRoot(", StringComparison.Ordinal);
 		var render = activity.IndexOf("RenderNow();", StringComparison.Ordinal);
+		Assert.True(claim > load);
 		var packingLoad = packing.IndexOf("StateStore.TryLoad(this)", StringComparison.Ordinal);
 		var packingRender = packing.IndexOf("RenderNow();", StringComparison.Ordinal);
 		Assert.True(load >= 0 && render > load);

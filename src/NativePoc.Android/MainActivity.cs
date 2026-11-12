@@ -174,6 +174,18 @@ public sealed class MainActivity : Activity
 		var stateMs = SystemClock.ElapsedRealtime() - stateStarted;
 		StartupMarks.Note("state-load", stateMs);
 		StartupMarks.Note("nav-restore", loadedState ? stateMs : 0);
+		if (!string.IsNullOrEmpty(requestedRoot))
+		{
+			var claimed = ScreenNav.Shared.ClaimRoot(requestedRoot);
+			Log.Info(
+				Tag,
+				"startup root explicit id=" + requestedRoot
+				+ " claimed=" + (claimed ? "1" : "0")
+				+ " top=" + ScreenNav.Shared.TopId()
+				+ " note=" + ScreenNav.Shared.Bag(requestedRoot).ReadString("Note")
+				+ " draft=" + ScreenNav.Shared.Bag(requestedRoot).ReadString("Draft")
+				+ " saved=" + ScreenNav.Shared.Bag(requestedRoot).ReadString("Saved"));
+		}
 		ScreenNav.Shared.Prepare((program, bag) => RecordSession.Prepare(program, bag));
 #else
 		// Release cold start does not open nativepoc-state.bin or replay a nav checkpoint.

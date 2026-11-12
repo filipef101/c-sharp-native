@@ -27,5 +27,31 @@ public static class BindScreen
 				Key = "pulse",
 				Style = new Style { Padding = 14, FontSize = 16 },
 			},
+			new Button(
+				"Copy",
+				() =>
+				{
+					DeviceClipboard.Set("bind", "pier");
+					state.Note = DeviceClipboard.Get();
+					platform.RequestRender();
+				},
+				"Copy")
+			{
+				Key = "copy",
+				Style = new Style { Padding = 14, FontSize = 16 },
+			},
+			new Button(
+				"Share",
+				() =>
+				{
+					DeviceShare.Send("pier");
+					state.Note = "shared";
+					platform.RequestRender();
+				},
+				"Share")
+			{
+				Key = "share",
+				Style = new Style { Padding = 14, FontSize = 16 },
+			},
 		]);
 }

@@ -120,6 +120,8 @@ public static class IosBridge
 
 	public static Task<string> ModuleAsync(IIosServices services, string module, string method, string[] args)
 	{
+		if (module == "jni")
+			return Task.FromResult(JniRegistry.Call(method, args));
 		ArgumentNullException.ThrowIfNull(services);
 		switch (module, method)
 		{

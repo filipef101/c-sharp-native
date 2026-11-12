@@ -122,7 +122,7 @@ public static partial class SubsetLowerer
 		if (render is null || !IsRender(render, out var stateName, out var stateType, out var platformName))
 			return SubsetResult.Refuse(At(NotAScreen, "A subset screen is a static class with Render(state, IPlatform).", render ?? (SyntaxNode)screen, source));
 		var reported = new List<SubsetDiagnostic>();
-		if (!CompanionRecords(companions, records, methods, enums, stateType, reported, out var companionError))
+		if (!CompanionRecords(companions, records, methods, enums, stateType, source, reported, out var companionError))
 			return SubsetResult.Refuse(companionError!, TypeNames(records), reported);
 		if (!records.TryGetValue(stateType, out var fields))
 		{
@@ -370,6 +370,7 @@ public static partial class SubsetLowerer
 		Dictionary<string, MethodDeclarationSyntax> methods,
 		Dictionary<string, Dictionary<string, int>> enums,
 		string stateType,
+		string screen,
 		List<SubsetDiagnostic> reported,
 		out SubsetDiagnostic? error)
 	{
@@ -387,19 +388,33 @@ public static partial class SubsetLowerer
 				{
 					case EnumDeclarationSyntax enumerated:
 						if (!RecordEnum(enumerated, enums, records, companion, out error))
-							return false;
+						{
+							if (Names(screen, enumerated.Identifier.ValueText))
+								return false;
+							error = null;
+						}
+
 						break;
 					case InterfaceDeclarationSyntax face:
-						reported.Add(At(UnknownType, face.Identifier.ValueText + " is an interface. Change " + face.Identifier.ValueText + " to a class or record of string, bool, int, or list properties, or stop using " + face.Identifier.ValueText + " from the screen.", face, companion));
+						if (Names(screen, face.Identifier.ValueText))
+							reported.Add(At(UnknownType, face.Identifier.ValueText + " is an interface. Change " + face.Identifier.ValueText + " to a class or record of string, bool, int, or list properties, or stop using " + face.Identifier.ValueText + " from the screen.", face, companion));
 						break;
 					case TypeDeclarationSyntax type when type.Modifiers.Any(SyntaxKind.StaticKeyword):
-						reported.Add(At(UnknownType, type.Identifier.ValueText + " is static. Change " + type.Identifier.ValueText + " to a class or record of string, bool, int, or list properties, or stop using " + type.Identifier.ValueText + " from the screen.", type, companion));
+						if (HasAttribute(type.AttributeLists, "JniType"))
+						{
+							records.TryAdd(type.Identifier.ValueText, new List<Field>());
+							break;
+						}
+
+						if (Names(screen, type.Identifier.ValueText))
+							reported.Add(At(UnknownType, type.Identifier.ValueText + " is static. Change " + type.Identifier.ValueText + " to a class or record of string, bool, int, or list properties, or stop using " + type.Identifier.ValueText + " from the screen.", type, companion));
 						break;
 					case TypeDeclarationSyntax type:
 						waiting.Add((type, companion));
 						break;
 					default:
-						reported.Add(At(UnknownMember, MemberName(member) + " is not a data class, record, or enum. Change it, or stop using it from the screen.", member, companion));
+						if (Names(screen, MemberName(member)))
+							reported.Add(At(UnknownMember, MemberName(member) + " is not a data class, record, or enum. Change it, or stop using it from the screen.", member, companion));
 						break;
 				}
 			}
@@ -438,7 +453,8 @@ public static partial class SubsetLowerer
 					error = At(UnknownType, type.Identifier.ValueText + " was not recorded. Change it to string, bool, int, or list properties, or stop using " + type.Identifier.ValueText + " from the screen.", type, source);
 				if (type.Identifier.ValueText == stateType)
 					return false;
-				reported.Add(error);
+				if (Names(screen, type.Identifier.ValueText))
+					reported.Add(error);
 				error = null;
 			}
 		}
@@ -452,6 +468,81 @@ public static partial class SubsetLowerer
 		foreach (var key in methods.Keys.Where(key => key.StartsWith(prefix, StringComparison.Ordinal)).ToArray())
 			methods.Remove(key);
 		records.Remove(name);
+	}
+
+	static bool Names(string source, string name)
+	{
+		if (name.Length == 0)
+			return false;
+		var index = 0;
+		while ((index = source.IndexOf(name, index, StringComparison.Ordinal)) >= 0)
+		{
+			var before = index == 0 || (!char.IsLetterOrDigit(source[index - 1]) && source[index - 1] != '_');
+			var afterAt = index + name.Length;
+			var after = afterAt >= source.Length || (!char.IsLetterOrDigit(source[afterAt]) && source[afterAt] != '_');
+			if (before && after)
+				return true;
+			index = afterAt;
+		}
+
+		return false;
+	}
+
+	static bool EnumValue(ExpressionSyntax expression, Dictionary<string, int> values, out int number)
+	{
+		switch (expression)
+		{
+			case LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.NumericLiteralExpression):
+				return Fit(literal.Token.Value, out number);
+			case PrefixUnaryExpressionSyntax prefix when prefix.IsKind(SyntaxKind.UnaryMinusExpression)
+				&& prefix.Operand is LiteralExpressionSyntax inner
+				&& inner.IsKind(SyntaxKind.NumericLiteralExpression)
+				&& Fit(inner.Token.Value, out var positive)
+				&& positive != int.MinValue:
+				number = -positive;
+				return true;
+			case CastExpressionSyntax cast:
+				return EnumValue(cast.Expression, values, out number);
+			case IdentifierNameSyntax name when values.TryGetValue(name.Identifier.ValueText, out number):
+				return true;
+			default:
+				number = 0;
+				return false;
+		}
+	}
+
+	static bool Fit(object? raw, out int number)
+	{
+		switch (raw)
+		{
+			case int value:
+				number = value;
+				return true;
+			case long value when value >= int.MinValue && value <= int.MaxValue:
+				number = (int)value;
+				return true;
+			case uint value when value <= int.MaxValue:
+				number = (int)value;
+				return true;
+			case ulong value when value <= (ulong)int.MaxValue:
+				number = (int)value;
+				return true;
+			case byte value:
+				number = value;
+				return true;
+			case sbyte value:
+				number = value;
+				return true;
+			case short value:
+				number = value;
+				return true;
+			case ushort value:
+				number = value;
+				return true;
+			default:
+				number = 0;
+				return false;
+		}
 	}
 
 	static bool RecordEnum(
@@ -470,22 +561,18 @@ public static partial class SubsetLowerer
 			if (member.EqualsValue is null)
 			{
 				values[member.Identifier.ValueText] = next;
-				next++;
+				next = next == int.MaxValue ? next : next + 1;
 				continue;
 			}
 
-			if (member.EqualsValue.Value is LiteralExpressionSyntax literal
-				&& literal.IsKind(SyntaxKind.NumericLiteralExpression)
-				&& literal.Token.Value is int number)
+			if (!EnumValue(member.EqualsValue.Value, values, out var number))
 			{
-				next = number;
-				values[member.Identifier.ValueText] = next;
-				next++;
-				continue;
+				error = At(UnknownType, name + "." + member.Identifier.ValueText + " is not an int constant. Change " + member.Identifier.ValueText + " to an int, a byte, a long, or another member of " + name + ", or stop using " + name + " from the screen.", member, source);
+				return false;
 			}
 
-			error = At(UnknownType, name + "." + member.Identifier.ValueText + " is not an int constant. Change " + member.Identifier.ValueText + " to an int, or stop using " + name + " from the screen.", member, source);
-			return false;
+			values[member.Identifier.ValueText] = number;
+			next = number == int.MaxValue ? number : number + 1;
 		}
 
 		if (!enums.TryAdd(name, values) || !records.TryAdd(name, new List<Field>()))
@@ -2831,6 +2918,13 @@ public static partial class SubsetLowerer
 				return false;
 			if (field.Kind == ValueKind.Str && Bare(assignment.Right) is AwaitExpressionSyntax awaited)
 				return AwaitStore(field.Name, awaited, script);
+			if (field.Kind == ValueKind.Str && assignment.Right is InvocationExpressionSyntax jniGet)
+			{
+				if (JniStore(field.Name, jniGet, script, out var matched))
+					return true;
+				if (matched)
+					return false;
+			}
 			if (assignment.Right is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == parameter && parameter.Length > 0)
 			{
 				if (field.Kind == ValueKind.Str)
@@ -3485,6 +3579,36 @@ public static partial class SubsetLowerer
 			U16(script, _code.Intern("telemetry"));
 			U16(script, _code.Intern(name));
 			script.Add(0);
+			return true;
+		}
+
+		bool JniStore(string dest, InvocationExpressionSyntax invocation, List<byte> script, out bool matched)
+		{
+			matched = false;
+			if (invocation.Expression is not MemberAccessExpressionSyntax member || member.Expression is not IdentifierNameSyntax owner)
+				return false;
+			var call = owner.Identifier.ValueText + "." + member.Name.Identifier.ValueText;
+			if (!_bindings.Contains(call))
+				return false;
+			matched = true;
+			var encoded = new List<(byte Kind, int Index)>();
+			foreach (var argument in invocation.ArgumentList.Arguments)
+			{
+				if (!JniArg(argument.Expression, encoded, call))
+					return false;
+			}
+
+			script.Add(RecordProgram.ActAwait);
+			U16(script, _code.Intern("jni"));
+			U16(script, _code.Intern(call));
+			script.Add((byte)encoded.Count);
+			foreach (var (kind, index) in encoded)
+			{
+				script.Add(kind);
+				U16(script, index);
+			}
+
+			U16(script, _code.Intern(dest));
 			return true;
 		}
 
