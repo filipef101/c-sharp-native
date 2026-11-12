@@ -270,6 +270,119 @@ internal static class ThemeTokens
 	public static uint Accent(bool dark) => dark ? 0xFFE7C27Du : 0xFF8A5A2Bu;
 }
 
+internal readonly record struct ChromeInk(uint Color, int FontSize, FontWeight Weight);
+
+internal static class ChromeFill
+{
+	public static uint Mix(uint left, uint right)
+	{
+		var r = (((left >> 16) & 0xFF) + ((right >> 16) & 0xFF)) / 2;
+		var g = (((left >> 8) & 0xFF) + ((right >> 8) & 0xFF)) / 2;
+		var b = ((left & 0xFF) + (right & 0xFF)) / 2;
+		return 0xFF000000u | (uint)(r << 16) | (uint)(g << 8) | (uint)b;
+	}
+
+	public static uint FirstFrame(Style style, IReadOnlyList<ChromeInk> ink)
+	{
+		if (style.Background == 0 || style.Wash == 0)
+			return style.Background != 0 ? style.Background : style.Wash;
+		var mid = Mix(style.Background, style.Wash);
+		if (Passes(mid, ink))
+			return mid;
+		var backgroundOk = Passes(style.Background, ink);
+		var washOk = Passes(style.Wash, ink);
+		if (backgroundOk && !washOk)
+			return style.Background;
+		if (washOk && !backgroundOk)
+			return style.Wash;
+		if (backgroundOk && washOk)
+			return Score(style.Background, ink) >= Score(style.Wash, ink) ? style.Background : style.Wash;
+		return mid;
+	}
+
+	public static void Collect(Element element, bool dark, List<ChromeInk> ink)
+	{
+		if (element is Text or Button or TextField or TextInput or Switch)
+		{
+			var style = element.Style ?? default;
+			var color = style.Color != 0 ? style.Color : ThemeTokens.Text(dark);
+			ink.Add(new ChromeInk(color, style.FontSize, style.Weight));
+		}
+
+		switch (element)
+		{
+			case Column column:
+				foreach (var child in column.Children)
+					Collect(child, dark, ink);
+				break;
+			case ScrollView scroll:
+				Collect(scroll.Child, dark, ink);
+				break;
+			case ListView list:
+				foreach (var row in list.Rows)
+					Collect(row, dark, ink);
+				break;
+			case Text:
+			case Button:
+			case TextField:
+			case TextInput:
+			case Switch:
+			case Image:
+			case HostView:
+				break;
+			default:
+				throw new InvalidOperationException("Unknown element.");
+		}
+	}
+
+	public static bool Legible(uint foreground, uint background, int fontSize, FontWeight weight)
+	{
+		var size = fontSize <= 0 ? 16 : fontSize;
+		var large = size >= 18 || (size >= 14 && weight == FontWeight.Bold);
+		return Ratio(foreground, background) >= (large ? 3.0 : 4.5);
+	}
+
+	public static double Ratio(uint foreground, uint background)
+	{
+		var lighter = Math.Max(Luminance(foreground), Luminance(background));
+		var darker = Math.Min(Luminance(foreground), Luminance(background));
+		return (lighter + 0.05) / (darker + 0.05);
+	}
+
+	static bool Passes(uint background, IReadOnlyList<ChromeInk> ink)
+	{
+		foreach (var item in ink)
+		{
+			if (!Legible(item.Color, background, item.FontSize, item.Weight))
+				return false;
+		}
+
+		return true;
+	}
+
+	static double Score(uint background, IReadOnlyList<ChromeInk> ink)
+	{
+		var worst = double.PositiveInfinity;
+		foreach (var item in ink)
+			worst = Math.Min(worst, Ratio(item.Color, background));
+		return worst;
+	}
+
+	static double Luminance(uint color)
+	{
+		static double Channel(uint channel)
+		{
+			var value = channel / 255.0;
+			return value <= 0.03928 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
+		}
+
+		var r = Channel((color >> 16) & 0xFF);
+		var g = Channel((color >> 8) & 0xFF);
+		var b = Channel(color & 0xFF);
+		return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+	}
+}
+
 public static class Gestures
 {
 	public const byte Tap = 1;

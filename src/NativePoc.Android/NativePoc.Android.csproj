@@ -176,6 +176,10 @@
 		<ApplicationId>com.scratch.nativepoc.immediate</ApplicationId>
 		<DefineConstants>$(DefineConstants);NATIVEPOC_IMMEDIATE_CHROME</DefineConstants>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocBlankChrome)' == 'true' And '$(NativePocWidgetFloor)' != 'true' And '$(NativePocImmediateChrome)' != 'true'">
+		<ApplicationId>com.scratch.nativepoc.blank</ApplicationId>
+		<DefineConstants>$(DefineConstants);NATIVEPOC_BLANK_CHROME</DefineConstants>
+	</PropertyGroup>
 	<Target Name="RefuseDevListenerInRelease" BeforeTargets="Build;Publish">
 		<Error
 			Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' == 'Release'"

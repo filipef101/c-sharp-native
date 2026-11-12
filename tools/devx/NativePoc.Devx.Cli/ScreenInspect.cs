@@ -164,6 +164,8 @@ static class ScreenInspect
 			}
 			if (MissingLabel(node.Element))
 				findings.Add(new Finding("missing-label", node.Id, "Missing label on " + ScreenSnapshot.Role(node.Element) + " " + node.Id + "."));
+			if (Contrast(node, nodes, byPath) is { } contrast)
+				findings.Add(contrast);
 			if (ImageAccess(node.Element, node.Id) is { } imageAccess)
 				findings.Add(imageAccess);
 			if (FixedHeight(node, nodes, boxes, scaled) is { } fixedHeight)
@@ -206,6 +208,56 @@ static class ScreenInspect
 		if (headings == 0)
 			findings.Insert(0, new Finding("missing-heading", "", "The screen has no heading."));
 		return findings;
+	}
+
+	static Finding? Contrast(
+		ElementIds.Node node,
+		IReadOnlyList<ElementIds.Node> nodes,
+		Dictionary<NodePath, ElementIds.Node> byPath)
+	{
+		if (node.Element is not (NativePoc.Text or Button or TextField or TextInput or Switch))
+			return null;
+		var style = node.Element.Style ?? default;
+		var color = style.Color != 0 ? style.Color : ThemeTokens.Text(false);
+		var background = FirstBackground(node, nodes, byPath);
+		if (ChromeFill.Legible(color, background, style.FontSize, style.Weight))
+			return null;
+		return new Finding("contrast", node.Id, "Text " + node.Id + " is below contrast on its first-frame background.");
+	}
+
+	static uint FirstBackground(
+		ElementIds.Node node,
+		IReadOnlyList<ElementIds.Node> nodes,
+		Dictionary<NodePath, ElementIds.Node> byPath)
+	{
+		var current = node;
+		while (true)
+		{
+			if (current.Element.Style is { } style && (style.Background != 0 || style.Wash != 0))
+			{
+				var ink = new List<ChromeInk>();
+				foreach (var other in nodes)
+				{
+					if (other.Path.Equals(current.Path) || other.Path.IsDescendantOf(current.Path))
+						AddInk(other.Element, ink);
+				}
+
+				return ChromeFill.FirstFrame(style, ink);
+			}
+
+			if (current.Path.Length == 0 || !byPath.TryGetValue(current.Path.Parent(), out var parent))
+				return ThemeTokens.Page(false);
+			current = parent;
+		}
+	}
+
+	static void AddInk(Element element, List<ChromeInk> ink)
+	{
+		if (element is not (NativePoc.Text or Button or TextField or TextInput or Switch))
+			return;
+		var style = element.Style ?? default;
+		var color = style.Color != 0 ? style.Color : ThemeTokens.Text(false);
+		ink.Add(new ChromeInk(color, style.FontSize, style.Weight));
 	}
 
 	static Finding? FixedHeight(

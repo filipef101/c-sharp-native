@@ -177,6 +177,36 @@ public sealed class InspectTests
 	}
 
 	[Fact]
+	public void Inspect_flags_text_below_contrast_on_its_first_frame_background()
+	{
+		var screen = new Column([
+			new Text("Northroom") { Key = "title", Style = new Style { FontSize = 32, Weight = FontWeight.Bold } },
+			new Text("Small-batch") { Key = "lede", Style = new Style { FontSize = 16, Color = 0xFFF7F4EF } },
+		])
+		{ Key = "page" };
+		var json = ScreenInspect.Format(screen);
+		Assert.Contains("\"code\":\"contrast\",\"id\":\"page/lede\"", json, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void Inspect_accepts_a_rectangular_fill_chosen_for_the_first_frame()
+	{
+		var screen = new Column([
+			new Column([
+				new Text("Northroom") { Key = "title", Style = new Style { FontSize = 32, Weight = FontWeight.Bold, Color = 0xFFF7F4EF } },
+				new Text("Small-batch") { Key = "lede", Style = new Style { FontSize = 16, Color = 0xFFD5EBE3 } },
+			])
+			{
+				Key = "hero",
+				Style = new Style { Background = 0xFF0F6E56, Wash = 0xFF3FA888, Radius = 16, Padding = 24 },
+			},
+		])
+		{ Key = "page" };
+		var json = ScreenInspect.Format(screen);
+		Assert.DoesNotContain("contrast", json, StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void Inspect_fails_a_screen_with_no_heading()
 	{
 		var json = ScreenInspect.Format(new Text("Hello") { Key = "body" });

@@ -376,14 +376,7 @@ sealed class AndroidHost : IElementHost<View>
 			if (_chromeReady)
 				ApplyChrome(view, style);
 			else
-			{
-				view.Background = null;
-				view.Elevation = 0;
-				if (view is AndroidButton plain)
-					plain.BackgroundTintList = null;
-				_deferredChrome.Add((view, style));
-				ArmChrome();
-			}
+				DeferChrome(view, style);
 		}
 #if NATIVEPOC_STARTUP_MARKS
 		var bucket = ViewBucket(view);
@@ -452,6 +445,37 @@ sealed class AndroidHost : IElementHost<View>
 	static long SpanUs(long started) =>
 		(System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
 #endif
+
+	void DeferChrome(View view, Style style)
+	{
+#if NATIVEPOC_BLANK_CHROME
+		view.Background = null;
+		view.Elevation = 0;
+		view.OutlineProvider = null;
+		view.ClipToOutline = false;
+		if (view is AndroidButton plain)
+			plain.BackgroundTintList = null;
+#else
+		ApplySolid(view, style);
+#endif
+		_deferredChrome.Add((view, style));
+		ArmChrome();
+	}
+
+	void ApplySolid(View view, Style style)
+	{
+		var ink = new List<ChromeInk>();
+		if (_paths.TryGetValue(view, out var path) && CurrentElement(path) is { } element)
+			ChromeFill.Collect(element, ThemeRuntime.IsDark(_activity), ink);
+		var fill = ChromeFill.FirstFrame(style, ink);
+		view.Background = new ColorDrawable(new Android.Graphics.Color(unchecked((int)fill)));
+		view.Elevation = 0;
+		view.OutlineProvider = null;
+		view.ClipToOutline = false;
+		if (view is AndroidButton tinted)
+			tinted.BackgroundTintList = null;
+		StartupMarks.Phase("fill");
+	}
 
 	void ArmChrome()
 	{
