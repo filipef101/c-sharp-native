@@ -619,7 +619,45 @@ samples="$flat"
 			echo "present_p50 $present_p50 ui_p50 $ui_p50 draw_p50 $draw_p50"
 			echo "ui is DrawStart - PerformTraversalsStart on the first framestats row, milliseconds"
 			echo "draw is SwapBuffers - IssueDrawCommandsStart on that row, milliseconds"
-			echo "startup_since_process_p50 runtime=$runtime_p50 render=$render_p50 attach=$attach_p50 bind=$bind_p50 draw=$draw_phase_p50 list=$list_p50"
+			phase_us_p50() {
+			local pattern="$1"
+			local -a values=()
+			local round value
+			for ((round = 0; round < samples; round++)); do
+				value="$(awk -v pattern="$pattern" '
+					index($0, "startup took ") && index($0, pattern) {
+						value = $0
+						sub(/^.* us=/, "", value)
+						sub(/[^0-9].*$/, "", value)
+						if (value ~ /^[0-9]+$/ && hit == "")
+							hit = value
+					}
+					END {
+						if (hit != "")
+							print hit
+					}
+				' "$out/$label-log-$round.txt" || true)"
+				[[ -n "$value" ]] && values+=("$value")
+			done
+			if [[ "${#values[@]}" -eq 0 ]]; then
+				echo "-"
+				return
+			fi
+			printf '%s\n' "${values[@]}" | percentile 0.50
+		}
+		theme_resolve_p50="$(phase_p50 'phase=theme-resolve ')"
+		gradient_create_p50="$(phase_p50 'phase=gradient-create ')"
+		shadow_create_p50="$(phase_p50 'phase=shadow-create ')"
+		stat_measure_p50="$(phase_p50 'phase=stat-measure ')"
+		grid_measure_p50="$(phase_p50 'phase=grid-measure ')"
+		traversal_p50="$(phase_p50 'phase=traversal ')"
+		theme_us_p50="$(phase_us_p50 'phase=theme-resolve ')"
+		gradient_us_p50="$(phase_us_p50 'phase=gradient-create ')"
+		shadow_us_p50="$(phase_us_p50 'phase=shadow-create ')"
+		stat_us_p50="$(phase_us_p50 'phase=stat-measure ')"
+		grid_us_p50="$(phase_us_p50 'phase=grid-measure ')"
+		traversal_us_p50="$(phase_us_p50 'phase=traversal ')"
+		echo "startup_since_process_p50 runtime=$runtime_p50 render=$render_p50 attach=$attach_p50 bind=$bind_p50 draw=$draw_phase_p50 list=$list_p50"
 			before_p50="$(prior_p50 'phase=before-runtime ')"
 			managed_p50="$(phase_p50 'phase=managed ')"
 			after_p50="$(prior_p50 'phase=after-runtime ')"
@@ -655,6 +693,9 @@ samples="$flat"
 			jcw_natives="$(awk '/jcw-natives count=/ { sub(/^.*count=/, ""); print; exit }' "$out/$label-log-0.txt" 2>/dev/null || true)"
 			echo "startup_jcw_p50 java_end=$java_end_p50 jcw_enter=$jcw_enter_p50 jcw_register=$jcw_register_p50 jcw_registered=$jcw_registered_p50 jcw_super=$jcw_super_p50 jni=$jni_p50 jcw_peer=$jcw_peer_p50 natives=${jcw_natives:-"-"}"
 			echo "startup_thin_p50 java_end=$java_end_p50 thin_class=$thin_class_p50 thin_jni=$thin_jni_p50 thin_ctor=$thin_ctor_p50 thin_oncreate=$thin_oncreate_p50"
+			echo "startup_showcase_p50 theme=$theme_resolve_p50 gradient=$gradient_create_p50 shadow=$shadow_create_p50 stat=$stat_measure_p50 grid=$grid_measure_p50 traversal=$traversal_p50"
+			echo "startup_showcase_us_p50 theme=$theme_us_p50 gradient=$gradient_us_p50 shadow=$shadow_us_p50 stat=$stat_us_p50 grid=$grid_us_p50 traversal=$traversal_us_p50"
+			echo "showcase us is the stopwatch inside that phase. theme is Load plus ApplyWindow. gradient and shadow are GradientDrawable creation. stat is the first measure of the stats row. grid is the first measure of shelf row-0. traversal is the first measure through layout of the scroll."
 			echo "startup clock is SystemClock.elapsedRealtime. process t is Process.startElapsedRealtime. list is the first list-first= line."
 			echo "method=am start -W -S LaunchState=COLD warmup=1 discarded per series interleaved=1 percentile=Hyndman-Fan-7"
 			echo "load=$(tr '\n' ' ' <"$out/round-load.txt" | sed 's/ $//')"
@@ -664,6 +705,8 @@ samples="$flat"
 			fi
 		} >"$out/$label-summary.txt"
 		echo "startup_since_process_p50 $label runtime=$runtime_p50 render=$render_p50 attach=$attach_p50 bind=$bind_p50 draw=$draw_phase_p50 list=$list_p50"
+		echo "startup_showcase_p50 $label theme=$theme_resolve_p50 gradient=$gradient_create_p50 shadow=$shadow_create_p50 stat=$stat_measure_p50 grid=$grid_measure_p50 traversal=$traversal_p50"
+		echo "startup_showcase_us_p50 $label theme=$theme_us_p50 gradient=$gradient_us_p50 shadow=$shadow_us_p50 stat=$stat_us_p50 grid=$grid_us_p50 traversal=$traversal_us_p50"
 		echo "startup_breakdown_p50 $label before=$before_p50 managed=$managed_p50 after=$after_p50 oncreate=$oncreate_p50 layout=$layout_p50 idle=$idle_p50 flush=$flush_p50"
 		echo "startup_split_p50 $label java_attach=$java_attach_p50 java=$java_p50 java_end=$java_end_p50 jni=$jni_p50 enter=$enter_p50 base=$base_p50 direction=$direction_p50 warm=$warm_p50 hold=$hold_p50"
 		echo "startup_load_p50 $label attach_end=$attach_end_p50 class=$class_p50 before=$before_p50 so_reloc=$so_reloc_p50 so_ctors=$so_ctors_p50 after=$after_p50 java=$java_p50 java_end=$java_end_p50"

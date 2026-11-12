@@ -605,6 +605,17 @@ public sealed class SubsetLowererTests
 	}
 
 	[Fact]
+	public void Northroom_screens_lower()
+	{
+		var root = RepoRoot.Find(AppContext.BaseDirectory);
+		foreach (var name in new[] { "HomeScreen.cs", "ShelfScreen.cs", "PieceScreen.cs", "RoomScreen.cs" })
+		{
+			var lowered = SubsetLowerer.TryLower(File.ReadAllText(Path.Combine(root, "samples", "showcase", name)));
+			Assert.True(lowered.Ok, name + " " + (lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message));
+		}
+	}
+
+	[Fact]
 	public void Opening_a_note_passes_the_row_and_save_writes_it_back()
 	{
 		var root = RepoRoot.Find(AppContext.BaseDirectory);

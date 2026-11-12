@@ -102,8 +102,14 @@ public sealed class MainActivity : Activity
 #endif
 		StartupMarks.Activity();
 		CrashReport.Install();
+#if NATIVEPOC_STARTUP_MARKS
+		var themeStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+#endif
 		ThemeRuntime.Load(this);
 		ThemeRuntime.ApplyWindow(this);
+#if NATIVEPOC_STARTUP_MARKS
+		StartupMarks.Took("theme-resolve", themeStarted);
+#endif
 		Current = this;
 		Log.Info(Tag, "activity-start tick=" + System.Environment.TickCount64);
 		Log.Info(
@@ -195,6 +201,12 @@ public sealed class MainActivity : Activity
 		_programSource = "";
 		var warmUs = (System.Diagnostics.Stopwatch.GetTimestamp() - warmStarted) * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
 		Log.Info(Tag, "reload-warm us=" + warmUs.ToString(CultureInfo.InvariantCulture));
+		// The warm tree is on screen. Diffing the counter onto it throws when the
+		// requested root has no program yet. Hold the warm screen until it arrives.
+		var rootWaiting = ScreenNav.Shared.Depth == 0 && ScreenNav.Shared.LaunchRoot.Length > 0;
+		if (rootWaiting)
+			Log.Info(Tag, "startup root holding id=" + ScreenNav.Shared.LaunchRoot);
+		else
 #endif
 		RenderNow();
 		if (string.Equals(Intent?.GetStringExtra("nativepoc_a11y"), "1", StringComparison.Ordinal))
@@ -743,6 +755,10 @@ public sealed class MainActivity : Activity
 			RecordSession.Publish(bound);
 		var prepUs = TakeUs(prep);
 		TapTrace.PrepDone();
+		// A program-only launch can be waiting on its root. The warm tree is already
+		// mounted, and the counter does not diff onto it.
+		if (_record is null && topId.Length == 0 && previousRoot is not null && ScreenNav.Shared.LaunchRoot.Length > 0)
+			return;
 		Element tree;
 		var clock = System.Diagnostics.Stopwatch.StartNew();
 		try
@@ -823,6 +839,7 @@ public sealed class MainActivity : Activity
 			_notedWindow = true;
 		}
 
+		StartupMarks.FlushDrawables();
 		StartupMarks.Render();
 		if (_reconciler.Root is not View mounted)
 			throw new InvalidOperationException("Screen did not mount a root view.");

@@ -338,8 +338,12 @@ sealed class AndroidHost : IElementHost<View>
 
 		if (style.Background != 0 || style.Wash != 0 || style.Radius > 0 || style.Stroke != 0)
 		{
-			if (style.Wash != 0 && style.Background != 0)
+			var gradient = style.Wash != 0 && style.Background != 0;
+			if (gradient)
 				StartupMarks.Phase("gradient");
+#if NATIVEPOC_STARTUP_MARKS
+			var drawableStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+#endif
 			var drawable = new GradientDrawable();
 			drawable.SetCornerRadius(Px(style.Radius));
 			if (style.Background != 0 && style.Wash != 0)
@@ -380,6 +384,10 @@ sealed class AndroidHost : IElementHost<View>
 						group.SetClipChildren(false);
 				});
 			}
+#if NATIVEPOC_STARTUP_MARKS
+			var drawableUs = (System.Diagnostics.Stopwatch.GetTimestamp() - drawableStarted) * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
+			StartupMarks.AddDrawable(gradient, shadow, drawableUs);
+#endif
 		}
 	}
 
@@ -534,6 +542,13 @@ sealed class AndroidHost : IElementHost<View>
 	public void OnMounted(NodePath path, View view)
 	{
 		_paths[view] = path;
+		if (view is GestureColumn column)
+		{
+			var key = CurrentElement(path)?.Key;
+			if (key is "stats" or "row-0")
+				column.MarkStartup(key);
+		}
+
 		if (path.Length == 0)
 		{
 			var pad = (int)(16 * (_activity.Resources?.DisplayMetrics?.Density ?? 1f));

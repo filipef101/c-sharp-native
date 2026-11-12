@@ -22,6 +22,10 @@ sealed class GestureColumn : LinearLayout
 	bool _moved;
 	readonly int _slop;
 	readonly float _density;
+#if NATIVEPOC_STARTUP_MARKS
+	string? _startupKey;
+	bool _startupLogged;
+#endif
 
 	public GestureColumn(Context context)
 		: base(context)
@@ -33,12 +37,37 @@ sealed class GestureColumn : LinearLayout
 			_density = 1f;
 	}
 
+	internal void MarkStartup(string key)
+	{
+#if NATIVEPOC_STARTUP_MARKS
+		_startupKey = key;
+#else
+		_ = key;
+#endif
+	}
+
 	public void Configure(byte mask, Action? tap, Action? longPress, Action? swipe)
 	{
 		_mask = mask;
 		_tap = tap;
 		_longPress = longPress;
 		_swipe = swipe;
+	}
+
+	protected override void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
+	{
+#if NATIVEPOC_STARTUP_MARKS
+		var mark = _startupKey is not null && !_startupLogged;
+		var started = mark ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
+#endif
+		base.OnMeasure(widthMeasureSpec, heightMeasureSpec);
+#if NATIVEPOC_STARTUP_MARKS
+		if (mark)
+		{
+			_startupLogged = true;
+			StartupMarks.Took(_startupKey == "stats" ? "stat-measure" : "grid-measure", started);
+		}
+#endif
 	}
 
 	public override bool OnInterceptTouchEvent(MotionEvent? ev)
@@ -173,6 +202,10 @@ sealed class RefreshScroll : AndroidWidget
 	readonly float _density;
 
 	bool _revealPosted;
+#if NATIVEPOC_STARTUP_MARKS
+	long _measureTick;
+	bool _traversalLogged;
+#endif
 
 	public RefreshScroll(Context context)
 		: base(context)
@@ -182,10 +215,26 @@ sealed class RefreshScroll : AndroidWidget
 			_density = 1f;
 	}
 
+	protected override void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
+	{
+#if NATIVEPOC_STARTUP_MARKS
+		if (_measureTick == 0)
+			_measureTick = System.Diagnostics.Stopwatch.GetTimestamp();
+#endif
+		base.OnMeasure(widthMeasureSpec, heightMeasureSpec);
+	}
+
 	protected override void OnLayout(bool changed, int left, int top, int right, int bottom)
 	{
 		base.OnLayout(changed, left, top, right, bottom);
 		StartupMarks.Phase("layout");
+#if NATIVEPOC_STARTUP_MARKS
+		if (!_traversalLogged && _measureTick != 0)
+		{
+			_traversalLogged = true;
+			StartupMarks.Took("traversal", _measureTick);
+		}
+#endif
 		if (_revealPosted)
 			return;
 		_revealPosted = true;

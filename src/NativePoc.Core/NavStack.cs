@@ -10,6 +10,8 @@ public sealed class NavFocusState
 
 	public int Depth => _stack.Count;
 
+	internal string Top => _stack.Count == 0 ? "" : _stack[^1];
+
 	public string Focus { get; private set; } = "";
 
 	public bool Push(string screen)

@@ -211,6 +211,11 @@ static class HotReloadServer
 			RecordSession.Prepare(dll, bag);
 			var prepareMs = Stopwatch.GetElapsedTime(prepareStarted).TotalMilliseconds;
 			ScreenNav.Shared.Show(dll);
+			Android.Util.Log.Info(
+				MainActivity.Tag,
+				"reload-nav depth=" + ScreenNav.Shared.Depth.ToString(CultureInfo.InvariantCulture)
+				+ " top=" + ScreenNav.Shared.TopId()
+				+ " kept=" + ScreenNav.Shared.Bag("piece").ReadString("Kept"));
 			var record = ScreenNav.Shared.Top() ?? RecordProgram.Bind(dll, bag);
 			var evalStarted = Stopwatch.GetTimestamp();
 			string programmed;

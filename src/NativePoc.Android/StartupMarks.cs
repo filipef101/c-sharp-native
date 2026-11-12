@@ -16,6 +16,9 @@ static class StartupMarks
 	static long _managed;
 	static bool _render;
 	static long _managedTick;
+	static long _gradientUs;
+	static long _shadowUs;
+	static bool _drawablesFlushed;
 #endif
 
 	public static bool Presented => _present;
@@ -99,6 +102,60 @@ static class StartupMarks
 			+ " gen2=" + GC.CollectionCount(2).ToString(CultureInfo.InvariantCulture));
 #endif
 	}
+
+	[System.Diagnostics.Conditional("NATIVEPOC_STARTUP_MARKS")]
+	public static void Took(string name, long started)
+	{
+#if NATIVEPOC_STARTUP_MARKS
+		var us = (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
+		TookUs(name, us);
+#endif
+	}
+
+	[System.Diagnostics.Conditional("NATIVEPOC_STARTUP_MARKS")]
+	public static void AddDrawable(bool gradient, bool shadow, long us)
+	{
+#if NATIVEPOC_STARTUP_MARKS
+		if (us < 0)
+			us = 0;
+		if (gradient)
+			_gradientUs += us;
+		if (shadow)
+			_shadowUs += us;
+#endif
+	}
+
+	[System.Diagnostics.Conditional("NATIVEPOC_STARTUP_MARKS")]
+	public static void FlushDrawables()
+	{
+#if NATIVEPOC_STARTUP_MARKS
+		if (_drawablesFlushed)
+			return;
+		_drawablesFlushed = true;
+		TookUs("gradient-create", _gradientUs);
+		TookUs("shadow-create", _shadowUs);
+#endif
+	}
+
+#if NATIVEPOC_STARTUP_MARKS
+	static void TookUs(string name, long us)
+	{
+		if (us < 0)
+			us = 0;
+		if (_process == 0)
+			_process = Process.StartElapsedRealtime;
+		var since = SystemClock.ElapsedRealtime() - _process;
+		if (since < 0)
+			since = 0;
+		Android.Util.Log.Info(
+			MainActivity.Tag,
+			"startup took phase=" + name
+			+ " us=" + us.ToString(CultureInfo.InvariantCulture)
+			+ " ms=" + (us / 1000).ToString(CultureInfo.InvariantCulture)
+			+ " since-process-ms=" + since.ToString(CultureInfo.InvariantCulture));
+		PhaseAt(name, SystemClock.ElapsedRealtime());
+	}
+#endif
 
 	[System.Diagnostics.Conditional("NATIVEPOC_STARTUP_MARKS")]
 	public static void Note(string name, long ms)

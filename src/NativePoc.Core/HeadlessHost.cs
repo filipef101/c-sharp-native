@@ -28,6 +28,10 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 
 	public int NavDepth => _nav.Depth;
 
+	internal string NavTop => _nav.Top;
+
+	internal object? NavArgument { get; private set; }
+
 	public string NavFocus => _nav.Focus;
 
 	public void ResetNav() => _nav.Reset();
@@ -72,7 +76,11 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 		_nav.FocusFrom(Tree);
 	}
 
-	public void Push(string screen, object row) => Push(screen);
+	public void Push(string screen, object row)
+	{
+		NavArgument = row;
+		Push(screen);
+	}
 
 	public void Pop()
 	{
@@ -139,16 +147,26 @@ public static class HeadlessLayout
 
 	public static List<Box> Measure(Element root, float fontScale) => Measure(root, PageWidth, fontScale);
 
-	public static List<Box> Measure(Element root, int width, float fontScale)
+	internal const int SystemBarDp = 24;
+
+	internal static List<Box> MeasureBelowBars(Element root, float fontScale) =>
+		Measure(root, PageWidth, fontScale, SystemBarDp);
+
+	public static List<Box> Measure(Element root, int width, float fontScale) =>
+		Measure(root, width, fontScale, 0);
+
+	static List<Box> Measure(Element root, int width, float fontScale, int topInset)
 	{
 		ArgumentNullException.ThrowIfNull(root);
 		if (fontScale <= 0)
 			fontScale = 1f;
 		if (width < 0)
 			width = 0;
+		if (topInset < 0)
+			topInset = 0;
 		var boxes = new List<Box>();
 		var id = root.Key is { Length: > 0 } key ? key : "root";
-		MeasureNode(root, id, 0, 0, width, boxes, fontScale);
+		MeasureNode(root, id, 0, topInset, width, boxes, fontScale);
 		return boxes;
 	}
 
