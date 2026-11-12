@@ -622,6 +622,71 @@ public sealed class SampleLowerTests
 		Assert.Contains("telemetry.FieldDeliveries", session.Modules, StringComparer.Ordinal);
 	}
 
+	[Fact]
+	public void Pause_resume_and_leave_run_the_screen_handlers()
+	{
+		const string bindings = """
+			namespace NativePoc;
+			[JniType("android/content/ClipboardManager")]
+			static class DeviceClipboard
+			{
+				[JniMethod("removePrimaryClipChangedListener", "()V")]
+				public static void Stop() { }
+			}
+			""";
+		const string source = """
+			namespace NativePoc.Bind;
+			public sealed class BindState
+			{
+				public string Phase { get; set; } = "here";
+				public string Returned { get; set; } = "here";
+			}
+			public static class BindScreen
+			{
+				public static Element Render(BindState state, IPlatform platform)
+				{
+					void Paused()
+					{
+						state.Phase = "paused";
+						platform.RequestRender();
+					}
+					void Resumed()
+					{
+						state.Returned = "resumed";
+						platform.RequestRender();
+					}
+					void Left()
+					{
+						DeviceClipboard.Stop();
+						state.Phase = "left";
+						platform.RequestRender();
+					}
+					platform.OnPause(Paused);
+					platform.OnResume(Resumed);
+					platform.OnLeave(Left);
+					return new Button("Go", () => { state.Phase = "tapped"; platform.RequestRender(); }, "Go")
+					{
+						Key = "go",
+						Style = new Style { Background = ThemeTokens.CardLight, Color = ThemeTokens.TextLight, Radius = 16, Padding = 16 },
+					};
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source, [bindings]);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var session = ScreenSession.Open(lowered.Program!);
+		var style = session.Root.Style ?? throw new InvalidOperationException("missing style");
+		Assert.Equal(ThemeTokens.CardLight, style.Background);
+		Assert.Equal(ThemeTokens.TextLight, style.Color);
+		session.Pause();
+		Assert.Equal("paused", session.Bag.ReadString("Phase"));
+		session.Resume();
+		Assert.Equal("resumed", session.Bag.ReadString("Returned"));
+		session.Leave();
+		Assert.Equal("left", session.Bag.ReadString("Phase"));
+		Assert.Contains(session.Modules, line => line.StartsWith("jni.DeviceClipboard.Stop", StringComparison.Ordinal));
+	}
+
 	static string Repo()
 	{
 		var dir = new DirectoryInfo(AppContext.BaseDirectory);

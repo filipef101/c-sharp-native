@@ -289,6 +289,14 @@ sealed class AndroidHost : IElementHost<View>
 #if NATIVEPOC_STARTUP_MARKS
 		var styleStarted = System.Diagnostics.Stopwatch.GetTimestamp();
 #endif
+		var dark = ThemeRuntime.IsDark(_activity);
+		style = style with
+		{
+			Color = ThemeTokens.Adapt(style.Color, dark),
+			Background = ThemeTokens.Adapt(style.Background, dark),
+			Wash = ThemeTokens.Adapt(style.Wash, dark),
+			Stroke = ThemeTokens.Adapt(style.Stroke, dark),
+		};
 		if (view is ViewGroup styledGroup)
 			styledGroup.SetClipChildren(false);
 		var density = _activity.Resources?.DisplayMetrics?.Density ?? 1f;
@@ -1534,8 +1542,13 @@ sealed class PlatformBridge : IPlatform
 	public void Pop()
 	{
 		var leaving = ScreenNav.Shared.TopId();
+		var nested = ScreenNav.Shared.Depth > 1;
+		if (nested)
+			ScreenSignals.FireLeave();
 		if (!ScreenNav.Shared.Pop())
 			return;
+		if (nested)
+			Log.Info(MainActivity.Tag, "lifecycle leave " + leaving);
 		NavMotion.Arm(NavMotion.Dir.Pop);
 #if NATIVEPOC_NAV
 		NavFocus.Arm();
@@ -1553,6 +1566,12 @@ sealed class PlatformBridge : IPlatform
 		_lastOpen = screen;
 		open();
 	}
+
+	public void OnPause(System.Action handler) => ScreenSignals.Pause = handler;
+
+	public void OnResume(System.Action handler) => ScreenSignals.Resume = handler;
+
+	public void OnLeave(System.Action handler) => ScreenSignals.Leave = handler;
 
 	public void Effect(string property, string resource) =>
 		EffectRuntime.Start(_activity, property, resource, () => _activity.RequestRender());

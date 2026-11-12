@@ -84,10 +84,11 @@
 	<!-- The manifest merger reruns when build.props changes. An overlay is not
 	     one of its inputs, so the placeholder has to be present either way. -->
 	<PropertyGroup>
-		<AndroidManifestPlaceholders>$(AndroidManifestPlaceholders);nativepocJni=$(NativePocJni)</AndroidManifestPlaceholders>
+		<AndroidManifestPlaceholders>$(AndroidManifestPlaceholders);nativepocJni=$(NativePocJni);nativepocNotify=$(NativePocJni)</AndroidManifestPlaceholders>
 	</PropertyGroup>
 	<ItemGroup Condition="'$(NativePocJni)' == 'true'">
 		<AndroidManifestOverlay Include="Properties/VibratePermission.xml" />
+		<AndroidManifestOverlay Include="Properties/NotifyPermission.xml" />
 	</ItemGroup>
 	<PropertyGroup Condition="'$(NativePocLocation)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_LOCATION</DefineConstants>

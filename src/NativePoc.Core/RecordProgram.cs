@@ -50,6 +50,9 @@ internal static partial class RecordProgram
 	public const byte OpSeedList = 42;
 	public const byte OpOnOpen = 43;
 	public const byte OpRun = 44;
+	public const byte OpOnPause = 45;
+	public const byte OpOnResume = 46;
+	public const byte OpOnLeave = 47;
 
 	public const int EagerRowLimit = 24;
 
@@ -1181,6 +1184,26 @@ internal static partial class RecordProgram
 				ip += length;
 				if (script.Length > 0)
 					RunScript(script, strings, bag, platform, null, false, null);
+				return ip;
+			}
+			case OpOnPause:
+			case OpOnResume:
+			case OpOnLeave:
+			{
+				var length = TakeU16(code, ref ip, end);
+				if (ip + length > end)
+					throw new InvalidOperationException("Rejected record program.");
+				var script = code.AsSpan(ip, length).ToArray();
+				ip += length;
+				var signalBag = bag;
+				var signalStrings = strings;
+				Action run = () => RunScript(script, signalStrings, signalBag, platform, null, false, null);
+				if (op == OpOnPause)
+					platform.OnPause(run);
+				else if (op == OpOnResume)
+					platform.OnResume(run);
+				else
+					platform.OnLeave(run);
 				return ip;
 			}
 			default:

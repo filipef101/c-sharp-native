@@ -1226,7 +1226,11 @@ public static partial class SubsetLowerer
 			{
 				if (!TryOpen(statement, out var opened))
 					return false;
-				if (!opened)
+				if (opened)
+					continue;
+				if (!TrySignal(statement, out var signaled))
+					return false;
+				if (!signaled)
 					rest.Add(statement);
 			}
 
@@ -1410,6 +1414,42 @@ public static partial class SubsetLowerer
 				return Fail(BadLambda, "OnOpen takes the screen id and a local function.", invocation);
 			_code.Op(RecordProgram.OpOnOpen);
 			_code.U16(_code.Intern(screen));
+			_code.U16(script.Count);
+			_code.Bytes(script.ToArray());
+			return true;
+		}
+
+		bool TrySignal(StatementSyntax statement, out bool consumed)
+		{
+			consumed = false;
+			if (statement is not ExpressionStatementSyntax expr || expr.Expression is not InvocationExpressionSyntax invocation)
+				return true;
+			if (invocation.Expression is not MemberAccessExpressionSyntax member
+				|| member.Expression is not IdentifierNameSyntax owner
+				|| owner.Identifier.ValueText != _platform)
+				return true;
+			var name = member.Name.Identifier.ValueText;
+			byte? op = name switch
+			{
+				"OnPause" => RecordProgram.OpOnPause,
+				"OnResume" => RecordProgram.OpOnResume,
+				"OnLeave" => RecordProgram.OpOnLeave,
+				_ => null,
+			};
+			if (op is null)
+				return true;
+			consumed = true;
+			var args = invocation.ArgumentList.Arguments;
+			if (args.Count != 1
+				|| args[0].Expression is not IdentifierNameSyntax called
+				|| !_localFns.TryGetValue(called.Identifier.ValueText, out var body))
+				return Fail(BadLambda, name + " takes a local function.", invocation);
+			var script = new List<byte>();
+			if (!EmitLocal(body, "", script, args[0]))
+				return false;
+			if (script.Count > ushort.MaxValue)
+				return Fail(BadLambda, name + " takes a local function.", invocation);
+			_code.Op(op.Value);
 			_code.U16(script.Count);
 			_code.Bytes(script.ToArray());
 			return true;
@@ -2691,6 +2731,11 @@ public static partial class SubsetLowerer
 
 		static bool ColorValue(ExpressionSyntax expression, out uint value)
 		{
+			if (expression is MemberAccessExpressionSyntax named
+				&& named.Expression is IdentifierNameSyntax owner
+				&& owner.Identifier.ValueText == "ThemeTokens"
+				&& ThemeTokens.TryNamed(named.Name.Identifier.ValueText, out value))
+				return true;
 			value = 0;
 			if (expression is not LiteralExpressionSyntax literal || !literal.IsKind(SyntaxKind.NumericLiteralExpression))
 				return false;

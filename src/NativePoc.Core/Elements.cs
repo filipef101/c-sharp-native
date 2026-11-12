@@ -265,11 +265,92 @@ internal static class ThemeTokens
 			_ => throw new InvalidOperationException("Unknown theme mode."),
 		};
 
-	public static uint Text(bool dark) => dark ? 0xFFF4F1EAu : 0xFF1C1917u;
+	public const uint TextLight = 0xFF1C1917u;
 
-	public static uint Page(bool dark) => dark ? 0xFF1C1917u : 0xFFF4F1EAu;
+	public const uint TextDark = 0xFFF4F1EAu;
 
-	public static uint Accent(bool dark) => dark ? 0xFFE7C27Du : 0xFF8A5A2Bu;
+	public const uint PageLight = 0xFFF4F1EAu;
+
+	public const uint PageDark = 0xFF1C1917u;
+
+	public const uint AccentLight = 0xFF8A5A2Bu;
+
+	public const uint AccentDark = 0xFFE7C27Du;
+
+	public const uint CardLight = 0xFFFFFFFFu;
+
+	public const uint CardDark = 0xFF292524u;
+
+	public const uint MutedLight = 0xFF57534Eu;
+
+	public const uint MutedDark = 0xFFB7B1A8u;
+
+	public static uint Text(bool dark) => dark ? TextDark : TextLight;
+
+	public static uint Page(bool dark) => dark ? PageDark : PageLight;
+
+	public static uint Accent(bool dark) => dark ? AccentDark : AccentLight;
+
+	public static uint Card(bool dark) => dark ? CardDark : CardLight;
+
+	public static uint Muted(bool dark) => dark ? MutedDark : MutedLight;
+
+	public static bool TryNamed(string name, out uint value)
+	{
+		switch (name)
+		{
+			case "TextLight":
+				value = TextLight;
+				return true;
+			case "TextDark":
+				value = TextDark;
+				return true;
+			case "PageLight":
+				value = PageLight;
+				return true;
+			case "PageDark":
+				value = PageDark;
+				return true;
+			case "AccentLight":
+				value = AccentLight;
+				return true;
+			case "AccentDark":
+				value = AccentDark;
+				return true;
+			case "CardLight":
+				value = CardLight;
+				return true;
+			case "CardDark":
+				value = CardDark;
+				return true;
+			case "MutedLight":
+				value = MutedLight;
+				return true;
+			case "MutedDark":
+				value = MutedDark;
+				return true;
+			default:
+				value = 0;
+				return false;
+		}
+	}
+
+	public static uint Adapt(uint color, bool dark)
+	{
+		if (!dark || color == 0)
+			return color;
+		if (color == TextLight)
+			return TextDark;
+		if (color == PageLight)
+			return PageDark;
+		if (color == AccentLight)
+			return AccentDark;
+		if (color == CardLight)
+			return CardDark;
+		if (color == MutedLight)
+			return MutedDark;
+		return color;
+	}
 }
 
 internal readonly record struct ChromeInk(uint Color, int FontSize, FontWeight Weight);
@@ -647,6 +728,18 @@ public interface IPlatform
 	}
 
 	void OnOpen(string screen, Action open)
+	{
+	}
+
+	void OnPause(Action handler)
+	{
+	}
+
+	void OnResume(Action handler)
+	{
+	}
+
+	void OnLeave(Action handler)
 	{
 	}
 

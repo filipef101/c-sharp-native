@@ -10,13 +10,13 @@ static partial class DeviceBattery
 	[JniMethod("getIntProperty", "(I)I", Blocking = true)]
 	public static string Level()
 	{
-		var text = ReadCapacity();
-		Log.Info("NativePoc", "jni-bind class=android/os/BatteryManager method=getIntProperty text=" + text);
-		return text;
+		var reading = BatteryReading.FromCapacity(ReadCapacity());
+		Log.Info("NativePoc", "jni-bind class=android/os/BatteryManager method=getIntProperty known=" + (reading.Known ? "1" : "0") + " text=" + reading.Text);
+		return reading.Text;
 	}
 
 	[JniMethod("getIntProperty", "(I)I")]
-	public static string Sample() => ReadCapacity();
+	public static string Sample() => BatteryReading.FromCapacity(ReadCapacity()).Text;
 
 	[JniMethod("getIntProperty", "(I)I")]
 	public static void Read(string screen, string field)
@@ -43,11 +43,10 @@ static partial class DeviceBattery
 		});
 	}
 
-	static string ReadCapacity()
+	static int ReadCapacity()
 	{
 		var manager = Host().GetSystemService(Context.BatteryService) as BatteryManager;
-		var level = manager?.GetIntProperty((int)BatteryProperty.Capacity) ?? -1;
-		return level.ToString(System.Globalization.CultureInfo.InvariantCulture);
+		return manager?.GetIntProperty((int)BatteryProperty.Capacity) ?? -1;
 	}
 
 	static string ReadPlugged()

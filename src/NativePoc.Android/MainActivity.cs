@@ -425,12 +425,29 @@ public sealed class MainActivity : Activity
 		ScheduleRenderBench();
 	}
 
+	protected override void OnPause()
+	{
+		Log.Info(Tag, "lifecycle pause delivered=" + (ScreenSignals.Pause is null ? "0" : "1"));
+		ScreenSignals.FirePause();
+		base.OnPause();
+	}
+
 	protected override void OnResume()
 	{
 		base.OnResume();
 		Current = this;
 		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
 		StartupMarks.Phase("resume");
+		var wasDark = ThemeRuntime.IsDark(this);
+		ThemeRuntime.ObserveNight(this);
+		if (wasDark != ThemeRuntime.IsDark(this))
+		{
+			ThemeRuntime.ApplyWindow(this);
+			RequestRender();
+		}
+
+		Log.Info(Tag, "lifecycle resume delivered=" + (ScreenSignals.Resume is null ? "0" : "1"));
+		ScreenSignals.FireResume();
 	}
 
 	public override void OnWindowFocusChanged(bool hasFocus)
@@ -477,13 +494,20 @@ public sealed class MainActivity : Activity
 	}
 #pragma warning restore CA1422
 
-#if NATIVEPOC_LOCATION
+#if NATIVEPOC_LOCATION || NATIVEPOC_JNI
 	public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
 	{
+#if NATIVEPOC_LOCATION
 		LocationModule.OnResult(this, requestCode, permissions, grantResults);
+#endif
+#if NATIVEPOC_JNI
+		DeviceNotify.OnResult(requestCode, permissions, grantResults);
+#endif
 		base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
 	}
+#endif
 
+#if NATIVEPOC_LOCATION
 	void ScheduleLocation()
 	{
 		var mode = Intent?.GetStringExtra("nativepoc_location");
@@ -818,6 +842,9 @@ public sealed class MainActivity : Activity
 		// mounted. Leave it until that root program arrives.
 		if (_record is null && topId.Length == 0 && previousRoot is not null && ScreenNav.Shared.LaunchRoot.Length > 0)
 			return;
+		ScreenSignals.Pause = null;
+		ScreenSignals.Resume = null;
+		ScreenSignals.Leave = null;
 		Element tree;
 		var clock = System.Diagnostics.Stopwatch.StartNew();
 		try

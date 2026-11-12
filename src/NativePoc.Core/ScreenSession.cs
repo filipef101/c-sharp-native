@@ -115,6 +115,29 @@ internal sealed class ScreenSession : IPlatform
 		open();
 	}
 
+	Action? _pause;
+	Action? _resume;
+	Action? _leave;
+
+	public void OnPause(Action handler) => _pause = handler;
+
+	public void OnResume(Action handler) => _resume = handler;
+
+	public void OnLeave(Action handler) => _leave = handler;
+
+	public void Pause() => Signal(_pause);
+
+	public void Resume() => Signal(_resume);
+
+	public void Leave() => Signal(_leave);
+
+	void Signal(Action? handler)
+	{
+		handler?.Invoke();
+		if (_requested)
+			Render();
+	}
+
 	public void Module(string module, string method, string[] args) => _modules.Add(module + "." + method);
 
 	public Task<string> ModuleAsync(string module, string method, string[] args)

@@ -3,17 +3,76 @@ namespace NativePoc.Bind;
 public sealed class BindState
 {
 	public string Note { get; set; } = "ready";
+
+	public string Phase { get; set; } = "here";
+
+	public string Returned { get; set; } = "here";
 }
 
 public static class BindScreen
 {
 	public const string ScreenId = "bind";
 
-	public static Element Render(BindState state, IPlatform platform) =>
-		new Column(
+	public static Element Render(BindState state, IPlatform platform)
+	{
+		void Paused()
+		{
+			state.Phase = "paused";
+			platform.RequestRender();
+		}
+
+		void Resumed()
+		{
+			state.Returned = "resumed";
+			platform.RequestRender();
+		}
+
+		void Left()
+		{
+			DeviceClipboard.Stop();
+			state.Phase = "left";
+			platform.RequestRender();
+		}
+
+		platform.OnPause(Paused);
+		platform.OnResume(Resumed);
+		platform.OnLeave(Left);
+		return new ScrollView(new Column(
 		[
-			new Text("Bind") { Key = "heading", Style = new Style { FontSize = 22 } },
-			new Text(state.Note) { Key = "note" },
+			new Column(
+			[
+				new Text("Bind")
+				{
+					Key = "heading",
+					Style = new Style { FontSize = 22, Weight = FontWeight.Bold, Color = ThemeTokens.TextLight },
+				},
+				new Text(state.Note)
+				{
+					Key = "note",
+					Style = new Style { FontSize = 16, Color = ThemeTokens.TextLight },
+				},
+				new Text(state.Phase)
+				{
+					Key = "phase",
+					Style = new Style { FontSize = 13, Color = ThemeTokens.MutedLight },
+				},
+				new Text(state.Returned)
+				{
+					Key = "returned",
+					Style = new Style { FontSize = 13, Color = ThemeTokens.MutedLight },
+				},
+			])
+			{
+				Key = "hero",
+				Style = new Style
+				{
+					Background = ThemeTokens.CardLight,
+					Radius = 16,
+					Padding = 24,
+					Gap = 8,
+					Stroke = ThemeTokens.AccentLight,
+				},
+			},
 			new Button(
 				"Pulse",
 				() =>
@@ -25,7 +84,7 @@ public static class BindScreen
 				"Pulse")
 			{
 				Key = "pulse",
-				Style = new Style { Padding = 14, FontSize = 16 },
+				Style = new Style { Padding = 16, FontSize = 16, Radius = 16, Align = Align.Start, Background = ThemeTokens.CardLight, Color = ThemeTokens.TextLight },
 			},
 			new Button(
 				"Copy",
@@ -38,7 +97,7 @@ public static class BindScreen
 				"Copy")
 			{
 				Key = "copy",
-				Style = new Style { Padding = 14, FontSize = 16 },
+				Style = new Style { Padding = 16, FontSize = 16, Radius = 16, Align = Align.Start, Background = ThemeTokens.CardLight, Color = ThemeTokens.TextLight },
 			},
 			new Button(
 				"Share",
@@ -51,7 +110,7 @@ public static class BindScreen
 				"Share")
 			{
 				Key = "share",
-				Style = new Style { Padding = 14, FontSize = 16 },
+				Style = new Style { Padding = 16, FontSize = 16, Radius = 16, Align = Align.Start, Background = ThemeTokens.CardLight, Color = ThemeTokens.TextLight },
 			},
 			new Button(
 				"Toast",
@@ -64,7 +123,7 @@ public static class BindScreen
 				"Toast")
 			{
 				Key = "toast",
-				Style = new Style { Padding = 14, FontSize = 16 },
+				Style = new Style { Padding = 16, FontSize = 16, Radius = 16, Align = Align.Start, Background = ThemeTokens.CardLight, Color = ThemeTokens.TextLight },
 			},
 			new Button(
 				"Battery",
@@ -72,7 +131,7 @@ public static class BindScreen
 				"Battery")
 			{
 				Key = "battery",
-				Style = new Style { Padding = 14, FontSize = 16 },
+				Style = new Style { Padding = 16, FontSize = 16, Radius = 16, Align = Align.Start, Background = ThemeTokens.CardLight, Color = ThemeTokens.TextLight },
 			},
 			new Button(
 				"Watch",
@@ -80,7 +139,15 @@ public static class BindScreen
 				"Watch")
 			{
 				Key = "watch",
-				Style = new Style { Padding = 14, FontSize = 16 },
+				Style = new Style { Padding = 16, FontSize = 16, Radius = 16, Align = Align.Start, Background = ThemeTokens.CardLight, Color = ThemeTokens.TextLight },
+			},
+			new Button(
+				"Notify",
+				() => DeviceNotify.Ask("bind", "Note"),
+				"Notify")
+			{
+				Key = "notify",
+				Style = new Style { Padding = 16, FontSize = 16, Radius = 16, Align = Align.Start, Background = ThemeTokens.CardLight, Color = ThemeTokens.TextLight },
 			},
 			new Button(
 				"Bench",
@@ -88,7 +155,11 @@ public static class BindScreen
 				"Bench")
 			{
 				Key = "bench",
-				Style = new Style { Padding = 14, FontSize = 16 },
+				Style = new Style { Padding = 16, FontSize = 16, Radius = 16, Align = Align.Start, Background = ThemeTokens.CardLight, Color = ThemeTokens.TextLight },
 			},
-		]);
+		])
+		{
+			Style = new Style { Padding = 16, Gap = 12 },
+		});
+	}
 }

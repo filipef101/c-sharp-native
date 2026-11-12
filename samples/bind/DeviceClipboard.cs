@@ -24,6 +24,12 @@ static partial class DeviceClipboard
 
 	static EventHandler? _clipChanged;
 
+	static string? _lastText;
+
+	static long _lastStamp;
+
+	static long _lastTicks;
+
 	[JniMethod("addPrimaryClipChangedListener", "(Ljava/lang/String;Ljava/lang/String;)V")]
 	public static void Listen(string screen, string field)
 	{
@@ -34,13 +40,53 @@ static partial class DeviceClipboard
 		var targetField = field;
 		EventHandler handler = (_, _) =>
 		{
+			if (!string.Equals(ScreenNav.Shared.TopId(), targetScreen, StringComparison.Ordinal))
+			{
+				Stop();
+				return;
+			}
+
 			var text = Read(clipboard);
+			var stamp = Stamp(clipboard);
+			var now = System.Diagnostics.Stopwatch.GetTimestamp();
+			if (ClipDedupe.Repeat(_lastStamp, _lastText, _lastTicks, stamp, text, now, System.Diagnostics.Stopwatch.Frequency))
+			{
+				Log.Info("NativePoc", "jni-bind class=android/content/ClipboardManager method=addPrimaryClipChangedListener deduped=1 text=" + text);
+				return;
+			}
+
+			_lastText = text;
+			_lastStamp = stamp;
+			_lastTicks = now;
 			Log.Info("NativePoc", "jni-bind class=android/content/ClipboardManager method=addPrimaryClipChangedListener text=" + text);
 			JniSink.Post(targetScreen, targetField, text);
 		};
 		_clipChanged = handler;
 		clipboard.PrimaryClipChanged += handler;
 		Log.Info("NativePoc", "jni-bind class=android/content/ClipboardManager method=addPrimaryClipChangedListener armed=1");
+	}
+
+	[JniMethod("removePrimaryClipChangedListener", "()V")]
+	public static void Stop()
+	{
+		var removed = _clipChanged is not null;
+		if (removed)
+		{
+			Manager().PrimaryClipChanged -= _clipChanged;
+			_clipChanged = null;
+		}
+
+		_lastText = null;
+		_lastStamp = 0;
+		_lastTicks = 0;
+		Log.Info("NativePoc", "jni-bind class=android/content/ClipboardManager method=removePrimaryClipChangedListener removed=" + (removed ? "1" : "0"));
+	}
+
+	static long Stamp(ClipboardManager clipboard)
+	{
+		if (!OperatingSystem.IsAndroidVersionAtLeast(26))
+			return 0;
+		return clipboard.PrimaryClip?.Description?.Timestamp ?? 0;
 	}
 
 	static ClipboardManager Manager()

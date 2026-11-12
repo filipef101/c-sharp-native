@@ -52,7 +52,7 @@ The log line is `jni-bind class=android/widget/Toast method=makeText text=pier`.
 
 ## Battery
 
-`samples/bind/DeviceBattery.cs` reads the capacity without a permission. `Read` runs off the UI thread and posts the number into the screen field. `Plugged` reads the sticky `ACTION_BATTERY_CHANGED` intent the same way. The log lines are `method=getIntProperty` and `method=EXTRA_PLUGGED`. A hot reload that changes the button from `DeviceBattery.Read` to `DeviceBattery.Plugged` rebinds the registered method. A new `Device*.cs` file still needs a republish.
+`samples/bind/DeviceBattery.cs` reads the capacity without a permission. `Read` runs off the UI thread and posts a `BatteryReading` into the screen field. A capacity from 0 through 100 posts that number. `-1`, and any other value outside that range, posts `unknown` rather than the raw int. The log line is `method=getIntProperty known=1 text=100` or `known=0 text=unknown`. `Plugged` reads the sticky `ACTION_BATTERY_CHANGED` intent the same way. A hot reload that changes the button from `DeviceBattery.Read` to `DeviceBattery.Plugged` rebinds the registered method. A new `Device*.cs` file still needs a republish.
 
 ```csharp
 DeviceBattery.Read("bind", "Note");
@@ -64,9 +64,27 @@ DeviceBattery.Read("bind", "Note");
 
 `DeviceClipboard.Listen` replaces any previous `PrimaryClipChanged` handler and posts the clip text into the named field. The arming log is `method=addPrimaryClipChangedListener armed=1`. A later clip change logs `text=` and the screen field updates. `dumpsys clipboard` on the API 34 image prints nothing; the log line is the proof.
 
+One `setPrimaryClip` on that image fires the listener twice, about 30ms apart, with the same text. When both events share a clip timestamp, or the same text arrives again inside 100ms, the second post is dropped and the log says `deduped=1`. A later set still posts. `Stop` removes the handler and logs `method=removePrimaryClipChangedListener`. The bind screen calls `Stop` from `OnLeave`, so back unsubscribes. A clip change after that does not post. Leaving the screen is the unsubscribe. Home pauses the activity and leaves the listener armed.
+
 ```csharp
 DeviceClipboard.Listen("bind", "Note");
 ```
+
+## Notification permission
+
+`samples/bind/DeviceNotify.cs` asks for `POST_NOTIFICATIONS` on API 33 and above, then posts `granted` or `denied` into the named field. The manifest overlay is `Properties/NotifyPermission.xml`, included when `NativePocJni` is set. Below API 33, and when the permission is already granted, `Ask` shows the notification and posts `granted` without a dialog. Otherwise `RequestPermissions` runs, and `OnRequestPermissionsResult` completes the same post. The log line is `method=requestPermission text=granted` or `text=denied`. A grant also logs `method=notify text=pier`. There is no reflection: the activity calls `DeviceNotify.OnResult`, and the screen calls `Ask`.
+
+```csharp
+DeviceNotify.Ask("bind", "Note");
+```
+
+`pm revoke` then the Notify button is the denied path. `pm grant` then the button is the granted path, and the shade shows the Bind notification.
+
+## Pause and resume
+
+`platform.OnPause`, `platform.OnResume`, and `platform.OnLeave` take a local function in `Render`. The activity calls them from `OnPause`, `OnResume`, and when the screen is popped. The bind screen writes `paused` into `Phase` and `resumed` into `Returned`. A hot reload of those functions replaces the handlers. `OnLeave` also calls `DeviceClipboard.Stop`. The host logs `lifecycle pause`, `lifecycle resume`, and `lifecycle leave`.
+
+The bind screen is a scroll of cards. Text, card, muted, and accent colors are the light `ThemeTokens` constants. The Android host maps those constants to the dark pair when the theme is dark, including a system night mode. The page color already follows `ThemeTokens.Page`.
 
 ## Bench
 
