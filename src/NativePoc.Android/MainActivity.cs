@@ -72,6 +72,7 @@ public sealed class MainActivity : Activity
 		};
 #endif
 		StartupMarks.Activity();
+		CrashReport.Install();
 		ThemeRuntime.Load(this);
 		ThemeRuntime.ApplyWindow(this);
 		Current = this;
@@ -115,6 +116,7 @@ public sealed class MainActivity : Activity
 			+ " decode-ms=" + decodeMs.ToString(CultureInfo.InvariantCulture)
 			+ " loaded=" + ScreenNav.Shared.Loaded.ToString(CultureInfo.InvariantCulture)
 			+ " staged=" + ScreenNav.Shared.Staged.ToString(CultureInfo.InvariantCulture));
+		StartupMarks.Phase("nav");
 		StorageSeed.Apply(this);
 #if DEBUG
 		StateStore.TryLoad(this);
@@ -157,6 +159,7 @@ public sealed class MainActivity : Activity
 		LocaleRuntime.WhenWarmed(() => RequestRender());
 		ScheduleLoopBench();
 		ScheduleRenderBench();
+		CrashReport.Arm(this);
 	}
 
 	void ScheduleRenderBench()
@@ -754,6 +757,9 @@ public sealed class MainActivity : Activity
 		StartupMarks.Arm(this);
 		var contentUs = TakeUs(clock);
 		LastTitle = TitleOf(tree);
+#if DEBUG
+		Log.Info(Tag, "reload-texts " + VisibleTexts(tree));
+#endif
 		var titleUs = TakeUs(clock);
 		if (_host is not null && _reconciler.Root is not null)
 			_host.RestoreFocus(_reconciler.Root);
@@ -892,6 +898,63 @@ public sealed class MainActivity : Activity
 
 		return count;
 	}
+
+#if DEBUG
+	static string VisibleTexts(Element element)
+	{
+		var builder = new StringBuilder();
+		AppendVisible(element, builder, 0);
+		if (builder.Length > 400)
+			builder.Length = 400;
+		return builder.ToString();
+	}
+
+	static void AppendVisible(Element element, StringBuilder builder, int depth)
+	{
+		if (builder.Length >= 400 || depth > 8)
+			return;
+		switch (element)
+		{
+			case Column column:
+				var count = column.Children.Count;
+				if (count > 8)
+					count = 8;
+				for (var index = 0; index < count; index++)
+					AppendVisible(column.Children[index], builder, depth + 1);
+				return;
+			case ScrollView scroll:
+				AppendVisible(scroll.Child, builder, depth + 1);
+				return;
+			case ListView list:
+				var rows = list.Rows.Count;
+				if (rows > 3)
+					rows = 3;
+				for (var index = 0; index < rows; index++)
+					AppendVisible(list.Rows[index], builder, depth + 1);
+				return;
+			case Text text:
+				if (builder.Length > 0)
+					builder.Append('|');
+				builder.Append(text.Value);
+				if (text.Style is { } style && style.FontSize != 0)
+					builder.Append('/').Append(style.FontSize.ToString(CultureInfo.InvariantCulture));
+				return;
+			case Button button:
+				if (builder.Length > 0)
+					builder.Append('|');
+				builder.Append(button.Title);
+				return;
+			case TextField:
+			case TextInput:
+			case Switch:
+			case Image:
+			case HostView:
+				return;
+			default:
+				throw Unknown(element);
+		}
+	}
+#endif
 
 	static string TitleOf(Element element)
 	{

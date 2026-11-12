@@ -131,6 +131,12 @@ public sealed class LoopRuleTests
 		Assert.Equal(ChangeEffect.ReloadScreen, ChangeEffectRules.Classify(["samples/hello/HelloScreen.cs"]));
 		Assert.False(ChangeEffectRules.IsAppScreen("samples/NativePoc.Packing/PackingScreen.cs"));
 		Assert.False(ChangeEffectRules.IsAppScreen("samples/NativePoc.LongList/LongListScreen.cs"));
+		Assert.True(ChangeEffectRules.IsProjectScreen("samples/NativePoc.Places/PlacesScreen.cs"));
+		Assert.True(ChangeEffectRules.IsProjectScreen("samples/NativePoc.Form/FormScreen.cs"));
+		Assert.False(ChangeEffectRules.IsProjectScreen("samples/NativePoc.Packing/PackingScreen.cs"));
+		Assert.False(ChangeEffectRules.IsProjectScreen("samples/hello/HelloScreen.cs"));
+		Assert.Equal(ChangeEffect.ReloadScreen, ChangeEffectRules.Classify(["samples/NativePoc.Places/PlacesScreen.cs"]));
+		Assert.Equal(ChangeEffect.ReloadScreen, ChangeEffectRules.Classify(["samples/NativePoc.Form/FormScreen.cs"]));
 	}
 
 	[Fact]

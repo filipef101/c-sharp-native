@@ -173,3 +173,60 @@ Feed x64 APK 3,165,932 sha256 `749c8045e003f4d782e20d7416b7f815a1735005dde0dd0ab
 Emulator-run. `adb emu geo fix` is longitude then latitude, and this image applies it while a listener is registered. `geo fix -121.5 38.5` during a read logged `location access=Granted lat=38.5 lon=-121.5 accuracy=5`. An earlier `geo fix -122.4 37.8 100` had landed as lat 37.799998, lon -122.4. A fix sent while GPS was stopped did not move `dumpsys location`. `pm revoke` of both permissions, then `--es nativepoc_location probe`, logged `location access=Denied`. `pm set-permission-flags` `user-fixed` on both, then a read, logged `location access=PermanentlyDenied`, and dumpsys showed the `USER_FIXED` flag. `LocationAccessRules.Classify` covers the three states in a unit test. `Location.Parse` builds the `LocationFix` record. An interpreted handler test lowers `samples/where/WhereScreen.cs`, invokes `read`, and parses `granted 37.8 -122.4 4`.
 
 The same handler was hot-reloaded on the emulator. A Debug listener published with `-p:NativePocDevListener=true -p:NativePocLocation=true` launched pid 8263, `--es nativepoc_root where`. The tree was `source=compiled`, `value="idle"`, `title="Read"`, `stack 0 counter`, `stack 1 where`. Changing the button title to `Locate` and `cnative lower samples/where/WhereScreen.cs --apply` logged `hotreload-applied idle program=1`. The tree was `source=adcac7dfe5e8d207ecdd47a1d392934a`, `title="Locate"`, and the same stack. `cnative agent press read` then logged `location result granted 38.5 -121.5 5` and the label became `granted 38.5 -121.5 5`. That fix is the earlier `adb emu geo fix -121.5 38.5`. The button title in the source was put back to `Read` after the run.
+
+## Mac cold start, measured by the maintainer
+
+Not measured in this workspace. Filipe's MacBook, arm64 pixel_8 emulator, host GPU, host load 7.9-9.2. `mac-bench.sh` n=20 interleaved, the corrected one-APK command. Feed APK sha256 prefix `85d2fc31`, list floor `d7ffd172`. `am start` TotalTime p50/p90: counter screen 360.0/503.1, feed 441.0/836.6, Java list floor 367.5/526.5. present_p50 206.5 / 223.0 / none. ui_p50 20.2 / 35.6 / 34.4. Since-process p50: counter runtime 94.5, render 156.5, draw 206.5. Feed runtime 97.5, render 150.5, attach 150.0, bind 207.5, draw 223.0, list 220.5. The floor log had no phase lines. The counter screen matches the Java list app. The C# feed is about 73 ms slower than the Java list floor at p50. About 95 ms of every C# launch is before `runtime`.
+
+The command for that machine, with the arm64 APKs:
+
+```
+tools/bench/mac-bench.sh --device <pixel_8> --n 10 --out /tmp/feed-cold \
+  --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+Counter and feed are the same feed APK. `mac-bench.sh` refuses one package installed from two APK paths.
+
+## Feed versus the list floor
+
+Emulator-run, emulator-5554, API 34, swiftshader, font scale 1.0. n=10 interleaved, Hyndman-Fan type 7, one warmup discarded. Not a phone. Not iOS. This is not the Mac result above.
+
+The list floor now logs the same since-process clock: `startup mark=activity`, `phase=process`, `phase=runtime`, `phase=onCreate`, `phase=render`, `phase=layout`, `list-first`, `phase=draw`, `phase=idle`. Tag stays `Floor`. The APK is the same bytes for x64 and arm64. 531,381 bytes, sha256 `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1`. Built, and run on the x64 emulator. Not run on arm64 hardware.
+
+The feed's post-draw image work was posted from `OnPreDraw`, so it ran before ActivityThread's launch idler and extended `am start -W` TotalTime. `PresentMark` now adds an idle handler, and that handler posts the flush. The image decode is after the launch is reported. `RemoteImages` skips the gray `ColorDrawable` when the cell already has a background. The cell background is still `0xFFE6E6E6`.
+
+Shipped feed x64 APK 3,350,252 sha256 `e0e7c18e6f1cc69f1a654a39dbc2c62734e8f21a09e751c8bd4a84745e43e0e4`. `.so` 7,475,264 sha256 `6ee4e86850b5f44131535e2b34371b97f13427e9383784c1f1f7fad6bec3a326`. Dex 324,884 sha256 `f82831f68d2002c50c45167b27391ab9092d732420b684766c6d176e0101fa40`. Load on this series climbed from 3.36 to 3.90. Counter, from that same feed APK, TotalTime p50/p90 853.5/897.6, present 179.5, ui 145.5, draw 282.0. Since process: runtime 66.5, render 116.0, draw 179.5. before 25.0, managed 32.0, after 39.0. Feed TotalTime 656.0/692.8, present 142.0, ui 121.5, draw 208.1. Since process: runtime 89.0, render 110.0, attach 109.5, bind 136.5, draw 142.0, list 141.0. before 21.5, managed 35.5, after 39.0, layout 141.0. The n=10 logcat slice, taken when `am start` returned, has no `phase=idle` and no `phase=flush`. Floor TotalTime 748.0/797.4, ui 113.7, draw 161.1. Since process: runtime 84.0, render 115.5, draw 183.5, list 178.0, onCreate 84.0, layout 178.0, idle 604.0. On this emulator the feed is faster than the floor. The Mac 73 ms gap is not reproduced here. One later feed launch, not a percentile, TotalTime 1038, draw since-process 280, idle 1215, flush 1216, `startup frame` binds=9 text-us=144 image-us=324. Idle and flush are after TotalTime.
+
+Feed arm64, built, not run. APK 3,190,511 sha256 `c8fb3a7e3d1e4ba7a668717b2e20205c0c927974b90e2ad852537d2a1b0c40b5`. `.so` 7,791,752 sha256 `04d07a02fc2647b49b42bf442864b47f9f7cf08c87f991eb74471b2f065282e5`. Dex 324,884, same hash as the x64 feed.
+
+## Before runtime
+
+The clock is `SystemClock.elapsedRealtime`. Process t is `Process.getStartElapsedRealtime`. `StartupProbe.Before` is a content provider with `initOrder` 2147483647. Its class initializer logs `phase=java-class` and `onCreate` logs `phase=before-runtime`, both before `System.loadLibrary`. `NativeAotRuntimeProvider` is `initOrder` 1999999999. `StartupProbe.After` is `initOrder` 1 and logs `phase=after-runtime` after `JNI_OnLoad` and the managed startup that loadLibrary runs. GC init, the Java.Interop typemap, and the runtime's static constructors sit inside that loadLibrary call. They are not separate timestamps. A module initializer records `Environment.TickCount64` only. It does not call `Android.OS.Process`. That API is not ready, and a failed type initializer stays failed for the process. `Activity` back-calculates `phase=managed` and logs it after `startup mark=activity`, then `phase=runtime`. `NavCatalog` and `ThemeRuntime` construct on first touch in `OnCreate`, after `phase=runtime`.
+
+Emulator-run, separate n=10 series, not interleaved with each other. `mac-bench.sh` installs a package from one APK path. Not a phone. Not iOS.
+
+Default counter x64, the shipped binary. Load 0.41 to 1.89. TotalTime 715.5/759.0, present 129.0, ui 117.2, draw 282.8. runtime 68.5, render 98.0, draw 129.0. before 19.0, managed 28.0, after 29.0. The native slice, before-runtime to managed, is about 9 ms. The activity is the rest of the time to `runtime`.
+
+`NativePocStartupTune` is not the default. It sets `OptimizationPreference=Speed`, `IlcFoldIdenticalMethodBodies=true`, `ServerGarbageCollection=false`, `ConcurrentGarbageCollection=false`, `System.GC.ConserveMemory=0`, and `DOTNET_GCgen0size=2097152` from `Properties/startup-gc.env`. The link already used `libRuntime.WorkstationGC.a` without the flag. The rsp contains `--runtimeknob:System.GC.Server=false`, `--runtimeknob:System.GC.Concurrent=false`, `--methodbodyfolding:all`, and `-O`. The `.so` contains `2097152`. Load 0.13 to 1.63. TotalTime 721.0/808.5, present 130.5, ui 114.0, draw 281.8. runtime 59.0, render 93.0, draw 130.5. before 17.0, managed 27.0, after 30.0. TotalTime did not drop. The flag stays off.
+
+`OptimizationPreference=Size` on an otherwise default counter. The rsp line is still `-O`. Load 1.63 to 3.26, heavier than the default series. TotalTime 729.5/795.5, present 129.0, ui 122.7, draw 280.4. runtime 54.5, render 88.0, draw 129.0. before 20.5, managed 31.5, after 37.0. TotalTime did not drop. Size is not the default.
+
+`.so` size, counter x64 unless noted. Default 7,316,336 sha256 `526b9bb3edc9e9173b8ea68e175d1580e1136a9d95922a5a6725ce1f0a95dbaf`. Tune 7,587,040 sha256 `e24ac5b50acfc1ebe5afa3d0a26e083a8b1d16ec418ffa724b21240645a5933b`. Size 7,129,984 sha256 `c340015b32fadc0c395b0d9f847f8f26c3616314ae7a7b0f511ae68822f472be`. Counter arm64, built, not run, default flags. `.so` 7,621,896 sha256 `b82419b79e9aa4c41ef65f6e27919ce08e0bfcf97e941d0ac1b8da72e77bf250`.
+
+Counter x64 APK 3,126,133 sha256 `a05ebd851251ef77bdae83e385c6fac1dea6f500ce23bb7870756eb331ca7e58`. Dex 52,016 sha256 `277a36722bee8c51dfadfb6a0dd940cdd0500de71925f8e2c84391ec516fd77c`. Counter arm64 APK 2,962,296 sha256 `4bbddb378e1ed75581c0de5bf1aa15a58962a7db92b11099f5af3015e2f2d7c1`. Dex 52,016, same hash. Tune APK 3,281,781 sha256 `fd4f9d75c68c0d2ab1203b2791ff8494222e33b6884a489c34098f043693ec76`. Size APK 3,068,789 sha256 `6de5fbb1a77608ec0b98691cca2958cfe4f48cf230c1a441d5f78c92fec223e2`.
+
+## Edit corpus
+
+`tools/devx/edit-corpus.py` writes 157 edits and restores the files when it exits. `tools/devx/edit-corpus.sh` runs it. `--check` checks the old strings and does not write. One Debug listener, `cnative run android --device emulator-5554 --listener --restart-on-rude --debounce 40`. Emulator-run. Not a phone. Not iOS.
+
+Counts: apply 139, swap 8, overlay 8, restart 2, crash 0. Reload time from `reloaded in` and `body-swap`, n=147, p50 20.7 ms, p90 35.0 ms. Categories: text 36, style 18, syntax 16, handler 16, list 15, helper 12, async 10, try 10, nav 10, location 8, rude-signature 4, rude-field 2. A syntax error is a Roslyn `error CS` line and a `dev-overlay` that the next successful edit clears. A new field on `AppState` prints `restarting` and the pid changes. A signature change that the action VM can still lower swaps the body in the same process (`swapped vm-body`, `vm-body` in logcat, pid unchanged). The running screens do not call `LibraryFormat.Label` or `CounterService.Next`. A project sample screen (`samples/NativePoc.Places`, `samples/NativePoc.Form`) is a reload, same as `samples/<name>`. Unmount disposes the column on the next frame, after the reconciler has finished the walk. An earlier notes reload disposed a `GestureColumn` the new tree still touched.
+
+## Release crash
+
+`StackTraceSupport` is true in Release. `IlcGenerateDebugInfo` stays false. A frame is `at NativePoc.CrashReport.ThrowNow() + 0x27`. There is no `file:line`. The managed pdb stays under `obj` and is not in the APK. The link writes `NativePoc.Android.so.dbg` beside the `.so` and strips the library that goes into the APK. The APK zip listing is `lib/<abi>/libNativePoc.Android.so` only. The `.dbg` is native symbols, not C# lines.
+
+The throw is the intent extra `nativepoc_crash=throw`. Without that extra the process does not throw. The throw is on a background Java thread. A throw on the main looper unwinds it, the crash text never draws, and the process sits as an ANR because the replaced uncaught handler does not kill it. The handler logs `crash-java` and the exception text, then `RunOnUiThread` sets a `TextView` whose text starts `The app hit an error` and whose content description is `crash-screen`. A later thread sleeps 1200 ms, finishes the activity, and `KillProcess`.
+
+Emulator-run on the shipped feed x64 APK above. No extra: cold start, TotalTime 713, no `crash`, `FATAL`, or `ThrowNow` line. With the extra: `FATAL EXCEPTION: Thread-3`, `at NativePoc.CrashReport.ThrowNow() + 0x27`, `at NativePoc.CrashReport.ThrowSoon.Run() + 0x6`, `crash-java`, `crash-screen`. No `.cs:` line. The screenshot shows that text and no ANR dialog. `pidof` was empty after the sleep. Not a phone. Not iOS.

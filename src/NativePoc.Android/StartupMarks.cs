@@ -25,6 +25,8 @@ static class StartupMarks
 	[ModuleInitializer]
 	internal static void NoteManaged()
 	{
+		// TickCount64 only. Android.OS.Process here runs before the JNI runtime
+		// exists, and a failed type initializer stays failed for the process.
 		_managedTick = System.Environment.TickCount64;
 	}
 #pragma warning restore CA2255
@@ -41,6 +43,7 @@ static class StartupMarks
 		Android.Util.Log.Info(MainActivity.Tag, "startup mark=managed-main since-process-ms=" + managed.ToString(CultureInfo.InvariantCulture));
 		Android.Util.Log.Info(MainActivity.Tag, "startup mark=activity since-process-ms=" + since.ToString(CultureInfo.InvariantCulture));
 		PhaseAt("process", _process);
+		PhaseAt("managed", _process + managed);
 		PhaseAt("runtime", SystemClock.ElapsedRealtime());
 		LogGc("activity");
 	}
@@ -154,9 +157,38 @@ static class StartupMarks
 				Android.Util.Log.Info(MainActivity.Tag, "startup report-fully-drawn skipped");
 			var flush = _afterPresent;
 			if (flush is not null)
-				_view.Post(flush);
+			{
+				var queue = Looper.MainLooper?.Queue;
+				if (queue is not null)
+					queue.AddIdleHandler(new IdleFlush(_view, flush));
+				else
+					_view.Post(flush);
+			}
 
 			return true;
+		}
+	}
+
+	// The activity Idler, added at resume, reports launch time on the first idle.
+	// A View.Post from OnPreDraw is a message and runs before that Idler, so it
+	// extends am start -W. An idle handler added during the draw runs after it,
+	// and the flush itself is a later message.
+	sealed class IdleFlush : Java.Lang.Object, MessageQueue.IIdleHandler
+	{
+		readonly View _view;
+		readonly Action _flush;
+
+		public IdleFlush(View view, Action flush)
+		{
+			_view = view;
+			_flush = flush;
+		}
+
+		public bool QueueIdle()
+		{
+			Phase("idle");
+			_view.Post(_flush);
+			return false;
 		}
 	}
 }

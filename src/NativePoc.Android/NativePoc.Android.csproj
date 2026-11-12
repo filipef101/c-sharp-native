@@ -131,7 +131,7 @@
 		<DebuggerSupport>false</DebuggerSupport>
 		<UseSystemResourceKeys>true</UseSystemResourceKeys>
 		<IlcGenerateDebugInfo>false</IlcGenerateDebugInfo>
-		<StackTraceSupport>false</StackTraceSupport>
+		<StackTraceSupport>true</StackTraceSupport>
 		<MetricsSupport>false</MetricsSupport>
 		<StartupHookSupport>false</StartupHookSupport>
 	</PropertyGroup>
@@ -151,6 +151,24 @@
 		<ProjectReference Include="..\..\samples\NativePoc.Packing\NativePoc.Packing.csproj" />
 		<ProjectReference Include="..\..\samples\NativePoc.Library\NativePoc.Library.csproj" />
 		<ProjectReference Include="..\NativePoc.ReloadGen\NativePoc.ReloadGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+	</ItemGroup>
+	<ItemGroup>
+		<AndroidJavaSource Remove="Java\nativepoc\StartupProbe.java" />
+		<AndroidJavaSource Include="Java\nativepoc\StartupProbe.java">
+			<Bind>false</Bind>
+		</AndroidJavaSource>
+	</ItemGroup>
+	<PropertyGroup Condition="'$(NativePocStartupTune)' == 'true' And '$(Configuration)' == 'Release'">
+		<OptimizationPreference>Speed</OptimizationPreference>
+		<IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
+		<ServerGarbageCollection>false</ServerGarbageCollection>
+		<ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(NativePocStartupTune)' == 'true' And '$(Configuration)' == 'Release'">
+		<RuntimeHostConfigurationOption Include="System.GC.Server" Value="false" />
+		<RuntimeHostConfigurationOption Include="System.GC.Concurrent" Value="false" />
+		<RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="0" />
+		<AndroidEnvironment Include="Properties\startup-gc.env" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(NativePocAotProfile)' != ''">
 		<AndroidAotProfile Include="$(NativePocAotProfile)" />

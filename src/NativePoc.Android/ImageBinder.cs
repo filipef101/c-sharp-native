@@ -100,7 +100,8 @@ static class RemoteImages
 			return;
 		}
 
-		image.SetImageDrawable(new ColorDrawable(new Color(unchecked((int)0xFFE6E6E6))));
+		if (image.Background is null)
+			image.SetImageDrawable(new ColorDrawable(new Color(unchecked((int)0xFFE6E6E6))));
 		image.ContentDescription = "Loading image";
 		var app = context.ApplicationContext ?? context;
 		ThreadPool.QueueUserWorkItem(_ =>

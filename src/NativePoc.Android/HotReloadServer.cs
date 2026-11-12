@@ -344,7 +344,7 @@ static class HotReloadServer
 	static void LogFailure(string hex, Exception ex)
 	{
 		var message = ex.Message.Replace(hex, "[redacted]", StringComparison.OrdinalIgnoreCase);
-		Android.Util.Log.Error(MainActivity.Tag, "hotreload-error " + ex.GetType().Name + " " + message);
+		Android.Util.Log.Error(MainActivity.Tag, "hotreload-error " + ex.GetType().Name + " " + message + "\n" + ex);
 	}
 
 	static Stream Input(LocalSocket socket)

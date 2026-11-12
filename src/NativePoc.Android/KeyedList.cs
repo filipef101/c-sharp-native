@@ -344,6 +344,7 @@ static class KeyedList
 			}
 
 			var imageUs = BindTimes.Micros(mark);
+			StartupMarks.Phase("flush");
 			Android.Util.Log.Info(
 				MainActivity.Tag,
 				"startup frame binds=" + _binds.ToString(CultureInfo.InvariantCulture)

@@ -278,7 +278,7 @@ static class AndroidLoop
 		foreach (var path in paths)
 		{
 			var relative = ChangeEffectRules.Normalize(path);
-			if (ChangeEffectRules.IsAppScreen(relative))
+			if (ChangeEffectRules.IsAppScreen(relative) || ChangeEffectRules.IsProjectScreen(relative))
 				RememberScreen(screens, relative);
 			else if (ChangeEffectRules.IsSampleCompanion(relative))
 			{

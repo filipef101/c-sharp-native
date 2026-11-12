@@ -427,9 +427,24 @@ sealed class AndroidHost : IElementHost<View>
 	{
 		if (!_gone.Add(view))
 			return;
-		if (view.Parent is ViewGroup group)
+		if (view.Handle == IntPtr.Zero)
+			return;
+		if (view.Parent is ViewGroup group && group.Handle != IntPtr.Zero)
 			group.RemoveView(view);
-		view.Dispose();
+		// Dispose after this traversal. Doing it here drops a parent that the
+		// unmount is still walking, and the next screen hits a disposed column.
+		var decor = _activity.Window?.DecorView;
+		if (decor is null || decor.Handle == IntPtr.Zero)
+		{
+			view.Dispose();
+			return;
+		}
+
+		decor.Post(() =>
+		{
+			if (view.Handle != IntPtr.Zero)
+				view.Dispose();
+		});
 	}
 
 	void BindGesture(View view, NodePath path, byte mask)

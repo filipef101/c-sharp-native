@@ -26,6 +26,7 @@ static class ChangeEffectRules
 			if (normalized.StartsWith("src/NativePoc.Screen/", StringComparison.Ordinal)
 				|| normalized.StartsWith("samples/NativePoc.Packing/", StringComparison.Ordinal)
 				|| IsAppScreen(normalized)
+				|| IsProjectScreen(normalized)
 				|| IsSampleCompanion(normalized))
 				effect = ChangeEffect.ReloadScreen;
 		}
@@ -59,6 +60,19 @@ static class ChangeEffectRules
 		if (parts.Length != 3 || !NewLoop.IsName(parts[1]))
 			return false;
 		return parts[2].Length > "Screen.cs".Length;
+	}
+
+	public static bool IsProjectScreen(string relativePath)
+	{
+		var normalized = Normalize(relativePath);
+		if (!normalized.StartsWith("samples/", StringComparison.Ordinal) || !normalized.EndsWith("Screen.cs", StringComparison.Ordinal))
+			return false;
+		if (normalized.Contains("/bin/", StringComparison.Ordinal) || normalized.Contains("/obj/", StringComparison.Ordinal))
+			return false;
+		if (IsAppScreen(normalized) || IsPackingScreen(normalized))
+			return false;
+		var parts = normalized.Split('/');
+		return parts.Length == 3 && parts[1].Length > 0 && parts[2].Length > "Screen.cs".Length;
 	}
 
 	public static bool IsSampleCompanion(string relativePath)

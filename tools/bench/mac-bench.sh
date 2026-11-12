@@ -441,6 +441,40 @@ done
 		bind_p50="$(phase_p50 'phase=bind ')"
 		draw_phase_p50="$(phase_p50 'phase=draw ')"
 		list_p50="$(phase_p50 'list-first=')"
+		# java-class, before-runtime, and after-runtime are logged before
+		# startup mark=activity, so the first-after-mark rule never sees them.
+		# Keep the value that immediately preceded that mark.
+		prior_p50() {
+			local pattern="$1"
+			local -a values=()
+			local round value
+			for ((round = 0; round < samples; round++)); do
+				value="$(awk -v pattern="$pattern" '
+					$0 ~ pattern {
+						value = $0
+						sub(/^.*since-process-ms=/, "", value)
+						sub(/[^0-9].*$/, "", value)
+						if (value ~ /^[0-9]+$/)
+							pending = value
+					}
+					index($0, "startup mark=activity ") {
+						if (pending != "")
+							hit = pending
+						pending = ""
+					}
+					END {
+						if (hit != "")
+							print hit
+					}
+				' "$out/$label-log-$round.txt" || true)"
+				[[ -n "$value" ]] && values+=("$value")
+			done
+			if [[ "${#values[@]}" -eq 0 ]]; then
+				echo "-"
+				return
+			fi
+			printf '%s\n' "${values[@]}" | percentile 0.50
+		}
 		{
 			echo "series=$label n=$samples"
 			echo "raw=$(tr '\n' ' ' <"$out/$label-totals.txt" | sed 's/ $//')"
@@ -449,11 +483,20 @@ done
 			echo "ui is DrawStart - PerformTraversalsStart on the first framestats row, milliseconds"
 			echo "draw is SwapBuffers - IssueDrawCommandsStart on that row, milliseconds"
 			echo "startup_since_process_p50 runtime=$runtime_p50 render=$render_p50 attach=$attach_p50 bind=$bind_p50 draw=$draw_phase_p50 list=$list_p50"
+			before_p50="$(prior_p50 'phase=before-runtime ')"
+			managed_p50="$(phase_p50 'phase=managed ')"
+			after_p50="$(prior_p50 'phase=after-runtime ')"
+			oncreate_p50="$(phase_p50 'phase=onCreate ')"
+			layout_p50="$(phase_p50 'phase=layout ')"
+			idle_p50="$(phase_p50 'phase=idle ')"
+			flush_p50="$(phase_p50 'phase=flush ')"
+			echo "startup_breakdown_p50 before=$before_p50 managed=$managed_p50 after=$after_p50 oncreate=$oncreate_p50 layout=$layout_p50 idle=$idle_p50 flush=$flush_p50"
 			echo "startup clock is SystemClock.elapsedRealtime. process t is Process.startElapsedRealtime. list is the first list-first= line."
 			echo "method=am start -W -S LaunchState=COLD warmup=1 discarded per series interleaved=1 percentile=Hyndman-Fan-7"
 			echo "load=$(tr '\n' ' ' <"$out/round-load.txt" | sed 's/ $//')"
 		} >"$out/$label-summary.txt"
 		echo "startup_since_process_p50 $label runtime=$runtime_p50 render=$render_p50 attach=$attach_p50 bind=$bind_p50 draw=$draw_phase_p50 list=$list_p50"
+		echo "startup_breakdown_p50 $label before=$before_p50 managed=$managed_p50 after=$after_p50 oncreate=$oncreate_p50 layout=$layout_p50 idle=$idle_p50 flush=$flush_p50"
 	done
 	floor_seen=0
 	for ((s = 0; s < ${#labels[@]}; s++)); do
