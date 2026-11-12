@@ -26,6 +26,9 @@ static class PlatformModules
 			case ("theme", "Mode", 1):
 				ThemeRuntime.Set(activity, args[0]);
 				return;
+			case ("animate", "Play", 1):
+				MotionPlayer.Replay(args[0]);
+				return;
 #if NATIVEPOC_HTTP
 			case ("feed", "Apply", 1):
 				FeedJson.FillBag(args[0]);

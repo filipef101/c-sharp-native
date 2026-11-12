@@ -6,12 +6,23 @@
 # p50/p90/p99 frame time from framestats. Host load is `uptime`.
 # Percentiles are Hyndman-Fan type 7, the same function as mac-bench.sh.
 #
+# Frame time is FrameCompleted - IntendedVsync. That includes the wait from
+# the intended vsync until input handling starts. Work time is
+# FrameCompleted - HandleInputStart (or the next stage that is present).
+# Vsync wait is work-start - IntendedVsync. The three are reported apart.
+#
+# Several APKs interleave the way mac-bench.sh --run does: every round
+# runs each APK once before the next round.
+#
 #   tools/bench/scroll-bench.sh --self-test
 #   tools/bench/scroll-bench.sh --serial emulator-5554 \
 #     --apk feed.apk \
 #     --activity com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
 #     --swipes 8 --rounds 1 \
 #     --extra "--es nativepoc_root feed"
+#   tools/bench/scroll-bench.sh --swipes 8 --rounds 5 \
+#     --run feed:feed.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+#     --run floor:list-floor.apk:com.scratch.listfloor/.ListFloorActivity
 set -euo pipefail
 
 serial=""
@@ -24,6 +35,10 @@ extra=""
 dry_run=0
 self_test=0
 wait_seconds=45
+labels=()
+apks=()
+components=()
+extras=()
 
 usage() {
 	cat <<'EOF'
@@ -37,11 +52,37 @@ tools/bench/scroll-bench.sh [options]
   --rounds <count>  launches. Default: 1.
   --extra <words>   extra arguments to `am start`, for example
                     --extra "--es nativepoc_root feed"
+  --run <spec>      label:apk:component[:extras]. Repeat for each APK.
+                    Rounds interleave: round 0 runs every label, then
+                    round 1 runs every label. Component contains a slash.
   --out <dir>       raw gfxinfo and the summary. Default: tools/bench/out/scroll-bench
   --wait <seconds>  how long to wait for list-first=. Default: 45.
   --dry-run         print the plan and do not call adb.
   --self-test       check percentile, uptime parsing, and framestats.
 EOF
+}
+
+add_run() {
+	local spec="$1"
+	local label rest run_apk run_component run_extra
+	label="${spec%%:*}"
+	rest="${spec#*:}"
+	run_apk="${rest%%:*}"
+	rest="${rest#*:}"
+	run_component="${rest%%:*}"
+	if [[ "$rest" == "$run_component" ]]; then
+		run_extra=""
+	else
+		run_extra="${rest#*:}"
+	fi
+	if [[ -z "$label" || -z "$run_apk" || -z "$run_component" || "$run_component" != */* ]]; then
+		echo "--run must be label:apk:package/class[:extras]: $spec" >&2
+		exit 2
+	fi
+	labels+=("$label")
+	apks+=("$run_apk")
+	components+=("$run_component")
+	extras+=("$run_extra")
 }
 
 while [[ $# -gt 0 ]]; do
@@ -52,6 +93,7 @@ while [[ $# -gt 0 ]]; do
 		--swipes) swipes="${2:?}"; shift 2 ;;
 		--rounds) rounds="${2:?}"; shift 2 ;;
 		--extra) extra="${2:?}"; shift 2 ;;
+		--run) add_run "${2:?}"; shift 2 ;;
 		--out) out="${2:?}"; shift 2 ;;
 		--wait) wait_seconds="${2:?}"; shift 2 ;;
 		--dry-run) dry_run=1; shift ;;
@@ -133,9 +175,13 @@ host_load() {
 	parse_load "$(uptime 2>/dev/null || true)"
 }
 
-# Print "ms jank" for each finished framestats row.
-# ms is FrameCompleted - IntendedVsync. jank is 1 when FrameCompleted is
-# after FrameDeadline. Rows still in progress (0 or INT64_MAX) are skipped.
+# Print "frame work vsync jank" for each finished framestats row.
+# frame is FrameCompleted - IntendedVsync (includes the vsync wait).
+# work is FrameCompleted - HandleInputStart when that stamp sits inside
+# the frame, otherwise the earliest later stage that does.
+# vsync is that start minus IntendedVsync.
+# jank is 1 when FrameCompleted is after FrameDeadline.
+# Rows still in progress (0 or INT64_MAX) are skipped.
 frame_rows() {
 	awk -F, '
 		function col(name,    i) {
@@ -144,11 +190,18 @@ frame_rows() {
 					return i
 			return 0
 		}
+		function inside(v, a, c) {
+			return (v > a && v < c) ? v : 0
+		}
 		$1 == "Flags" {
 			n = split($0, names, ",")
 			intended = col("IntendedVsync")
 			deadline = col("FrameDeadline")
 			completed = col("FrameCompleted")
+			handle = col("HandleInputStart")
+			animation = col("AnimationStart")
+			traversals = col("PerformTraversalsStart")
+			draw = col("DrawStart")
 			next
 		}
 		intended == 0 || deadline == 0 || completed == 0 { next }
@@ -160,10 +213,34 @@ frame_rows() {
 				next
 			if (c < a)
 				next
+			start = a
+			if (handle > 0)
+				start = inside($(handle) + 0, a, c)
+			if (start == 0 && animation > 0)
+				start = inside($(animation) + 0, a, c)
+			if (start == 0 && traversals > 0)
+				start = inside($(traversals) + 0, a, c)
+			if (start == 0 && draw > 0)
+				start = inside($(draw) + 0, a, c)
+			if (start == 0)
+				start = a
 			jank = (d > 0 && c > d) ? 1 : 0
-			printf "%.3f %d\n", (c - a) / 1000000, jank
+			printf "%.3f %.3f %.3f %d\n", (c - a) / 1000000, (c - start) / 1000000, (start - a) / 1000000, jank
 		}
 	' "$1"
+}
+
+print_plan() {
+	local round=0
+	local index=0
+	while [[ "$round" -lt "$rounds" ]]; do
+		index=0
+		while [[ "$index" -lt "${#labels[@]}" ]]; do
+			echo "round $round ${labels[$index]}"
+			index=$((index + 1))
+		done
+		round=$((round + 1))
+	done
 }
 
 summary_field() {
@@ -206,8 +283,8 @@ Janky frames: 1 (25.00%)
 90th percentile: 30ms
 99th percentile: 40ms
 Flags,FrameTimelineVsyncId,IntendedVsync,Vsync,OldestInputEvent,NewestInputEvent,HandleInputStart,AnimationStart,PerformTraversalsStart,DrawStart,FrameDeadline,FrameInterval,FrameStartTime,SyncQueued,SyncStart,IssueDrawCommandsStart,SwapBuffers,FrameCompleted,DequeueBufferDuration,QueueBufferDuration,GpuCompleted,SwapBuffersCompleted,DisplayPresentTime,CommandSubmissionCompleted
-0,1,1000000000,1000000000,0,0,0,0,0,0,1012000000,16666666,0,0,0,0,0,1016000000,0,0,0,0,0,0
-0,2,2000000000,2000000000,0,0,0,0,0,0,2032000000,16666666,0,0,0,0,0,2008000000,0,0,0,0,0,0
+0,1,1000000000,1000000000,0,0,1004000000,0,0,0,1012000000,16666666,0,0,0,0,0,1016000000,0,0,0,0,0,0
+0,2,2000000000,2000000000,0,0,2002000000,0,0,0,2032000000,16666666,0,0,0,0,0,2008000000,0,0,0,0,0,0
 0,3,3000000000,3000000000,9223372036854775807,9223372036854775807,0,0,0,0,3012000000,16666666,0,0,0,0,0,9223372036854775807,0,0,0,0,0,0
 EOF
 	got="$(frame_rows "$fixture")"
@@ -220,19 +297,37 @@ EOF
 		exit 1
 	fi
 	local first_jank second_jank
-	first_jank="$(printf '%s\n' "$got" | awk 'NR == 1 { print $2 }')"
-	second_jank="$(printf '%s\n' "$got" | awk 'NR == 2 { print $2 }')"
+	first_jank="$(printf '%s\n' "$got" | awk 'NR == 1 { print $4 }')"
+	second_jank="$(printf '%s\n' "$got" | awk 'NR == 2 { print $4 }')"
 	if [[ "$first_jank" != "1" || "$second_jank" != "0" ]]; then
 		echo "framestats jank self-test failed: $got" >&2
 		exit 1
 	fi
-	local times p50f
+	local times p50f p50w p50v
 	times="$(printf '%s\n' "$got" | awk '{ print $1 }')"
 	p50f="$(printf '%s\n' "$times" | percentile 0.50)"
 	if [[ "$p50f" != "12.0" ]]; then
 		echo "framestats percentile self-test failed: $p50f" >&2
 		exit 1
 	fi
+	p50w="$(printf '%s\n' "$got" | awk '{ print $2 }' | percentile 0.50)"
+	p50v="$(printf '%s\n' "$got" | awk '{ print $3 }' | percentile 0.50)"
+	if [[ "$p50w" != "9.0" || "$p50v" != "3.0" ]]; then
+		echo "work/vsync self-test failed: work=$p50w vsync=$p50v" >&2
+		printf '%s\n' "$got" >&2
+		exit 1
+	fi
+	labels=(feed floor)
+	rounds=2
+	local plan
+	plan="$(print_plan)"
+	if [[ "$plan" != $'round 0 feed\nround 0 floor\nround 1 feed\nround 1 floor' ]]; then
+		echo "interleave self-test failed:" >&2
+		printf '%s\n' "$plan" >&2
+		exit 1
+	fi
+	rounds=1
+	labels=()
 	echo "scroll-bench self-test ok"
 }
 
@@ -241,14 +336,26 @@ if [[ "$self_test" -eq 1 ]]; then
 	exit 0
 fi
 
-if [[ -z "$apk" || -z "$activity" ]]; then
-	echo "--apk and --activity are required" >&2
-	usage >&2
+if [[ "${#labels[@]}" -eq 0 ]]; then
+	if [[ -z "$apk" || -z "$activity" ]]; then
+		echo "--apk and --activity are required (or repeat --run)" >&2
+		usage >&2
+		exit 2
+	fi
+	add_run "app:${apk}:${activity}:${extra}"
+elif [[ -n "$apk" || -n "$activity" || -n "$extra" ]]; then
+	echo "Use either --apk/--activity/--extra or --run, not both" >&2
 	exit 2
 fi
-if [[ ! -f "$apk" ]]; then
-	echo "APK not found: $apk" >&2
-	exit 1
+if [[ "$dry_run" -eq 0 ]]; then
+	index=0
+	while [[ "$index" -lt "${#labels[@]}" ]]; do
+		if [[ ! -f "${apks[$index]}" ]]; then
+			echo "APK not found: ${apks[$index]}" >&2
+			exit 1
+		fi
+		index=$((index + 1))
+	done
 fi
 
 adb_cmd() {
@@ -273,51 +380,64 @@ if [[ -z "$serial" ]]; then
 	serial="${online[0]}"
 fi
 
-pkg="${activity%%/*}"
 if [[ -z "$out" ]]; then
 	out="$(pwd)/tools/bench/out/scroll-bench"
 fi
 
-echo "serial=$serial apk=$apk activity=$activity swipes=$swipes rounds=$rounds extra=${extra:-none}"
+echo "serial=$serial swipes=$swipes rounds=$rounds labels=${labels[*]}"
+print_plan
 if [[ "$dry_run" -eq 1 ]]; then
-	echo "dry-run install -r $apk"
-	echo "dry-run am force-stop $pkg"
-	echo "dry-run am start -W -n $activity ${extra}"
-	echo "dry-run wait list-first= then gfxinfo $pkg reset"
-	echo "dry-run input swipe x $swipes"
+	index=0
+	while [[ "$index" -lt "${#labels[@]}" ]]; do
+		echo "dry-run install -r ${apks[$index]}"
+		echo "dry-run am start -W -n ${components[$index]} ${extras[$index]}"
+		index=$((index + 1))
+	done
+	echo "dry-run wait list-first= then gfxinfo reset, then input swipe x $swipes"
 	exit 0
 fi
 
 mkdir -p "$out"
-install_out="$(adb_cmd install -r "$apk" 2>&1)" || true
-if ! printf '%s\n' "$install_out" | grep -q "Success"; then
-	printf '%s\n' "$install_out" >&2
-	echo "Install failed" >&2
-	exit 1
-fi
-
-: >"$out/frames.txt"
+index=0
+while [[ "$index" -lt "${#labels[@]}" ]]; do
+	install_out="$(adb_cmd install -r "${apks[$index]}" 2>&1)" || true
+	if ! printf '%s\n' "$install_out" | grep -q "Success"; then
+		printf '%s\n' "$install_out" >&2
+		echo "Install failed: ${labels[$index]}" >&2
+		exit 1
+	fi
+	: >"$out/frames-${labels[$index]}.txt"
+	: >"$out/work-${labels[$index]}.txt"
+	: >"$out/vsync-${labels[$index]}.txt"
+	index=$((index + 1))
+done
 : >"$out/loads.txt"
 
 one_round() {
 	local round="$1"
-	local load start_out i found size_line dims width height x y1 y2 swipe
-	local gfx summary_frames summary_janky rows janky janky_pct p50 p90 p99
+	local label="$2"
+	local apk_path="$3"
+	local component="$4"
+	local start_extra="$5"
+	local pkg load start_out i found size_line dims width height x y1 y2 swipe
+	local summary_frames summary_janky rows janky janky_pct
+	local p50 p90 p99 w50 w90 w99 v50 v90 v99 list_line
+	pkg="${component%%/*}"
 	adb_cmd shell am force-stop "$pkg" >/dev/null 2>&1 || true
 	adb_cmd logcat -c >/dev/null 2>&1 || true
 	load="$(host_load)"
 	printf '%s\n' "$load" >>"$out/loads.txt"
-	if [[ -n "$extra" ]]; then
+	if [[ -n "$start_extra" ]]; then
 		# shellcheck disable=SC2086
-		start_out="$(adb_cmd shell am start -W -n "$activity" $extra 2>&1)" || true
+		start_out="$(adb_cmd shell am start -W -n "$component" $start_extra 2>&1)" || true
 	else
-		start_out="$(adb_cmd shell am start -W -n "$activity" 2>&1)" || true
+		start_out="$(adb_cmd shell am start -W -n "$component" 2>&1)" || true
 	fi
-	printf '%s\n' "$start_out" >"$out/start-$round.txt"
+	printf '%s\n' "$start_out" >"$out/start-$label-$round.txt"
 	found=0
 	i=0
 	while [[ "$i" -lt "$wait_seconds" ]]; do
-		if adb_cmd logcat -d -s NativePoc:I 2>/dev/null | grep -q "list-first="; then
+		if adb_cmd logcat -d -s NativePoc:I Floor:I 2>/dev/null | grep -q "list-first="; then
 			found=1
 			break
 		fi
@@ -325,10 +445,11 @@ one_round() {
 		sleep 1
 	done
 	if [[ "$found" -ne 1 ]]; then
-		echo "list-first= was not logged within ${wait_seconds}s" >&2
-		adb_cmd logcat -d -s NativePoc:I -t 80 >&2 || true
+		echo "list-first= was not logged within ${wait_seconds}s ($label)" >&2
+		adb_cmd logcat -d -s NativePoc:I Floor:I -t 80 >&2 || true
 		exit 1
 	fi
+	list_line="$(adb_cmd logcat -d -s NativePoc:I Floor:I 2>/dev/null | grep "list-first=" | tail -n 1 || true)"
 	adb_cmd shell dumpsys gfxinfo "$pkg" reset >/dev/null 2>&1 || true
 	size_line="$(adb_cmd shell wm size | tr -d '\r' | tail -n 1)"
 	dims="$(printf '%s\n' "$size_line" | awk '
@@ -355,52 +476,74 @@ one_round() {
 		swipe=$((swipe + 1))
 	done
 	sleep 1
-	adb_cmd shell dumpsys gfxinfo "$pkg" >"$out/gfx-$round.txt" || true
-	adb_cmd shell dumpsys gfxinfo "$pkg" framestats >"$out/framestats-$round.txt" || true
-	summary_frames="$(summary_field "$out/gfx-$round.txt" "Total frames rendered:")"
-	summary_janky="$(summary_field "$out/gfx-$round.txt" "Janky frames:")"
-	frame_rows "$out/framestats-$round.txt" >"$out/rows-$round.txt"
-	rows="$(awk 'END { print NR + 0 }' "$out/rows-$round.txt")"
-	janky="$(awk '{ s += $2 } END { print s + 0 }' "$out/rows-$round.txt")"
+	adb_cmd shell dumpsys gfxinfo "$pkg" >"$out/gfx-$label-$round.txt" || true
+	adb_cmd shell dumpsys gfxinfo "$pkg" framestats >"$out/framestats-$label-$round.txt" || true
+	summary_frames="$(summary_field "$out/gfx-$label-$round.txt" "Total frames rendered:")"
+	summary_janky="$(summary_field "$out/gfx-$label-$round.txt" "Janky frames:")"
+	frame_rows "$out/framestats-$label-$round.txt" >"$out/rows-$label-$round.txt"
+	rows="$(awk 'END { print NR + 0 }' "$out/rows-$label-$round.txt")"
+	janky="$(awk '{ s += $4 } END { print s + 0 }' "$out/rows-$label-$round.txt")"
 	if [[ "$rows" -eq 0 ]]; then
 		janky_pct="-"
-		p50="-"
-		p90="-"
-		p99="-"
+		p50="-"; p90="-"; p99="-"
+		w50="-"; w90="-"; w99="-"
+		v50="-"; v90="-"; v99="-"
 	else
 		janky_pct="$(awk -v j="$janky" -v n="$rows" 'BEGIN { printf "%.2f", (100 * j) / n }')"
-		p50="$(awk '{ print $1 }' "$out/rows-$round.txt" | percentile 0.50)"
-		p90="$(awk '{ print $1 }' "$out/rows-$round.txt" | percentile 0.90)"
-		p99="$(awk '{ print $1 }' "$out/rows-$round.txt" | percentile 0.99)"
-		awk '{ print $1 }' "$out/rows-$round.txt" >>"$out/frames.txt"
+		p50="$(awk '{ print $1 }' "$out/rows-$label-$round.txt" | percentile 0.50)"
+		p90="$(awk '{ print $1 }' "$out/rows-$label-$round.txt" | percentile 0.90)"
+		p99="$(awk '{ print $1 }' "$out/rows-$label-$round.txt" | percentile 0.99)"
+		w50="$(awk '{ print $2 }' "$out/rows-$label-$round.txt" | percentile 0.50)"
+		w90="$(awk '{ print $2 }' "$out/rows-$label-$round.txt" | percentile 0.90)"
+		w99="$(awk '{ print $2 }' "$out/rows-$label-$round.txt" | percentile 0.99)"
+		v50="$(awk '{ print $3 }' "$out/rows-$label-$round.txt" | percentile 0.50)"
+		v90="$(awk '{ print $3 }' "$out/rows-$label-$round.txt" | percentile 0.90)"
+		v99="$(awk '{ print $3 }' "$out/rows-$label-$round.txt" | percentile 0.99)"
+		awk '{ print $1 }' "$out/rows-$label-$round.txt" >>"$out/frames-$label.txt"
+		awk '{ print $2 }' "$out/rows-$label-$round.txt" >>"$out/work-$label.txt"
+		awk '{ print $3 }' "$out/rows-$label-$round.txt" >>"$out/vsync-$label.txt"
 	fi
 	{
-		echo "round=$round load=$load size=${width}x${height} swipe=${x},${y1},${x},${y2},250"
+		echo "label=$label apk=$apk_path round=$round load=$load size=${width}x${height} swipe=${x},${y1},${x},${y2},250"
+		echo "list=${list_line:-none}"
 		echo "summary_frames=${summary_frames:-none}"
 		echo "summary_janky=${summary_janky:-none}"
 		echo "framestats_rows=$rows framestats_janky=$janky framestats_janky_pct=$janky_pct"
-		echo "framestats_p50_ms=$p50 framestats_p90_ms=$p90 framestats_p99_ms=$p99"
-		echo "frame_time=FrameCompleted-IntendedVsync jank=FrameCompleted>FrameDeadline percentile=Hyndman-Fan-7"
-	} | tee "$out/round-$round.txt"
+		echo "frame_p50_ms=$p50 frame_p90_ms=$p90 frame_p99_ms=$p99"
+		echo "work_p50_ms=$w50 work_p90_ms=$w90 work_p99_ms=$w99"
+		echo "vsync_p50_ms=$v50 vsync_p90_ms=$v90 vsync_p99_ms=$v99"
+		echo "frame=FrameCompleted-IntendedVsync work=FrameCompleted-HandleInputStart vsync=HandleInputStart-IntendedVsync"
+		echo "jank=FrameCompleted>FrameDeadline percentile=Hyndman-Fan-7"
+	} | tee "$out/round-$label-$round.txt"
+	adb_cmd logcat -d -s NativePoc:I 2>/dev/null | grep -E "bind-jni|bind-part" | tail -n 20 >"$out/bind-$label-$round.txt" || true
+	if [[ -s "$out/bind-$label-$round.txt" ]]; then
+		cat "$out/bind-$label-$round.txt"
+	fi
 }
 
 round=0
 while [[ "$round" -lt "$rounds" ]]; do
-	one_round "$round"
+	index=0
+	while [[ "$index" -lt "${#labels[@]}" ]]; do
+		one_round "$round" "${labels[$index]}" "${apks[$index]}" "${components[$index]}" "${extras[$index]}"
+		index=$((index + 1))
+	done
 	round=$((round + 1))
 done
 
-if [[ -s "$out/frames.txt" ]]; then
-	all_p50="$(percentile 0.50 <"$out/frames.txt")"
-	all_p90="$(percentile 0.90 <"$out/frames.txt")"
-	all_p99="$(percentile 0.99 <"$out/frames.txt")"
-else
-	all_p50="-"
-	all_p90="-"
-	all_p99="-"
-fi
 {
 	echo "rounds=$rounds swipes=$swipes"
-	echo "pooled_framestats_p50_ms=$all_p50 pooled_framestats_p90_ms=$all_p90 pooled_framestats_p99_ms=$all_p99"
+	index=0
+	while [[ "$index" -lt "${#labels[@]}" ]]; do
+		label="${labels[$index]}"
+		if [[ -s "$out/frames-$label.txt" ]]; then
+			echo "label=$label pooled_frame_p50_ms=$(percentile 0.50 <"$out/frames-$label.txt") pooled_frame_p90_ms=$(percentile 0.90 <"$out/frames-$label.txt") pooled_frame_p99_ms=$(percentile 0.99 <"$out/frames-$label.txt")"
+			echo "label=$label pooled_work_p50_ms=$(percentile 0.50 <"$out/work-$label.txt") pooled_work_p90_ms=$(percentile 0.90 <"$out/work-$label.txt") pooled_work_p99_ms=$(percentile 0.99 <"$out/work-$label.txt")"
+			echo "label=$label pooled_vsync_p50_ms=$(percentile 0.50 <"$out/vsync-$label.txt") pooled_vsync_p90_ms=$(percentile 0.90 <"$out/vsync-$label.txt") pooled_vsync_p99_ms=$(percentile 0.99 <"$out/vsync-$label.txt")"
+		else
+			echo "label=$label pooled_frame_p50_ms=- pooled_work_p50_ms=- pooled_vsync_p50_ms=-"
+		fi
+		index=$((index + 1))
+	done
 	echo "load=$(tr '\n' ' ' <"$out/loads.txt" | sed 's/ $//')"
 } | tee "$out/summary.txt"

@@ -1,0 +1,13 @@
+The list floor and the feed dex use these AndroidX versions. The build
+downloads them from Google Maven into tools/bench/list-floor/.cache, which
+is gitignored, and checks the sha256 pins in deps.sha256. They are Apache
+License 2.0. These versions are the ones whose class files contain no
+kotlin/ strings:
+
+  androidx.recyclerview:recyclerview:1.2.1
+  androidx.core:core:1.3.2
+  androidx.customview:customview:1.0.0
+  androidx.collection:collection:1.0.0
+  androidx.annotation:annotation:1.1.0
+
+Source: https://dl.google.com/dl/android/maven2/androidx/

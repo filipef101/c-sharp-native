@@ -87,6 +87,10 @@ public sealed class MainActivity : Activity
 		_reconciler = new ViewReconciler<View>(_host);
 		UiSurface.Bind(this, () => _reconciler?.Current, () => ViewLayout.Format(_reconciler));
 		LocaleRuntime.Apply(this);
+#if NATIVEPOC_RECYCLER
+		if (string.Equals(Intent?.GetStringExtra("nativepoc_bind_log"), "1", StringComparison.Ordinal))
+			KeyedList.LogBinds = true;
+#endif
 		var requestedRoot = Intent?.GetStringExtra("nativepoc_root");
 		var wantsRoot = !string.IsNullOrEmpty(requestedRoot) && !string.Equals(requestedRoot, "counter", StringComparison.Ordinal);
 		var navStart = SystemClock.ElapsedRealtime();

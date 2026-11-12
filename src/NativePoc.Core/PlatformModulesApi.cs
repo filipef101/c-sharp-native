@@ -68,6 +68,15 @@ public static class Timer
 	}
 }
 
+public static class Animate
+{
+	public static void Play(IPlatform platform, string key)
+	{
+		ArgumentNullException.ThrowIfNull(platform);
+		platform.Module("animate", "Play", [key]);
+	}
+}
+
 public static class Theme
 {
 	public static void Mode(IPlatform platform, string mode)

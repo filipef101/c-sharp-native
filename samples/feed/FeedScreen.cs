@@ -94,6 +94,19 @@ public static class FeedScreen
 		}
 
 		FeedModule.Generate(platform, state);
+#if NATIVEPOC_LAZY_FEED
+		var head = new List<Element>();
+		head.Add(new Text("Feed") { Key = "heading", Style = new Style { FontSize = 22 } });
+		head.Add(new Text(state.Loading ? "Loading feed" : state.Phase) { Key = "phase" });
+		head.Add(new Text(state.Error) { Key = "error" });
+		head.Add(new Button("Refresh", () => Load(), "Refresh") { Key = "refresh" });
+		head.Add(new Button("Post", () => Post(), "Post") { Key = "post" });
+		head.Add(new Button("Back", () => platform.Pop(), "Back") { Key = "back" });
+		return FeedRows.Lazy(head, state.Generated.Count, index => Row(state.Generated[index]), index => state.Generated[index].Id);
+#else
+		// The listener lowerer does not define NATIVEPOC_LAZY_FEED, so it still
+		// sees this foreach and lowers it to a window list. Release defines the
+		// symbol and builds each row on bind instead.
 		var rows = new List<Element>();
 		rows.Add(new Text("Feed") { Key = "heading", Style = new Style { FontSize = 22 } });
 		rows.Add(new Text(state.Loading ? "Loading feed" : state.Phase) { Key = "phase" });
@@ -104,6 +117,7 @@ public static class FeedScreen
 		foreach (var item in state.Generated)
 			rows.Add(Row(item));
 		return FeedRows.Window(rows, 6);
+#endif
 	}
 
 	static Element Row(FeedItem item) => new Column(

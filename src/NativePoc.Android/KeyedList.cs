@@ -15,6 +15,7 @@ static class KeyedList
 	const int OpCount = 1;
 	const int OpId = 2;
 	const int OpIdle = 4;
+	const int OpReady = 8;
 
 	static readonly SignalFn SignalSink = OnSignal;
 	static readonly BindFn BindSink = OnBind;
@@ -26,6 +27,9 @@ static class KeyedList
 	static IntPtr _first;
 	static IntPtr _replace;
 	static IntPtr _scroll;
+	static IntPtr _setBindLog;
+
+	public static bool LogBinds { get; set; }
 
 	[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 	delegate long SignalFn(IntPtr env, IntPtr clazz, long peer, int op, int arg);
@@ -42,7 +46,10 @@ static class KeyedList
 		var state = new State(view);
 		Live.Add(view, state);
 		JNIEnv.CallVoidMethod(view.Handle, _setPeer, new[] { new JValue(state.Peer) });
+		if (LogBinds)
+			JNIEnv.CallVoidMethod(view.Handle, _setBindLog, new[] { new JValue(true) });
 		view.ContentDescription = "List";
+		StartupMarks.Phase("attach");
 		return view;
 	}
 
@@ -77,8 +84,9 @@ static class KeyedList
 		_first = JNIEnv.GetMethodID(_class, "first", "()I");
 		_replace = JNIEnv.GetMethodID(_class, "replace", "()V");
 		_scroll = JNIEnv.GetMethodID(_class, "scrollTo", "(I)V");
+		_setBindLog = JNIEnv.GetMethodID(_class, "setBindLog", "(Z)V");
 
-		if (_ctor == IntPtr.Zero || _setPeer == IntPtr.Zero || _first == IntPtr.Zero || _replace == IntPtr.Zero || _scroll == IntPtr.Zero)
+		if (_ctor == IntPtr.Zero || _setPeer == IntPtr.Zero || _first == IntPtr.Zero || _replace == IntPtr.Zero || _scroll == IntPtr.Zero || _setBindLog == IntPtr.Zero)
 			throw new InvalidOperationException("KeyedList is missing a Java method.");
 		_ready = true;
 	}
@@ -97,7 +105,12 @@ static class KeyedList
 				case OpId:
 					return state.Id(arg);
 				case OpIdle:
+					BindTimes.Log();
 					state.Log(arg, arg, false);
+					return 0;
+				case OpReady:
+					state.Log(arg, arg, false);
+					StartupMarks.Phase("list");
 					return 0;
 				default:
 					return 0;
@@ -110,6 +123,8 @@ static class KeyedList
 		}
 	}
 
+	static int _binds;
+
 	static void OnBind(IntPtr env, IntPtr clazz, long peer, int position, IntPtr title, IntPtr subtitle, IntPtr image)
 	{
 		try
@@ -117,28 +132,43 @@ static class KeyedList
 			var state = State.From(peer);
 			if (state is null || (uint)position >= (uint)state.Rows.Count)
 				return;
-			var face = RowFace.Read(state.Rows[position]);
+			if (_binds == 0)
+				StartupMarks.Phase("bind");
+			_binds++;
+			var timed = LogBinds;
+			var mark = timed ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+			var row = state.Rows[position];
+			var rowUs = timed ? BindTimes.Micros(mark) : 0;
+			if (timed)
+				mark = System.Diagnostics.Stopwatch.GetTimestamp();
+			var face = RowFace.Read(row);
+			var faceUs = timed ? BindTimes.Micros(mark) : 0;
 			var titleView = Java.Lang.Object.GetObject<TextView>(title, JniHandleOwnership.DoNotTransfer);
 			var subtitleView = Java.Lang.Object.GetObject<TextView>(subtitle, JniHandleOwnership.DoNotTransfer);
 			var imageView = Java.Lang.Object.GetObject<ImageView>(image, JniHandleOwnership.DoNotTransfer);
 			if (titleView is null || subtitleView is null || imageView is null)
 				return;
-			titleView.Text = face.Title;
-			titleView.ContentDescription = face.Title;
+			if (timed)
+				mark = System.Diagnostics.Stopwatch.GetTimestamp();
+			RowText.Apply(titleView, face.Title);
 			if (face.Subtitle.Length == 0)
 			{
-				subtitleView.Text = "";
-				subtitleView.Visibility = ViewStates.Gone;
+				if (subtitleView.Visibility != ViewStates.Gone)
+					subtitleView.Visibility = ViewStates.Gone;
 			}
 			else
 			{
-				subtitleView.Text = face.Subtitle;
-				subtitleView.ContentDescription = face.Subtitle;
+				RowText.Apply(subtitleView, face.Subtitle);
 				subtitleView.Visibility = ViewStates.Visible;
 			}
 
+			var textUs = timed ? BindTimes.Micros(mark) : 0;
 			var context = state.View.Context ?? throw new InvalidOperationException("List row has no context.");
+			if (timed)
+				mark = System.Diagnostics.Stopwatch.GetTimestamp();
 			PictureBinder.Show(imageView, face.Picture, context);
+			if (timed)
+				BindTimes.Add(rowUs, faceUs, textUs, BindTimes.Micros(mark));
 		}
 		catch (Exception ex)
 		{
@@ -204,7 +234,13 @@ static class KeyedList
 
 		public void Log(int first, int saved, bool restored)
 		{
-			var built = Rows is RecordProgram.WindowList window ? window.Built : Rows.Count;
+			var built = Rows switch
+			{
+				RecordProgram.WindowList window => window.Built,
+				DeferredList deferred => deferred.Built,
+				_ => Rows.Count,
+			};
+			var since = Android.OS.SystemClock.ElapsedRealtime() - Android.OS.Process.StartElapsedRealtime;
 			Android.Util.Log.Info(
 				MainActivity.Tag,
 				"list-first=" + first.ToString(CultureInfo.InvariantCulture)
@@ -212,7 +248,8 @@ static class KeyedList
 				+ " restored=" + (restored ? "1" : "0")
 				+ " rows=" + Rows.Count.ToString(CultureInfo.InvariantCulture)
 				+ " built=" + built.ToString(CultureInfo.InvariantCulture)
-				+ " views=" + View.ChildCount.ToString(CultureInfo.InvariantCulture));
+				+ " views=" + View.ChildCount.ToString(CultureInfo.InvariantCulture)
+				+ " since-process-ms=" + since.ToString(CultureInfo.InvariantCulture));
 		}
 
 		void Hold(int saved)
@@ -230,6 +267,8 @@ static class KeyedList
 		{
 			if ((uint)index >= (uint)Rows.Count)
 				return index.ToString(CultureInfo.InvariantCulture);
+			if (Rows is DeferredList deferred)
+				return deferred.KeyAt(index);
 			if (Rows is RecordProgram.WindowList window)
 			{
 				for (var field = 0; field < 8; field++)
@@ -247,6 +286,111 @@ static class KeyedList
 			}
 
 			return index.ToString(CultureInfo.InvariantCulture);
+		}
+	}
+
+	static class BindTimes
+	{
+		const int Cap = 512;
+		static int _seen;
+		static int _kept;
+		static readonly long[] _row = new long[Cap];
+		static readonly long[] _face = new long[Cap];
+		static readonly long[] _text = new long[Cap];
+		static readonly long[] _image = new long[Cap];
+
+		public static long Micros(long started)
+		{
+			var ticks = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+			return ticks * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
+		}
+
+		public static void Add(long row, long face, long text, long image)
+		{
+			_seen++;
+			if (_kept >= Cap)
+				return;
+			_row[_kept] = row;
+			_face[_kept] = face;
+			_text[_kept] = text;
+			_image[_kept] = image;
+			_kept++;
+		}
+
+		public static void Log()
+		{
+			if (!KeyedList.LogBinds || _kept == 0)
+				return;
+			Android.Util.Log.Info(
+				MainActivity.Tag,
+				"bind-part n=" + _seen.ToString(CultureInfo.InvariantCulture)
+				+ " kept=" + _kept.ToString(CultureInfo.InvariantCulture)
+				+ " row=" + Band(_row)
+				+ " face=" + Band(_face)
+				+ " text=" + Band(_text)
+				+ " image=" + Band(_image)
+				+ " unit=us");
+		}
+
+		static string Band(long[] source)
+		{
+			var copy = new long[_kept];
+			Array.Copy(source, copy, _kept);
+			Array.Sort(copy);
+			return "p50:" + Percentile(copy, 0.50).ToString(CultureInfo.InvariantCulture)
+				+ "/p90:" + Percentile(copy, 0.90).ToString(CultureInfo.InvariantCulture)
+				+ "/max:" + copy[copy.Length - 1].ToString(CultureInfo.InvariantCulture);
+		}
+
+		static long Percentile(long[] sorted, double p)
+		{
+			var n = sorted.Length;
+			var h = 1 + (n - 1) * p;
+			var lo = (int)Math.Floor(h);
+			var frac = h - lo;
+			var hi = frac > 0 ? lo + 1 : lo;
+			if (lo < 1)
+				lo = 1;
+			if (hi > n)
+				hi = n;
+			if (lo > n)
+				lo = n;
+			return (long)Math.Round(sorted[lo - 1] + frac * (sorted[hi - 1] - sorted[lo - 1]));
+		}
+	}
+
+	static class RowText
+	{
+		const int Cap = 256;
+		static readonly ConditionalWeakTable<TextView, string> Last = new();
+		static readonly Dictionary<string, Java.Lang.String> Java = new(StringComparer.Ordinal);
+		static readonly Queue<string> Order = new();
+
+		public static void Apply(TextView view, string text)
+		{
+			if (Last.TryGetValue(view, out var previous) && string.Equals(previous, text, StringComparison.Ordinal))
+				return;
+			// One Java string for this text. A later bind of the same characters reuses it.
+			// The TextView's own text is the accessibility text, so this does not also set a content description.
+			view.TextFormatted = Cached(text);
+			Last.AddOrUpdate(view, text);
+		}
+
+		static Java.Lang.String Cached(string text)
+		{
+			if (Java.TryGetValue(text, out var hit))
+				return hit;
+			var created = new Java.Lang.String(text);
+			if (Java.Count >= Cap && Order.Count > 0)
+			{
+				var old = Order.Dequeue();
+				if (Java.Remove(old, out var dropped))
+					dropped.Dispose();
+			}
+
+			Java[text] = created;
+			Order.Enqueue(text);
+			return created;
 		}
 	}
 }

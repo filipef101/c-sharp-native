@@ -20,7 +20,7 @@ static class PictureBinder
 		}
 
 #if NATIVEPOC_HTTP
-		if (ImageSource.IsRemote(source) || BitmapResource(context, source))
+		if (ImageSource.IsRemote(source) || IsBitmap(context, source))
 		{
 			RemoteImages.Apply(image, source, context);
 			return;
@@ -35,6 +35,17 @@ static class PictureBinder
 	}
 
 #if NATIVEPOC_HTTP
+	static readonly Dictionary<string, bool> BitmapKind = new(StringComparer.Ordinal);
+
+	static bool IsBitmap(Context context, string source)
+	{
+		if (BitmapKind.TryGetValue(source, out var known))
+			return known;
+		var bitmap = BitmapResource(context, source);
+		BitmapKind[source] = bitmap;
+		return bitmap;
+	}
+
 	static bool BitmapResource(Context context, string source)
 	{
 		var id = context.Resources?.GetIdentifier(source, "drawable", context.PackageName) ?? 0;

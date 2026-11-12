@@ -1,0 +1,143 @@
+# Scroll floor, lazy rows, dex shrink, view animation
+
+Emulator-run on `emulator-5554`, API 34, `x86_64`, boot `56815464-4bc4-4f4c-a503-944cb91ab31f`, `-gpu swiftshader_indirect`. Font scale 1.0. Not a phone. Not iOS. arm64 binaries were built and not run.
+
+The numbers below that say "before" are the unit 109 Release feed, APK sha256 `fa9e7ea4249a9ec3b2f32557c294c77a9f851cc1a48189c1db753bb888b86f6c`. A Mac scroll of that same arm64 feed (APK sha256 `5807877c3dd60ac70198f47105a8607758901bbf7756ef6aa8e9a2b661c34eee`) was measured on Filipe's MacBook, not in this workspace: arm64 pixel_8 emulator, host GPU, host load 13.8-15.5, `scroll-bench.sh --swipes 8 --rounds 5 --extra "--es nativepoc_root feed"`, 177-183 frames per round, gfxinfo janky 7.1-11.7%, framestats janky 5.0-10.8%, pooled framestats p50 20.7 ms, p90 30.7, p99 44.3 (FrameCompleted-IntendedVsync). Image URLs pointed at `10.0.2.2:8094` with no server, so those rows used the error drawable.
+
+## Java list floor
+
+`tools/bench/list-floor` is a plain Java `RecyclerView`. No C#, no Kotlin. Package `com.scratch.listfloor`, activity `com.scratch.listfloor.ListFloorActivity`, log tag `Floor`. One thousand rows, the same row shape as the feed (title, hidden subtitle, image slot at `ceil(48 * density)`, gray placeholder, content description `Loading image`), list content description `List`. Stable ids are the row position. `tools/bench/build-list-floor.sh` compiles it the way `build-floor.sh` compiles the empty cold-start floor: aapt2, d8, zipalign, apksigner. `tools/bench/fetch-androidx.sh` downloads recyclerview 1.2.1, core 1.3.2, customview 1.0.0, collection 1.0.0, and annotation 1.1.0 from Google Maven into `tools/bench/list-floor/.cache`, which is gitignored, and refuses a file whose sha256 is not the pin in `deps.sha256`. `gen_library_r.py` writes `androidx.recyclerview.R` and `androidx.core.R` from the library `R.txt` index order. There is no native library. The same APK bytes are the x86_64 and the arm64 artifact.
+
+Built from the fetched jars, signed APK 531,381 bytes, sha256 `d7ffd1727fe71891e53e1e4e5ef8f058bdc5de70f3047d45a8f7c742dbc97c88`. Every zip entry except `META-INF` matches the earlier signed file sha256 `213a23ec384a8a22be27f0613394bc9f9a5a06591d6e44485420a29c4b166ef6`. The signature differs because the script makes a new keystore. One dex, 1,135,024 bytes, sha256 `148bac8f9014a456bd66f753883ced2293d32d18139548cefa0ca3e8d70d75df`. The dex contains `kotlin` 0 times. Emulator-run of the fetched APK, cold start: `list-first=0 rows=1000 views=12`. The x86_64 run does not prove the arm64 emulator. A sha256 mismatch in the pin file fails the fetch with `sha256 mismatch for <name>` (checked by pointing the script at a zero pin).
+
+`scroll-bench.sh --run label:apk:component[:extras]` runs several APKs the way `mac-bench.sh --run` does: each round launches every APK once before the next round. A single `--apk` still works and is labeled `app`. `--apk` and `--run` cannot be mixed. The script waits for `list-first=` on `NativePoc:I` and `Floor:I`. Frame time is FrameCompleted-IntendedVsync. Work time is FrameCompleted-HandleInputStart when that stamp sits inside the frame, otherwise the next stage. Vsync wait is that start minus IntendedVsync. `--self-test` checks the interleave order and a fixture whose frame p50 is 12.0, work p50 is 9.0, and vsync p50 is 3.0.
+
+Mac command, with the artifact names from this unit. The serial is the pixel_8 emulator. The extra has no colon, so it stays one field.
+
+```
+tools/bench/scroll-bench.sh --serial <pixel_8> --swipes 8 --rounds 5 \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+Add `--es nativepoc_bind_log 1` inside the feed extra to log bind histograms. Release leaves that flag off.
+
+## Scroll on this emulator
+
+Emulator-run, swiftshader, 8 swipes, 3 rounds, interleaved. Feed APK is the after binary below. Floor APK is the list floor. Host load across the six launches: 1.19, 1.97, 2.46, 2.98, 3.14, 3.69. This is not the Mac number. Feed being faster than the Java floor here is this software GPU under rising load.
+
+Pooled framestats, Hyndman-Fan type 7, milliseconds:
+
+```
+label=feed frame p50=35.1 p90=55.9 p99=72.2
+label=feed work  p50=32.0 p90=47.4 p99=58.8
+label=feed vsync p50=4.0  p90=14.3 p99=32.7
+label=floor frame p50=51.5 p90=83.4 p99=116.8
+label=floor work  p50=43.4 p90=64.6 p99=92.0
+label=floor vsync p50=7.2  p90=22.5 p99=45.3
+```
+
+Per round. Feed gfxinfo janky 31.13%, 28.86%, 28.67% (151, 149, 150 frames). Floor gfxinfo janky 48.00%, 47.33%, 51.24% (125, 131, 121 frames). Each feed launch logged `list-first=0 rows=1000 built=9 views=9`. Each floor launch logged `list-first=0 rows=1000 views=12`.
+
+## Bind time
+
+The intent extra `nativepoc_bind_log=1` turns the histogram on. Release default is off, so a normal feed launch does not time binds. Java records nanoseconds around `nativeBind` only (cap 512) and logs `bind-jni` on scroll idle. C# times the row index, `RowFace.Read`, the text set, and `PictureBinder.Show`, and logs `bind-part` on the same idle. The histogram is every bind since the process started. The last line of each feed round:
+
+```
+n=77 jni p50=129 p90=190 max=45935  row 2/3/8    face 1/2/15 text 64/79/5735  image 27/43/45718
+n=80 jni p50=120 p90=197 max=23395  row 2/3/7    face 1/2/6  text 62/83/10228 image 26/36/16039
+n=79 jni p50=128 p90=286 max=28450  row 2/5/1337 face 1/2/40 text 61/93/2933  image 26/61/28355
+```
+
+Units are microseconds. A typical bind is about 125 µs inside JNI. Of the C# parts, text is the largest usual slice (about 60 µs), then the image call (about 26 µs), then the row index (about 2 µs) and the face read (about 1 µs). The max is one slow image or text bind. The four parts sum to about 90 µs; the rest of the JNI sample is the transition and the view wrapping.
+
+## Lazy rows and first render
+
+A Release feed defines `NATIVEPOC_LAZY_FEED`. `FeedScreen.Render` returns `FeedRows.Lazy`, which builds a row element the first time that index is read. `KeyAt` does not build. The listener lowerer does not define the symbol, so it still lowers the `foreach` into `FeedRows.Window`. Both paths log `built` as the number of row elements actually constructed.
+
+Emulator-run, the after Release feed: `list-first=0 saved=0 restored=0 rows=1000 built=9 views=9`. The before APK, same method, logged `built=1000 views=9` on every sample. The unit 109 pid 25124 log was `built=1000 views=7` on an earlier launch of that same APK.
+
+First render is device `/proc/uptime` from just before `am start` until logcat shows `list-first=`, polled every 50 ms, n=10, interleaved before/after, then `dumpsys meminfo` TOTAL PSS. A counter arm64 publish was running on the host, so load climbed from 0.16 to 5.38 during the series. The after binary is lazy rows and the shrunk dex together. The PSS drop is that combination. It is not a lazy-rows-only number. First-render p50 did not improve.
+
+Milliseconds, before then after. Before: 1810, 1460, 1980, 1970, 1130, 1230, 1140, 1130, 1120, 1240. p50 1235.0, p90 1971.0. After: 1830, 1840, 1900, 1980, 1140, 1170, 1260, 1060, 1210, 1350. p50 1305.0, p90 1908.0.
+
+TOTAL PSS kB, before: 34597, 34623, 35545, 34585, 34802, 34677, 34347, 34475, 34709, 34562. p50 34610.0, p90 34876.3. After: 30410, 30364, 30217, 29972, 30093, 30023, 30251, 30071, 29935, 29875. p50 30082.0, p90 30368.6.
+
+## Dex
+
+The before feed dex is 6,029,136 bytes, sha256 `d3054c69a6a5f41229f2d5af5ae8d434404c84a5e5d6be6142b259519a53d42a`. It carried RecyclerView plus Kotlin stdlib, coroutines, and tracing. Release with `NativePocRecycler` now sets `AndroidLinkTool` to `r8` and keeps `nativepoc.KeyedList` and its inner classes. The dex input is the RecyclerView AAR plus the Kotlin stdlib AAR. Dropping stdlib crashes: `PoolingContainer.setPoolingContainer` needs `kotlin.jvm.internal.Intrinsics`, and the shrunk androidx.collection also calls `ArraysKt`. Coroutines, `androidx.tracing`, `androidx.startup`, and profileinstaller are removed. Debug does not run R8.
+
+After, x64 and arm64 share one dex: 402,372 bytes, sha256 `c5abe558563b4f8fd3cb7fb5df7960fb7bbfb445f03598ccf217282fbea33380`. That is 5,626,764 bytes under the before x64 dex. Strings: `Lkotlin/jvm/internal/Intrinsics;` 1, `Lkotlin/collections/ArraysKt;` 1, `Lkotlinx/coroutines/` 0, `Landroidx/tracing/` 0, `Lnativepoc/KeyedList;` 1, `profileinstaller` 0. The list still reaches `list-first` on the x86_64 emulator.
+
+x64 feed APK before 5,030,010 sha256 `fa9e7ea4249a9ec3b2f32557c294c77a9f851cc1a48189c1db753bb888b86f6c`. After 3,348,832 sha256 `d6a72ec4082d2faf4f8a9f4209a9976faac43f140b8b49ecf95f8d7929c12119`. Difference 1,681,178 bytes. The `.so` inside grew, so the APK drop is the dex.
+
+## Sizes
+
+x64, built, and the feed was emulator-run. Counter was built and not installed for these units.
+
+Feed `.so` 6,906,224 sha256 `28913ccff06dd5b1ba9d25ea00f742a9b59b7e92a44fec3debe75c15c7a4e37e`. Before 6,872,976. Difference +33,248 (lazy list, bind timing, motion). Signed APK 3,348,832 sha256 `d6a72ec4082d2faf4f8a9f4209a9976faac43f140b8b49ecf95f8d7929c12119`. The `.so` inside matches. Dex 402,372 as above. RecyclerView managed methods in the `.so`: 0. `DeferredList` is present.
+
+Counter `.so` 6,771,712 sha256 `461d7bd4c77a79c9d36b2ef9a767756374c884280253af757d7802a4b8899011`. Before 6,749,120. Difference +22,592. That is the animation cost in a binary that still has no list or HTTP: KeyedList 0, HttpURLConnection 0, BitmapFactory 0, RecyclerView 0, FeedRows 0, RemoteImages 0, kotlin 0. `motion play` is present as UTF-16. Signed APK 2,933,621 sha256 `3e1b039450f84603c528b51b2d5d6251327ba445c83f0f9e296fb17511faa860`. Before APK 2,925,429. Dex 45,008 sha256 `834e6753a1ef9efd21392b3d7f3a3135e2d1a3f007e661b40ffb47d714b4dbc1` (before 47,348). The dex change is not the animation cost; the `.so` difference is.
+
+Feed `.so` minus counter `.so` is 134,512 bytes.
+
+arm64, built, not run. Feed `.so` 7,135,376 sha256 `763ecfdf9a4041775795e7d146cbf52ac75cda1d8e57bb27c0ecb0db5b37307d`. Before 7,101,520. Signed APK 3,189,091 sha256 `84145198abeb1d0ba0491a25b7d295e2a715ab84a717e698b7af5d0094969e5f`. Before APK 5,008,759. The `.so` inside matches. Dex 402,372, same hash as x64. `DeferredList` and KeyedList are in the `.so`. RecyclerView is not. `kotlinx/coroutines` and `androidx/tracing` are absent from the dex.
+
+Counter arm64 `.so` 6,993,160 sha256 `376fcadffc44a93537abef859847f2f8fc1a802981a77feba7f31a599d36395b`. Before 6,970,464. Difference +22,696. Signed APK 2,773,880 sha256 `eea9cca9863a5b4eaa913faa420db40ff91ef738192f9a91d2d69dac3c9280ed`. Dex 45,008, same hash as the x64 counter dex. KeyedList, HttpURLConnection, BitmapFactory, RecyclerView, FeedRows, RemoteImages, and kotlin are absent. `motion play` is present as UTF-16. Feed arm64 `.so` minus counter arm64 `.so` is 142,216 bytes.
+
+The list-floor APK is the same file for both ABIs. The fetched rebuild is 531,381 bytes, sha256 `d7ffd1727fe71891e53e1e4e5ef8f058bdc5de70f3047d45a8f7c742dbc97c88`. Its entries other than `META-INF` match sha256 `213a23ec384a8a22be27f0613394bc9f9a5a06591d6e44485420a29c4b166ef6`.
+
+## Animation
+
+`Motion.Easing` is 0 linear, 1 decelerate, 2 accelerate, 3 accelerate-decelerate. The codec is 20 bytes. Android plays opacity, translation, and scale with `ViewPropertyAnimator`. `Animate.Play(platform, key)` is the module `animate` / `Play`. The notes heading and each note row declare a motion. Add and delete call `Animate.Play` for the heading. A reload of the duration is the same process.
+
+Emulator-run, listener, `IsDynamicCodeSupported=False`, no `--restart-on-rude`. After `pm clear`, pid 30214 logged `motion play key=heading duration=180 easing=1 source=mount`. The watcher (`cnative run android --listener --device emulator-5554 --root notes`) started pid 30338 and logged the same line. Editing the heading duration from 180 to 420 reloaded in 25.3 ms (apply 23.3 ms), edit-to-reply 68 ms, same pid, and logcat printed `motion play key=heading duration=420 easing=1 source=mount`. Typing a note and tapping Add, still pid 30338, logged `motion play key=heading duration=420 easing=1 source=handler` and `motion play key=Hello duration=180 easing=1 source=mount`. The source was put back to 180. That reload was 22.8 ms (apply 19.3 ms), edit-to-reply 64 ms, same pid, `motion play key=heading duration=180 easing=1 source=mount`.
+
+## Tests
+
+`dotnet test` on this tree. Core 70 passed (the extra test indexes a deferred list of 1,000 and checks that `KeyAt` does not build). Packing 14 passed. Devx 138 passed, including `scroll-bench.sh --self-test`, the feed lowerer still seeing the `foreach`, and the notes lowerer accepting `Animate.Play` and `Easing`. `mac-bench.sh --self-test` passed on its own. The iOS test project was not run.
+
+## Mac scroll, measured by the maintainer
+
+Not measured in this workspace. Filipe's MacBook, arm64 pixel_8 emulator, host GPU, host load 8.6-10.7. `scroll-bench.sh --run` interleaved, 8 swipes, 5 rounds. Feed arm64 APK sha256 `84145198abeb1d0ba0491a25b7d295e2a715ab84a717e698b7af5d0094969e5f`. List floor sha256 `213a23ec384a8a22be27f0613394bc9f9a5a06591d6e44485420a29c4b166ef6`.
+
+Pooled work (FrameCompleted-HandleInputStart), milliseconds: feed 17.5 / 32.9 / 50.0, floor 16.7 / 29.4 / 42.4. Pooled frame (FrameCompleted-IntendedVsync): feed 20.3 / 38.9 / 61.6, floor 17.9 / 33.9 / 52.7. gfxinfo janky per round: feed 7.6%, 10.9%, 11.2%, 6.4%, 9.4%. Floor 9.9%, 11.0%, 12.4%, 6.4%, 7.1%. Work p50 is 17.5/16.7 and work p90 is 32.9/29.4.
+
+## Feed first render
+
+Clock is `SystemClock.elapsedRealtime`. Process t is `Process.startElapsedRealtime`. The same feed APK is launched as the counter screen and as the feed. n=10, interleaved, Hyndman-Fan type 7. Emulator-run, swiftshader, font scale 1.0. Not a phone. Not iOS.
+
+Before, the feed APK sha256 `d6a72ec4082d2faf4f8a9f4209a9976faac43f140b8b49ecf95f8d7929c12119`. Host load started at 0.05. `list-first` was a `View.post` from bind, so it ran after the first software frame.
+
+Since process, milliseconds, p50 / p90. Counter screen: activity 73.0 / 107.8, first-render 100.0 / 137.1, activity-return 102.5 / 138.0, first-present 147.0 / 169.5. Feed: activity 67.0 / 89.2, first-render 93.0 / 131.8, activity-return 93.5 / 132.8, first-present 237.5 / 283.9. First-present minus activity-return: counter 38.0 / 70.0, feed 139.5 / 186.1. That gap is the first traversal. `am start -W` TotalTime: counter 815.0 / 841.9, feed 695.0 / 773.2. Feed `list-first` since process, from the present mark plus the logcat epoch gap: 603 609 658 572 585 581 620 575 509 578. p50 583.0, p90 623.8. The gap from first-present to that log is the largest slice.
+
+After, feed APK sha256 `5f046a72b4311a42b2ae977e4e68a7407463585116736afabddfe9738f387f74`. The list calls `setHasFixedSize(true)`, keeps a smaller view cache, and logs `list-first` at the end of the first `onLayout` once a child exists. Host load started at 0.80 and was 2.74 at the end of the cold-start loop. Counter screen in that binary: TotalTime 744.0 / 820.8, first-present 140.0 / 209.7, present-minus-return 39.5 / 58.7. Feed: TotalTime 705.0 / 838.6, activity 79.5 / 123.3, first-render 111.0 / 152.6, activity-return 111.0 / 153.5, first-present 243.5 / 308.2, present-minus-return 134.5 / 180.7. Layout `took-ms` 96.5 / 137.5. `list-first` since process: 182 318 134 306 129 284 277 182 242 242. p50 242.0, p90 307.2. It now sits on the same timestamp as first-present. TotalTime did not drop (695 to 705). The traversal gap did not drop (139.5 to 134.5). The cut is the posted log no longer waiting out the software frame. Uptime from just before `am start` until that log, feed p50 1315 ms, p90 1487. The counter screen's uptime until `phase=draw` was p50 1435 ms.
+
+`mac-bench.sh` prints those since-process p50s when the log has them. Mac command, serial is the pixel_8 emulator:
+
+```
+tools/bench/mac-bench.sh --device <pixel_8> --n 10 --out /tmp/feed-cold \
+  --run counter:nativepoc-counter-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed'
+```
+
+## Text bind
+
+The title goes through one cached `Java.Lang.String` (`TextFormatted`). A second bind of the same view and the same characters skips `setText`. An empty subtitle that is already `GONE` is left alone. The TextView's own text is the accessibility text.
+
+Before, same feed APK as the first-render before, 8 swipes, 3 rounds, `nativepoc_bind_log=1`, load about 2.6 to 3.7. Last idle line of each round, microseconds. JNI p50/p90/max and text p50/p90/max: 140/1719/259885 and 70/95/972 (n=79); 140/339/128369 and 72/119/26189 (n=79); 139/223/104507 and 66/96/148 (n=80).
+
+After, the APK above, same swipes and rounds, load 2.74 3.16 3.71. JNI and text: 118/160/158766 and 58/72/88 (n=80); 112/152/75471 and 58/69/2614 (n=78); 117/177/156139 and 60/71/1330 (n=84). Text p50 moved from the mid-60s and 70s to 58-60. The max is still one slow image bind, in the image column.
+
+## Dex without Kotlin
+
+RecyclerView 1.4 plus the Kotlin stdlib made the previous feed dex 402,372 bytes, sha256 `c5abe558563b4f8fd3cb7fb5df7960fb7bbfb445f03598ccf217282fbea33380`, APK 3,348,832 sha256 `d6a72ec4082d2faf4f8a9f4209a9976faac43f140b8b49ecf95f8d7929c12119`. The feed now packs the same 1.2.1 set the floor uses. R8 stays on for Release. The dex has `kotlin` 0 times, `poolingcontainer` 0, `Lnativepoc/KeyedList;` 1, and `Landroidx/recyclerview/widget/RecyclerView;` 1.
+
+x64 feed dex 317,948 sha256 `5e2c6a7865efee5eef38a6c4b0fdc5bc76897e62d9a0f591bb57e53c1f534b9b` (84,424 bytes under the previous dex). Signed APK 3,153,285 sha256 `5f046a72b4311a42b2ae977e4e68a7407463585116736afabddfe9738f387f74` (195,547 bytes under the previous APK). `.so` 6,914,528 sha256 `b0fee03a0eb6206f73a4c99fa9450afba18eeaf5858a9844ae562595f7356061`. The list reached `list-first=0 rows=1000 built=9 views=9` on this emulator.
+
+arm64, built, not run. Feed APK 2,993,903 sha256 `c3c0bbb23d94a07a1253164c0f47d3ff52f5eca3090aa6c599ad9df70e028756`. `.so` 7,144,048 sha256 `4b0324d346503eeb600a66a8c2942147ca1444377cdaff606ffc317aaccd92be`. Dex 317,948, same hash as x64, `kotlin` 0.
+
+Counter x64, built, not installed for a separate series. APK 2,933,621 sha256 `83c52831bdb9bc73e74da58f823e709cc846e055002e676b0f8832b28f9037c4`. `.so` 6,772,544 sha256 `df4e1a233224e03fc17e86cd596b0e99dc282767aa14c486105cd0d349f19acb` (832 bytes over the previous counter `.so`, the startup phase logs). Dex 45,008, same hash as before. KeyedList, HttpURLConnection, BitmapFactory, RecyclerView, FeedRows, RemoteImages, and kotlin are absent. `motion play` is present as UTF-16.
+
+Counter arm64, built, not run. APK 2,777,976 sha256 `0a073ec1dc3354bad7612fb508aeed2d36766dc0e48d31300df327e3106dfa1c`. `.so` 6,994,024 sha256 `77c30123e813ad3f6de1b4753fedbc2c61bf0a9d416ce26f24c9932b7de5df63`. Dex 45,008, same hash. The same strings are absent. `motion play` is present as UTF-16.
+

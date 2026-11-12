@@ -285,7 +285,11 @@ sealed class AndroidHost : IElementHost<View>
 	public void SetMotion(View view, Motion motion)
 	{
 		var density = _activity.Resources?.DisplayMetrics?.Density ?? 1f;
-		MotionPlayer.Play(view, motion, density);
+		var key = "";
+		if (_paths.TryGetValue(view, out var path))
+			key = CurrentElement(path)?.Key ?? "";
+		MotionPlayer.Remember(key, view, motion, density);
+		MotionPlayer.Play(view, motion, density, key);
 	}
 
 	public void SetGesture(View view, byte mask)
@@ -504,7 +508,7 @@ sealed class AndroidHost : IElementHost<View>
 	}
 
 #if DEBUG
-	static void Guard(Element element, Action call)
+	static void Guard(Element element, System.Action call)
 	{
 		try
 		{

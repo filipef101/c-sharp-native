@@ -1857,6 +1857,7 @@ public static partial class SubsetLowerer
 			var y = 0;
 			var scale = 100;
 			var duration = 0;
+			var easing = 0;
 			foreach (var item in creation.Initializer.Expressions)
 			{
 				if (item is not AssignmentExpressionSyntax assignment || assignment.Left is not IdentifierNameSyntax name)
@@ -1892,6 +1893,9 @@ public static partial class SubsetLowerer
 					case "Duration":
 						duration = number;
 						break;
+					case "Easing":
+						easing = number;
+						break;
 					default:
 						return Fail(UnknownMember, "The screen subset does not include " + name.Identifier.ValueText + ".", assignment);
 				}
@@ -1908,6 +1912,7 @@ public static partial class SubsetLowerer
 				Y = y,
 				Scale = scale,
 				Duration = duration,
+				Easing = easing,
 			};
 			return true;
 		}
@@ -2392,7 +2397,7 @@ public static partial class SubsetLowerer
 				return StateCall(member.Name.Identifier.ValueText, script, invocation);
 			if (owner.Identifier.ValueText == "PackingTelemetry")
 				return true;
-			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme" or "FeedModule")
+			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme" or "FeedModule" or "Animate")
 				return ModuleCall(owner.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, script);
 			if (owner.Identifier.ValueText != _platform)
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
@@ -2564,6 +2569,12 @@ public static partial class SubsetLowerer
 			{
 				if (!ModuleArg(args[2].Expression, encoded))
 					return false;
+			}
+			else if (module == "Animate" && method == "Play" && args.Count == 2)
+			{
+				if (args[1].Expression is not LiteralExpressionSyntax key || !key.IsKind(SyntaxKind.StringLiteralExpression))
+					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", args[1].Expression);
+				encoded.Add((0, _code.Intern(key.Token.ValueText)));
 			}
 			else
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);

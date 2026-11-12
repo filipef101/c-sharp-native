@@ -73,4 +73,4 @@ dotnet publish src/NativePoc.Android/NativePoc.Android.csproj -c Release -f net1
 
 The feed arm64 publish was built and not run. The x86_64 feed APK was not installed over the listener in this unit, so it was not run either. The list measurements are the Debug listener on the emulator, in the evidence file.
 
-The JNI list, images, scroll bench, and accessibility pass are in [devx/evidence/jni-list.txt](devx/evidence/jni-list.txt). That run did install the Release feed APK on the same emulator.
+The JNI list, images, scroll bench, and accessibility pass are in [devx/evidence/jni-list.txt](devx/evidence/jni-list.txt). That run did install the Release feed APK on the same emulator. The Java list floor, lazy Release rows, the R8 dex, and view animations are in [devx/evidence/scroll-floor.txt](devx/evidence/scroll-floor.txt).

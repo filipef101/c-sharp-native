@@ -35,7 +35,30 @@ static class StartupMarks
 		_managed = managed;
 		Android.Util.Log.Info(MainActivity.Tag, "startup mark=managed-main since-process-ms=" + managed.ToString(CultureInfo.InvariantCulture));
 		Android.Util.Log.Info(MainActivity.Tag, "startup mark=activity since-process-ms=" + since.ToString(CultureInfo.InvariantCulture));
+		PhaseAt("process", _process);
+		PhaseAt("runtime", SystemClock.ElapsedRealtime());
 		LogGc("activity");
+	}
+
+	public static void Phase(string name)
+	{
+		if (_process == 0)
+			_process = Process.StartElapsedRealtime;
+		PhaseAt(name, SystemClock.ElapsedRealtime());
+	}
+
+	static void PhaseAt(string name, long t)
+	{
+		if (_process == 0)
+			return;
+		var since = t - _process;
+		if (since < 0)
+			since = 0;
+		Android.Util.Log.Info(
+			MainActivity.Tag,
+			"startup clock=elapsed phase=" + name
+			+ " t=" + t.ToString(CultureInfo.InvariantCulture)
+			+ " since-process-ms=" + since.ToString(CultureInfo.InvariantCulture));
 	}
 
 	public static void LogGc(string name)
@@ -65,8 +88,9 @@ static class StartupMarks
 		if (_render || _process == 0)
 			return;
 		_render = true;
-		var since = SystemClock.ElapsedRealtime() - _process;
-		Android.Util.Log.Info(MainActivity.Tag, "startup mark=first-render since-process-ms=" + since.ToString(CultureInfo.InvariantCulture));
+		var now = SystemClock.ElapsedRealtime();
+		Android.Util.Log.Info(MainActivity.Tag, "startup mark=first-render since-process-ms=" + (now - _process).ToString(CultureInfo.InvariantCulture));
+		PhaseAt("render", now);
 	}
 
 	public static void Arm(Activity activity)
@@ -104,8 +128,9 @@ static class StartupMarks
 			if (_present || _process == 0)
 				return true;
 			_present = true;
-			var since = SystemClock.ElapsedRealtime() - _process;
-			Android.Util.Log.Info(MainActivity.Tag, "startup mark=first-present since-process-ms=" + since.ToString(CultureInfo.InvariantCulture));
+			var now = SystemClock.ElapsedRealtime();
+			Android.Util.Log.Info(MainActivity.Tag, "startup mark=first-present since-process-ms=" + (now - _process).ToString(CultureInfo.InvariantCulture));
+			PhaseAt("draw", now);
 			LogGc("present");
 			if (MainActivity.Current is Activity activity)
 			{

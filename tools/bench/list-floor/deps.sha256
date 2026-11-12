@@ -1,0 +1,8 @@
+# sha256  filename  url
+# Pinned AndroidX artifacts for the Java list floor and the feed dex.
+# tools/bench/fetch-androidx.sh downloads these into a gitignored cache.
+d38d63edb30f1467818d50aaf05f8a692dea8b31392a049bfa991b159ad5b692  annotation-1.1.0.jar  https://dl.google.com/dl/android/maven2/androidx/annotation/annotation/1.1.0/annotation-1.1.0.jar
+9c8d117b5c2bc120a1cdfeb857e05b495b16c36013570372a708f7827e3ac9f9  collection-1.0.0.jar  https://dl.google.com/dl/android/maven2/androidx/collection/collection/1.0.0/collection-1.0.0.jar
+94de196cd67950cff6ef3e1ac59015f8eaaf61840bdc238f2cf54ddef8dd0be9  core-1.3.2.aar  https://dl.google.com/dl/android/maven2/androidx/core/core/1.3.2/core-1.3.2.aar
+20e5b8f6526a34595a604f56718da81167c0b40a7a94a57daa355663f2594df2  customview-1.0.0.aar  https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.0.0/customview-1.0.0.aar
+a1ea0329ee6d938305dfd0f8ce5c48dea2aac14e5606d23e7fb60afcfb655d6e  recyclerview-1.2.1.aar  https://dl.google.com/dl/android/maven2/androidx/recyclerview/recyclerview/1.2.1/recyclerview-1.2.1.aar

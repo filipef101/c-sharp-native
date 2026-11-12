@@ -47,53 +47,40 @@
 		<DefineConstants>$(DefineConstants);NATIVEPOC_PROGRAM_ONLY</DefineConstants>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocHttp)' == 'true'">
-		<DefineConstants>$(DefineConstants);NATIVEPOC_HTTP</DefineConstants>
+		<DefineConstants>$(DefineConstants);NATIVEPOC_HTTP;NATIVEPOC_LAZY_FEED</DefineConstants>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocRecycler)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_RECYCLER</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocRecycler)' == 'true' And '$(Configuration)' == 'Release'">
+		<AndroidLinkTool>r8</AndroidLinkTool>
 	</PropertyGroup>
 	<ItemGroup Condition="'$(NativePocRecycler)' != 'true'">
 		<AndroidJavaSource Remove="Java\nativepoc\KeyedList.java" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(NativePocRecycler)' == 'true'">
-		<PackageReference Include="Xamarin.AndroidX.RecyclerView" Version="1.4.0.6">
-			<IncludeAssets>build;buildTransitive;native;analyzers</IncludeAssets>
-			<PrivateAssets>all</PrivateAssets>
-		</PackageReference>
-		<PackageReference Include="Xamarin.Kotlin.StdLib" Version="2.4.0.1">
-			<IncludeAssets>none</IncludeAssets>
-			<PrivateAssets>all</PrivateAssets>
-			<GeneratePathProperty>true</GeneratePathProperty>
-		</PackageReference>
-		<PackageReference Include="Xamarin.KotlinX.Coroutines.Core.Jvm" Version="1.11.0.1">
-			<IncludeAssets>none</IncludeAssets>
-			<PrivateAssets>all</PrivateAssets>
-			<GeneratePathProperty>true</GeneratePathProperty>
-		</PackageReference>
-		<PackageReference Include="Xamarin.KotlinX.Coroutines.Android" Version="1.11.0.1">
-			<IncludeAssets>none</IncludeAssets>
-			<PrivateAssets>all</PrivateAssets>
-			<GeneratePathProperty>true</GeneratePathProperty>
-		</PackageReference>
 		<AndroidJavaSource Remove="Java\nativepoc\KeyedList.java" />
 		<AndroidJavaSource Include="Java\nativepoc\KeyedList.java">
 			<Bind>false</Bind>
 		</AndroidJavaSource>
 		<ProguardConfiguration Include="proguard-list.cfg" />
 	</ItemGroup>
-	<Target Name="DropProfileInstaller" BeforeTargets="_CategorizeAndroidLibraries" Condition="'$(NativePocRecycler)' == 'true'">
+	<Target Name="FetchAndroidxList" BeforeTargets="_CategorizeAndroidLibraries" Condition="'$(NativePocRecycler)' == 'true'">
+		<PropertyGroup>
+			<_AndroidxCache>$(MSBuildThisFileDirectory)..\..\tools\bench\list-floor\.cache</_AndroidxCache>
+		</PropertyGroup>
+		<Exec Command="bash &quot;$(MSBuildThisFileDirectory)..\..\tools\bench\fetch-androidx.sh&quot;" />
 		<ItemGroup>
-			<AndroidAarLibrary Remove="@(AndroidAarLibrary)" Condition="$([System.String]::Copy('%(Identity)').Contains('profileinstaller'))" />
+			<AndroidAarLibrary Include="$(_AndroidxCache)/recyclerview-1.2.1.aar" />
+			<AndroidAarLibrary Include="$(_AndroidxCache)/core-1.3.2.aar" />
+			<AndroidAarLibrary Include="$(_AndroidxCache)/customview-1.0.0.aar" />
+			<AndroidJavaLibrary Include="$(_AndroidxCache)/collection-1.0.0.jar" />
+			<AndroidJavaLibrary Include="$(_AndroidxCache)/annotation-1.1.0.jar" />
 		</ItemGroup>
 	</Target>
-	<Target Name="AddKotlinAars" BeforeTargets="_CategorizeAndroidLibraries" Condition="'$(NativePocRecycler)' == 'true'">
-		<Error Condition="!Exists('$(PkgXamarin_Kotlin_StdLib)/lib/net10.0-android36.0/Xamarin.Kotlin.StdLib.aar')" Text="Kotlin stdlib AAR was not restored at $(PkgXamarin_Kotlin_StdLib)." />
-		<Error Condition="!Exists('$(PkgXamarin_KotlinX_Coroutines_Core_Jvm)/lib/net10.0-android36.0/Xamarin.KotlinX.Coroutines.Core.Jvm.aar')" Text="Kotlin coroutines AAR was not restored." />
-		<Error Condition="!Exists('$(PkgXamarin_KotlinX_Coroutines_Android)/lib/net10.0-android36.0/Xamarin.KotlinX.Coroutines.Android.aar')" Text="Kotlin coroutines Android AAR was not restored." />
+	<Target Name="DropProfileInstaller" BeforeTargets="_CategorizeAndroidLibraries" Condition="'$(NativePocRecycler)' == 'true'">
 		<ItemGroup>
-			<AndroidAarLibrary Include="$(PkgXamarin_Kotlin_StdLib)/lib/net10.0-android36.0/Xamarin.Kotlin.StdLib.aar" />
-			<AndroidAarLibrary Include="$(PkgXamarin_KotlinX_Coroutines_Core_Jvm)/lib/net10.0-android36.0/Xamarin.KotlinX.Coroutines.Core.Jvm.aar" />
-			<AndroidAarLibrary Include="$(PkgXamarin_KotlinX_Coroutines_Android)/lib/net10.0-android36.0/Xamarin.KotlinX.Coroutines.Android.aar" />
+			<AndroidAarLibrary Remove="@(AndroidAarLibrary)" Condition="$([System.String]::Copy('%(Identity)').Contains('profileinstaller')) Or $([System.String]::Copy('%(Identity)').Contains('coroutines')) Or $([System.String]::Copy('%(Identity)').Contains('tracing')) Or $([System.String]::Copy('%(Identity)').Contains('startup')) Or $([System.String]::Copy('%(Identity)').Contains('kotlin'))" />
 		</ItemGroup>
 	</Target>
 	<Target Name="SkipAndroidXManagedBindings" BeforeTargets="GenerateBindings" Condition="'$(NativePocRecycler)' == 'true'">
@@ -105,7 +92,7 @@
 	</Target>
 	<Target Name="RefuseRecyclerBinding" AfterTargets="ResolveAssemblyReferences" Condition="'$(NativePocRecycler)' == 'true'">
 		<ItemGroup>
-			<_RecyclerDll Include="@(ReferencePath)" Condition="'%(Filename)' == 'Xamarin.AndroidX.RecyclerView' Or '%(Filename)' == 'Xamarin.AndroidX.Core' Or '%(Filename)' == 'Xamarin.Kotlin.StdLib' Or '%(Filename)' == 'Xamarin.KotlinX.Coroutines.Core.Jvm' Or '%(Filename)' == 'Xamarin.KotlinX.Coroutines.Android'" />
+			<_RecyclerDll Include="@(ReferencePath)" Condition="'%(Filename)' == 'Xamarin.AndroidX.RecyclerView' Or '%(Filename)' == 'Xamarin.AndroidX.Core'" />
 		</ItemGroup>
 		<Error Condition="'@(_RecyclerDll)' != ''" Text="AndroidX managed bindings are referenced: @(_RecyclerDll)" />
 	</Target>

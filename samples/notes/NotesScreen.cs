@@ -43,12 +43,18 @@ public static class NotesScreen
 				state.Notes.Add(new NoteItem { Id = state.Draft, Title = state.Draft, Body = "" });
 				Storage.Set(platform, "notes-last", state.Draft);
 				state.Draft = "";
+				Animate.Play(platform, "heading");
 				platform.RequestRender();
 			}
 		}
 
 		var rows = new List<Element>();
-		rows.Add(new Text("Notes") { Key = "heading", Style = new Style { FontSize = 22 } });
+		rows.Add(new Text("Notes")
+		{
+			Key = "heading",
+			Style = new Style { FontSize = 22 },
+			Motion = new Motion { FromOpacity = 100, Opacity = 100, FromScale = 100, Scale = 100, FromY = 12, Y = 0, Duration = 180, Easing = 1 },
+		});
 		rows.Add(new Text(state.Dark ? "Night" : "Day") { Key = "mode" });
 		rows.Add(new Switch(
 			state.Dark,
@@ -98,12 +104,16 @@ public static class NotesScreen
 					() =>
 					{
 						state.Drop(item);
+						Animate.Play(platform, "heading");
 						platform.RequestRender();
 					},
 					"Delete")
 				{ Key = "delete" },
 			])
-			{ Key = item.Id });
+			{
+				Key = item.Id,
+				Motion = new Motion { FromOpacity = 0, Opacity = 100, FromY = 16, Y = 0, FromScale = 98, Scale = 100, Duration = 180, Easing = 1 },
+			});
 		}
 
 		return new ScrollView(new Column(rows) { Key = "list", Style = new Style { Gap = 8 } }) { Key = "scroll" };

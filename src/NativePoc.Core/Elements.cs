@@ -151,6 +151,9 @@ public readonly record struct Motion
 
 	public int Duration { get; init; }
 
+	/// <summary>0 linear, 1 decelerate, 2 accelerate, 3 accelerate-decelerate.</summary>
+	public int Easing { get; init; }
+
 	public static Motion Rest { get; } = new()
 	{
 		FromOpacity = 100,
@@ -162,14 +165,14 @@ public readonly record struct Motion
 
 public static class MotionCodec
 {
-	public const int Bytes = 18;
+	public const int Bytes = 20;
 
 	public static bool IsRest(Motion motion) => motion == Motion.Rest;
 
 	public static void Write(Motion motion, Span<byte> dest)
 	{
 		if (dest.Length < Bytes)
-			throw new ArgumentException("Motion encoding is 18 bytes.", nameof(dest));
+			throw new ArgumentException("Motion encoding is 20 bytes.", nameof(dest));
 		WriteI16(dest, 0, motion.FromOpacity);
 		WriteI16(dest, 2, motion.FromX);
 		WriteI16(dest, 4, motion.FromY);
@@ -179,6 +182,7 @@ public static class MotionCodec
 		WriteI16(dest, 12, motion.Y);
 		WriteI16(dest, 14, motion.Scale);
 		WriteI16(dest, 16, motion.Duration);
+		WriteI16(dest, 18, motion.Easing);
 	}
 
 	public static Motion Read(ReadOnlySpan<byte> src)
@@ -196,6 +200,7 @@ public static class MotionCodec
 			Y = ReadI16(src, 12),
 			Scale = ReadI16(src, 14),
 			Duration = ReadI16(src, 16),
+			Easing = ReadI16(src, 18),
 		};
 	}
 
@@ -363,6 +368,76 @@ public static class FeedRows
 		head.Add(new ListView(body) { Key = "window" });
 		return new Column(head) { Key = "feed" };
 	}
+
+	public static Element Lazy(IReadOnlyList<Element> head, int count, Func<int, Element> row, Func<int, string> key)
+	{
+		ArgumentNullException.ThrowIfNull(head);
+		ArgumentNullException.ThrowIfNull(row);
+		ArgumentNullException.ThrowIfNull(key);
+		if (count < 0)
+			count = 0;
+		var column = new List<Element>(head.Count + 1);
+		for (var index = 0; index < head.Count; index++)
+			column.Add(head[index]);
+		if (count <= 24)
+		{
+			for (var index = 0; index < count; index++)
+				column.Add(row(index));
+			return new Column(column) { Key = "feed" };
+		}
+
+		column.Add(new ListView(new DeferredList(count, row, key)) { Key = "window" });
+		return new Column(column) { Key = "feed" };
+	}
+}
+
+public sealed class DeferredList : IReadOnlyList<Element>
+{
+	readonly Func<int, Element> _row;
+	readonly Func<int, string> _key;
+	readonly Element?[] _cache;
+
+	public DeferredList(int count, Func<int, Element> row, Func<int, string> key)
+	{
+		ArgumentNullException.ThrowIfNull(row);
+		ArgumentNullException.ThrowIfNull(key);
+		if (count < 0)
+			throw new ArgumentOutOfRangeException(nameof(count));
+		_row = row;
+		_key = key;
+		_cache = new Element[count];
+	}
+
+	public int Count => _cache.Length;
+
+	public int Built { get; private set; }
+
+	public string KeyAt(int index)
+	{
+		if ((uint)index >= (uint)_cache.Length)
+			throw new ArgumentOutOfRangeException(nameof(index));
+		return _key(index);
+	}
+
+	public Element this[int index]
+	{
+		get
+		{
+			if ((uint)index >= (uint)_cache.Length)
+				throw new ArgumentOutOfRangeException(nameof(index));
+			var cached = _cache[index];
+			if (cached is not null)
+				return cached;
+			var built = _row(index);
+			_cache[index] = built;
+			Built++;
+			return built;
+		}
+	}
+
+	public IEnumerator<Element> GetEnumerator() => throw new NotSupportedException("A deferred list is indexed on bind.");
+
+	System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 }
 
 public sealed record Image(string Source) : Element;

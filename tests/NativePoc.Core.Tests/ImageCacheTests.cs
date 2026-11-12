@@ -66,4 +66,21 @@ public sealed class FeedRowsTests
 		Assert.Equal(2, column.Children.Count);
 		Assert.Equal("feed", column.Key);
 	}
+
+	[Fact]
+	public void A_deferred_feed_builds_a_row_when_it_is_indexed()
+	{
+		var head = new List<Element> { new Text("Feed") { Key = "heading" } };
+		var column = Assert.IsType<Column>(FeedRows.Lazy(head, 1000, index => new Text("r") { Key = index.ToString("0000") }, index => index.ToString("0000")));
+		var list = Assert.IsType<ListView>(column.Children[1]);
+		var deferred = Assert.IsType<DeferredList>(list.Rows);
+		Assert.Equal(1000, deferred.Count);
+		Assert.Equal(0, deferred.Built);
+		Assert.Equal("0000", deferred.KeyAt(0));
+		Assert.Equal(0, deferred.Built);
+		Assert.Equal("0004", deferred[4].Key);
+		Assert.Equal(1, deferred.Built);
+		Assert.Equal("0004", deferred[4].Key);
+		Assert.Equal(1, deferred.Built);
+	}
 }
