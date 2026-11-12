@@ -134,6 +134,9 @@ static class ScreenInspect
 		Dictionary<string, HeadlessLayout.Box>? scaled)
 	{
 		var findings = new List<Finding>();
+		var byPath = new Dictionary<NodePath, ElementIds.Node>(nodes.Count);
+		foreach (var node in nodes)
+			byPath[node.Path] = node;
 		var headings = 0;
 		string? previousId = null;
 		var previousTop = 0;
@@ -155,6 +158,13 @@ static class ScreenInspect
 				findings.Add(imageAccess);
 			if (FixedHeight(node, nodes, boxes, scaled) is { } fixedHeight)
 				findings.Add(fixedHeight);
+			if (node.Path.Length > 0 && byPath.TryGetValue(node.Path.Parent(), out var parent))
+			{
+				if (Overflow(node.Id, parent.Id, boxes, scaled: false) is { } overflow)
+					findings.Add(overflow);
+				else if (scaled is not null && Overflow(node.Id, parent.Id, scaled, scaled: true) is { } grown)
+					findings.Add(grown);
+			}
 			if (IsTouch(node.Element))
 			{
 				if (!boxes.TryGetValue(node.Id, out var box) || box.Width < 48 || box.Height < 48)
@@ -204,6 +214,22 @@ static class ScreenInspect
 			"fixed-height",
 			id,
 			"Text in " + id + " stays " + box.Height.ToString(CultureInfo.InvariantCulture) + " dp at font scale 2.");
+	}
+
+	static Finding? Overflow(string id, string parentId, Dictionary<string, HeadlessLayout.Box> boxes, bool scaled)
+	{
+		if (!boxes.TryGetValue(id, out var child) || !boxes.TryGetValue(parentId, out var parent))
+			return null;
+		if (child.Left >= parent.Left
+			&& child.Top >= parent.Top
+			&& child.Left + child.Width <= parent.Left + parent.Width
+			&& child.Top + child.Height <= parent.Top + parent.Height)
+			return null;
+		var where = scaled ? " at font scale 2" : "";
+		return new Finding(
+			"overflow",
+			id,
+			"Child " + id + " extends outside " + parentId + where + " and is clipped.");
 	}
 
 	static Finding? ImageAccess(Element element, string id)

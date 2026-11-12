@@ -47,4 +47,88 @@ public sealed class HeadlessHostTests
 		Assert.Contains("id=row/left left=0 top=0 width=172", host.Layout, StringComparison.Ordinal);
 		Assert.Contains("id=row/right left=188 top=0 width=172", host.Layout, StringComparison.Ordinal);
 	}
+
+	[Fact]
+	public void A_row_and_a_grid_keep_every_child_inside_its_parent_at_1080_and_font_scale_2()
+	{
+		var row = new Column(
+		[
+			new Text("One") { Key = "one", Style = new Style { FontSize = 32, Padding = 16, Grow = 1 } },
+			new Text("Two") { Key = "two", Style = new Style { FontSize = 32, Padding = 16, Grow = 1 } },
+			new Text("Three") { Key = "three", Style = new Style { FontSize = 32, Padding = 16, Grow = 1 } },
+		])
+		{
+			Key = "row",
+			Style = new Style { Across = 1, Gap = 16, Padding = 24 },
+		};
+		var grid = new Column(
+		[
+			new Column(
+			[
+				new Button("A", () => { }, "A") { Key = "a", Style = new Style { Grow = 1 } },
+				new Button("B", () => { }, "B") { Key = "b", Style = new Style { Grow = 1 } },
+			])
+			{
+				Key = "r0",
+				Style = new Style { Across = 1, Gap = 16 },
+			},
+			new Column(
+			[
+				new Button("C", () => { }, "C") { Key = "c", Style = new Style { Grow = 1 } },
+				new Button("D", () => { }, "D") { Key = "d", Style = new Style { Grow = 1 } },
+			])
+			{
+				Key = "r1",
+				Style = new Style { Across = 1, Gap = 16 },
+			},
+		])
+		{
+			Key = "grid",
+			Style = new Style { Gap = 20, Padding = 16 },
+		};
+		var boxes = HeadlessLayout.Measure(new Column([row, grid]) { Key = "page" }, 1080, 2f);
+		var byId = new Dictionary<string, HeadlessLayout.Box>(boxes.Count);
+		foreach (var box in boxes)
+			byId[box.Id] = box;
+
+		void Inside(string parentId, string childId)
+		{
+			var parent = byId[parentId];
+			var child = byId[childId];
+			Assert.True(child.Left >= parent.Left, childId);
+			Assert.True(child.Top >= parent.Top, childId);
+			Assert.True(child.Left + child.Width <= parent.Left + parent.Width, childId);
+			Assert.True(child.Top + child.Height <= parent.Top + parent.Height, childId);
+		}
+
+		Inside("page", "page/row");
+		Inside("page", "page/grid");
+		Inside("page/row", "page/row/one");
+		Inside("page/row", "page/row/two");
+		Inside("page/row", "page/row/three");
+		Inside("page/grid", "page/grid/r0");
+		Inside("page/grid", "page/grid/r1");
+		Inside("page/grid/r0", "page/grid/r0/a");
+		Inside("page/grid/r0", "page/grid/r0/b");
+		Inside("page/grid/r1", "page/grid/r1/c");
+		Inside("page/grid/r1", "page/grid/r1/d");
+
+		var placed = byId["page/row"];
+		var one = byId["page/row/one"];
+		var two = byId["page/row/two"];
+		var three = byId["page/row/three"];
+		Assert.Equal(placed.Left + 24, one.Left);
+		Assert.Equal(placed.Left + placed.Width - 24, three.Left + three.Width);
+		Assert.Equal(one.Left + one.Width + 16, two.Left);
+		Assert.Equal(two.Left + two.Width + 16, three.Left);
+		Assert.Equal(placed.Width - 48, one.Width + two.Width + three.Width + 32);
+
+		var band = byId["page/grid/r0"];
+		var left = byId["page/grid/r0/a"];
+		var right = byId["page/grid/r0/b"];
+		Assert.Equal(band.Left, left.Left);
+		Assert.Equal(band.Left + band.Width, right.Left + right.Width);
+		Assert.Equal(left.Left + left.Width + 16, right.Left);
+		Assert.Equal(band.Width, left.Width + right.Width + 16);
+	}
 }

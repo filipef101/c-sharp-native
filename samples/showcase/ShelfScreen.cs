@@ -35,15 +35,22 @@ public static class ShelfScreen
 	public static Element Render(ShelfState state, IPlatform platform) =>
 		new ScrollView(new Column(
 		[
-			new Text("The shelf")
+			new Column(
+			[
+				new Text("The shelf")
+				{
+					Key = "heading",
+					Style = new Style { FontSize = 32, Weight = FontWeight.Bold },
+				},
+				new Text("Eight pieces from this firing.")
+				{
+					Key = "intro",
+					Style = new Style { FontSize = 16 },
+				},
+			])
 			{
-				Key = "heading",
-				Style = new Style { FontSize = 32, Weight = FontWeight.Bold },
-			},
-			new Text("Eight pieces from this firing.")
-			{
-				Key = "intro",
-				Style = new Style { FontSize = 16 },
+				Key = "head",
+				Style = new Style { Gap = 4 },
 			},
 			new Column(
 			[
@@ -248,7 +255,7 @@ public static class ShelfScreen
 		])
 		{
 			Key = "list",
-			Style = new Style { Gap = 64 },
+			Style = new Style { Gap = 20 },
 		})
 		{ Key = "scroll" };
 }

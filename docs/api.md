@@ -59,6 +59,7 @@ experimental|M:NativePoc.HeadlessLayout.Box.op_Equality(NativePoc.HeadlessLayout
 experimental|M:NativePoc.HeadlessLayout.Box.op_Inequality(NativePoc.HeadlessLayout.Box,NativePoc.HeadlessLayout.Box)
 experimental|M:NativePoc.HeadlessLayout.Format(NativePoc.Element)
 experimental|M:NativePoc.HeadlessLayout.Measure(NativePoc.Element)
+experimental|M:NativePoc.HeadlessLayout.Measure(NativePoc.Element,System.Int32,System.Single)
 experimental|M:NativePoc.HeadlessLayout.Measure(NativePoc.Element,System.Single)
 experimental|M:NativePoc.ImageSlot.#ctor()
 experimental|M:NativePoc.ImageSlot.Begin()

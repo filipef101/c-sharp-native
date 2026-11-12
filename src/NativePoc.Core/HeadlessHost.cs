@@ -135,29 +135,34 @@ public static class HeadlessLayout
 		return builder.ToString();
 	}
 
-	public static List<Box> Measure(Element root) => Measure(root, 1f);
+	public static List<Box> Measure(Element root) => Measure(root, PageWidth, 1f);
 
-	public static List<Box> Measure(Element root, float fontScale)
+	public static List<Box> Measure(Element root, float fontScale) => Measure(root, PageWidth, fontScale);
+
+	public static List<Box> Measure(Element root, int width, float fontScale)
 	{
 		ArgumentNullException.ThrowIfNull(root);
 		if (fontScale <= 0)
 			fontScale = 1f;
+		if (width < 0)
+			width = 0;
 		var boxes = new List<Box>();
 		var id = root.Key is { Length: > 0 } key ? key : "root";
-		MeasureNode(root, id, 0, 0, PageWidth, boxes, fontScale);
+		MeasureNode(root, id, 0, 0, width, boxes, fontScale);
 		return boxes;
 	}
 
-	static int MeasureNode(Element element, string id, int left, int top, int width, List<Box> boxes, float fontScale)
+	static int MeasureNode(Element element, string id, int left, int top, int width, List<Box> boxes, float fontScale, bool widthShare = false)
 	{
+		var allotted = width;
 		var pad = element.Style?.Padding ?? 0;
 		var innerLeft = left + pad;
 		var innerWidth = Math.Max(0, width - (pad * 2));
 		var children = Children(element);
 		if (children.Count == 0)
 		{
-			var height = LeafHeight(element, fontScale) + (pad * 2);
-			Floor(element, ref width, ref height);
+			var height = LeafHeight(element, fontScale, widthShare) + (pad * 2);
+			Floor(element, allotted, ref width, ref height);
 			boxes.Add(new Box(id, left, top, width, height));
 			return height;
 		}
@@ -169,7 +174,9 @@ public static class HeadlessLayout
 		{
 			var count = children.Count;
 			var gaps = count > 1 ? gap * (count - 1) : 0;
-			var slot = count == 0 ? innerWidth : Math.Max(0, (innerWidth - gaps) / count);
+			var available = Math.Max(0, innerWidth - gaps);
+			var slot = count == 0 ? 0 : available / count;
+			var extra = count == 0 ? 0 : available % count;
 			var rowTop = top + pad;
 			var max = 0;
 			var x = innerLeft;
@@ -177,14 +184,17 @@ public static class HeadlessLayout
 			{
 				var child = children[index];
 				var childId = ChildId(child, prefix, index);
-				var childHeight = MeasureNode(child, childId, x, rowTop, slot, boxes, fontScale);
+				var childWidth = slot + (index < extra ? 1 : 0);
+				var childHeight = MeasureNode(child, childId, x, rowTop, childWidth, boxes, fontScale, widthShare: true);
 				if (childHeight > max)
 					max = childHeight;
-				x += slot + gap;
+				x += childWidth;
+				if (index + 1 < count)
+					x += gap;
 			}
 
 			var across = max + (pad * 2);
-			Floor(element, ref width, ref across);
+			Floor(element, allotted, ref width, ref across);
 			boxes.Insert(at, new Box(id, left, top, width, across));
 			return across;
 		}
@@ -207,12 +217,12 @@ public static class HeadlessLayout
 		}
 
 		var total = content + (pad * 2);
-		Floor(element, ref width, ref total);
+		Floor(element, allotted, ref width, ref total);
 		boxes.Insert(at, new Box(id, left, top, width, total));
 		return total;
 	}
 
-	static void Floor(Element element, ref int width, ref int height)
+	static void Floor(Element element, int allotted, ref int width, ref int height)
 	{
 		if (element.Gesture == 0 && element.OnTap is null && element.OnLongPress is null && element.OnSwipe is null && element.OnRefresh is null && element.OnUndo is null)
 			return;
@@ -220,12 +230,14 @@ public static class HeadlessLayout
 			width = HostPolicy.TouchFloorDp;
 		if (height < HostPolicy.TouchFloorDp)
 			height = HostPolicy.TouchFloorDp;
+		if (width > allotted)
+			width = allotted;
 	}
 
-	static int LeafHeight(Element element, float fontScale)
+	static int LeafHeight(Element element, float fontScale, bool widthShare)
 	{
-		// A weighted slot is Height 0 on Android. It does not grow with font scale.
-		if (element.Style is { Grow: > 0 } && HoldsText(element))
+		// A vertical weighted slot is Height 0 on Android. A horizontal weight is a width share, and the line still grows.
+		if (!widthShare && element.Style is { Grow: > 0 } && HoldsText(element))
 			fontScale = 1f;
 		switch (element)
 		{

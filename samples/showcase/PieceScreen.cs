@@ -30,21 +30,27 @@ public static class PieceScreen
 			platform.RequestRender();
 		}
 
-		async void Clear()
-		{
-			state.Status = await Persist.Put(platform, "northroom.keep", "");
-			state.Kept = "";
-			platform.RequestRender();
-		}
-
-		async void Recall()
-		{
-			state.Kept = await Persist.Get(platform, "northroom.keep");
-			platform.RequestRender();
-		}
-
 		return new ScrollView(new Column(
 		[
+			new Column(
+			[
+				new Button(
+					"←",
+					() =>
+					{
+						platform.Pop();
+						platform.RequestRender();
+					},
+					"Back")
+				{
+					Key = "back",
+					Style = new Style { FontSize = 22, Align = Align.Center, Padding = 8 },
+				},
+			])
+			{
+				Key = "back-row",
+				Style = new Style { Across = 1, Align = Align.Start },
+			},
 			state.Tone == "Mist"
 				? new Text(state.Tone) { Key = "swatch", Style = new Style { Background = 0xFF6E97A0, Wash = 0xFFD5E6EA, Color = 0xFF143028, Radius = 16, Padding = 48, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center } }
 				: state.Tone == "Iron"
@@ -62,43 +68,28 @@ public static class PieceScreen
 										: new Text(state.Tone) { Key = "swatch", Style = new Style { Background = 0xFF8C4A34, Wash = 0xFFD4A090, Color = 0xFFF7F4EF, Radius = 16, Padding = 48, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center } },
 			new Text(state.Title) { Key = "title", Style = new Style { FontSize = 28, Weight = FontWeight.Bold } },
 			new Text(state.Note) { Key = "note", Style = new Style { FontSize = 16 } },
-			new Text(state.Kept.Length == 0 ? "Not kept yet." : "Kept " + state.Kept)
-			{
-				Key = "kept",
-				Style = new Style { FontSize = 16 },
-			},
-			state.Kept.Length == 0
-				? new Button("Keep", () => Keep(), "Keep")
+			new Column(
+			[
+				new Text(state.Kept.Length == 0 ? "" : "Kept")
 				{
-					Key = "keep",
-					Style = new Style { Background = 0xFFFFFFFF, Stroke = 0xFF0F6E56, Color = 0xFF0F6E56, Radius = 24, Padding = 14, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center },
-				}
-				: new Button("Keep", () => Keep(), "Keep")
-				{
-					Key = "keep",
-					Style = new Style { Background = 0xFF0F6E56, Color = 0xFFF7F4EF, Radius = 24, Padding = 14, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center },
+					Key = "kept",
+					Style = new Style { Background = 0xFFE4F0EB, Color = 0xFF143028, Radius = 12, Padding = 8, FontSize = 13, Weight = FontWeight.Bold, Align = Align.Center },
 				},
-			new Button("Clear", () => Clear(), "Clear")
+				state.Kept.Length == 0
+					? new Button("Keep", () => Keep(), "Keep")
+					{
+						Key = "keep",
+						Style = new Style { Background = 0xFFFFFFFF, Stroke = 0xFF0F6E56, Color = 0xFF0F6E56, Radius = 24, Padding = 14, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center, Grow = 1 },
+					}
+					: new Button("Keep", () => Keep(), "Keep")
+					{
+						Key = "keep",
+						Style = new Style { Background = 0xFF0F6E56, Color = 0xFFF7F4EF, Radius = 24, Padding = 14, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center, Grow = 1 },
+					},
+			])
 			{
-				Key = "clear",
-				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
-			},
-			new Button("Recall", () => Recall(), "Recall")
-			{
-				Key = "recall",
-				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
-			},
-			new Button(
-				"Back",
-				() =>
-				{
-					platform.Pop();
-					platform.RequestRender();
-				},
-				"Back")
-			{
-				Key = "back",
-				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
+				Key = "actions",
+				Style = new Style { Across = 1, Gap = 8, Align = Align.Center },
 			},
 		])
 		{

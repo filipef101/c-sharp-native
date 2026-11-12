@@ -51,6 +51,7 @@ sealed class AndroidHost : IElementHost<View>
 				return new RefreshScroll(_activity)
 				{
 					FillViewport = true,
+					ScrollBarStyle = ScrollbarStyles.OutsideOverlay,
 				};
 			case ElementKind.List:
 #if NATIVEPOC_RECYCLER
@@ -103,6 +104,8 @@ sealed class AndroidHost : IElementHost<View>
 		text.Text = value;
 		text.ContentDescription = HostPolicy.TextAccessibility(value);
 		text.Visibility = HostPolicy.TextIsHidden(value) ? ViewStates.Gone : ViewStates.Visible;
+		if (text.Parent is LinearLayout across && across.Orientation == Orientation.Horizontal)
+			LayoutAcross(across);
 		if (value.Length == 0 || string.Equals(previous, value, StringComparison.Ordinal))
 			return;
 		if (!_paths.TryGetValue(view, out var path) || CurrentElement(path) is not Text spoken)
@@ -128,6 +131,18 @@ sealed class AndroidHost : IElementHost<View>
 		button.Ellipsize = null;
 		button.SetHorizontallyScrolling(false);
 		TouchTarget(button);
+		if (_paths.TryGetValue(view, out var path) && CurrentElement(path)?.Style is { Background: 0, Wash: 0, Stroke: 0, Radius: 0 })
+		{
+			void ClearChrome()
+			{
+				button.SetBackgroundResource(0);
+				button.BackgroundTintList = null;
+				button.Foreground = null;
+			}
+
+			ClearChrome();
+			button.Post(ClearChrome);
+		}
 	}
 
 	public void RestoreFocus(View root) => FieldFocus.Restore(root);
@@ -236,42 +251,50 @@ sealed class AndroidHost : IElementHost<View>
 				margin.SetMargins(edge, edge, edge, edge);
 			}
 
-			if (margin is LinearLayout.LayoutParams linear && style.Grow > 0)
+			if (margin is LinearLayout.LayoutParams linear && style.Grow > 0 && view.Parent is not LinearLayout { Orientation: Orientation.Horizontal })
 			{
 				linear.Weight = style.Grow;
-				if (view.Parent is LinearLayout parent && parent.Orientation == Orientation.Horizontal)
-				{
-					linear.Width = 0;
-					linear.Height = ViewGroup.LayoutParams.WrapContent;
-				}
-				else
-					linear.Height = 0;
+				linear.Height = 0;
 			}
 
 			view.LayoutParameters = margin;
 		}
 
+		if (view.Parent is LinearLayout parentRow && parentRow.Orientation == Orientation.Horizontal)
+			LayoutAcross(parentRow);
+
 		if (view is LinearLayout row)
 		{
-			row.Orientation = style.Across > 0 ? Orientation.Horizontal : Orientation.Vertical;
-			if (style.Gap > 0)
-			{
-				var gap = Px(style.Gap);
-				var divider = new GradientDrawable();
-				divider.SetColor(Android.Graphics.Color.Transparent);
-				divider.SetSize(gap, gap);
-				row.SetDividerDrawable(divider);
-				row.ShowDividers = ShowDividers.Middle;
-			}
-
-			row.SetGravity(style.Align switch
+			var horizontal = style.Align switch
 			{
 				Align.Center => GravityFlags.CenterHorizontal,
 				Align.End => GravityFlags.End,
 				Align.Stretch => GravityFlags.FillHorizontal,
 				Align.Start => GravityFlags.Start,
 				_ => throw new InvalidOperationException("Unknown alignment."),
-			});
+			};
+			row.Orientation = style.Across > 0 ? Orientation.Horizontal : Orientation.Vertical;
+			if (style.Across > 0)
+			{
+				row.ShowDividers = ShowDividers.None;
+				row.BaselineAligned = false;
+				row.SetGravity(horizontal | GravityFlags.CenterVertical);
+				LayoutAcross(row);
+			}
+			else
+			{
+				if (style.Gap > 0)
+				{
+					var gap = Px(style.Gap);
+					var divider = new GradientDrawable();
+					divider.SetColor(Android.Graphics.Color.Transparent);
+					divider.SetSize(gap, gap);
+					row.SetDividerDrawable(divider);
+					row.ShowDividers = ShowDividers.Middle;
+				}
+
+				row.SetGravity(horizontal);
+			}
 		}
 
 		if (view is TextView text)
@@ -326,9 +349,13 @@ sealed class AndroidHost : IElementHost<View>
 
 			if (style.Stroke != 0)
 				drawable.SetStroke(Math.Max(1, Px(2)), new Android.Graphics.Color(unchecked((int)style.Stroke)));
-			if (view is AndroidButton tinted)
-				tinted.BackgroundTintList = null;
 			view.Background = drawable;
+			if (view is AndroidButton tinted)
+			{
+				tinted.BackgroundTintList = style.Background == 0 && style.Wash == 0
+					? Android.Content.Res.ColorStateList.ValueOf(Android.Graphics.Color.Transparent)
+					: null;
+			}
 			if (style.Radius > 0)
 			{
 				view.OutlineProvider = new CardOutline(Px(style.Radius));
@@ -336,6 +363,53 @@ sealed class AndroidHost : IElementHost<View>
 			}
 
 			view.Elevation = style.Background != 0 && style.Radius > 0 ? Px(3) : 0;
+		}
+	}
+
+	void LayoutAcross(LinearLayout row)
+	{
+		var gapDp = 0;
+		if (_paths.TryGetValue(row, out var rowPath))
+			gapDp = CurrentElement(rowPath)?.Style?.Gap ?? 0;
+		var gap = gapDp > 0 ? Dp(gapDp) : 0;
+		var seen = false;
+		for (var index = 0; index < row.ChildCount; index++)
+		{
+			var child = row.GetChildAt(index);
+			if (child?.LayoutParameters is not LinearLayout.LayoutParams linear)
+				continue;
+			var gone = child.Visibility == ViewStates.Gone;
+			Style? style = null;
+			if (_paths.TryGetValue(child, out var path))
+				style = CurrentElement(path)?.Style;
+			var edge = 0;
+			var grow = linear.Weight;
+			if (style is { } known)
+			{
+				if (known.Margin > 0)
+					edge = Dp(known.Margin);
+				grow = known.Grow;
+			}
+			linear.TopMargin = edge;
+			linear.RightMargin = edge;
+			linear.BottomMargin = edge;
+			linear.LeftMargin = edge + (!gone && seen ? gap : 0);
+			if (grow > 0)
+			{
+				linear.Weight = grow;
+				linear.Width = 0;
+				linear.Height = ViewGroup.LayoutParams.WrapContent;
+			}
+			else
+			{
+				linear.Weight = 0;
+				linear.Width = ViewGroup.LayoutParams.WrapContent;
+				linear.Height = ViewGroup.LayoutParams.WrapContent;
+			}
+
+			child.LayoutParameters = linear;
+			if (!gone)
+				seen = true;
 		}
 	}
 
@@ -392,6 +466,11 @@ sealed class AndroidHost : IElementHost<View>
 		var min = Dp(HostPolicy.TouchFloorDp);
 		view.SetMinimumWidth(min);
 		view.SetMinimumHeight(min);
+		if (view is TextView text)
+		{
+			text.SetMinWidth(min);
+			text.SetMinHeight(min);
+		}
 	}
 
 	int Dp(int value)
