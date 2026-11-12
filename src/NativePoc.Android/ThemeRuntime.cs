@@ -8,13 +8,28 @@ namespace NativePoc;
 static class ThemeRuntime
 {
 	static readonly Dictionary<View, uint> _explicit = new();
+	static readonly Color InkLight = new(unchecked((int)ThemeTokens.Text(false)));
+	static readonly Color InkDark = new(unchecked((int)ThemeTokens.Text(true)));
+	static readonly Color PageLight = new(unchecked((int)ThemeTokens.Page(false)));
+	static readonly Color PageDark = new(unchecked((int)ThemeTokens.Page(true)));
 
 	public static string Mode { get; private set; } = "system";
+
+	static bool _nightKnown;
+	static bool _night;
 
 	public static void Load(Activity activity)
 	{
 		var stored = AppStorage.Get(activity, "theme");
 		Mode = stored is "dark" or "light" or "system" ? stored : "system";
+		ObserveNight(activity);
+	}
+
+	public static void ObserveNight(Activity activity)
+	{
+		var mask = activity.Resources?.Configuration?.UiMode ?? 0;
+		_night = (mask & Android.Content.Res.UiMode.NightMask) == Android.Content.Res.UiMode.NightYes;
+		_nightKnown = true;
 	}
 
 	public static void Set(Activity activity, string mode)
@@ -23,6 +38,7 @@ static class ThemeRuntime
 		AppStorage.Set(activity, "theme", Mode);
 		if (Mode == "system")
 		{
+			ObserveNight(activity);
 			ScreenNav.Shared.Bag("settings").WriteBool("Dark", IsDark(activity));
 		}
 
@@ -45,8 +61,9 @@ static class ThemeRuntime
 			return true;
 		if (Mode == "light")
 			return false;
-		var mask = activity.Resources?.Configuration?.UiMode ?? 0;
-		return (mask & Android.Content.Res.UiMode.NightMask) == Android.Content.Res.UiMode.NightYes;
+		if (!_nightKnown)
+			ObserveNight(activity);
+		return _night;
 	}
 
 	public static void NoteColor(View view, uint color)
@@ -60,24 +77,26 @@ static class ThemeRuntime
 	public static void Paint(Activity activity, View? root)
 	{
 		var dark = IsDark(activity);
-		var text = unchecked((int)ThemeTokens.Text(dark));
-		var page = unchecked((int)ThemeTokens.Page(dark));
-		activity.Window?.DecorView?.SetBackgroundColor(new Color(page));
+		var ink = dark ? InkDark : InkLight;
+		var page = dark ? PageDark : PageLight;
+		var decor = activity.Window?.DecorView;
+		if (decor is not null && (decor.Background is not ColorDrawable painted || painted.Color.ToArgb() != page.ToArgb()))
+			decor.SetBackgroundColor(page);
 		if (root is not null)
-			Walk(root, text);
+			Walk(root, ink);
 	}
 
-	static void Walk(View view, int text)
+	static void Walk(View view, Color ink)
 	{
-		if (view is TextView label && !_explicit.ContainsKey(label))
-			label.SetTextColor(new Color(text));
+		if (view is TextView label && !_explicit.ContainsKey(label) && label.CurrentTextColor != ink.ToArgb())
+			label.SetTextColor(ink);
 		if (view is not ViewGroup group)
 			return;
 		for (var index = 0; index < group.ChildCount; index++)
 		{
 			var child = group.GetChildAt(index);
 			if (child is not null)
-				Walk(child, text);
+				Walk(child, ink);
 		}
 	}
 }

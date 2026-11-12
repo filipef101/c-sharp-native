@@ -39,6 +39,10 @@ public sealed class ReloadAotPublishTests
 		Assert.Contains("string a0 = args[0].Text ?? \"\";", source);
 		Assert.Contains("Banner.Label(a0)", source);
 		Assert.DoesNotContain("Banner.Label(args[0].Text ?? \"\")", source);
+		Assert.Contains("#if DEBUG", source);
+		Assert.Contains("TryRunReplacement", source);
+		var native = File.ReadAllBytes(Path.Combine(projectDir, "bin", "Release", "net10.0", "linux-x64", "publish", "NativePoc.ReloadAot"));
+		Assert.False(ContainsAscii(native, "TryRunReplacement"));
 
 		var publishDir = Path.Combine(projectDir, "bin", "Release", "net10.0", "linux-x64", "publish");
 		var exe = Path.Combine(publishDir, "NativePoc.ReloadAot");
@@ -67,6 +71,28 @@ public sealed class ReloadAotPublishTests
 		}
 
 		throw new InvalidOperationException("The repo root was not found.");
+	}
+
+	static bool ContainsAscii(byte[] bytes, string text)
+	{
+		var needle = System.Text.Encoding.ASCII.GetBytes(text);
+		for (var index = 0; index <= bytes.Length - needle.Length; index++)
+		{
+			var found = true;
+			for (var offset = 0; offset < needle.Length; offset++)
+			{
+				if (bytes[index + offset] != needle[offset])
+				{
+					found = false;
+					break;
+				}
+			}
+
+			if (found)
+				return true;
+		}
+
+		return false;
 	}
 
 	static string DotnetRoot()

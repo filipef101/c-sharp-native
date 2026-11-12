@@ -390,6 +390,7 @@ public static class ScreenQuery
 	public const byte Dismiss = 10;
 	public const byte Swipe = 11;
 	public const byte Reset = 12;
+	public const byte VmBody = 13;
 
 	public static bool IsQuery(ReadOnlySpan<byte> payload) =>
 		payload.Length >= 6
@@ -426,6 +427,7 @@ public static class ScreenQuery
 					throw new InvalidOperationException("Rejected screen query.");
 				return op;
 			case Swipe:
+			case VmBody:
 				if (payload.Length < 7)
 					throw new InvalidOperationException("Rejected screen query.");
 				return op;
@@ -456,11 +458,47 @@ public static class ScreenQuery
 		return WithBody(Submit, Encoding.UTF8.GetBytes(id));
 	}
 
-	public static byte[] FaultNote(string id, string message, int start, int end, int line, int column)
+	public static byte[] FaultNote(string id, string message, int start, int end, int line, int column, string? file = null)
 	{
 		ArgumentException.ThrowIfNullOrEmpty(id);
 		ArgumentNullException.ThrowIfNull(message);
-		return WithBody(Fault, Encoding.UTF8.GetBytes(id + "\n" + message + "\n" + start.ToString(CultureInfo.InvariantCulture) + ":" + end.ToString(CultureInfo.InvariantCulture) + ":" + line.ToString(CultureInfo.InvariantCulture) + ":" + column.ToString(CultureInfo.InvariantCulture)));
+		var span = string.IsNullOrEmpty(file)
+			? start.ToString(CultureInfo.InvariantCulture) + ":" + end.ToString(CultureInfo.InvariantCulture) + ":" + line.ToString(CultureInfo.InvariantCulture) + ":" + column.ToString(CultureInfo.InvariantCulture)
+			: file + ":" + line.ToString(CultureInfo.InvariantCulture);
+		return WithBody(Fault, Encoding.UTF8.GetBytes(id + "\n" + message + "\n" + span));
+	}
+
+	public static byte[] ReplaceBody(string typeName, string methodName, byte returnKind, byte[] argKinds, byte[] code, string[] strings)
+	{
+		ArgumentException.ThrowIfNullOrEmpty(typeName);
+		ArgumentException.ThrowIfNullOrEmpty(methodName);
+		ArgumentNullException.ThrowIfNull(argKinds);
+		ArgumentNullException.ThrowIfNull(code);
+		ArgumentNullException.ThrowIfNull(strings);
+		var body = new List<byte>();
+		WriteUtf8(body, typeName);
+		WriteUtf8(body, methodName);
+		body.Add(returnKind);
+		body.Add((byte)argKinds.Length);
+		body.AddRange(argKinds);
+		body.Add((byte)code.Length);
+		body.Add((byte)(code.Length >> 8));
+		body.Add((byte)(code.Length >> 16));
+		body.Add((byte)(code.Length >> 24));
+		body.AddRange(code);
+		body.Add((byte)strings.Length);
+		body.Add((byte)(strings.Length >> 8));
+		foreach (var text in strings)
+			WriteUtf8(body, text);
+		return WithBody(VmBody, body.ToArray());
+	}
+
+	static void WriteUtf8(List<byte> body, string text)
+	{
+		var bytes = Encoding.UTF8.GetBytes(text);
+		body.Add((byte)bytes.Length);
+		body.Add((byte)(bytes.Length >> 8));
+		body.AddRange(bytes);
 	}
 
 	public static byte[] DismissOverlay() => Ask(Dismiss);

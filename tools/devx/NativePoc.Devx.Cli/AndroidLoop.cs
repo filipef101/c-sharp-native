@@ -193,53 +193,27 @@ static class AndroidLoop
 				case ChangeEffect.Ignore:
 					break;
 				case ChangeEffect.ReloadScreen:
-					NoteUnswapped(batch.Paths);
-					if (batch.Paths.Any(ChangeEffectRules.IsHostScreen))
-					{
-						Console.WriteLine("cnative: reload src/NativePoc.Screen/Screen.cs");
-						var outcome = Push(session, options, batch.FirstMs);
-						if (outcome.Restarting)
-							Restart(session, repo, rid, serial, options, kept, outcome.SubsetRefusal);
-					}
-
-					var screens = new List<string>();
-					foreach (var path in batch.Paths)
-					{
-						var relative = ChangeEffectRules.Normalize(path);
-						if (ChangeEffectRules.IsAppScreen(relative))
-							RememberScreen(screens, relative);
-						else if (ChangeEffectRules.IsSampleCompanion(relative))
-						{
-							var folder = relative[..(relative.LastIndexOf('/') + 1)];
-							foreach (var screen in NewLoop.AppScreens(repo))
-							{
-								if (screen.StartsWith(folder, StringComparison.Ordinal))
-									RememberScreen(screens, screen);
-							}
-						}
-					}
-
-					foreach (var relative in screens)
-					{
-						Console.WriteLine("cnative: reload " + relative);
-						var startedApp = Stopwatch.GetTimestamp();
-						var sent = SendSource(session, repo, relative, kept);
-						if (!ReportApplied(relative, sent, batch.FirstMs, startedApp) && (sent.Refused || HostOutput.IsRude(sent.Text)))
-							OfferRestart(session, repo, rid, serial, options, kept, sent.Refused);
-					}
-
-					if (batch.Paths.Any(ChangeEffectRules.IsPackingScreen))
-					{
-						Console.WriteLine("cnative: reload samples/NativePoc.Packing/PackingScreen.cs");
-						var started = Stopwatch.GetTimestamp();
-						var packing = SendPacking(session, repo, kept);
-						if (!ReportApplied(PackingScreen, packing, batch.FirstMs, started) && (packing.Refused || HostOutput.IsRude(packing.Text)))
-							OfferRestart(session, repo, rid, serial, options, kept, packing.Refused);
-					}
-
+					ApplyScreens(session, repo, rid, serial, options, kept, batch.Paths, batch.FirstMs);
 					break;
 				case ChangeEffect.RestartRequired:
-					ReportFileRude(batch.Paths);
+					if (batch.Paths.Any(ChangeEffectRules.IsHostEdit))
+					{
+						ReportFileRude(batch.Paths);
+					}
+					else if (TrySwapBodies(session, repo, CallablePaths(batch.Paths), batch.FirstMs, out var swapRefusal))
+					{
+						if (swapRefusal is null)
+						{
+							var rest = batch.Paths.Where(path => !ChangeEffectRules.IsCallableSource(path)).ToList();
+							if (rest.Count > 0)
+								ApplyScreens(session, repo, rid, serial, options, kept, rest, batch.FirstMs);
+							break;
+						}
+
+						Console.WriteLine(swapRefusal);
+					}
+					else
+						ReportFileRude(batch.Paths);
 					var interactive = Interactive();
 					var restarting = RestartPolicy.ShouldRestart(true, options.RestartOnRude, interactive, ReadAnswer);
 					var follow = ReloadConsole.FollowUp(restarting, ReloadConsole.OfferRestartFlag(restarting, options.RestartOnRude));
@@ -274,6 +248,65 @@ static class AndroidLoop
 			ChangeEffect.ReloadScreen => new InvalidOperationException("ReloadScreen is handled."),
 			ChangeEffect.RestartRequired => new InvalidOperationException("RestartRequired is handled."),
 		};
+
+	static List<string> CallablePaths(IReadOnlyList<string> paths)
+	{
+		var callables = new List<string>();
+		foreach (var path in paths)
+		{
+			if (ChangeEffectRules.IsCallableSource(path))
+				callables.Add(path);
+		}
+
+		return callables;
+	}
+
+	static void ApplyScreens(ReloadSession session, string repo, string rid, string serial, CliOptions options, KeptPrograms kept, IReadOnlyList<string> paths, long? firstMs)
+	{
+		NoteUnswapped(paths);
+		if (paths.Any(ChangeEffectRules.IsHostScreen))
+		{
+			Console.WriteLine("cnative: reload src/NativePoc.Screen/Screen.cs");
+			var outcome = Push(session, options, firstMs);
+			if (outcome.Restarting)
+				Restart(session, repo, rid, serial, options, kept, outcome.SubsetRefusal);
+		}
+
+		var screens = new List<string>();
+		foreach (var path in paths)
+		{
+			var relative = ChangeEffectRules.Normalize(path);
+			if (ChangeEffectRules.IsAppScreen(relative))
+				RememberScreen(screens, relative);
+			else if (ChangeEffectRules.IsSampleCompanion(relative))
+			{
+				var folder = relative[..(relative.LastIndexOf('/') + 1)];
+				foreach (var screen in NewLoop.AppScreens(repo))
+				{
+					if (screen.StartsWith(folder, StringComparison.Ordinal))
+						RememberScreen(screens, screen);
+				}
+			}
+		}
+
+		foreach (var relative in screens)
+		{
+			Console.WriteLine("cnative: reload " + relative);
+			var startedApp = Stopwatch.GetTimestamp();
+			var sent = SendSource(session, repo, relative, kept);
+			if (!ReportApplied(relative, sent, firstMs, startedApp) && (sent.Refused || HostOutput.IsRude(sent.Text)))
+				OfferRestart(session, repo, rid, serial, options, kept, sent.Refused);
+		}
+
+		if (paths.Any(ChangeEffectRules.IsPackingScreen))
+		{
+			Console.WriteLine("cnative: reload samples/NativePoc.Packing/PackingScreen.cs");
+			var started = Stopwatch.GetTimestamp();
+			var packing = SendPacking(session, repo, kept);
+			if (!ReportApplied(PackingScreen, packing, firstMs, started) && (packing.Refused || HostOutput.IsRude(packing.Text)))
+				OfferRestart(session, repo, rid, serial, options, kept, packing.Refused);
+		}
+	}
 
 	static void NoteUnswapped(IReadOnlyList<string> batch)
 	{
@@ -377,13 +410,15 @@ static class AndroidLoop
 				Console.WriteLine(error.Display);
 			if (compiled.Errors.Count == 0)
 				Console.WriteLine("reload failed");
+			else
+				ShowCompileError(session, compiled.Errors[0]);
 			return new PushOutcome(ReloadStatus.CompileError, false);
 		}
 
-		var lowered = SubsetLowerer.TryLower(session.Compiler.ReadSource(), [], CallableTexts(session.Root));
+		var lowered = SubsetLowerer.TryLower(session.Compiler.ReadSource(), [], CallableTexts(session.Root), "src/NativePoc.Screen/Screen.cs");
 		if (!lowered.Ok || lowered.Program is null)
 		{
-			ShowRefusal(session, lowered);
+			ShowRefusal(session, lowered, "src/NativePoc.Screen/Screen.cs");
 			const string host = "src/NativePoc.Screen/Screen.cs";
 			if (lowered.Diagnostics.Count == 0)
 				Console.WriteLine(host + ": The screen is not a program this runtime can carry.");
@@ -460,13 +495,15 @@ static class AndroidLoop
 			var errors = compiled.Errors.Count == 0
 				? "reload failed"
 				: string.Join('\n', compiled.Errors.Select(error => error.Display));
+			if (compiled.Errors.Count > 0)
+				ShowCompileError(session, compiled.Errors[0]);
 			return new ProgramPush(false, false, errors);
 		}
 
-		var lowered = SubsetLowerer.TryLower(session.Compiler.ReadSource(), [], CallableTexts(session.Root));
+		var lowered = SubsetLowerer.TryLower(session.Compiler.ReadSource(), [], CallableTexts(session.Root), "src/NativePoc.Screen/Screen.cs");
 		if (!lowered.Ok || lowered.Program is null)
 		{
-			ShowRefusal(session, lowered);
+			ShowRefusal(session, lowered, "src/NativePoc.Screen/Screen.cs");
 			return new ProgramPush(false, true, lowered.Diagnostics.Count == 0 ? "The screen is not a program this runtime can carry." : lowered.Diagnostics[0].Message);
 		}
 		var applied = session.Connection.Apply(lowered.Program);
@@ -532,11 +569,11 @@ static class AndroidLoop
 		IReadOnlyList<string>? companions = null,
 		IReadOnlyList<string>? callables = null)
 	{
-		var lowered = SubsetLowerer.TryLower(source, companions, callables);
+		var lowered = SubsetLowerer.TryLower(source, companions, callables, relative);
 		if (!lowered.Ok || lowered.Program is null)
 		{
 			if (fault)
-				ShowRefusal(session, lowered);
+				ShowRefusal(session, lowered, relative);
 			var diagnostic = lowered.Diagnostics.Count == 0 ? null : lowered.Diagnostics[0];
 			return new PackingSend(false, true, diagnostic is null ? refused : diagnostic.Message, 0, diagnostic);
 		}
@@ -553,19 +590,95 @@ static class AndroidLoop
 		}
 	}
 
-	internal static void ShowRefusal(ReloadSession session, SubsetResult lowered)
+	internal static void ShowRefusal(ReloadSession session, SubsetResult lowered, string? file = null)
 	{
 		if (lowered.Diagnostics.Count == 0)
 			return;
 		var diagnostic = lowered.Diagnostics[0];
 		try
 		{
-			session.Connection.Apply(ScreenQuery.FaultNote(diagnostic.Id, diagnostic.Message, diagnostic.Start, diagnostic.End, diagnostic.Line, diagnostic.Column));
+			session.Connection.Apply(ScreenQuery.FaultNote(diagnostic.Id, diagnostic.Message, diagnostic.Start, diagnostic.End, diagnostic.Line, diagnostic.Column, file));
 		}
 		catch (Exception ex) when (ex is InvalidOperationException or IOException or TimeoutException)
 		{
 			_ = ex;
 		}
+	}
+
+	static void ShowCompileError(ReloadSession session, FormattedDiagnostic error)
+	{
+		try
+		{
+			session.Connection.Apply(ScreenQuery.FaultNote(error.Code, error.Message, 0, 0, error.Line, error.Column, error.File));
+		}
+		catch (Exception ex) when (ex is InvalidOperationException or IOException or TimeoutException)
+		{
+			_ = ex;
+		}
+	}
+
+	static bool TrySwapBodies(ReloadSession session, string repo, IReadOnlyList<string> paths, long? editStartedMs, out string? refusal)
+	{
+		refusal = null;
+		if (paths.Count == 0)
+			return false;
+		var files = new List<string>();
+		foreach (var path in paths)
+		{
+			var normalized = ChangeEffectRules.Normalize(path);
+			if (!ChangeEffectRules.IsCallableSource(normalized))
+				return false;
+			files.Add(normalized);
+		}
+
+		var started = Stopwatch.GetTimestamp();
+		foreach (var relative in files)
+		{
+			string source;
+			try
+			{
+				source = File.ReadAllText(Path.Combine(repo, relative.Replace('/', Path.DirectorySeparatorChar)));
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+			{
+				refusal = relative + " could not be read. Relaunching. " + ex.Message;
+				return true;
+			}
+
+			if (!MethodBody.TryLower(source, out var bodies, out var why))
+			{
+				refusal = why;
+				return true;
+			}
+
+			foreach (var body in bodies)
+			{
+				ApplyResult applied;
+				try
+				{
+					applied = session.Connection.Apply(ScreenQuery.ReplaceBody(body.TypeName, body.MethodName, body.ReturnKind, body.ArgKinds, body.Code, body.Strings));
+				}
+				catch (Exception ex) when (ex is InvalidOperationException or IOException or TimeoutException)
+				{
+					refusal = body.TypeName + "." + body.MethodName + " was lowered, and the process did not install it. Relaunching. " + ex.Message;
+					return true;
+				}
+
+				if (!applied.Ok)
+				{
+					refusal = body.TypeName + "." + body.MethodName + " was lowered, and the process did not install it. Relaunching. " + applied.Text;
+					return true;
+				}
+
+				Console.WriteLine("swapped " + applied.Text + " in this process");
+			}
+		}
+
+		var elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+		Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"body-swap {elapsed:F1} ms"));
+		if (editStartedMs is long startedMs)
+			Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"edit-to-reply {Environment.TickCount64 - startedMs} ms"));
+		return true;
 	}
 
 	static bool ReportApplied(string relative, PackingSend sent, long? editStartedMs, long startedTimestamp)

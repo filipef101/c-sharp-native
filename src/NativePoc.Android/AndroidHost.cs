@@ -457,7 +457,13 @@ sealed class AndroidHost : IElementHost<View>
 			Gestures.Refresh => element.OnRefresh,
 			_ => null,
 		};
-		action?.Invoke();
+		if (action is null)
+			return;
+#if DEBUG
+		Guard(element, action);
+#else
+		action();
+#endif
 	}
 
 	void Attach(NodePath path, View view, bool logMount)
@@ -481,6 +487,41 @@ sealed class AndroidHost : IElementHost<View>
 		}
 	}
 
+#if DEBUG
+	static void Guard(Element element, Action call)
+	{
+		try
+		{
+			call();
+		}
+		catch (Exception ex)
+		{
+			var span = Span(element);
+			if (MainActivity.Current is { } activity)
+				DevOverlay.Show(activity, "handler", ex.Message, span);
+			Log.Info(MainActivity.Tag, "handler-fault span=" + span + " " + ex.GetType().Name);
+		}
+	}
+
+	static string Span(Element element)
+	{
+		var (file, line) = element switch
+		{
+			Button button => (button.SourceFile, button.SourceLine),
+			TextField field => (field.SourceFile, field.SourceLine),
+			Switch toggle => (toggle.SourceFile, toggle.SourceLine),
+			_ => ("", 0),
+		};
+		if (file.Length == 0 || file.Contains("RecordProgram.cs", StringComparison.Ordinal))
+			return "screen";
+		var cut = file.LastIndexOf("/src/", StringComparison.Ordinal);
+		if (cut < 0)
+			cut = file.LastIndexOf("/samples/", StringComparison.Ordinal);
+		var shown = cut >= 0 ? file[(cut + 1)..] : System.IO.Path.GetFileName(file);
+		return line > 0 ? shown + ":" + line.ToString(System.Globalization.CultureInfo.InvariantCulture) : shown;
+	}
+#endif
+
 	void AttachButton(NodePath path, View view, bool logMount)
 	{
 		if (view is not AndroidButton button)
@@ -490,7 +531,11 @@ sealed class AndroidHost : IElementHost<View>
 			if (CurrentElement(path) is Button current)
 			{
 				TapTrace.Input();
+#if DEBUG
+				Guard(current, current.OnPress);
+#else
 				current.OnPress();
+#endif
 			}
 		};
 		button.Click += handler;
@@ -514,7 +559,14 @@ sealed class AndroidHost : IElementHost<View>
 			if (edit is AndroidField marked && marked.Key is not null && !FieldFocus.Frozen)
 				FieldFocus.Note(marked.Key, marked.SelectionStart, marked.SelectionEnd);
 			if (CurrentElement(path) is TextField field)
+			{
+#if DEBUG
+				var text = args.Text?.ToString() ?? "";
+				Guard(field, () => field.OnChange(text));
+#else
 				field.OnChange(args.Text?.ToString() ?? "");
+#endif
+			}
 		};
 		edit.TextChanged += handler;
 		EventHandler<TextView.EditorActionEventArgs> editor = (_, args) =>
@@ -532,7 +584,11 @@ sealed class AndroidHost : IElementHost<View>
 			};
 			if (args.ActionId != expected)
 				return;
+#if DEBUG
+			Guard(current, current.OnSubmit);
+#else
 			current.OnSubmit();
+#endif
 			args.Handled = true;
 		};
 		edit.EditorAction += editor;
@@ -558,7 +614,14 @@ sealed class AndroidHost : IElementHost<View>
 			if (_applyingSwitch)
 				return;
 			if (CurrentElement(path) is Switch current)
+			{
+#if DEBUG
+				var flag = args.IsChecked;
+				Guard(current, () => current.OnChange(flag));
+#else
 				current.OnChange(args.IsChecked);
+#endif
+			}
 		};
 		toggle.CheckedChange += handler;
 		_listeners[view] = new Listener { Checked = handler };

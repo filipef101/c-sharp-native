@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace NativePoc;
 
@@ -86,6 +87,96 @@ public static partial class RecordProgram
 	static AppDispatch? _appCall;
 
 	public static void BindAppCall(AppDispatch? dispatch) => _appCall = dispatch;
+
+	sealed class Replacement
+	{
+		public Replacement(byte[] code, string[] strings, byte[] argKinds, byte returnKind)
+		{
+			Code = code;
+			Strings = strings;
+			ArgKinds = argKinds;
+			ReturnKind = returnKind;
+		}
+
+		public byte[] Code { get; }
+
+		public string[] Strings { get; }
+
+		public byte[] ArgKinds { get; }
+
+		public byte ReturnKind { get; }
+	}
+
+	static readonly Dictionary<string, Replacement> _replacements = new(StringComparer.Ordinal);
+
+	public static void ClearReplacements() => _replacements.Clear();
+
+	public static string InstallReplacement(ReadOnlySpan<byte> body)
+	{
+		var cursor = 0;
+		var typeName = ReadUtf8(body, ref cursor);
+		var methodName = ReadUtf8(body, ref cursor);
+		if (cursor >= body.Length)
+			throw new InvalidOperationException("Rejected screen query.");
+		var returnKind = body[cursor++];
+		if (cursor >= body.Length)
+			throw new InvalidOperationException("Rejected screen query.");
+		var argc = body[cursor++];
+		if (argc > 8 || cursor + argc > body.Length)
+			throw new InvalidOperationException("Rejected screen query.");
+		var argKinds = body.Slice(cursor, argc).ToArray();
+		cursor += argc;
+		if (cursor + 4 > body.Length)
+			throw new InvalidOperationException("Rejected screen query.");
+		var codeLen = body[cursor] | (body[cursor + 1] << 8) | (body[cursor + 2] << 16) | (body[cursor + 3] << 24);
+		cursor += 4;
+		if (codeLen < 0 || cursor + codeLen > body.Length)
+			throw new InvalidOperationException("Rejected screen query.");
+		var code = body.Slice(cursor, codeLen).ToArray();
+		cursor += codeLen;
+		if (cursor + 2 > body.Length)
+			throw new InvalidOperationException("Rejected screen query.");
+		var count = body[cursor] | (body[cursor + 1] << 8);
+		cursor += 2;
+		var strings = new string[count];
+		for (var index = 0; index < count; index++)
+			strings[index] = ReadUtf8(body, ref cursor);
+		if (cursor != body.Length || typeName.Length == 0 || methodName.Length == 0 || code.Length == 0)
+			throw new InvalidOperationException("Rejected screen query.");
+		var slot = new Replacement(code, strings, argKinds, returnKind);
+		_replacements[typeName + "\n" + methodName] = slot;
+		var dot = typeName.LastIndexOf('.');
+		if (dot >= 0 && dot < typeName.Length - 1)
+			_replacements[typeName[(dot + 1)..] + "\n" + methodName] = slot;
+		return typeName + "." + methodName;
+	}
+
+	public static bool TryRunReplacement(string typeName, string methodName, AppValue[] args, out AppValue result)
+	{
+		result = default;
+		if (!_replacements.TryGetValue(typeName + "\n" + methodName, out var slot))
+			return false;
+		var frame = new HandlerFrame();
+		var count = args.Length < slot.ArgKinds.Length ? args.Length : slot.ArgKinds.Length;
+		for (var index = 0; index < count; index++)
+			StoreLocal(frame, slot.ArgKinds[index], index, FromApp(args[index]));
+		var value = RunVm(slot.Code, 0, slot.Code.Length, slot.Strings, new Bag(), null!, null, false, null, frame, 0);
+		result = slot.ReturnKind == 0 ? default : ToApp(value);
+		return true;
+	}
+
+	static string ReadUtf8(ReadOnlySpan<byte> body, ref int cursor)
+	{
+		if (cursor + 2 > body.Length)
+			throw new InvalidOperationException("Rejected screen query.");
+		var length = body[cursor] | (body[cursor + 1] << 8);
+		cursor += 2;
+		if (length < 0 || cursor + length > body.Length)
+			throw new InvalidOperationException("Rejected screen query.");
+		var text = Encoding.UTF8.GetString(body.Slice(cursor, length));
+		cursor += length;
+		return text;
+	}
 
 	static readonly string NullMessage = new NullReferenceException().Message;
 

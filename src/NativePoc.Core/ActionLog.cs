@@ -18,6 +18,8 @@ public static class ActionLog
 
 	public static Action<long, int, string?>? OnScript { get; set; }
 
+	public static Action<string, string>? OnFault { get; set; }
+
 	public static void Note(long micros, int steps, string? stop)
 	{
 		LastMicros = micros;
