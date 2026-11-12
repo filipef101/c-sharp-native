@@ -412,6 +412,20 @@ public sealed class MainActivity : Activity
 		base.OnDestroy();
 	}
 
+#if NATIVEPOC_FAST_NATIVES
+	internal void FastOnCreate(Bundle? saved) => OnCreate(saved);
+
+	internal void FastOnNewIntent(Intent? intent) => OnNewIntent(intent);
+
+	internal void FastOnResume() => OnResume();
+
+	internal void FastOnDestroy() => OnDestroy();
+
+#pragma warning disable CA1422
+	internal void FastOnBackPressed() => OnBackPressed();
+#pragma warning restore CA1422
+#endif
+
 	public void RequestRender()
 	{
 		if (_inRender)

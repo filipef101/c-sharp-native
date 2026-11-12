@@ -18,6 +18,7 @@
 		<NativePocLocation Condition="'$(NativePocLocation)' == ''">false</NativePocLocation>
 		<NativePocStartupMarks Condition="'$(NativePocStartupMarks)' == ''">false</NativePocStartupMarks>
 		<NativePocDeferNatives Condition="'$(NativePocDeferNatives)' == ''">false</NativePocDeferNatives>
+		<NativePocFastNatives Condition="'$(NativePocFastNatives)' == ''">false</NativePocFastNatives>
 		<AndroidManifestPlaceholders>nativepocMarks=$(NativePocStartupMarks)</AndroidManifestPlaceholders>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
 	</PropertyGroup>
@@ -168,6 +169,18 @@
 	<PropertyGroup Condition="'$(NativePocStartupMarks)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_STARTUP_MARKS</DefineConstants>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocFastNatives)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_FAST_NATIVES</DefineConstants>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(NativePocFastNatives)' != 'true'">
+		<AndroidJavaSource Remove="Java\nativepoc\ActivityNatives.java" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(NativePocFastNatives)' == 'true'">
+		<AndroidJavaSource Remove="Java\nativepoc\ActivityNatives.java" />
+		<AndroidJavaSource Include="Java\nativepoc\ActivityNatives.java">
+			<Bind>false</Bind>
+		</AndroidJavaSource>
+	</ItemGroup>
 	<ItemGroup Condition="'$(NativePocStartupMarks)' != 'true'">
 		<AndroidJavaSource Remove="Java\nativepoc\StartupProbe.java" />
 		<AndroidJavaSource Remove="Java\nativepoc\StartupApp.java" />
@@ -241,6 +254,19 @@
 			<_DeferActivity Include="$(IntermediateOutputPath)android/src/**/MainActivity.java" />
 		</ItemGroup>
 		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)native/defer-natives.py&quot; &quot;%(_DeferActivity.Identity)&quot;" />
+	</Target>
+	<Target Name="RefuseFastAndDefer" BeforeTargets="MarkJcwActivity" Condition="'$(NativePocFastNatives)' == 'true' And '$(NativePocDeferNatives)' == 'true'">
+		<Error Text="NativePocFastNatives and NativePocDeferNatives cannot both be set." />
+	</Target>
+	<!-- After the mark patch, when that target ran. One RegisterNatives table. -->
+	<Target Name="FastActivityNatives" BeforeTargets="_CompileJava" DependsOnTargets="MarkJcwActivity" Condition="'$(NativePocFastNatives)' == 'true'">
+		<ItemGroup>
+			<_FastActivity Include="$(IntermediateOutputPath)android/src/**/MainActivity.java" />
+		</ItemGroup>
+		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)native/fast-natives.py&quot; &quot;%(_FastActivity.Identity)&quot;" />
+	</Target>
+	<Target Name="ExportFastNatives" BeforeTargets="LinkNative" DependsOnTargets="_AndroidBeforeIlcCompile" Condition="'$(NativePocFastNatives)' == 'true' And '$(Configuration)' == 'Release'">
+		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)native/export-fast.py&quot; &quot;$(IntermediateOutputPath)native/$(AssemblyName).exports&quot;" />
 	</Target>
 	<ItemGroup Condition="'$(NativePocPackRelocs)' != ''">
 		<LinkerArg Include="-Wl,--pack-dyn-relocs=$(NativePocPackRelocs)" />

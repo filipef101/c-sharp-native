@@ -55,7 +55,6 @@ static class AppLoop
 		}
 		if (apk is null)
 			throw new InvalidOperationException("Missing signed apk.");
-		Install(serial, apk);
 		var session = new ReloadSession();
 		using var cancel = new CancellationTokenSource();
 		Console.CancelKeyPress += (_, eventArgs) =>
@@ -65,21 +64,26 @@ static class AppLoop
 		};
 		try
 		{
-			session.Token = AndroidLoop.LaunchInstalled(serial, "--es nativepoc_root home");
+			var attached = AndroidLoop.InstallOrAttach(serial, apk, "--es nativepoc_root home", out var token);
+			session.Token = token;
 			session.Open(root, serial);
-			/* --once is an explicit push of the screens. A watching run
-			   leaves the published UI on screen; the first edit sends the
-			   file. Re-sending every screen before the user edits reloads
-			   the program the publish already contains. */
+			/* --once after a fresh launch pushes the screens. An attach
+			   pushes only a screen newer than the last run. A watching
+			   run leaves the published UI up until the first edit. */
 			if (options.Once)
 			{
-				foreach (var relative in Screens(root))
+				var screens = Screens(root);
+				var send = attached ? NewerScreens(root, screens, StampPath(root)) : screens;
+				if (send.Count == 0)
+					Console.WriteLine("cnative: screens unchanged. Skipping reload.");
+				foreach (var relative in send)
 				{
 					var started = Stopwatch.GetTimestamp();
 					var sent = AndroidLoop.SendSource(session, root, relative);
 					Report(relative, sent, started);
 				}
 
+				TouchStamp(StampPath(root));
 				return 0;
 			}
 
@@ -179,6 +183,31 @@ static class AppLoop
 		if (File.Exists(nuget) && File.GetLastWriteTimeUtc(nuget) > apkTime)
 			return false;
 		return true;
+	}
+
+	internal static string StampPath(string root) => Path.Combine(root, ".cnative", "run-stamp");
+
+	internal static List<string> NewerScreens(string root, IReadOnlyList<string> screens, string stampPath)
+	{
+		DateTime? stamp = File.Exists(stampPath) ? File.GetLastWriteTimeUtc(stampPath) : null;
+		var newer = new List<string>();
+		foreach (var relative in screens)
+		{
+			var path = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
+			if (!File.Exists(path))
+				continue;
+			if (stamp is null || File.GetLastWriteTimeUtc(path) > stamp.Value)
+				newer.Add(relative);
+		}
+
+		return newer;
+	}
+
+	static void TouchStamp(string stampPath)
+	{
+		Directory.CreateDirectory(Path.GetDirectoryName(stampPath)!);
+		File.WriteAllText(stampPath, "run\n");
+		File.SetLastWriteTimeUtc(stampPath, DateTime.UtcNow);
 	}
 
 	static List<string> Screens(string root)

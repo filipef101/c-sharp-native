@@ -79,6 +79,9 @@ static class ArgParser
 
 		  A directory with cnative-app.csproj is an app from `dotnet new cnative-app`.
 		  cnative run android publishes that project, installs it, and watches screens/.
+		  An apk whose bytes are already installed is not installed again. A running
+		  listener is not restarted when that apk matches. --once then reloads only
+		  a screen file newer than the last run, and skips the reload when none is.
 
 		  --device <serial>     adb serial. Default: the only online device.
 		  --abi <rid>           android-x64 or android-arm64. Default: the device ABI.

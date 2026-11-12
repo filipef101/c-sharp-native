@@ -1,5 +1,6 @@
 bin/
 obj/
+.cnative/
 tools/bench/floor/build/
 tools/bench/list-floor/.cache/
 agent-tools/

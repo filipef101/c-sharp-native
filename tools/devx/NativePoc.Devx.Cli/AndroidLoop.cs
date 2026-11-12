@@ -90,7 +90,7 @@ static class AndroidLoop
 		try
 		{
 			var checkpoint = CaptureRunning(serial);
-			session.Token = DeployAndLaunch(repo, rid, serial, listener: options.Listener);
+			session.Token = DeployAndLaunch(repo, rid, serial, listener: options.Listener, reuseRunning: true);
 			session.Open(repo, serial);
 			Restore(session, checkpoint);
 			var initial = Push(session, options, editStartedMs: null);
@@ -947,7 +947,7 @@ static class AndroidLoop
 			throw new InvalidOperationException("Install failed: " + again.Stderr + again.Stdout + installed.Stderr + installed.Stdout);
 	}
 
-	internal static FoundToken DeployAndLaunch(string repo, string rid, string serial, IReadOnlyList<string>? extraBuild = null, bool listener = false)
+	internal static FoundToken DeployAndLaunch(string repo, string rid, string serial, IReadOnlyList<string>? extraBuild = null, bool listener = false, bool reuseRunning = false)
 	{
 		var project = Path.Combine(repo, "src", "NativePoc.Android", "NativePoc.Android.csproj");
 		if (listener)
@@ -961,9 +961,18 @@ static class AndroidLoop
 				Console.Error.WriteLine);
 			if (published.Code != 0)
 				throw new InvalidOperationException("Listener publish exited " + published.Code + ".");
-			InstallApk(serial, AndroidBuild.RequireSignedApk(AndroidBuild.PublishDirectory(repo, "Debug", rid)));
+			var apk = AndroidBuild.RequireSignedApk(AndroidBuild.PublishDirectory(repo, "Debug", rid));
+			if (!reuseRunning)
+			{
+				InstallApk(serial, apk);
+				return LaunchInstalled(serial);
+			}
+
+			InstallOrAttach(serial, apk, null, out var token);
+			return token;
 		}
-		else
+
+		if (!reuseRunning)
 		{
 			Console.WriteLine("cnative: building Debug " + rid + " for " + serial);
 			var arguments = new List<string>(AndroidBuild.DebugRun(project, rid, serial));
@@ -981,8 +990,56 @@ static class AndroidLoop
 				Console.Error.WriteLine);
 			if (build.Code != 0)
 				throw new InvalidOperationException("Debug deploy exited " + build.Code + ".");
+			return LaunchInstalled(serial);
 		}
-		return LaunchInstalled(serial);
+
+		Console.WriteLine("cnative: building Debug " + rid + " for " + serial);
+		var debugArgs = new List<string>(AndroidBuild.DebugBuild(project, rid));
+		if (extraBuild is not null)
+		{
+			foreach (var extra in extraBuild)
+				debugArgs.Add(extra);
+		}
+
+		var built = ProcessRunner.Run(
+			"dotnet",
+			debugArgs,
+			repo,
+			Console.WriteLine,
+			Console.Error.WriteLine);
+		if (built.Code != 0)
+			throw new InvalidOperationException("Debug build exited " + built.Code + ".");
+		var debugApk = AndroidBuild.RequireSignedApk(AndroidBuild.DebugDirectory(repo, "Debug", rid));
+		InstallOrAttach(serial, debugApk, null, out var running);
+		return running;
+	}
+
+	internal static bool InstallOrAttach(string serial, string apk, string? extras, out FoundToken token)
+	{
+		var local = DeviceInstall.HashFile(apk);
+		var listed = Adb(serial, "shell", "pm", "path", LaunchCommand.Package);
+		var remote = DeviceInstall.PackagePath(listed.Stdout);
+		var matches = false;
+		if (remote is not null)
+		{
+			var sum = Adb(serial, "shell", "sha256sum", remote);
+			matches = sum.Code == 0 && DeviceInstall.SameHash(local, sum.Stdout);
+		}
+
+		if (matches)
+			Console.WriteLine("cnative: installed apk matches. Skipping install.");
+		else
+			InstallApk(serial, apk);
+		var running = ReadTokenOnce(serial);
+		if (matches && running.Hex.Length > 0)
+		{
+			Console.WriteLine("cnative: listener already running. Skipping launch.");
+			token = running;
+			return true;
+		}
+
+		token = LaunchInstalled(serial, extras);
+		return false;
 	}
 
 	internal static FoundToken LaunchInstalled(string serial) => LaunchInstalled(serial, null);

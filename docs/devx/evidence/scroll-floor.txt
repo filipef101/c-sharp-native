@@ -742,3 +742,108 @@ tools/bench/a11y-dismiss.sh --apk nativepoc-feed-android-x64.apk --serial <pixel
 
 Core tests: 78 passed, including `FeedUndoTests` and `RecordWarmTests`. Packing tests: 14 passed. Devx tests: 144 passed, including `IlcStampTests`. The accessibility script above exited 0 on emulator-5554.
 
+## Feed minus floor, a prebuilt RegisterNatives table, install skip, headless host
+
+These numbers are from this workspace unless the line says Mac emulator. The emulator is emulator-5554, SwiftShader, API 34. Mac emulator is the pixel_8 arm64 run supplied for `c666e52`. This workspace did not remeasure that Mac. A guest load at or above 2 means only same-run relatives are usable. Block deltas are feed p50 minus floor p50. The median is Hyndman-Fan type 7. The interval is the bootstrap 2.5 and 97.5 percentiles, B=1000, Park-Miller seed 8946.
+
+### Mac emulator, feed minus floor
+
+`c666e52`, feed APK sha256 prefix `740a0f5d`, `--n 20 --repeat 5`, guest load 3.6–14. Block deltas: 57.0, 53.5, 64.0, 82.5, 66.0. Median 64.0. Interval 53.5–82.5. TotalTime p50: feed 337, thin 293.5, floor 274. Feed p50 minus floor p50 is 63, next to the median delta 64.
+
+Marks are p50 milliseconds since process start. Feed: java_end 44.5, jcw_enter 55, jcw_register 55.5, jcw_registered 71.5, jni 74, enter 82, layout 183, idle 251, flush 295. Floor: oncreate 37, layout 143. Thin: java_end 46, thin_class 58, thin_jni 65, thin_oncreate 71.
+
+The feed's first layout is at 183 and the floor's is at 143, 40 of the 63. The floor is in onCreate at 37. The feed enters OnCreate at 82, so the screen starts 45 later. Feed enter to layout is 101. Floor onCreate to layout is 106. The managed screen build and the first layout match the floor. After layout, feed TotalTime minus layout is 154 and the floor's is 131, about 23. 40 plus 23 is the 63.
+
+Before enter: java_end 44.5, then 10.5 to load the activity class (55 minus 44.5), 0.5 to build the five-line method string (55.5 minus 55), 16 inside `registerNativeMembers` (71.5 minus 55.5), 2.5 to the managed static constructor (74 minus 71.5), 8 to enter OnCreate (82 minus 74). The 0.5 is the Java string. The 16 is five `Delegate.CreateDelegate` lookups and one `RegisterNatives`. The runtime already makes one `RegisterNatives` call at the end of that method. Thin, which registers one JNI method, takes 19 from java_end 46 to thin_jni 65. The feed takes 29.5 from java_end 44.5 to jni 74. The five registrations are the slice the thin activity does not pay, and the largest app-owned slice inside the gap. The 101 from enter to layout is the longest interval, and it matches the floor, so cutting it does not close feed minus floor.
+
+### Prebuilt RegisterNatives (emulator-run, not kept)
+
+`NativePocFastNatives` replaces the `registerNativeMembers` call with `nativepoc.ActivityNatives.register`. That is one `RegisterNatives` of five delegates built as method groups, not looked up by name. The method string and the jcw-register and jcw-registered marks stay. The flag defaults to false. It refuses the location override and refuses to combine with `NativePocDeferNatives`. One smoke launch on this emulator logged `jcw-fast count=5`, jcw-register at 65, jcw-registered at 70. That is one launch, not a percentile.
+
+Both benches are the marks feed, `--n 6 --repeat 2 --quiesce warn`, pooled n=12, one warmup dropped per block. The baseline APK is the shipping feed x64 below. The fast APK was not shipped.
+
+| pair | series | baseline TotalTime p50/p90 | baseline guest_load_p50 | fast TotalTime p50/p90 | fast guest_load_p50 |
+| --- | --- | --- | --- | --- | --- |
+| first | counter | 1032.5 / 1148.3 | 7.5 | 967.5 / 1725.4 | 6.2 |
+| first | feed | 957.5 / 995.4 | 7.6 | 873.5 / 1176.5 | 6.2 |
+| first | thin | 725.0 / 859.0 | 7.7 | 667.0 / 1140.8 | 6.2 |
+| first | floor | 644.5 / 687.6 | 7.5 | 627.0 / 1006.3 | 6.2 |
+| second | counter | 940.0 / 1091.7 | 4.9 | 901.0 / 987.3 | 7.7 |
+| second | feed | 774.5 / 926.1 | 5.0 | 796.0 / 851.1 | 7.6 |
+| second | thin | 648.0 / 767.1 | 5.2 | 633.5 / 667.4 | 7.7 |
+| second | floor | 576.5 / 602.8 | 5.2 | 564.0 / 607.5 | 7.8 |
+
+First pair block deltas. Baseline 269.5 and 324.0, median 296.8, interval 269.5–324.0. Fast 138.5 and 268.5, median 203.5, interval 138.5–268.5. The fast high is 1.0 below the baseline low. Fast block 0 floor p50 was 829.5. The summary lists floor samples 1339 at guest load 6.14 and 1020 at guest load 7.21, both over 1.5 times the floor median, and the script kept them. Register to registered, difference of p50s: baseline 5.0 (131.0 to 136.0), fast 2.5 (101.0 to 103.5).
+
+Second pair. Baseline 292.0 and 213.5, median 252.8, interval 213.5–292.0. Fast 195.0 and 264.5, median 229.8, interval 195.0–264.5. The intervals overlap. Register to registered: baseline 1.5 (120.5 to 122.0), fast 1.0 (116.5 to 117.5). The second pair is the keep-or-drop check. The flag stays false. Full deferral, recorded above, also stays false.
+
+The fast x64 APK, not shipped, is 3,292,549 bytes, sha256 `0072852ab75bd4d0cab75833914226a40c325f1d11793bd7686ac8946344236c`. Its `.so` is 7,212,800, sha256 `0773cd6a8a0e0e38dc59e9aad9e803d8114201a8984a0dbe1619e938710e0038`. Its dex is 330,980, sha256 `e17ec0deb557f74c9785ad13f81b67cc1d1f87232e6ab6a09474bbd94cd28d52`. The generated activity calls `ActivityNatives.register` and the `.so` exports `Java_nativepoc_ActivityNatives_register`.
+
+### Unchanged install and edit-only launch (emulator-run)
+
+`cnative run` sha256s the local apk and the installed `base.apk`. A match skips install. A match with a listener token already on the device skips the force-stop and the launch. `--once` sends a screen only when the file is newer than `.cnative/run-stamp`.
+
+Template `/tmp/p37/loop`, Debug listener, `android-x64`. The first wrapper run installed, because the device had the feed Release, and launched pid 25116. Wall 3.663 s, including the CLI build. Then `reloaded in 117.5 ms (lower 33.7 ms, apply 76.2 ms)`.
+
+Unchanged, same pid. Wrapper wall 1.185 s. The CLI build line was `Time Elapsed 00:00:00.87`. Log: `Skipping publish`, `installed apk matches. Skipping install.`, `listener already running. Skipping launch.`, `screens unchanged. Skipping reload.` `dotnet exec` of the built CLI, so the wall is the run: 0.187 s, same four lines, pid 25116.
+
+Edit of the title initializer from Hello to Hiya, `dotnet exec`, wall 0.250 s. Skipped install and launch. `reloaded in 56.5 ms (lower 32.3 ms, apply 16.5 ms)`. Log: `Hello program=1` and `state kept Title="Hello" (initializer "Hiya")`. Pid stayed 25116. The source was put back to Hello after the run.
+
+### Headless host (built)
+
+`HeadlessHost` implements `IPlatform`. `Show` renders a screen. `Apply` binds a record program, which is the hot-reload edit. `Accessibility` is `ScreenSnapshot.FormatTree`. `Layout` is `HeadlessLayout.Format`: page width 360, one line per id, `id=` `left=` `top=` `width=` `height=`. No Android and no iOS type is referenced. Core `HeadlessHostTests` renders the counter, checks `value="Counter 0"`, `label="Save name"`, and `id=title left=0 top=0 width=360 height=30`, taps Save, then applies an encoded program and checks `value="Edited"`. Devx `HeadlessScreenTests` lowers the counter, the feed, and the visit screen through `SubsetLowerer` and checks Save name, the feed heading, Refresh, the feed window, the visit heading, Locate, and place. A second fact edits the counter title prefix in memory from `"Counter "` to `"Tally "` and checks `value="Tally 0"`.
+
+Core tests excluding `ReloadAotPublishTests`: 78 passed, including `HeadlessHostTests`. Packing tests: 14 passed. Devx tests: 148 passed, including `HeadlessScreenTests` and `ListenerApkTests`.
+
+### Sizes
+
+`NativePocFastNatives` is false on these builds. The dex has no `ActivityNatives` and no `jcw-fast`. Feed x64 is the baseline the emulator benches above installed. Feed arm64, counter, and visit were built and not timed on a device. Visit passes `NativePocHttp` and `NativePocLocation`, which is what compiles `VisitScreen`. The list floor was not rebuilt.
+
+| build | label | APK | APK sha256 | .so | .so sha256 | dex |
+| --- | --- | --- | --- | --- | --- | --- |
+| counter x64 | built | 3,056,501 | `b5179cb8cb63e917b3e987c0186e9ec5acdb7751ae185eb12267ddba2f37f2b6` | 7,042,816 | `6a5ce9f7c71384a552e5f718fd94a1a602ee2934e61f063c2e853ac7d3126fa6` | 49,920 |
+| counter arm64 | built | 2,896,760 | `258c51e0f67e757e280a317d41f1ab28738f5d42c9cf1b0a449e19e409d93a67` | 7,266,944 | `ece079be35356a9fe5ca06a022ecb0a4ee6ed6844b39890b499e94abb67d5ead` | 49,920 |
+| feed x64, marks on | emulator-run | 3,288,812 | `39e83319cb13ccb08aeae2001dc38138aee4a51070a272e66117b814f4cfc3a4` | 7,203,648 | `2ade90686ff58f0551cf5566f52b0e2d7efdaac93105dc7a48bbcf1f82a5c63b` | 330,800 |
+| feed arm64, marks on | built | 3,129,071 | `a7ea094b9602e84f308c79a30916f67b0754af82f714c33b7952835505d3a54e` | 7,436,360 | `2aeff9bce7e1bc605e0e57b1f8823e61ae3bbb010a2d01db839328b04e1b0b4c` | 330,800 |
+| visit x64 | built | 3,146,613 | `b977baf6eadae6bff74716f8d65f48f205155bc83a94ec56086b1f4a51ace5b1` | 7,256,256 | `2464111e614decde3f6dd5af461213604c314a4937ca448b5a930dd6261bfe4e` | 52,276 |
+| visit arm64 | built | 2,982,776 | `e49a44a70df2e291f9b872f0df7c41393856443d7f66042182c78cf296f79d7c` | 7,491,592 | `91b40abcad66cd17b54eca6e753672b26c8c2842ec3178479833e52d12bec655` | 52,276 |
+
+Dex sha256: counter `9267b0f166ebf71ec043bc7ec79eced7c9f698117489d37e3178c7c24596f771` (same bytes as `ca9992e`, both ABIs), feed `6b319683f0d9edc214bc654597fe08b9121fabfc88121242faa0b5fad4aa6f43` (same bytes as `ca9992e`, both ABIs), visit `0efeb5ae4570f976f8724c34da34ce3cbfefd7fd43387b9d934a14c7276d5bed` (same bytes as `ca9992e`, both ABIs). The `.so` hashes are the bytes inside each APK. List floor arm64 was not rebuilt: 531,381 bytes, sha256 `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1`. The floor series in the benches above used that file. The feed arm64 `.so` is stripped and has a `.gnu_debuglink`. The marks feed exports `Java_nativepoc_ThinActivity_thinMark`. No RELR and no `extractNativeLibs=false`. `NativePocDeferNatives` and `NativePocFastNatives` are false.
+
+```
+tools/bench/mac-bench.sh --device <pixel_8> --n 20 --repeat 5 --quiesce warn --out /tmp/feed-cold \
+  --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run thin:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/nativepoc.ThinActivity \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+```
+tools/bench/scroll-bench.sh --serial <pixel_8> --swipes 8 --rounds 5 \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+```
+tools/bench/cold-start.sh --device <pixel_8> --n 10 --name visit --out /tmp/cold-visit \
+  --apk nativepoc-visit-android-arm64.apk \
+  --component com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  -- --es nativepoc_root visit
+```
+
+```
+tools/bench/a11y-dismiss.sh --apk nativepoc-feed-android-x64.apk --serial <pixel_8>
+```
+
+The emulator pairs above were:
+
+```
+tools/bench/mac-bench.sh --device emulator-5554 --n 6 --repeat 2 --quiesce warn --out /tmp/p38/bench-base \
+  --run counter:/tmp/p38/feed-baseline.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:/tmp/p38/feed-baseline.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run thin:/tmp/p38/feed-baseline.apk:com.scratch.nativepoc/nativepoc.ThinActivity \
+  --run floor:/opt/cursor/artifacts/progress33/nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+The fast pair used the same command with `/tmp/p38/feed-fast.apk`. The second pair wrote `/tmp/p38/bench-base2` and `/tmp/p38/bench-fast2`.
+
