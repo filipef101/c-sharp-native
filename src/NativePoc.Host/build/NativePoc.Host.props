@@ -10,6 +10,7 @@
 			<Compile Remove="$(NativePocHostDir)FeedJson.cs" Condition="'$(NativePocHttp)' != 'true'" />
 			<Compile Remove="$(NativePocHostDir)PersistStore.cs" Condition="'$(NativePocPersist)' != 'true'" />
 			<Compile Remove="$(NativePocHostDir)NavFocus.cs" Condition="'$(NativePocNav)' != 'true'" />
+			<Compile Remove="$(NativePocHostDir)NavTransition.cs" Condition="'$(NativePocTransition)' != 'true'" />
 		</ItemGroup>
 	</Target>
 	<ItemGroup>

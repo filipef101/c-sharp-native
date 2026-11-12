@@ -42,6 +42,7 @@ public sealed class InspectTests
 			("feed", Path.Combine(root, "samples", "feed", "FeedScreen.cs")),
 			("visit", Path.Combine(root, "samples", "visit", "VisitScreen.cs")),
 			("packing", Path.Combine(root, "samples", "NativePoc.Packing", "PackingScreen.cs")),
+			("notes", Path.Combine(root, "samples", "notes", "NotesScreen.cs")),
 		};
 		foreach (var file in files)
 		{
@@ -69,6 +70,29 @@ public sealed class InspectTests
 		Assert.Contains("under 48 dp.", json, StringComparison.Ordinal);
 		Assert.Contains("\"code\":\"focus-order\",\"id\":\"title\",\"message\":\"Focus reaches title above later.\"", json, StringComparison.Ordinal);
 		Assert.Equal(3, ScreenInspect.Violations(json));
+	}
+
+	[Fact]
+	public void Inspect_flags_a_fixed_height_text_container()
+	{
+		var clipped = new Column(
+		[
+			new Text("Notes") { Key = "title", Style = new Style { FontSize = 22 } },
+			new Text("Body") { Key = "body", Style = new Style { Grow = 1, FontSize = 16 } },
+		]);
+		var json = ScreenInspect.Format(clipped);
+		Assert.Contains("\"code\":\"fixed-height\",\"id\":\"body\"", json, StringComparison.Ordinal);
+		Assert.Contains("fixed-height container", json, StringComparison.Ordinal);
+		Assert.DoesNotContain("\"id\":\"title\",\"message\":\"Text in title stays", json, StringComparison.Ordinal);
+
+		var open = new Column(
+		[
+			new Text("Notes") { Key = "title", Style = new Style { FontSize = 22 } },
+			new Text("Body") { Key = "body", Style = new Style { FontSize = 16 } },
+			new Button("Add", () => { }, "Add") { Key = "add" },
+		]);
+		var held = ScreenInspect.Format(open);
+		Assert.DoesNotContain("fixed-height", held, StringComparison.Ordinal);
 	}
 
 	[Fact]

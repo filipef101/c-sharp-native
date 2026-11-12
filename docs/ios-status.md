@@ -58,3 +58,4 @@ Still not a build:
 - `NSUrlSession` and `CLLocationManager` are written in `PlatformBridge.cs` and have not been type-checked by the iOS SDK. A denied fix is the string `Location.Parse` already accepts. A granted fix from a simulator was not produced.
 - No iOS binary, simulator log, or device log exists. Do not read this section as an iOS run.
 - The hot-reload error overlay is Android `DevOverlay`, compiled only for a Debug listener. It was not added to the UIKit host. The startup phase logs (`state-load`, `nav-restore`, `persist-read`) are Android. This wave did not compile `net10.0-ios`.
+- Nav transitions, night mode, and font scale are Android. `NavTransition.cs` is compiled only when `NativePocTransition` is true. The UIKit host has no `Slide` transition and does not read `fontScale`. `net10.0-ios` was not compiled.

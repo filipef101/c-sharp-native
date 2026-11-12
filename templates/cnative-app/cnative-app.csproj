@@ -18,6 +18,7 @@
 		<NativePocRecycler Condition="'$(NativePocRecycler)' == ''">false</NativePocRecycler>
 		<NativePocLocation Condition="'$(NativePocLocation)' == ''">false</NativePocLocation>
 		<NativePocNav>CNATIVE_NAV</NativePocNav>
+		<NativePocTransition Condition="'$(NativePocTransition)' == ''">false</NativePocTransition>
 		<NativePocPersist>CNATIVE_PERSIST</NativePocPersist>
 		<DefineConstants>$(DefineConstants);NATIVEPOC_ROOT_HOME</DefineConstants>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
@@ -56,6 +57,9 @@
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocNav)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_NAV</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocTransition)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_TRANSITION</DefineConstants>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocPersist)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_PERSIST</DefineConstants>

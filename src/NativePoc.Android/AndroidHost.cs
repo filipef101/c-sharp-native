@@ -123,6 +123,9 @@ sealed class AndroidHost : IElementHost<View>
 			throw new InvalidOperationException("Button patch targeted a non-button view.");
 		button.Text = title;
 		button.ContentDescription = accessibilityLabel;
+		button.SetSingleLine(false);
+		button.Ellipsize = null;
+		button.SetHorizontallyScrolling(false);
 		TouchTarget(button);
 	}
 
@@ -275,6 +278,12 @@ sealed class AndroidHost : IElementHost<View>
 			};
 			if (style.FontSize > 0)
 				text.SetTextSize(ComplexUnitType.Sp, style.FontSize);
+			if (text is not EditText)
+			{
+				text.Ellipsize = null;
+				text.SetHorizontallyScrolling(false);
+				text.SetMaxLines(int.MaxValue);
+			}
 			if (HostPolicy.IsHeading(style.FontSize) && (int)Android.OS.Build.VERSION.SdkInt >= 28)
 			{
 				text.ImportantForAccessibility = ImportantForAccessibility.Yes;

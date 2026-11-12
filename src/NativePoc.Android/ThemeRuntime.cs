@@ -1,3 +1,4 @@
+using System.Globalization;
 using Android.Graphics;
 using Android.Graphics.Drawables;
 using Android.Views;
@@ -43,7 +44,7 @@ static class ThemeRuntime
 		}
 
 		Paint(activity, activity.Window?.DecorView);
-		Android.Util.Log.Info(MainActivity.Tag, "theme mode=" + Mode + " dark=" + (IsDark(activity) ? "1" : "0"));
+		Android.Util.Log.Info(MainActivity.Tag, "theme mode=" + Mode + " dark=" + (IsDark(activity) ? "1" : "0") + " scale=" + FontScale(activity));
 	}
 
 	public static void ApplyWindow(Activity activity)
@@ -53,6 +54,14 @@ static class ThemeRuntime
 			return;
 		window.SetBackgroundDrawable(new ColorDrawable(page));
 		window.DecorView?.SetBackgroundColor(page);
+	}
+
+	public static string FontScale(Activity activity)
+	{
+		var scale = activity.Resources?.Configuration?.FontScale ?? 1f;
+		if (scale <= 0)
+			scale = 1f;
+		return scale.ToString("0.0##", CultureInfo.InvariantCulture);
 	}
 
 	public static bool IsDark(Activity activity)
@@ -117,7 +126,7 @@ static class StorageSeed
 		ScreenNav.Shared.Bag("trips").WriteBool("Dark", ThemeRuntime.IsDark(activity));
 		Refresh(activity, "trip");
 		ThemeRuntime.Paint(activity, activity.Window?.DecorView);
-		Android.Util.Log.Info(MainActivity.Tag, "theme mode=" + ThemeRuntime.Mode + " dark=" + (ThemeRuntime.IsDark(activity) ? "1" : "0"));
+		Android.Util.Log.Info(MainActivity.Tag, "theme mode=" + ThemeRuntime.Mode + " dark=" + (ThemeRuntime.IsDark(activity) ? "1" : "0") + " scale=" + ThemeRuntime.FontScale(activity));
 	}
 
 	public static void Refresh(Activity activity, string screen)

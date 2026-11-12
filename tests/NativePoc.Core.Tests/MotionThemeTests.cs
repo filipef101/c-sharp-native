@@ -65,6 +65,21 @@ public sealed class MotionThemeTests
 	}
 
 	[Fact]
+	public void A_transition_is_instant_when_either_scale_is_zero()
+	{
+		Assert.True(MotionScale.Instant(0f, 1f));
+		Assert.True(MotionScale.Instant(1f, 0f));
+		Assert.True(MotionScale.Instant(-1f, 1f));
+		Assert.False(MotionScale.Instant(1f, 1f));
+		Assert.False(MotionScale.Instant(0.5f, 1f));
+		Assert.Equal(0, MotionScale.DurationMs(0f, 1f));
+		Assert.Equal(0, MotionScale.DurationMs(1f, 0f));
+		Assert.Equal(MotionScale.BasisMs, MotionScale.DurationMs(1f, 1f));
+		Assert.Equal(90, MotionScale.DurationMs(0.5f, 1f));
+		Assert.Equal(90, MotionScale.DurationMs(1f, 0.5f));
+	}
+
+	[Fact]
 	public void A_fault_query_keeps_its_span_and_a_dismiss_query_is_empty()
 	{
 		var payload = ScreenQuery.FaultNote("NP0100", "The screen subset does not include this expression.", 12, 18, 3, 4);

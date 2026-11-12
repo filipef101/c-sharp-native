@@ -5,7 +5,7 @@ namespace NativePoc;
 
 static class NavMotion
 {
-	public enum Dir
+	internal enum Dir
 	{
 		None,
 		Push,
@@ -18,7 +18,7 @@ static class NavMotion
 	static FrameLayout? _stage;
 	static View? _current;
 
-	public static void Arm(Dir dir) => _pending = dir;
+	internal static void Arm(Dir dir) => _pending = dir;
 
 	public static View? Detach(ref ViewReconciler<View>? reconciler, AndroidHost host)
 	{
@@ -59,8 +59,12 @@ static class NavMotion
 		}
 
 		var push = dir == Dir.Push;
+#if NATIVEPOC_TRANSITION
+		NavTransition.Play(_stage, leaving, mounted, push);
+#else
 		Android.Util.Log.Info(MainActivity.Tag, "nav-slide dir=" + (push ? "push" : "pop"));
 		Slide(_stage, leaving, mounted, push);
+#endif
 		_current = mounted;
 	}
 

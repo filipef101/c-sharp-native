@@ -133,16 +133,20 @@ public static class HeadlessLayout
 		return builder.ToString();
 	}
 
-	public static List<Box> Measure(Element root)
+	public static List<Box> Measure(Element root) => Measure(root, 1f);
+
+	public static List<Box> Measure(Element root, float fontScale)
 	{
 		ArgumentNullException.ThrowIfNull(root);
+		if (fontScale <= 0)
+			fontScale = 1f;
 		var boxes = new List<Box>();
 		var id = root.Key is { Length: > 0 } key ? key : "root";
-		MeasureNode(root, id, 0, 0, PageWidth, boxes);
+		MeasureNode(root, id, 0, 0, PageWidth, boxes, fontScale);
 		return boxes;
 	}
 
-	static int MeasureNode(Element element, string id, int left, int top, int width, List<Box> boxes)
+	static int MeasureNode(Element element, string id, int left, int top, int width, List<Box> boxes, float fontScale)
 	{
 		var pad = element.Style?.Padding ?? 0;
 		var innerLeft = left + pad;
@@ -150,7 +154,7 @@ public static class HeadlessLayout
 		var children = Children(element);
 		if (children.Count == 0)
 		{
-			var height = LeafHeight(element) + (pad * 2);
+			var height = LeafHeight(element, fontScale) + (pad * 2);
 			Floor(element, ref width, ref height);
 			boxes.Add(new Box(id, left, top, width, height));
 			return height;
@@ -175,7 +179,7 @@ public static class HeadlessLayout
 				: prefix.Length == 0
 					? index.ToString(CultureInfo.InvariantCulture)
 					: prefix + "/" + index.ToString(CultureInfo.InvariantCulture);
-			var childHeight = MeasureNode(child, childId, innerLeft, y, innerWidth, boxes);
+			var childHeight = MeasureNode(child, childId, innerLeft, y, innerWidth, boxes, fontScale);
 			y += childHeight;
 			content += childHeight;
 		}
@@ -196,24 +200,31 @@ public static class HeadlessLayout
 			height = HostPolicy.TouchFloorDp;
 	}
 
-	static int LeafHeight(Element element)
+	static int LeafHeight(Element element, float fontScale)
 	{
+		// A weighted slot is Height 0 on Android. It does not grow with font scale.
+		if (element.Style is { Grow: > 0 } && HoldsText(element))
+			fontScale = 1f;
 		switch (element)
 		{
 			case Text text:
 				var size = text.Style?.FontSize ?? 0;
-				var line = (size > 0 ? size : 16) + 8;
+				var line = Scale((size > 0 ? size : 16) + 8, fontScale);
 				// AndroidHost.SetGesture calls TouchTarget, HostPolicy.TouchFloorDp,
 				// when the gesture mask is nonzero. A long-press name is that view.
 				if (text.Gesture != 0 || text.OnTap is not null || text.OnLongPress is not null || text.OnSwipe is not null || text.OnRefresh is not null || text.OnUndo is not null)
-					return line > HostPolicy.TouchFloorDp ? line : HostPolicy.TouchFloorDp;
+				{
+					var floor = Scale(HostPolicy.TouchFloorDp, fontScale);
+					return line > floor ? line : floor;
+				}
+
 				return line;
 			case Button:
 			case TextField:
 			case TextInput:
 			case Switch:
 			case HostView:
-				return HostPolicy.TouchFloorDp;
+				return Scale(HostPolicy.TouchFloorDp, fontScale);
 			case Image:
 				return 96;
 			case ListView:
@@ -225,6 +236,11 @@ public static class HeadlessLayout
 				throw new InvalidOperationException("Unknown element.");
 		}
 	}
+
+	static bool HoldsText(Element element) => element is Text or Button or TextField or TextInput or Switch;
+
+	static int Scale(int unit, float fontScale) =>
+		fontScale == 1f ? unit : (int)Math.Ceiling(unit * fontScale);
 
 	static IReadOnlyList<Element> Children(Element element)
 	{

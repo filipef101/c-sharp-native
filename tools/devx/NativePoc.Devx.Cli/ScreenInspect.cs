@@ -23,15 +23,30 @@ static class ScreenInspect
 		return Format(root);
 	}
 
-	public static string Format(Element root) => Format(root, HeadlessLayout.Measure(root));
+	public static string Format(Element root)
+	{
+		ArgumentNullException.ThrowIfNull(root);
+		return Format(root, HeadlessLayout.Measure(root), HeadlessLayout.Measure(root, 2f));
+	}
 
-	public static string Format(Element root, IReadOnlyList<HeadlessLayout.Box> boxes)
+	public static string Format(Element root, IReadOnlyList<HeadlessLayout.Box> boxes) =>
+		Format(root, boxes, null);
+
+	static string Format(Element root, IReadOnlyList<HeadlessLayout.Box> boxes, IReadOnlyList<HeadlessLayout.Box>? scaled)
 	{
 		var nodes = ElementIds.Flatten(root);
 		var boxById = new Dictionary<string, HeadlessLayout.Box>(StringComparer.Ordinal);
 		foreach (var box in boxes)
 			boxById[box.Id] = box;
-		var findings = Lint(nodes, boxById);
+		Dictionary<string, HeadlessLayout.Box>? scaledById = null;
+		if (scaled is not null)
+		{
+			scaledById = new Dictionary<string, HeadlessLayout.Box>(StringComparer.Ordinal);
+			foreach (var box in scaled)
+				scaledById[box.Id] = box;
+		}
+
+		var findings = Lint(nodes, boxById, scaledById);
 		var builder = new StringBuilder();
 		builder.Append("{\n  \"accessibility\": [\n");
 		for (var i = 0; i < nodes.Count; i++)
@@ -113,7 +128,10 @@ static class ScreenInspect
 
 	public static int Violations(string json) => Count(json, "\"code\":");
 
-	static List<Finding> Lint(IReadOnlyList<ElementIds.Node> nodes, Dictionary<string, HeadlessLayout.Box> boxes)
+	static List<Finding> Lint(
+		IReadOnlyList<ElementIds.Node> nodes,
+		Dictionary<string, HeadlessLayout.Box> boxes,
+		Dictionary<string, HeadlessLayout.Box>? scaled)
 	{
 		var findings = new List<Finding>();
 		var headings = 0;
@@ -133,6 +151,8 @@ static class ScreenInspect
 			}
 			if (MissingLabel(node.Element))
 				findings.Add(new Finding("missing-label", node.Id, "Missing label on " + ScreenSnapshot.Role(node.Element) + " " + node.Id + "."));
+			if (FixedHeight(node.Element, node.Id, boxes, scaled) is { } fixedHeight)
+				findings.Add(fixedHeight);
 			if (IsTouch(node.Element))
 			{
 				if (!boxes.TryGetValue(node.Id, out var box) || box.Width < 48 || box.Height < 48)
@@ -160,6 +180,62 @@ static class ScreenInspect
 		if (headings == 0)
 			findings.Insert(0, new Finding("missing-heading", "", "The screen has no heading."));
 		return findings;
+	}
+
+	static Finding? FixedHeight(
+		Element element,
+		string id,
+		Dictionary<string, HeadlessLayout.Box> boxes,
+		Dictionary<string, HeadlessLayout.Box>? scaled)
+	{
+		if (element.Style is { Grow: > 0 } && ContainsText(element))
+			return new Finding("fixed-height", id, "Text in " + id + " is in a fixed-height container.");
+		if (scaled is null || element is not (NativePoc.Text or Button or TextField or TextInput or Switch))
+			return null;
+		if (!boxes.TryGetValue(id, out var box) || !scaled.TryGetValue(id, out var grown))
+			return null;
+		if (grown.Height > box.Height)
+			return null;
+		return new Finding(
+			"fixed-height",
+			id,
+			"Text in " + id + " stays " + box.Height.ToString(CultureInfo.InvariantCulture) + " dp at font scale 2.");
+	}
+
+	static bool ContainsText(Element element)
+	{
+		switch (element)
+		{
+			case NativePoc.Text:
+			case Button:
+			case TextField:
+			case TextInput:
+			case Switch:
+				return true;
+			case Column column:
+				foreach (var child in column.Children)
+				{
+					if (ContainsText(child))
+						return true;
+				}
+
+				return false;
+			case ScrollView scroll:
+				return ContainsText(scroll.Child);
+			case ListView list:
+				foreach (var row in list.Rows)
+				{
+					if (ContainsText(row))
+						return true;
+				}
+
+				return false;
+			case Image:
+			case HostView:
+				return false;
+			default:
+				throw new InvalidOperationException("Unknown element.");
+		}
 	}
 
 	static bool IsHeading(Element element) => element is Text { Style: { FontSize: >= 20 } };

@@ -18,6 +18,7 @@
 		<NativePocLocation Condition="'$(NativePocLocation)' == ''">false</NativePocLocation>
 		<NativePocPersist Condition="'$(NativePocPersist)' == ''">false</NativePocPersist>
 		<NativePocNav Condition="'$(NativePocNav)' == ''">false</NativePocNav>
+		<NativePocTransition Condition="'$(NativePocTransition)' == ''">false</NativePocTransition>
 		<NativePocHydratePrefetch Condition="'$(NativePocHydratePrefetch)' == ''">false</NativePocHydratePrefetch>
 		<NativePocStartupMarks Condition="'$(NativePocStartupMarks)' == ''">false</NativePocStartupMarks>
 		<NativePocDeferNatives Condition="'$(NativePocDeferNatives)' == ''">false</NativePocDeferNatives>
@@ -65,6 +66,9 @@
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocNav)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_NAV</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocTransition)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_TRANSITION</DefineConstants>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocLocation)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_LOCATION</DefineConstants>
@@ -175,6 +179,7 @@
 		<Compile Remove="FeedJson.cs" Condition="'$(NativePocHttp)' != 'true'" />
 		<Compile Remove="PersistStore.cs" Condition="'$(NativePocPersist)' != 'true'" />
 		<Compile Remove="NavFocus.cs" Condition="'$(NativePocNav)' != 'true'" />
+		<Compile Remove="NavTransition.cs" Condition="'$(NativePocTransition)' != 'true'" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\NativePoc.Core\NativePoc.Core.csproj" />

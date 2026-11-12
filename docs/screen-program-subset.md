@@ -70,6 +70,8 @@ A `public const string ScreenId` names the screen on the stack. Each id keeps it
 
 `cnative agent tree` prints one `stack N id` line per frame, from the bottom of the stack. `Show` updates the program. A show of an id that is not on the stack appends it. A show of the current top leaves the stack where it is. A show of an id already further down moves that frame to the top and does not add a second copy. Frames that were above it stay on the stack, underneath it. That is the same stack effect as `Push` of an existing id. It is not React Navigation's `navigate`, which pops back to the existing screen and drops every screen that was above it. `Push` of an id that is not on the stack appends it. `Push` of an id already on the stack moves that frame to the top and leaves the other frames in order. It does not add a second copy. `Push` of the current top leaves the stack where it is. The stack is also the `NAV` trailer after the STC1 packing note. The version byte stays 1 or 2. A checkpoint without that trailer still loads. Bytes that are not the trailer are rejected.
 
+`Theme.Mode` takes `dark`, `light`, or `system`. `system` follows the device night mode. Font scale is the system setting. Text uses `sp`. `cnative inspect` adds `fixed-height` when text sits in a `Grow` slot, or when the box does not get taller at font scale 2. Notes and visit do not use `Grow`, so that lint is empty on both.
+
 ## Refusal ids
 
 | id | when |
