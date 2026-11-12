@@ -94,6 +94,19 @@ static class AppLoop
 	static int Watch(string root, ReloadSession session, int debounceMs, CancellationToken cancel)
 	{
 		var screens = Path.Combine(root, "screens");
+		var warmStarted = Stopwatch.GetTimestamp();
+		foreach (var relative in Screens(root))
+		{
+			var path = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
+			if (!File.Exists(path))
+				continue;
+			var source = File.ReadAllText(path);
+			SubsetLowerer.TryLower(source, originFile: relative);
+			SubsetLowerer.TryLower(source, originFile: relative);
+		}
+
+		var warmMs = Stopwatch.GetElapsedTime(warmStarted).TotalMilliseconds;
+		Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"cnative: warm lower {warmMs:F1} ms"));
 		Console.WriteLine("cnative: watching " + screens);
 		var debouncer = new ChangeDebouncer(debounceMs);
 		FileSystemEventHandler onChange = (_, args) =>
@@ -125,6 +138,8 @@ static class AppLoop
 				continue;
 			}
 
+			var waited = Environment.TickCount64 - batch.FirstMs;
+			Console.WriteLine("cnative: watcher-wait " + waited.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms");
 			foreach (var relative in batch.Paths)
 			{
 				if (!relative.EndsWith("Screen.cs", StringComparison.Ordinal))
@@ -147,7 +162,7 @@ static class AppLoop
 		}
 
 		var elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-		Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"reloaded in {elapsed:F1} ms (apply {sent.Milliseconds} ms)"));
+		Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"reloaded in {elapsed:F1} ms (lower {sent.LowerMilliseconds:F1} ms, apply {sent.Milliseconds:F1} ms)"));
 		Console.WriteLine(sent.Text);
 	}
 

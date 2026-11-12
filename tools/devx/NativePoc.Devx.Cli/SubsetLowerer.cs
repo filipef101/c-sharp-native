@@ -72,6 +72,8 @@ public static partial class SubsetLowerer
 
 		if (screen is null)
 			return SubsetResult.Refuse(At(NotAScreen, "A subset screen is a static class with Render(state, IPlatform).", root, source));
+		if (!CompanionRecords(companions, records, methods, out var companionError))
+			return SubsetResult.Refuse(companionError!);
 		MethodDeclarationSyntax? render = null;
 		var consts = new Dictionary<string, string>(StringComparer.Ordinal);
 		foreach (var member in screen.Members)
@@ -291,6 +293,31 @@ public static partial class SubsetLowerer
 		return null;
 	}
 
+	static bool CompanionRecords(
+		IReadOnlyList<string>? companions,
+		Dictionary<string, List<Field>> records,
+		Dictionary<string, MethodDeclarationSyntax> methods,
+		out SubsetDiagnostic? error)
+	{
+		error = null;
+		if (companions is null)
+			return true;
+		foreach (var companion in companions)
+		{
+			if (!ParseMembers(companion, out var members, out error))
+				return false;
+			foreach (var member in members)
+			{
+				if (member is not ClassDeclarationSyntax type || type.Modifiers.Any(SyntaxKind.StaticKeyword))
+					continue;
+				if (!RecordFields(type, records, methods, companion, out error))
+					return false;
+			}
+		}
+
+		return true;
+	}
+
 	static bool RecordFields(TypeDeclarationSyntax type, Dictionary<string, List<Field>> records, Dictionary<string, MethodDeclarationSyntax> methods, string source, out SubsetDiagnostic? error)
 	{
 		error = null;
@@ -302,6 +329,9 @@ public static partial class SubsetLowerer
 				methods[type.Identifier.ValueText + "." + method.Identifier.ValueText] = method;
 				continue;
 			}
+
+			if (member is FieldDeclarationSyntax stored && !stored.Modifiers.Any(SyntaxKind.PublicKeyword))
+				continue;
 
 			if (member is not PropertyDeclarationSyntax property)
 			{

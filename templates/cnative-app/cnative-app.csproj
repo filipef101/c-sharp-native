@@ -83,4 +83,35 @@
 		<PackageReference Include="NativePoc.ReloadGen" Version="0.3.0" />
 		<PackageReference Include="NativePoc.Host" Version="0.3.0" />
 	</ItemGroup>
+	<!-- ILC's input is the trimmed dll, which ILLink rewrites on every publish,
+	     so an unchanged second publish still compiles. Hash the sources, the
+	     restored package assets, and the publish flags instead, and touch the
+	     native outputs when that hash matches. -->
+	<Target Name="PrepareIlcStamp" BeforeTargets="_RunILLink;IlcCompile" Condition="'$(PublishAot)' == 'true'">
+		<MakeDir Directories="$(NativeIntermediateOutputPath)" />
+		<ItemGroup>
+			<_IlcStampInput Include="$(MSBuildProjectDirectory)\screens\**\*.cs" />
+			<_IlcStampInput Include="$(MSBuildProjectDirectory)\*.cs" />
+			<_IlcStampInput Include="$(MSBuildProjectFile)" />
+			<_IlcStampInput Include="$(MSBuildProjectDirectory)\nuget.config" Condition="Exists('$(MSBuildProjectDirectory)\nuget.config')" />
+			<_IlcStampInput Include="$(ProjectAssetsFile)" Condition="'$(ProjectAssetsFile)' != '' And Exists('$(ProjectAssetsFile)')" />
+		</ItemGroup>
+		<PropertyGroup>
+			<_IlcStampFlags>$(Configuration)|$(RuntimeIdentifier)|$(TargetFramework)|$(NativePocDevListener)|$(NativePocProgramOnly)|$(DefineConstants)|$(IlcToolsPath)|$(TrimMode)|$(AndroidLinkMode)</_IlcStampFlags>
+			<_IlcStampFile>$(NativeIntermediateOutputPath)ilc-inputs.sha256</_IlcStampFile>
+			<_IlcStampList>$(NativeIntermediateOutputPath)ilc-stamp-inputs.txt</_IlcStampList>
+			<_IlcStampFlagFile>$(NativeIntermediateOutputPath)ilc-stamp-flags.txt</_IlcStampFlagFile>
+		</PropertyGroup>
+		<WriteLinesToFile File="$(_IlcStampList)" Lines="@(_IlcStampInput)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+		<WriteLinesToFile File="$(_IlcStampFlagFile)" Lines="$(_IlcStampFlags)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+	</Target>
+	<Target Name="SkipTrimWhenIlcInputsMatch" BeforeTargets="_RunILLink" Condition="'$(PublishAot)' == 'true' And Exists('$(NativeObject)') And Exists('$(_LinkSemaphore)')">
+		<Exec Command="sh &quot;$(MSBuildProjectDirectory)/build/ilc-stamp.sh&quot; check &quot;$(_IlcStampFile)&quot; &quot;$(_IlcStampFlagFile)&quot; &quot;$(_IlcStampList)&quot; &quot;$(_LinkSemaphore)&quot;" />
+	</Target>
+	<Target Name="SkipIlcWhenInputsMatch" BeforeTargets="IlcCompile" Condition="'$(PublishAot)' == 'true' And Exists('$(NativeObject)')">
+		<Exec Command="sh &quot;$(MSBuildProjectDirectory)/build/ilc-stamp.sh&quot; check &quot;$(_IlcStampFile)&quot; &quot;$(_IlcStampFlagFile)&quot; &quot;$(_IlcStampList)&quot; &quot;$(NativeObject)&quot; &quot;$(NativeBinary)&quot;" />
+	</Target>
+	<Target Name="WriteIlcInputStamp" AfterTargets="IlcCompile" Condition="'$(PublishAot)' == 'true'">
+		<Exec Command="sh &quot;$(MSBuildProjectDirectory)/build/ilc-stamp.sh&quot; write &quot;$(_IlcStampFile)&quot; &quot;$(_IlcStampFlagFile)&quot; &quot;$(_IlcStampList)&quot;" />
+	</Target>
 </Project>

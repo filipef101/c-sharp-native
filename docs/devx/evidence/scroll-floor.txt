@@ -658,3 +658,87 @@ tools/bench/mac-bench.sh --device emulator-5554 --n 6 --repeat 2 --quiesce warn 
 ```
 
 Core tests: 75 passed, including `ReloadAotPublishTests`. Packing tests: 14 passed. Devx tests: 143 passed. `mac-bench.sh --self-test` and `scroll-bench.sh --self-test` passed.
+
+## Deferred registration, row undo, ILC stamp, first reload
+
+These numbers are from this workspace. The emulator is emulator-5554, SwiftShader. None of them are the Mac pixel_8 run.
+
+### Activity registration (emulator-run, rejected)
+
+`NativePocDeferNatives` rewrites the generated activity so the static block registers only `n_onCreate`. The other overrides register on first entry. The flag defaults to false. The treatment publish logged `natives=1`. The baseline logged `natives=5`. Both are the marks feed, `--n 6 --repeat 2 --quiesce warn`, pooled n=12, one warmup dropped per block.
+
+| series | baseline TotalTime p50/p90 | baseline guest_load_p50 | deferred TotalTime p50/p90 | deferred guest_load_p50 |
+| --- | --- | --- | --- | --- |
+| counter | 923.5 / 1017.9 | 5.2 | 885.5 / 974.0 | 6.6 |
+| feed | 801.5 / 909.7 | 5.2 | 785.5 / 828.9 | 6.6 |
+| thin | 625.5 / 693.0 | 5.5 | 622.0 / 651.6 | 6.8 |
+| floor | 576.5 / 626.4 | 5.6 | 567.5 / 586.4 | 6.8 |
+
+Baseline block deltas, feed p50 minus floor p50: 200.0 and 233.0. Median 216.5, bootstrap low 200.0, high 233.0. Deferred: 210.5 and 227.0. Median 218.8, low 210.5, high 227.0. The deferred interval sits inside the baseline interval. The median did not move down. The flag stays false. The shipping APKs below were built with the flag off. Their dex has no `jcw-deferred` string.
+
+The feed mark p50s, for the record. Baseline: java_end 87.0, jcw_enter 99.0, jcw_registered 101.5, jcw_super 103.5, jni 116.5, natives=5. Deferred: java_end 75.0, jcw_enter 81.0, jcw_registered 86.5, jcw_super 87.0, jni 88.0, natives=1. Those are p50s of each mark. The guest load was higher on the deferred run, and the floor moved with it. The bootstrap above is the keep-or-drop check.
+
+### Dismiss through the accessibility API (emulator-run)
+
+`am instrument` starts the NativeAOT process and never calls the probe's `onStart`. The check is a separate accessibility service, `nativepoc.dismiss.DismissProbe`, with `canRetrieveWindowContent`. It is signed with the same debug cert as the feed. `tools/bench/a11y-dismiss.sh` enables it, launches the shipping x64 feed (`988c7a63`, marks on), and restores `enabled_accessibility_services` and `accessibility_enabled` afterwards. This run left both at null and 0.
+
+The service called `performAction(0x0000c0de)` on the row node. Log: `a11y-dismiss pos=0`, `list-dismiss pos=0 key=0000`, `a11y-announce text=Dismissed • Row 0000`. The row node then exposed Undo (`0x0000c0df`). `performAction` on that logged `a11y-undo`, `list-undo`, and `a11y-announce text=Restored`. The probe line was `performed=1 gone=1 next=1 undone=1 restored=1`. Tree order of the row descriptions: before `• Row 0000` through `• Row 0005`, after `• Row 0001` through `• Row 0006`, after undo `• Row 0000` through `• Row 0005` again. The script exits 0 only when those bits, the four log lines, and that order are present.
+
+### Unchanged ILC (built)
+
+Clean directory `/tmp/p37/loop` from `dotnet new cnative-app`, local packages, empty bin and obj. `dotnet publish -c Debug -f net10.0-android -r android-x64 -p:NativePocDevListener=true`. Wall clock of that publish, not install and not `Displayed`.
+
+| publish | seconds | stamp |
+| --- | --- | --- |
+| cold | 19.102 | `ilc-stamp: wrote stamp`, `Generating native code` once |
+| unchanged | 2.313 | `ilc-stamp: skip` for the trim semaphore and for ILC, then `stamp unchanged`. No `Generating native code` |
+| one comment added to `HomeScreen.cs` | 14.166 | `ilc-stamp: compile`, `Generating native code` once |
+
+The hash is the publish flags plus the sha256 of the screen sources, the project file, `nuget.config`, and `project.assets.json`. A match touches the ILLink semaphore, the native object, and the native binary so those targets see a fresh output. The previous unchanged publish of this listener was 13.8 s and ran ILC. This unchanged publish did not.
+
+### First reload (emulator-run)
+
+Same corpus, `/tmp/p36/hello`, `HomeScreen.cs` `Title` from `Hello` to `Hiya` and back. The old CLI is the `c666e52` build. It skipped publish because the listener apk was newer than the project. First reload `80.1 ms (apply 35.558 ms)`, and the dump went Hello to Hiya. Second reload `19.5 ms (apply 17.8957 ms)`.
+
+The new listener was published from the host package that contains `reload-warm`. `libCnativeApp.so` contains that string as UTF-16. State file removed before launch. `OnCreate` logged `reload-warm us=24758` and then `title=Hello`. The CLI logged `warm lower 37.4 ms` before `watching`. First edit: `watcher-wait 48 ms`, `reloaded in 43.3 ms (lower 1.1 ms, apply 32.6 ms)`, `Hiya program=1 present=1`. The device logged `reload-device prepare-ms=0.1 eval-ms=1.1`. Second edit: `watcher-wait 40 ms`, `reloaded in 20.7 ms (lower 0.9 ms, apply 19.4 ms)`, state kept Hiya. Device `eval-ms=1.4`. A previous process of that same CLI, before this Hello launch, logged `warm lower 94.0 ms`.
+
+### Sizes
+
+| build | APK | APK sha256 | .so | .so sha256 | dex |
+| --- | --- | --- | --- | --- | --- |
+| counter x64, built | 3,056,501 | `aec43cdd42d530ec7a65d58930ff0a0594a867543f15bdeef4fa5c1c3332eef1` | 7,042,816 | `6e269ad7d1f34a80079b6018f135f770aa639289279351b8caa5adc2c67d1c45` | 49,920 |
+| counter arm64, built | 2,896,760 | `63e428424c87d81ea5683b88c5f8a4ba8885c7a18b9359d9d4cd0c818d00c202` | 7,266,944 | `fd5961320b8e066d31415b018f369743409e2dd74f95a3409fca7e0bd66d9aa2` | 49,920 |
+| feed x64, emulator-run, marks on | 3,288,453 | `988c7a63c16514e916758effe697bc6b12dbe17dda425b4cc13305ee98c08380` | 7,203,648 | `ec17e3d86156ce94531648f99ce5c61d17656d467465292676a307920fe64a0e` | 330,800 |
+| feed arm64, built, marks on | 3,129,071 | `cc759810908311866a67cc6897806ddf911bb7ad382d548968bd51cf1c9a5751` | 7,436,360 | `bd52dc4db5d256cfdc02df965539d003b4ce44fa1e94b310c3993c70a9fd78cb` | 330,800 |
+| visit x64, built | 3,146,613 | `a870457987c1f952ee8aefa27a8483c044d9248617bc7d30e27e40d741a9fbb5` | 7,256,256 | `2f1e07e8d9a23a2d74575d2325f4423aa25bf039633a8bba91a2182e7e8e45a0` | 52,276 |
+| visit arm64, built | 2,982,776 | `d40b007a4f6af71f052d6b7e579da39d593b8abd3db19b37e03b82086421a500` | 7,491,592 | `996352c6ba538bec7ae96c5475a4e1efd93957ae9d825c979cbbc7d26bc1a097` | 52,276 |
+
+Dex sha256: counter `9267b0f166ebf71ec043bc7ec79eced7c9f698117489d37e3178c7c24596f771` (same bytes as `c666e52`, both ABIs), feed `6b319683f0d9edc214bc654597fe08b9121fabfc88121242faa0b5fad4aa6f43` (same bytes, both ABIs), visit `0efeb5ae4570f976f8724c34da34ce3cbfefd7fd43387b9d934a14c7276d5bed` (same bytes as `c666e52`, both ABIs). The `.so` and dex hashes above are the bytes inside each APK. Counter and visit dex match the previous commit. Their `.so` files differ in the build id. Feed x64 and feed arm64 dex are the same bytes this time. List floor was not rebuilt. Both ABIs, 531,381 bytes, sha256 `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1`. Shipped `.so` files stay stripped with a `.gnu_debuglink`. The marks feed exports `Java_nativepoc_ThinActivity_thinMark`. No RELR and no `extractNativeLibs=false`. `NativePocDeferNatives` is false on these builds.
+
+```
+tools/bench/mac-bench.sh --device <pixel_8> --n 20 --repeat 5 --quiesce warn --out /tmp/feed-cold \
+  --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run thin:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/nativepoc.ThinActivity \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+```
+tools/bench/scroll-bench.sh --serial <pixel_8> --swipes 8 --rounds 5 \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+```
+tools/bench/cold-start.sh --device <pixel_8> --n 10 --name visit --out /tmp/cold-visit \
+  --apk nativepoc-visit-android-arm64.apk \
+  --component com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  -- --es nativepoc_root visit
+```
+
+```
+tools/bench/a11y-dismiss.sh --apk nativepoc-feed-android-x64.apk --serial <pixel_8>
+```
+
+Core tests: 78 passed, including `FeedUndoTests` and `RecordWarmTests`. Packing tests: 14 passed. Devx tests: 144 passed, including `IlcStampTests`. The accessibility script above exited 0 on emulator-5554.
+

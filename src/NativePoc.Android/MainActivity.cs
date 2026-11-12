@@ -150,6 +150,22 @@ public sealed class MainActivity : Activity
 			TapTrace.Enabled = true;
 		}
 
+#if DEBUG && NATIVEPOC_PROGRAM_ONLY
+		var warmStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+		try
+		{
+			UseProgram(RecordProgram.WarmProgram());
+		}
+		catch (Exception ex)
+		{
+			Log.Info(Tag, "reload-warm failed " + ex.GetType().Name);
+		}
+
+		_record = null;
+		_programSource = "";
+		var warmUs = (System.Diagnostics.Stopwatch.GetTimestamp() - warmStarted) * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
+		Log.Info(Tag, "reload-warm us=" + warmUs.ToString(CultureInfo.InvariantCulture));
+#endif
 		RenderNow();
 		if (string.Equals(Intent?.GetStringExtra("nativepoc_a11y"), "1", StringComparison.Ordinal))
 			_reconciler?.Root?.Post(() =>
@@ -1039,3 +1055,4 @@ sealed class FrameWait : Java.Lang.Object, Choreographer.IFrameCallback
 		Log.Info(MainActivity.Tag, "frame-wait-us=" + micros.ToString(CultureInfo.InvariantCulture));
 	}
 }
+

@@ -18,6 +18,7 @@ static class KeyedList
 	const int OpReady = 8;
 	const int OpSwipe = 16;
 	const int OpRefresh = 32;
+	const int OpUndo = 64;
 
 	static readonly SignalFn SignalSink = OnSignal;
 	static readonly BindFn BindSink = OnBind;
@@ -31,6 +32,7 @@ static class KeyedList
 	static IntPtr _scroll;
 	static IntPtr _setBindLog;
 	static IntPtr _setRefresh;
+	static IntPtr _setUndo;
 
 	public static bool LogBinds { get; set; }
 
@@ -74,6 +76,14 @@ static class KeyedList
 		JNIEnv.CallVoidMethod(view.Handle, _setRefresh, new[] { new JValue(enabled) });
 	}
 
+	public static void SetUndo(View view, bool enabled, Action? undo)
+	{
+		if (view is not ViewGroup group || !Live.TryGetValue(group, out var state))
+			return;
+		state.Undo = enabled ? undo : null;
+		JNIEnv.CallVoidMethod(view.Handle, _setUndo, new[] { new JValue(enabled) });
+	}
+
 	static void Ensure()
 	{
 		if (_ready)
@@ -98,8 +108,9 @@ static class KeyedList
 		_scroll = JNIEnv.GetMethodID(_class, "scrollTo", "(I)V");
 		_setBindLog = JNIEnv.GetMethodID(_class, "setBindLog", "(Z)V");
 		_setRefresh = JNIEnv.GetMethodID(_class, "setRefresh", "(Z)V");
+		_setUndo = JNIEnv.GetMethodID(_class, "setUndo", "(Z)V");
 
-		if (_ctor == IntPtr.Zero || _setPeer == IntPtr.Zero || _first == IntPtr.Zero || _replace == IntPtr.Zero || _scroll == IntPtr.Zero || _setBindLog == IntPtr.Zero || _setRefresh == IntPtr.Zero)
+		if (_ctor == IntPtr.Zero || _setPeer == IntPtr.Zero || _first == IntPtr.Zero || _replace == IntPtr.Zero || _scroll == IntPtr.Zero || _setBindLog == IntPtr.Zero || _setRefresh == IntPtr.Zero || _setUndo == IntPtr.Zero)
 			throw new InvalidOperationException("KeyedList is missing a Java method.");
 		_ready = true;
 	}
@@ -136,6 +147,10 @@ static class KeyedList
 				case OpRefresh:
 					Android.Util.Log.Info(MainActivity.Tag, "list-refresh");
 					state.Refresh?.Invoke();
+					return 0;
+				case OpUndo:
+					Android.Util.Log.Info(MainActivity.Tag, "list-undo");
+					state.Undo?.Invoke();
 					return 0;
 				default:
 					return 0;
@@ -231,6 +246,8 @@ static class KeyedList
 		public IReadOnlyList<Element> Rows { get; private set; }
 
 		public Action? Refresh { get; set; }
+
+		public Action? Undo { get; set; }
 
 		public long Peer => GCHandle.ToIntPtr(_handle).ToInt64();
 

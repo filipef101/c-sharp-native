@@ -68,8 +68,13 @@ public sealed class AsyncHandlerTests
 	[Fact]
 	public void The_feed_screen_file_lowers()
 	{
-		var source = File.ReadAllText(Path.Combine(Repo(), "samples", "feed", "FeedScreen.cs"));
-		var lowered = SubsetLowerer.TryLower(source, originFile: "samples/feed/FeedScreen.cs");
+		var feedDir = Path.Combine(Repo(), "samples", "feed");
+		var source = File.ReadAllText(Path.Combine(feedDir, "FeedScreen.cs"));
+		var companions = Directory.EnumerateFiles(feedDir, "*.cs")
+			.Where(file => !file.EndsWith("FeedScreen.cs", StringComparison.Ordinal))
+			.Select(File.ReadAllText)
+			.ToArray();
+		var lowered = SubsetLowerer.TryLower(source, companions, originFile: "samples/feed/FeedScreen.cs");
 		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
 		var tree = RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag()).Render(new AsyncPlatform());
 		var column = Assert.IsType<Column>(tree);

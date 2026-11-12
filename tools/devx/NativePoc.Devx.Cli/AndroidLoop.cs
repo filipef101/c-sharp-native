@@ -512,7 +512,7 @@ static class AndroidLoop
 		return new ProgramPush(applied.Ok, false, applied.Text);
 	}
 
-	internal readonly record struct PackingSend(bool Applied, bool Refused, string Text, double Milliseconds, SubsetDiagnostic? Diagnostic = null);
+	internal readonly record struct PackingSend(bool Applied, bool Refused, string Text, double Milliseconds, SubsetDiagnostic? Diagnostic = null, double LowerMilliseconds = 0);
 
 	static bool ShowGenerated(ReloadSession session, string repo, KeptPrograms kept, string? root)
 	{
@@ -571,20 +571,22 @@ static class AndroidLoop
 		IReadOnlyList<string>? companions = null,
 		IReadOnlyList<string>? callables = null)
 	{
+		var lowerStarted = Stopwatch.GetTimestamp();
 		var lowered = SubsetLowerer.TryLower(source, companions, callables, relative);
+		var lowerMs = Stopwatch.GetElapsedTime(lowerStarted).TotalMilliseconds;
 		if (!lowered.Ok || lowered.Program is null)
 		{
 			if (fault)
 				ShowRefusal(session, lowered, relative);
 			var diagnostic = lowered.Diagnostics.Count == 0 ? null : lowered.Diagnostics[0];
-			return new PackingSend(false, true, diagnostic is null ? refused : diagnostic.Message, 0, diagnostic);
+			return new PackingSend(false, true, diagnostic is null ? refused : diagnostic.Message, 0, diagnostic, lowerMs);
 		}
 		try
 		{
 			var applied = session.Connection.Apply(lowered.Program);
 			if (applied.Ok && kept is not null && relative is not null)
 				kept.Remember(relative, lowered.Program);
-			return new PackingSend(applied.Ok, false, applied.Text, applied.Milliseconds);
+			return new PackingSend(applied.Ok, false, applied.Text, applied.Milliseconds, LowerMilliseconds: lowerMs);
 		}
 		catch (InvalidOperationException ex)
 		{

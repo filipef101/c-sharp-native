@@ -267,6 +267,8 @@ public static class Gestures
 	public const byte Swipe = 4;
 
 	public const byte Refresh = 8;
+
+	public const byte Undo = 16;
 }
 
 public abstract record Element
@@ -286,6 +288,8 @@ public abstract record Element
 	public Action? OnSwipe { get; init; }
 
 	public Action? OnRefresh { get; init; }
+
+	public Action? OnUndo { get; init; }
 
 	private protected Element()
 	{
@@ -350,7 +354,7 @@ public sealed record ListView(IReadOnlyList<Element> Rows) : Element;
 
 public static class FeedRows
 {
-	public static Element Window(List<Element> rows, int headers, Action? onRefresh = null)
+	public static Element Window(List<Element> rows, int headers, Action? onRefresh = null, Action? onUndo = null)
 	{
 		ArgumentNullException.ThrowIfNull(rows);
 		if (headers < 0)
@@ -358,18 +362,18 @@ public static class FeedRows
 		if (headers > rows.Count)
 			headers = rows.Count;
 		if (rows.Count - headers <= 24)
-			return new Column(rows) { Key = "feed", OnRefresh = onRefresh };
+			return new Column(rows) { Key = "feed", OnRefresh = onRefresh, OnUndo = onUndo };
 		var head = new List<Element>(headers + 1);
 		for (var index = 0; index < headers; index++)
 			head.Add(rows[index]);
 		var body = new List<Element>(rows.Count - headers);
 		for (var index = headers; index < rows.Count; index++)
 			body.Add(rows[index]);
-		head.Add(new ListView(body) { Key = "window", OnRefresh = onRefresh });
+		head.Add(new ListView(body) { Key = "window", OnRefresh = onRefresh, OnUndo = onUndo });
 		return new Column(head) { Key = "feed" };
 	}
 
-	public static Element Lazy(IReadOnlyList<Element> head, int count, Func<int, Element> row, Func<int, string> key, Action? onRefresh = null)
+	public static Element Lazy(IReadOnlyList<Element> head, int count, Func<int, Element> row, Func<int, string> key, Action? onRefresh = null, Action? onUndo = null)
 	{
 		ArgumentNullException.ThrowIfNull(head);
 		ArgumentNullException.ThrowIfNull(row);
@@ -383,10 +387,10 @@ public static class FeedRows
 		{
 			for (var index = 0; index < count; index++)
 				column.Add(row(index));
-			return new Column(column) { Key = "feed", OnRefresh = onRefresh };
+			return new Column(column) { Key = "feed", OnRefresh = onRefresh, OnUndo = onUndo };
 		}
 
-		column.Add(new ListView(new DeferredList(count, row, key)) { Key = "window", OnRefresh = onRefresh });
+		column.Add(new ListView(new DeferredList(count, row, key)) { Key = "window", OnRefresh = onRefresh, OnUndo = onUndo });
 		return new Column(column) { Key = "feed" };
 	}
 }

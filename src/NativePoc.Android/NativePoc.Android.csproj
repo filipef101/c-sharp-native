@@ -17,6 +17,7 @@
 		<NativePocRecycler Condition="'$(NativePocRecycler)' == ''">false</NativePocRecycler>
 		<NativePocLocation Condition="'$(NativePocLocation)' == ''">false</NativePocLocation>
 		<NativePocStartupMarks Condition="'$(NativePocStartupMarks)' == ''">false</NativePocStartupMarks>
+		<NativePocDeferNatives Condition="'$(NativePocDeferNatives)' == ''">false</NativePocDeferNatives>
 		<AndroidManifestPlaceholders>nativepocMarks=$(NativePocStartupMarks)</AndroidManifestPlaceholders>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
 	</PropertyGroup>
@@ -233,6 +234,13 @@
 			<_JcwActivity Include="$(IntermediateOutputPath)android/src/**/MainActivity.java" />
 		</ItemGroup>
 		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)native/mark-jcw.py&quot; &quot;%(_JcwActivity.Identity)&quot;" />
+	</Target>
+	<!-- After the mark patch, when that target ran. Registers onCreate only. -->
+	<Target Name="DeferActivityNatives" BeforeTargets="_CompileJava" DependsOnTargets="MarkJcwActivity" Condition="'$(NativePocDeferNatives)' == 'true'">
+		<ItemGroup>
+			<_DeferActivity Include="$(IntermediateOutputPath)android/src/**/MainActivity.java" />
+		</ItemGroup>
+		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)native/defer-natives.py&quot; &quot;%(_DeferActivity.Identity)&quot;" />
 	</Target>
 	<ItemGroup Condition="'$(NativePocPackRelocs)' != ''">
 		<LinkerArg Include="-Wl,--pack-dyn-relocs=$(NativePocPackRelocs)" />

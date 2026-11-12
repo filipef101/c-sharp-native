@@ -1,40 +1,5 @@
 namespace NativePoc.Feed;
 
-public sealed class FeedItem
-{
-	public string Id { get; set; } = "";
-
-	public string Title { get; set; } = "";
-}
-
-public sealed class FeedState
-{
-	public string Phase { get; set; } = "idle";
-
-	public string Error { get; set; } = "";
-
-	public string Json { get; set; } = "";
-
-	public string Mark { get; set; } = "";
-
-	public bool Loading { get; set; }
-
-	public List<FeedItem> Items { get; set; } = new List<FeedItem>();
-
-	public List<FeedItem> Generated { get; set; } = new List<FeedItem>();
-
-	public void Drop(FeedItem item)
-	{
-		if (item is null)
-			return;
-		for (var index = Generated.Count - 1; index >= 0; index--)
-		{
-			if (Generated[index].Id == item.Id)
-				Generated.RemoveAt(index);
-		}
-	}
-}
-
 public static class FeedScreen
 {
 	public const string ScreenId = "feed";
@@ -123,6 +88,13 @@ public static class FeedScreen
 
 		FeedModule.Generate(platform, state);
 #if NATIVEPOC_LAZY_FEED
+		Action? undo = state.CanUndo()
+			? () =>
+			{
+				state.Undo();
+				platform.RequestRender();
+			}
+			: null;
 		var head = new List<Element>();
 		head.Add(new Text("Feed") { Key = "heading", Style = new Style { FontSize = 22 } });
 		head.Add(new Text(state.Loading ? "Loading feed" : state.Phase) { Key = "phase" });
@@ -130,7 +102,7 @@ public static class FeedScreen
 		head.Add(new Button("Refresh", () => Load(), "Refresh") { Key = "refresh" });
 		head.Add(new Button("Post", () => Post(), "Post") { Key = "post" });
 		head.Add(new Button("Back", () => platform.Pop(), "Back") { Key = "back" });
-		return FeedRows.Lazy(head, state.Generated.Count, index => Row(state.Generated[index]), index => state.Generated[index].Id, () => Load());
+		return FeedRows.Lazy(head, state.Generated.Count, index => Row(state.Generated[index]), index => state.Generated[index].Id, () => Load(), undo);
 #else
 		// The listener lowerer does not define NATIVEPOC_LAZY_FEED, so it still
 		// sees this foreach and lowers it to a window list. Release defines the

@@ -192,6 +192,28 @@ public static partial class RecordProgram
 
 	public static Bound Bind(ReadOnlySpan<byte> payload) => Bind(payload, Shared);
 
+	// A one-text column on a fresh bag. The listener mounts it once during
+	// startup, then paints the compiled screen, so the first user edit is
+	// not the first Eval or the first program layout.
+	public static Bound WarmProgram()
+	{
+		var code = new byte[]
+		{
+			OpPushStr, 0, 0,
+			OpMakeText, 0xFF, 0xFF,
+			OpMakeColumn, 1, 0xFF, 0xFF,
+			OpReturn,
+		};
+		var payload = Encode(["."], [], code, "warm");
+		return Bind(payload, new Bag());
+	}
+
+	public static Element Warm(IPlatform platform)
+	{
+		ArgumentNullException.ThrowIfNull(platform);
+		return WarmProgram().Render(platform);
+	}
+
 	public static Bound Bind(ReadOnlySpan<byte> payload, Bag bag)
 	{
 		ArgumentNullException.ThrowIfNull(bag);

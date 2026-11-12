@@ -481,6 +481,7 @@ sealed class AndroidHost : IElementHost<View>
 		if (KeyedList.Is(view))
 		{
 			KeyedList.SetRefresh(view, (mask & Gestures.Refresh) != 0, (mask & Gestures.Refresh) == 0 ? null : () => Fire(path, Gestures.Refresh));
+			KeyedList.SetUndo(view, (mask & Gestures.Undo) != 0, (mask & Gestures.Undo) == 0 ? null : () => Fire(path, Gestures.Undo));
 			return;
 		}
 #endif
@@ -506,6 +507,7 @@ sealed class AndroidHost : IElementHost<View>
 			Gestures.LongPress => element.OnLongPress,
 			Gestures.Swipe => element.OnSwipe,
 			Gestures.Refresh => element.OnRefresh,
+			Gestures.Undo => element.OnUndo,
 			_ => null,
 		};
 		if (action is null)

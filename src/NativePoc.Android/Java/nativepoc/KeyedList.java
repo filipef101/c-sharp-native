@@ -21,9 +21,12 @@ public final class KeyedList extends RecyclerView {
 	static final int OP_READY = 8;
 	static final int OP_SWIPE = 16;
 	static final int OP_REFRESH = 32;
+	static final int OP_UNDO = 64;
 
 	long peer;
 	boolean refresh;
+	boolean undo;
+	boolean undoLogged;
 	final float density;
 	final Rows rows = new Rows();
 	boolean bindLog;
@@ -38,6 +41,7 @@ public final class KeyedList extends RecyclerView {
 	int measures;
 	boolean dismissLogged;
 	static final int ACTION_DISMISS = 0x0000c0de;
+	static final int ACTION_UNDO = 0x0000c0df;
 
 	public KeyedList(Context context) {
 		super(context);
@@ -70,6 +74,23 @@ public final class KeyedList extends RecyclerView {
 
 	public void setRefresh(boolean on) {
 		refresh = on;
+	}
+
+	public void setUndo(boolean on) {
+		undo = on;
+	}
+
+	@Override
+	public boolean performAccessibilityAction(int action, android.os.Bundle args) {
+		if (action == ACTION_UNDO && undo) {
+			android.util.Log.i("NativePoc", "a11y-undo");
+			if (peer != 0)
+				nativeSignal(peer, OP_UNDO, 0);
+			announceForAccessibility("Restored");
+			android.util.Log.i("NativePoc", "a11y-announce text=Restored");
+			return true;
+		}
+		return super.performAccessibilityAction(action, args);
 	}
 
 	public void setPeer(long peer) {
@@ -167,6 +188,13 @@ public final class KeyedList extends RecyclerView {
 		info.setCollectionInfo(AccessibilityNodeInfo.CollectionInfo.obtain(count, 1, false));
 		info.setScrollable(true);
 		info.setContentDescription("List");
+		if (!undo)
+			return;
+		info.addAction(new AccessibilityNodeInfo.AccessibilityAction(ACTION_UNDO, "Undo"));
+		if (!undoLogged) {
+			undoLogged = true;
+			android.util.Log.i("NativePoc", "a11y-undo action=Undo");
+		}
 	}
 
 	void noteBind(long nanos) {
@@ -290,6 +318,10 @@ public final class KeyedList extends RecyclerView {
 				android.util.Log.i("NativePoc", "a11y-dismiss pos=" + pos);
 				if (peer != 0 && pos != NO_POSITION)
 					nativeSignal(peer, OP_SWIPE, pos);
+				CharSequence desc = host.getContentDescription();
+				String label = desc == null ? "" : desc.toString();
+				host.announceForAccessibility("Dismissed " + label);
+				android.util.Log.i("NativePoc", "a11y-announce text=Dismissed " + label);
 				return true;
 			}
 			return super.performAccessibilityAction(host, action, args);

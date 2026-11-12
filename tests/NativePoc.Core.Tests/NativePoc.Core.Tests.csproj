@@ -16,6 +16,7 @@
 		<Using Include="Xunit" />
 	</ItemGroup>
 	<ItemGroup>
+		<Compile Include="..\..\samples\feed\FeedState.cs" />
 		<ProjectReference Include="..\..\src\NativePoc.Core\NativePoc.Core.csproj" />
 		<ProjectReference Include="..\..\src\NativePoc.Screen\NativePoc.Screen.csproj" />
 	</ItemGroup>

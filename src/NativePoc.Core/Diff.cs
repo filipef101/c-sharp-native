@@ -361,6 +361,8 @@ public static class TreeDiff
 			mask |= Gestures.Swipe;
 		if (element.OnRefresh is not null)
 			mask |= Gestures.Refresh;
+		if (element.OnUndo is not null)
+			mask |= Gestures.Undo;
 		return mask;
 	}
 

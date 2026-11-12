@@ -1,5 +1,7 @@
 #if DEBUG
 using System.Diagnostics.CodeAnalysis;
+using Stopwatch = System.Diagnostics.Stopwatch;
+using System.Globalization;
 #if !NATIVEPOC_PROGRAM_ONLY
 using System.Reflection;
 using System.Runtime.Loader;
@@ -199,6 +201,7 @@ static class HotReloadServer
 		{
 			if (!ScreenProgram.IsRecord(dll))
 				throw new InvalidOperationException("The screen program is not a record.");
+			var prepareStarted = Stopwatch.GetTimestamp();
 			EffectGate.Shared.NoteReload();
 			var screenId = RecordProgram.ScreenId(dll);
 			if (screenId.Length == 0)
@@ -206,13 +209,20 @@ static class HotReloadServer
 			var bag = ScreenNav.Shared.Bag(screenId);
 			var kept = RecordProgram.KeptNote(dll, bag);
 			RecordSession.Prepare(dll, bag);
+			var prepareMs = Stopwatch.GetElapsedTime(prepareStarted).TotalMilliseconds;
 			ScreenNav.Shared.Show(dll);
 			var record = ScreenNav.Shared.Top() ?? RecordProgram.Bind(dll, bag);
+			var evalStarted = Stopwatch.GetTimestamp();
 			string programmed;
 			if (PackingActivity.Current is { HasWindowFocus: true })
 				programmed = PackingActivity.UseProgram(record);
 			else
 				programmed = activity.UseProgram(record);
+			var evalMs = Stopwatch.GetElapsedTime(evalStarted).TotalMilliseconds;
+			Android.Util.Log.Info(
+				MainActivity.Tag,
+				"reload-device prepare-ms=" + prepareMs.ToString("F1", CultureInfo.InvariantCulture)
+				+ " eval-ms=" + evalMs.ToString("F1", CultureInfo.InvariantCulture));
 			var programmedMessage = programmed + " program=1";
 			if (kept.Length > 0)
 				programmedMessage += "\n" + kept;

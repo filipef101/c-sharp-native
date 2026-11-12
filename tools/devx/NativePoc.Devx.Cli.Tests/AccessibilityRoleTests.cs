@@ -36,7 +36,12 @@ public sealed class AccessibilityRoleTests
 
 	static Element Render(string path)
 	{
-		var lowered = SubsetLowerer.TryLower(File.ReadAllText(path), originFile: path);
+		var dir = Path.GetDirectoryName(path) ?? "";
+		var companions = Directory.EnumerateFiles(dir, "*.cs")
+			.Where(file => !string.Equals(file, path, StringComparison.Ordinal))
+			.Select(File.ReadAllText)
+			.ToArray();
+		var lowered = SubsetLowerer.TryLower(File.ReadAllText(path), companions, originFile: path);
 		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
 		return RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag()).Render(new Quiet());
 	}
