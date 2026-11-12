@@ -950,9 +950,12 @@ internal static partial class RecordProgram
 				if (ip >= end)
 					throw new InvalidOperationException("Rejected record program.");
 				var decorative = (code[ip++] & 1) != 0;
+				if (ip >= end)
+					throw new InvalidOperationException("Rejected record program.");
+				var side = code[ip++];
 				var source = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
 				var description = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
-				Push(stack, ref sp, Slot.Elem(new Image(source) { Key = key, Description = description, Decorative = decorative }));
+				Push(stack, ref sp, Slot.Elem(new Image(source) { Key = key, Description = description, Decorative = decorative, Side = side }));
 				return ip;
 			}
 			case OpEffect:
@@ -970,12 +973,13 @@ internal static partial class RecordProgram
 			}
 			case OpFieldMode:
 			{
-				if (ip + 5 > end)
+				if (ip + 6 > end)
 					throw new InvalidOperationException("Rejected record program.");
 				var keyboard = (Keyboard)code[ip];
 				var lines = code[ip + 1];
 				var submit = (Submit)code[ip + 2];
-				ip += 3;
+				var autofill = code[ip + 3] != 0;
+				ip += 4;
 				if (!Enum.IsDefined(keyboard) || !Enum.IsDefined(submit))
 					throw new InvalidOperationException("Rejected record program.");
 				var length = TakeU16(code, ref ip, end);
@@ -983,18 +987,31 @@ internal static partial class RecordProgram
 					throw new InvalidOperationException("Rejected record program.");
 				var script = code.AsSpan(ip, length).ToArray();
 				ip += length;
-				if (Pop(stack, ref sp, SlotKind.Elem).Node is not TextField field)
-					throw new InvalidOperationException("Rejected record program.");
 				Action? onSubmit = script.Length == 0
 					? null
 					: () => RunScript(script, strings, bag, platform, null, false, null);
-				Push(stack, ref sp, Slot.Elem(field with
+				var node = Pop(stack, ref sp, SlotKind.Elem).Node;
+				Element updated = node switch
 				{
-					Keyboard = keyboard,
-					Lines = lines,
-					Submit = submit,
-					OnSubmit = onSubmit,
-				}));
+					TextField field => field with
+					{
+						Keyboard = keyboard,
+						Lines = lines,
+						Submit = submit,
+						OnSubmit = onSubmit,
+						Autofill = autofill,
+					},
+					TextInput input => input with
+					{
+						Keyboard = keyboard,
+						Lines = lines,
+						Submit = submit,
+						OnSubmit = onSubmit,
+						Autofill = autofill,
+					},
+					_ => throw new InvalidOperationException("Rejected record program."),
+				};
+				Push(stack, ref sp, Slot.Elem(updated));
 				return ip;
 			}
 			case OpMotion:

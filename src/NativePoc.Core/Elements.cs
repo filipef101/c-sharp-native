@@ -447,6 +447,8 @@ public sealed record TextField(
 	public Submit Submit { get; init; }
 
 	public Action? OnSubmit { get; init; }
+
+	public bool Autofill { get; init; } = true;
 }
 
 public sealed record TextInput(
@@ -464,6 +466,8 @@ public sealed record TextInput(
 	public Submit Submit { get; init; }
 
 	public Action? OnSubmit { get; init; }
+
+	public bool Autofill { get; init; } = true;
 }
 
 public sealed record Switch(
@@ -574,6 +578,8 @@ public sealed record Image(string Source) : Element
 	public string Description { get; init; } = "";
 
 	public bool Decorative { get; init; }
+
+	public int Side { get; init; }
 }
 
 public sealed record HostView(string Kind, string Prop, string Value) : Element

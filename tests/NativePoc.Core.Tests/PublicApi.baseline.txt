@@ -20,6 +20,8 @@ experimental|F:NativePoc.ScreenQuery.Swipe
 experimental|F:NativePoc.ScreenQuery.Tree
 experimental|F:NativePoc.ScreenQuery.VmBody
 experimental|M:NativePoc.ActionLog.Note(System.Int64,System.Int32,System.String)
+experimental|M:NativePoc.Animated.Spring(NativePoc.IPlatform,System.String,System.Int32,System.Int32,System.Int32)
+experimental|M:NativePoc.Animated.Timing(NativePoc.IPlatform,System.String,System.Int32,System.Int32,System.Int32)
 experimental|M:NativePoc.CounterService.Next(System.Int32)
 experimental|M:NativePoc.DeferredList.#ctor(System.Int32,System.Func<System.Int32,NativePoc.Element>,System.Func<System.Int32,System.String>)
 experimental|M:NativePoc.DeferredList.GetEnumerator()
@@ -158,6 +160,7 @@ experimental|P:NativePoc.RowSlotState.Picture
 experimental|P:NativePoc.RowSlotState.Subtitle
 experimental|P:NativePoc.RowSlotState.Title
 experimental|T:NativePoc.ActionLog
+experimental|T:NativePoc.Animated
 experimental|T:NativePoc.CounterService
 experimental|T:NativePoc.DeferredList
 experimental|T:NativePoc.EffectContext
@@ -439,6 +442,7 @@ stable|P:NativePoc.HostView.Prop
 stable|P:NativePoc.HostView.Value
 stable|P:NativePoc.Image.Decorative
 stable|P:NativePoc.Image.Description
+stable|P:NativePoc.Image.Side
 stable|P:NativePoc.Image.Source
 stable|P:NativePoc.ListView.Rows
 stable|P:NativePoc.LocationFix.Access
@@ -491,6 +495,7 @@ stable|P:NativePoc.Switch.SourceLine
 stable|P:NativePoc.Switch.Value
 stable|P:NativePoc.Text.Value
 stable|P:NativePoc.TextField.AccessibilityLabel
+stable|P:NativePoc.TextField.Autofill
 stable|P:NativePoc.TextField.Keyboard
 stable|P:NativePoc.TextField.Lines
 stable|P:NativePoc.TextField.OnChange
@@ -501,6 +506,7 @@ stable|P:NativePoc.TextField.SourceLine
 stable|P:NativePoc.TextField.Submit
 stable|P:NativePoc.TextField.Value
 stable|P:NativePoc.TextInput.AccessibilityLabel
+stable|P:NativePoc.TextInput.Autofill
 stable|P:NativePoc.TextInput.Keyboard
 stable|P:NativePoc.TextInput.Lines
 stable|P:NativePoc.TextInput.OnChange

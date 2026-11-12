@@ -277,8 +277,8 @@ public static class HeadlessLayout
 			case Switch:
 			case HostView:
 				return Scale(HostPolicy.TouchFloorDp, fontScale);
-			case Image:
-				return 96;
+			case Image image:
+				return image.Side > 0 ? image.Side : 96;
 			case ListView:
 				return 240;
 			case Column:

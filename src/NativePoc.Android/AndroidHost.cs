@@ -211,6 +211,18 @@ sealed class AndroidHost : IElementHost<View>
 		Log.Info(MainActivity.Tag, "field-mode key=" + key + " keyboard=" + keyboard + " lines=" + lines + " submit=" + submit);
 	}
 
+	bool AllowsAutofill(View view)
+	{
+		if (!_paths.TryGetValue(view, out var path))
+			return true;
+		return CurrentElement(path) switch
+		{
+			TextField field => field.Autofill,
+			TextInput input => input.Autofill,
+			_ => true,
+		};
+	}
+
 	public void SetTextField(View view, string value, string placeholder, string accessibilityLabel)
 	{
 		if (view is not EditText edit)
@@ -219,6 +231,16 @@ sealed class AndroidHost : IElementHost<View>
 		if (!string.Equals(edit.Hint, placeholder, StringComparison.Ordinal))
 			edit.Hint = placeholder;
 		edit.ContentDescription = accessibilityLabel;
+		if (edit is AndroidField markedField)
+		{
+			markedField.AllowAutofill = AllowsAutofill(view);
+			if (!markedField.AllowAutofill && OperatingSystem.IsAndroidVersionAtLeast(26))
+			{
+				markedField.ImportantForAutofill = ImportantForAutofill.No;
+				Log.Info(MainActivity.Tag, "field-autofill key=" + (markedField.Key ?? "") + " off=1");
+			}
+		}
+
 		TouchTarget(edit);
 		var current = edit.Text ?? "";
 		if (string.Equals(current, value, StringComparison.Ordinal))
@@ -649,21 +671,24 @@ sealed class AndroidHost : IElementHost<View>
 			return;
 		}
 
+		var side = HostPolicy.TouchFloorDp;
+		if (_paths.TryGetValue(view, out var imagePath) && CurrentElement(imagePath) is Image picture && picture.Side > 0)
+			side = picture.Side;
+		var px = Dp(side);
+		image.SetMinimumWidth(px);
+		image.SetMinimumHeight(px);
+		image.LayoutParameters = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, px);
 		PictureBinder.Show(image, source, _activity, description, decorative);
 		TouchTarget(image);
-		if (image.LayoutParameters is ViewGroup.LayoutParams layout)
-		{
-			layout.Width = Dp(HostPolicy.TouchFloorDp);
-			layout.Height = Dp(HostPolicy.TouchFloorDp);
-			image.LayoutParameters = layout;
-		}
 	}
 
 	void TouchTarget(View view)
 	{
 		var min = Dp(HostPolicy.TouchFloorDp);
+		if (view.MinimumWidth > min)
+			min = view.MinimumWidth;
 		view.SetMinimumWidth(min);
-		view.SetMinimumHeight(min);
+		view.SetMinimumHeight(Math.Max(view.MinimumHeight, min));
 		if (view is TextView text)
 		{
 			text.SetMinWidth(min);
@@ -727,6 +752,24 @@ sealed class AndroidHost : IElementHost<View>
 		if (view is StartupButton timed && CurrentElement(path)?.Key is string buttonKey && (buttonKey == "shelf" || buttonKey == "room"))
 			timed.MarkStartup(buttonKey);
 
+		var mountedKey = CurrentElement(path)?.Key;
+		if (!string.IsNullOrEmpty(mountedKey))
+			AnimatedPlayer.Bind(mountedKey, view);
+		if (view is RefreshScroll shelfScroll && string.Equals(mountedKey, "scroll", StringComparison.Ordinal))
+		{
+			shelfScroll.Post(() =>
+			{
+				if (shelfScroll.Handle == IntPtr.Zero || shelfScroll.ChildCount < 1)
+					return;
+				var child = shelfScroll.GetChildAt(0);
+				if (child is null || !_paths.TryGetValue(child, out var childPath))
+					return;
+				if (!string.Equals(CurrentElement(childPath)?.Key, "list", StringComparison.Ordinal))
+					return;
+				Log.Info(MainActivity.Tag, "list-first=0");
+			});
+		}
+
 		if (path.Length == 0)
 		{
 			var pad = (int)(16 * (_activity.Resources?.DisplayMetrics?.Density ?? 1f));
@@ -755,6 +798,7 @@ sealed class AndroidHost : IElementHost<View>
 
 	public void OnUnmounted(NodePath path, View view)
 	{
+		AnimatedPlayer.Unbind(view);
 		MotionPlayer.Stop(view);
 		Detach(view);
 		_paths.Remove(view);
@@ -833,6 +877,13 @@ sealed class AndroidHost : IElementHost<View>
 			return;
 		}
 #endif
+
+		if (view is ImageView picture)
+		{
+			picture.Clickable = (mask & Gestures.Tap) != 0;
+			picture.SetOnClickListener((mask & Gestures.Tap) == 0 ? null : new TapClick(() => Fire(path, Gestures.Tap)));
+			return;
+		}
 
 		if (view is TextView text && view is not AndroidButton && view is not EditText)
 		{
@@ -1243,6 +1294,8 @@ sealed class AndroidField : EditText
 
 	public long LastSubmit { get; set; }
 
+	public bool AllowAutofill { get; set; } = true;
+
 	public AndroidField(Context context) : base(context)
 	{
 		FocusableInTouchMode = false;
@@ -1278,8 +1331,12 @@ sealed class AndroidField : EditText
 		static void Enable(AndroidField field)
 		{
 			field.FocusableInTouchMode = true;
-			if (OperatingSystem.IsAndroidVersionAtLeast(26))
+			if (!OperatingSystem.IsAndroidVersionAtLeast(26))
+				return;
+			if (field.AllowAutofill)
 				field.ImportantForAutofill = ImportantForAutofill.Auto;
+			else
+				field.ImportantForAutofill = ImportantForAutofill.No;
 		}
 	}
 }

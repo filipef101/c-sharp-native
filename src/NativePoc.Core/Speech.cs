@@ -12,22 +12,26 @@ internal static class Speech
 			&& column.Children[1] is Text label)
 			return value.Value + " " + label.Value;
 		Button? button = null;
+		Image? picture = null;
 		Text? name = null;
 		foreach (var child in column.Children)
 		{
 			if (child is Button tile)
 				button = tile;
+			else if (child is Image image)
+				picture = image;
 			else if (child is Text text)
 				name = text;
 		}
 
-		if (button is null || name is null)
+		var spoken = button?.AccessibilityLabel ?? picture?.Description;
+		if (spoken is null || name is null)
 			return null;
-		if (name.Value.Length == 0 || !button.AccessibilityLabel.StartsWith(name.Value, StringComparison.Ordinal))
+		if (name.Value.Length == 0 || !spoken.StartsWith(name.Value, StringComparison.Ordinal))
 			return null;
-		if (button.AccessibilityLabel.Length <= name.Value.Length)
+		if (spoken.Length <= name.Value.Length)
 			return null;
-		return button.AccessibilityLabel;
+		return spoken;
 	}
 
 	public static string? KeepChange(string previous, string next)

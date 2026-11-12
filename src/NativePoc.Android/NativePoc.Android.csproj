@@ -162,8 +162,26 @@
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocShowcase)' == 'true' And '$(NativePocWidgetFloor)' != 'true'">
 		<ApplicationId>com.scratch.nativepoc.showcase</ApplicationId>
-		<DefineConstants>$(DefineConstants);NATIVEPOC_ROOT_HOME</DefineConstants>
+		<NativePocImage>true</NativePocImage>
+		<DefineConstants>$(DefineConstants);NATIVEPOC_ROOT_HOME;NATIVEPOC_IMAGE</DefineConstants>
 	</PropertyGroup>
+	<Target Name="WriteShelfGlazes" Condition="'$(NativePocImage)' == 'true'"
+		Inputs="$(MSBuildThisFileDirectory)..\..\tools\glaze\GlazeWrite.cs;$(MSBuildThisFileDirectory)..\..\tools\glaze\GlazeWrite.csproj"
+		Outputs="$(IntermediateOutputPath)shelf-glaze\Resources\drawable\shelf_harbor.png">
+		<PropertyGroup>
+			<_GlazeDir>$(IntermediateOutputPath)shelf-glaze\Resources\drawable\</_GlazeDir>
+			<_GlazeProject>$(MSBuildThisFileDirectory)..\..\tools\glaze\GlazeWrite.csproj</_GlazeProject>
+			<_GlazeDll>$(MSBuildThisFileDirectory)..\..\tools\glaze\bin\Release\net10.0\GlazeWrite.dll</_GlazeDll>
+		</PropertyGroup>
+		<MakeDir Directories="$(_GlazeDir)" />
+		<Exec Command="dotnet build &quot;$(_GlazeProject)&quot; -c Release -nodeReuse:false --nologo -v q" EnvironmentVariables="MSBUILDDISABLENODEREUSE=1" />
+		<Exec Command="dotnet exec &quot;$(_GlazeDll)&quot; &quot;$(_GlazeDir)&quot;" />
+	</Target>
+	<Target Name="IncludeShelfGlazes" BeforeTargets="_ComputeAndroidResourcePaths" DependsOnTargets="WriteShelfGlazes" Condition="'$(NativePocImage)' == 'true'">
+		<ItemGroup>
+			<AndroidResource Include="$(IntermediateOutputPath)shelf-glaze\Resources\drawable\shelf_*.png" />
+		</ItemGroup>
+	</Target>
 	<!-- Same showcase compile, an empty column, and a second package so the
 	     bench can install it beside Northroom. -->
 	<PropertyGroup Condition="'$(NativePocWidgetFloor)' == 'true'">

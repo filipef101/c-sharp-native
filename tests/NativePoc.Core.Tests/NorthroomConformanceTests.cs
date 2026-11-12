@@ -185,7 +185,10 @@ public sealed class NorthroomConformanceTests
 		AssertSpoken(shelf, "scroll/list/row-3/linen/swatch", "Linen vase, Bone");
 		AssertSpoken(shelf, "scroll/list/row-3/moss/swatch", "Moss tile, Copper");
 		Assert.Equal("Harbor bowl, Mist", Speech.Of(ElementIds.Require(shelf, "scroll/list/row-0/harbor")));
-		Assert.Equal("Mist", Assert.IsType<Button>(ElementIds.Require(shelf, "scroll/list/row-0/harbor/swatch")).Title);
+		var harborSwatch = Assert.IsType<Image>(ElementIds.Require(shelf, "scroll/list/row-0/harbor/swatch"));
+		Assert.Equal("shelf_harbor", harborSwatch.Source);
+		Assert.Equal("Harbor bowl, Mist", harborSwatch.Description);
+		Assert.True(harborSwatch.Side > 48);
 		Assert.Equal("Harbor bowl", Assert.IsType<Text>(ElementIds.Require(shelf, "scroll/list/row-0/harbor/name")).Value);
 		AssertBefore(shelf, "scroll/list/back-row/back", "scroll/list/head/heading");
 		AssertBefore(shelf, "scroll/list/head/heading", "scroll/list/row-0/harbor/swatch");
@@ -221,6 +224,7 @@ public sealed class NorthroomConformanceTests
 		{
 			Button button => button.AccessibilityLabel,
 			Switch toggle => toggle.AccessibilityLabel,
+			Image image => image.Description,
 			_ => throw new InvalidOperationException(element.GetType().Name),
 		};
 		Assert.Equal(label, spoken);

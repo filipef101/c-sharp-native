@@ -75,17 +75,18 @@ public static class ShelfScreen
 			[
 				new Column(
 				[
-					new Button(
-						"Mist",
-						() =>
+					new Image("shelf_harbor")
+					{
+						Key = "swatch",
+						Description = "Harbor bowl, Mist",
+						Side = 168,
+						Style = new Style { Background = 0xFF6E97A0, Wash = 0xFFD5E6EA, Radius = 16 },
+						OnTap = () =>
 						{
+							Animated.Timing(platform, "harbor", 94, 100, 140);
 							platform.Push("piece", state.Pieces[0]);
 							platform.RequestRender();
 						},
-						"Harbor bowl, Mist")
-					{
-						Key = "swatch",
-						Style = new Style { Background = 0xFF6E97A0, Wash = 0xFFD5E6EA, Color = 0xFF143028, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
 					},
 					new Text("Harbor bowl") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
 				])
@@ -95,17 +96,18 @@ public static class ShelfScreen
 				},
 				new Column(
 				[
-					new Button(
-						"Iron",
-						() =>
+					new Image("shelf_kiln")
+					{
+						Key = "swatch",
+						Description = "Kiln door, Iron",
+						Side = 168,
+						Style = new Style { Background = 0xFF4A4038, Wash = 0xFF8A7B6E, Radius = 16 },
+						OnTap = () =>
 						{
+							Animated.Timing(platform, "kiln", 94, 100, 140);
 							platform.Push("piece", state.Pieces[1]);
 							platform.RequestRender();
 						},
-						"Kiln door, Iron")
-					{
-						Key = "swatch",
-						Style = new Style { Background = 0xFF4A4038, Wash = 0xFF8A7B6E, Color = 0xFFF7F4EF, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
 					},
 					new Text("Kiln door") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
 				])
@@ -122,17 +124,18 @@ public static class ShelfScreen
 			[
 				new Column(
 				[
-					new Button(
-						"Ash",
-						() =>
+					new Image("shelf_cedar")
+					{
+						Key = "swatch",
+						Description = "Cedar tray, Ash",
+						Side = 168,
+						Style = new Style { Background = 0xFFA89886, Wash = 0xFFE4D9CC, Radius = 16 },
+						OnTap = () =>
 						{
+							Animated.Timing(platform, "cedar", 94, 100, 140);
 							platform.Push("piece", state.Pieces[2]);
 							platform.RequestRender();
 						},
-						"Cedar tray, Ash")
-					{
-						Key = "swatch",
-						Style = new Style { Background = 0xFFA89886, Wash = 0xFFE4D9CC, Color = 0xFF143028, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
 					},
 					new Text("Cedar tray") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
 				])
@@ -142,17 +145,18 @@ public static class ShelfScreen
 				},
 				new Column(
 				[
-					new Button(
-						"Cobalt",
-						() =>
+					new Image("shelf_night")
+					{
+						Key = "swatch",
+						Description = "Night cup, Cobalt",
+						Side = 168,
+						Style = new Style { Background = 0xFF163A5C, Wash = 0xFF3E78B0, Radius = 16 },
+						OnTap = () =>
 						{
+							Animated.Timing(platform, "night", 94, 100, 140);
 							platform.Push("piece", state.Pieces[3]);
 							platform.RequestRender();
 						},
-						"Night cup, Cobalt")
-					{
-						Key = "swatch",
-						Style = new Style { Background = 0xFF163A5C, Wash = 0xFF3E78B0, Color = 0xFFF7F4EF, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
 					},
 					new Text("Night cup") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
 				])
@@ -169,17 +173,18 @@ public static class ShelfScreen
 			[
 				new Column(
 				[
-					new Button(
-						"Straw",
-						() =>
+					new Image("shelf_field")
+					{
+						Key = "swatch",
+						Description = "Field plate, Straw",
+						Side = 168,
+						Style = new Style { Background = 0xFFC4923A, Wash = 0xFFF0D48A, Radius = 16 },
+						OnTap = () =>
 						{
+							Animated.Timing(platform, "field", 94, 100, 140);
 							platform.Push("piece", state.Pieces[4]);
 							platform.RequestRender();
 						},
-						"Field plate, Straw")
-					{
-						Key = "swatch",
-						Style = new Style { Background = 0xFFC4923A, Wash = 0xFFF0D48A, Color = 0xFF143028, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
 					},
 					new Text("Field plate") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
 				])
@@ -189,17 +194,18 @@ public static class ShelfScreen
 				},
 				new Column(
 				[
-					new Button(
-						"Slate",
-						() =>
+					new Image("shelf_rain")
+					{
+						Key = "swatch",
+						Description = "Rain jar, Slate",
+						Side = 168,
+						Style = new Style { Background = 0xFF3E4850, Wash = 0xFF8A969E, Radius = 16 },
+						OnTap = () =>
 						{
+							Animated.Timing(platform, "rain", 94, 100, 140);
 							platform.Push("piece", state.Pieces[5]);
 							platform.RequestRender();
 						},
-						"Rain jar, Slate")
-					{
-						Key = "swatch",
-						Style = new Style { Background = 0xFF3E4850, Wash = 0xFF8A969E, Color = 0xFFF7F4EF, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
 					},
 					new Text("Rain jar") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
 				])
@@ -216,17 +222,18 @@ public static class ShelfScreen
 			[
 				new Column(
 				[
-					new Button(
-						"Bone",
-						() =>
+					new Image("shelf_linen")
+					{
+						Key = "swatch",
+						Description = "Linen vase, Bone",
+						Side = 168,
+						Style = new Style { Background = 0xFFC9C0B0, Wash = 0xFFF3EFE6, Radius = 16 },
+						OnTap = () =>
 						{
+							Animated.Timing(platform, "linen", 94, 100, 140);
 							platform.Push("piece", state.Pieces[6]);
 							platform.RequestRender();
 						},
-						"Linen vase, Bone")
-					{
-						Key = "swatch",
-						Style = new Style { Background = 0xFFC9C0B0, Wash = 0xFFF3EFE6, Color = 0xFF143028, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
 					},
 					new Text("Linen vase") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
 				])
@@ -236,17 +243,18 @@ public static class ShelfScreen
 				},
 				new Column(
 				[
-					new Button(
-						"Copper",
-						() =>
+					new Image("shelf_moss")
+					{
+						Key = "swatch",
+						Description = "Moss tile, Copper",
+						Side = 168,
+						Style = new Style { Background = 0xFF8C4A34, Wash = 0xFFD4A090, Radius = 16 },
+						OnTap = () =>
 						{
+							Animated.Timing(platform, "moss", 94, 100, 140);
 							platform.Push("piece", state.Pieces[7]);
 							platform.RequestRender();
 						},
-						"Moss tile, Copper")
-					{
-						Key = "swatch",
-						Style = new Style { Background = 0xFF8C4A34, Wash = 0xFFD4A090, Color = 0xFFF7F4EF, Radius = 16, Padding = 36, FontSize = 14, Weight = FontWeight.Bold, Align = Align.Center },
 					},
 					new Text("Moss tile") { Key = "name", Style = new Style { FontSize = 16, Align = Align.Center } },
 				])

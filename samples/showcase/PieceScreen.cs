@@ -14,6 +14,10 @@ public sealed class PieceState
 
 	public string Status { get; set; } = "";
 
+	public string Draft { get; set; } = "";
+
+	public string DraftFor { get; set; } = "";
+
 	public bool Dark { get; set; }
 }
 
@@ -23,13 +27,44 @@ public static class PieceScreen
 
 	public static Element Render(PieceState state, IPlatform platform)
 	{
+		void Load()
+		{
+			if (string.Equals(state.DraftFor, state.Id, StringComparison.Ordinal))
+				return;
+			var id = state.Id;
+			state.DraftFor = id;
+			state.Draft = "";
+			_ = Fill(id);
+		}
+
+		async Task Fill(string id)
+		{
+			var savedId = await Persist.Get(platform, "northroom.note.id");
+			var saved = await Persist.Get(platform, "northroom.note");
+			if (!string.Equals(state.Id, id, StringComparison.Ordinal))
+				return;
+			if (!string.Equals(savedId, id, StringComparison.Ordinal) || saved.Length == 0 || state.Draft.Length > 0)
+				return;
+			state.Draft = saved;
+			platform.RequestRender();
+		}
+
 		async void Keep()
 		{
 			var kept = state.Kept.Length == 0;
 			state.Kept = kept ? state.Id : "";
 			state.Status = await Persist.Put(platform, "northroom.keep", state.Kept);
 			platform.RequestRender();
+			Animated.Spring(platform, "keep", 86, 100, 220);
 		}
+
+		async void Save()
+		{
+			state.Status = await Persist.Put(platform, "northroom.note", state.Draft);
+			state.Status = await Persist.Put(platform, "northroom.note.id", state.Id);
+		}
+
+		Load();
 
 		return new ScrollView(new Column(
 		[
@@ -69,6 +104,20 @@ public static class PieceScreen
 										: new Text(state.Tone) { Key = "swatch", Style = new Style { Background = 0xFF8C4A34, Wash = 0xFFD4A090, Color = 0xFFF7F4EF, Radius = 16, Padding = 48, FontSize = 16, Weight = FontWeight.Bold, Align = Align.Center } },
 			new Text(state.Title) { Key = "title", Style = new Style { FontSize = 28, Weight = FontWeight.Bold } },
 			new Text(state.Note) { Key = "note", Style = new Style { FontSize = 16 } },
+			new TextField(
+				state.Draft,
+				value =>
+				{
+					state.Draft = value;
+					Save();
+					platform.RequestRender();
+				},
+				"Note",
+				"Note")
+			{
+				Key = "draft",
+				Autofill = false,
+			},
 			state.Kept.Length == 0
 				? new Button("Keep", () => Keep(), "Keep")
 				{

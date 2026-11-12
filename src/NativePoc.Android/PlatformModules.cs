@@ -32,6 +32,12 @@ static class PlatformModules
 			case ("animate", "Play", 1):
 				MotionPlayer.Replay(args[0]);
 				return;
+			case ("animated", "Timing", 4):
+				PlayAnimated(activity, args, spring: false);
+				return;
+			case ("animated", "Spring", 4):
+				PlayAnimated(activity, args, spring: true);
+				return;
 #if NATIVEPOC_HTTP
 			case ("feed", "Apply", 1):
 				FeedJson.FillBag(args[0]);
@@ -50,6 +56,19 @@ static class PlatformModules
 			default:
 				throw new InvalidOperationException("Unknown platform module " + module + "." + method + ".");
 		}
+	}
+
+	static void PlayAnimated(Activity activity, string[] args, bool spring)
+	{
+		if (!int.TryParse(args[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var from)
+			|| !int.TryParse(args[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var to)
+			|| !int.TryParse(args[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var duration))
+		{
+			Android.Util.Log.Info(MainActivity.Tag, "animated miss key=" + args[0]);
+			return;
+		}
+
+		AnimatedPlayer.Play(activity, args[0], from, to, duration, spring);
 	}
 
 	public static async Task<string> DispatchAsync(Activity activity, string module, string method, string[] args, CancellationToken cancel)

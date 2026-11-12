@@ -238,6 +238,7 @@ public sealed class PublicApiTests
 		["Location"] = "stable",
 		["Timer"] = "stable",
 		["Animate"] = "stable",
+		["Animated"] = "experimental",
 		["LocationAccess"] = "stable",
 		["LocationAccessRules"] = "stable",
 		["LocationFix"] = "stable",

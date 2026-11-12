@@ -762,12 +762,14 @@ public static partial class SubsetLowerer
 		Motion? _pendingMotion;
 		ExpressionSyntax? _pendingDescription;
 		bool _pendingDecorative;
+		int _pendingSide;
 		string? _pendingEventName;
 		byte[]? _pendingEventScript;
 		readonly List<(byte Kind, byte[] Script)> _pendingGestures = new();
 		Keyboard _pendingKeyboard;
 		int _pendingLines;
 		Submit _pendingSubmit;
+		bool _pendingAutofill = true;
 		byte[]? _pendingSubmitScript;
 		string _listName = "";
 		readonly Dictionary<string, BlockSyntax> _localFns = new(StringComparer.Ordinal);
@@ -912,6 +914,8 @@ public static partial class SubsetLowerer
 					return false;
 				if (!consumed && !TrySeed(statements[index], out consumed))
 					return false;
+				if (!consumed && !TryNote(statements[index], out consumed))
+					return false;
 				if (!consumed)
 					break;
 				index++;
@@ -1047,6 +1051,19 @@ public static partial class SubsetLowerer
 			_code.U16(idField);
 			_code.U16(titleField);
 			_code.U16(_code.Intern("Row "));
+			return true;
+		}
+
+		bool TryNote(StatementSyntax statement, out bool consumed)
+		{
+			consumed = false;
+			if (statement is not ExpressionStatementSyntax expr || expr.Expression is not InvocationExpressionSyntax invocation)
+				return true;
+			if (invocation.Expression is not IdentifierNameSyntax called || called.Identifier.ValueText != "Load")
+				return true;
+			consumed = true;
+			if (invocation.ArgumentList.Arguments.Count != 0)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			return true;
 		}
 
@@ -1395,6 +1412,7 @@ public static partial class SubsetLowerer
 			_code.Op(RecordProgram.OpMakeImage);
 			_code.U16(key);
 			_code.U8((byte)(_pendingDecorative ? 1 : 0));
+			_code.U8((byte)Math.Clamp(_pendingSide, 0, 255));
 			EmitStyle();
 			return true;
 		}
@@ -1849,12 +1867,14 @@ public static partial class SubsetLowerer
 			_pendingMotion = null;
 			_pendingDescription = null;
 			_pendingDecorative = false;
+			_pendingSide = 0;
 			_pendingGestures.Clear();
 			_pendingEventName = null;
 			_pendingEventScript = null;
 			_pendingKeyboard = Keyboard.Text;
 			_pendingLines = 0;
 			_pendingSubmit = Submit.None;
+			_pendingAutofill = true;
 			_pendingSubmitScript = null;
 			if (creation.Initializer is null)
 				return true;
@@ -1874,6 +1894,14 @@ public static partial class SubsetLowerer
 						|| (!decorative.IsKind(SyntaxKind.TrueLiteralExpression) && !decorative.IsKind(SyntaxKind.FalseLiteralExpression)))
 						return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
 					_pendingDecorative = decorative.IsKind(SyntaxKind.TrueLiteralExpression);
+					continue;
+				}
+
+				if (name.Identifier.ValueText == "Side" && TypeName(creation) == "Image")
+				{
+					if (!Integer(assignment.Right, out var side))
+						return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+					_pendingSide = side;
 					continue;
 				}
 
@@ -1929,7 +1957,7 @@ public static partial class SubsetLowerer
 					continue;
 				}
 
-				if (name.Identifier.ValueText is "Keyboard" or "Lines" or "Submit" or "OnSubmit")
+				if (name.Identifier.ValueText is "Keyboard" or "Lines" or "Submit" or "OnSubmit" or "Autofill")
 				{
 					if (TypeName(creation) is not ("TextField" or "TextInput"))
 						return Fail(UnknownMember, "The screen subset does not include an element initializer.", assignment);
@@ -2108,6 +2136,12 @@ public static partial class SubsetLowerer
 						return expression is LambdaExpressionSyntax ? false : Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", expression);
 					_pendingSubmitScript = script;
 					return true;
+				case "Autofill":
+					if (expression is not LiteralExpressionSyntax flag
+						|| (!flag.IsKind(SyntaxKind.TrueLiteralExpression) && !flag.IsKind(SyntaxKind.FalseLiteralExpression)))
+						return Fail(UnknownExpression, "The screen subset does not include this expression.", expression);
+					_pendingAutofill = flag.IsKind(SyntaxKind.TrueLiteralExpression);
+					return true;
 				default:
 					return Fail(UnknownMember, "The screen subset does not include " + name + ".", expression);
 			}
@@ -2116,12 +2150,13 @@ public static partial class SubsetLowerer
 		void EmitFieldMode()
 		{
 			var script = _pendingSubmitScript;
-			if (_pendingKeyboard == Keyboard.Text && _pendingLines <= 1 && _pendingSubmit == Submit.None && (script is null || script.Length == 0))
+			if (_pendingKeyboard == Keyboard.Text && _pendingLines <= 1 && _pendingSubmit == Submit.None && _pendingAutofill && (script is null || script.Length == 0))
 				return;
 			_code.Op(RecordProgram.OpFieldMode);
 			_code.U8((byte)_pendingKeyboard);
 			_code.U8((byte)Math.Max(_pendingLines, 0));
 			_code.U8((byte)_pendingSubmit);
+			_code.U8((byte)(_pendingAutofill ? 1 : 0));
 			_code.U16(script?.Length ?? 0);
 			if (script is { Length: > 0 })
 				_code.Bytes(script);
@@ -2591,7 +2626,7 @@ public static partial class SubsetLowerer
 				return StateCall(member.Name.Identifier.ValueText, script, invocation);
 			if (owner.Identifier.ValueText == "PackingTelemetry")
 				return true;
-			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme" or "FeedModule" or "Animate" or "Location" or "Nav")
+			if (owner.Identifier.ValueText is "Clipboard" or "Haptics" or "Share" or "Storage" or "Theme" or "FeedModule" or "Animate" or "Animated" or "Location" or "Nav")
 				return ModuleCall(owner.Identifier.ValueText, member.Name.Identifier.ValueText, invocation, script);
 			if (owner.Identifier.ValueText != _platform)
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
@@ -2838,6 +2873,14 @@ public static partial class SubsetLowerer
 				if (args[1].Expression is not LiteralExpressionSyntax key || !key.IsKind(SyntaxKind.StringLiteralExpression))
 					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", args[1].Expression);
 				encoded.Add((0, _code.Intern(key.Token.ValueText)));
+			}
+			else if (module == "Animated" && method is "Timing" or "Spring" && args.Count == 5)
+			{
+				for (var index = 1; index < args.Count; index++)
+				{
+					if (!ModuleArg(args[index].Expression, encoded))
+						return false;
+				}
 			}
 			else
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);

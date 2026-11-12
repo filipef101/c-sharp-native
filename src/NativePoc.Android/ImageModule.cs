@@ -74,6 +74,13 @@ static class ImageModule
 
 				image.SetImageBitmap(bitmap);
 				image.Visibility = ViewStates.Visible;
+				Android.Util.Log.Info(
+					MainActivity.Tag,
+					"image-placed source=" + source
+					+ " view=" + image.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+					+ "x" + image.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)
+					+ " clip=" + (image.ClipToOutline ? "1" : "0")
+					+ " elevation=" + image.Elevation.ToString(System.Globalization.CultureInfo.InvariantCulture));
 			});
 		});
 	}
@@ -81,6 +88,10 @@ static class ImageModule
 	static int TargetPx(ImageView image, Context context)
 	{
 		var laid = Math.Max(image.Width, image.Height);
+		if (laid <= 0)
+			laid = Math.Max(image.MinimumWidth, image.MinimumHeight);
+		if (laid <= 0 && image.LayoutParameters is { Width: > 0 } layout)
+			laid = Math.Max(layout.Width, layout.Height);
 		if (laid > 0)
 			return laid;
 		var density = context.Resources?.DisplayMetrics?.Density ?? 1f;
@@ -123,7 +134,17 @@ static class ImageModule
 			+ " sample=" + sample.ToString(System.Globalization.CultureInfo.InvariantCulture)
 			+ " target=" + target.ToString(System.Globalization.CultureInfo.InvariantCulture));
 		var options = new BitmapFactory.Options { InSampleSize = sample };
-		return BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length, options);
+		var bitmap = BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length, options);
+		if (bitmap is null)
+			return null;
+		var config = bitmap.GetConfig();
+		Android.Util.Log.Info(
+			MainActivity.Tag,
+			"image-bitmap decoded=" + bitmap.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ "x" + bitmap.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ " config=" + (config is null ? "none" : config.ToString())
+			+ " target=" + target.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		return bitmap;
 	}
 
 	static byte[]? Download(string url)

@@ -68,6 +68,9 @@ internal static class ElementIds
 			case TextInput input when text is not null:
 				input.OnChange(text);
 				return "entered " + id;
+			case Image image when text is null && image.OnTap is not null:
+				image.OnTap();
+				return "pressed " + id;
 			case Button:
 			case Switch:
 			case TextField:
