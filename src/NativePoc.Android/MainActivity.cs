@@ -49,6 +49,11 @@ public sealed class MainActivity : Activity
 	View? _paintedRoot;
 	bool _paintedDark;
 
+	protected override void AttachBaseContext(Context? context)
+	{
+		base.AttachBaseContext(ThemeRuntime.Wrap(context));
+	}
+
 	protected override void OnCreate(Bundle? savedInstanceState)
 	{
 		StartupMarks.Phase("activity-enter");
@@ -540,9 +545,9 @@ public sealed class MainActivity : Activity
 		}
 	}
 
-	public string UseRecord(RecordProgram.Bound program) => UseProgram(program);
+	internal string UseRecord(RecordProgram.Bound program) => UseProgram(program);
 
-	public string UseProgram(RecordProgram.Bound program)
+	internal string UseProgram(RecordProgram.Bound program)
 	{
 		var previousSource = _programSource;
 		var previousRecord = _record;

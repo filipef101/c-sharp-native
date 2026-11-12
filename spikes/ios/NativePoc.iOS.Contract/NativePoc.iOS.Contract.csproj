@@ -9,5 +9,6 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\src\NativePoc.Core\NativePoc.Core.csproj" />
+		<InternalsVisibleTo Include="NativePoc.iOS.Tests" />
 	</ItemGroup>
 </Project>

@@ -4,7 +4,7 @@ using System.Text;
 
 namespace NativePoc;
 
-public static partial class RecordProgram
+internal static partial class RecordProgram
 {
 	public const byte VmLitI = 1;
 	public const byte VmLitD = 2;
@@ -61,7 +61,7 @@ public static partial class RecordProgram
 
 	public const string CollectionModified = "Collection was modified; enumeration operation may not execute.";
 
-	public readonly struct AppValue
+	internal readonly struct AppValue
 	{
 		public byte Kind { get; }
 
@@ -86,7 +86,7 @@ public static partial class RecordProgram
 		public static AppValue FromStr(string value) => new(VmKindStr, 0, false, value);
 	}
 
-	public delegate AppValue AppDispatch(string typeName, string methodName, AppValue[] args);
+	internal delegate AppValue AppDispatch(string typeName, string methodName, AppValue[] args);
 
 	static AppDispatch? _appCall;
 

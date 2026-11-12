@@ -1,0 +1,60 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using NativePoc.ReloadGen;
+
+namespace NativePoc.Devx.Tests;
+
+public sealed class JniBindingTests
+{
+	[Fact]
+	public void A_declared_binding_emits_jni_without_reflection()
+	{
+		var source = """
+			using System;
+			namespace NativePoc
+			{
+				[AttributeUsage(AttributeTargets.Class)]
+				public sealed class JniTypeAttribute : Attribute
+				{
+					public JniTypeAttribute(string className) => ClassName = className;
+					public string ClassName { get; }
+				}
+
+				[AttributeUsage(AttributeTargets.Method)]
+				public sealed class JniMethodAttribute : Attribute
+				{
+					public JniMethodAttribute(string name, string signature)
+					{
+						Name = name;
+						Signature = signature;
+					}
+					public string Name { get; }
+					public string Signature { get; }
+					public bool Instance { get; set; }
+					public string Service { get; set; } = "";
+				}
+
+				[JniType("android/os/Vibrator")]
+				static partial class DeviceVibrator
+				{
+					[JniMethod("vibrate", "(J)V", Instance = true, Service = "vibrator")]
+					public static partial void Vibrate(long milliseconds);
+				}
+			}
+			""";
+		var tree = CSharpSyntaxTree.ParseText(source);
+		var compilation = CSharpCompilation.Create(
+			"bind-test",
+			[tree],
+			[MetadataReference.CreateFromFile(typeof(object).Assembly.Location), MetadataReference.CreateFromFile(typeof(Attribute).Assembly.Location)],
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+		var generated = JniBindingGenerator.Emit(compilation);
+		Assert.Contains("JNIEnv.FindClass(\"android/os/Vibrator\")", generated, StringComparison.Ordinal);
+		Assert.Contains("JNIEnv.GetMethodID(jniClass, \"vibrate\", \"(J)V\")", generated, StringComparison.Ordinal);
+		Assert.Contains("JNIEnv.CallVoidMethod(service.Handle, jniMethod", generated, StringComparison.Ordinal);
+		Assert.Contains("jni-bind class=android/os/Vibrator method=vibrate", generated, StringComparison.Ordinal);
+		Assert.DoesNotContain("GetMethod(", generated, StringComparison.Ordinal);
+		Assert.DoesNotContain("Type.GetType", generated, StringComparison.Ordinal);
+		Assert.DoesNotContain("Assembly.Load", generated, StringComparison.Ordinal);
+	}
+}

@@ -307,7 +307,16 @@ sealed class AndroidHost : IElementHost<View>
 			drawable.SetColor(style.Background == 0
 				? Android.Graphics.Color.Transparent
 				: new Android.Graphics.Color(unchecked((int)style.Background)));
+			if (view is AndroidButton tinted)
+				tinted.BackgroundTintList = null;
 			view.Background = drawable;
+			if (style.Radius > 0)
+			{
+				view.OutlineProvider = new CardOutline(Px(style.Radius));
+				view.ClipToOutline = true;
+			}
+
+			view.Elevation = style.Background != 0 && style.Radius > 0 ? Px(3) : 0;
 		}
 	}
 
@@ -337,7 +346,7 @@ sealed class AndroidHost : IElementHost<View>
 		slot.Apply(kind, prop, value, eventName, onEvent);
 	}
 
-	public void SetImage(View view, string source)
+	public void SetImage(View view, string source, string description, bool decorative)
 	{
 		if (view is not ImageView image)
 			throw new InvalidOperationException("Image patch targeted a non-image view.");
@@ -349,7 +358,7 @@ sealed class AndroidHost : IElementHost<View>
 			return;
 		}
 
-		PictureBinder.Show(image, source, _activity);
+		PictureBinder.Show(image, source, _activity, description, decorative);
 		TouchTarget(image);
 		if (image.LayoutParameters is ViewGroup.LayoutParams layout)
 		{
@@ -390,7 +399,9 @@ sealed class AndroidHost : IElementHost<View>
 	{
 		if (view is not AndroidSwitch toggle)
 			throw new InvalidOperationException("Switch patch targeted a non-switch view.");
+		toggle.Text = accessibilityLabel;
 		toggle.ContentDescription = accessibilityLabel;
+		toggle.SetSingleLine(false);
 		TouchTarget(toggle);
 		if (toggle.Checked == value)
 			return;
@@ -1214,5 +1225,19 @@ static class A11yTree
 			if (child is not null)
 				Walk(child, ref count);
 		}
+	}
+}
+
+sealed class CardOutline : ViewOutlineProvider
+{
+	readonly float _radius;
+
+	public CardOutline(float radius) => _radius = radius;
+
+	public override void GetOutline(View? view, Outline? outline)
+	{
+		if (view is null || outline is null)
+			return;
+		outline.SetRoundRect(0, 0, Math.Max(view.Width, 1), Math.Max(view.Height, 1), _radius);
 	}
 }

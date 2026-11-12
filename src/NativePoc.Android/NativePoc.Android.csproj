@@ -19,6 +19,9 @@
 		<NativePocPersist Condition="'$(NativePocPersist)' == ''">false</NativePocPersist>
 		<NativePocNav Condition="'$(NativePocNav)' == ''">false</NativePocNav>
 		<NativePocTransition Condition="'$(NativePocTransition)' == ''">false</NativePocTransition>
+		<NativePocImage Condition="'$(NativePocImage)' == ''">false</NativePocImage>
+		<NativePocJni Condition="'$(NativePocJni)' == ''">false</NativePocJni>
+		<NativePocShowcase Condition="'$(NativePocShowcase)' == ''">false</NativePocShowcase>
 		<NativePocHydratePrefetch Condition="'$(NativePocHydratePrefetch)' == ''">false</NativePocHydratePrefetch>
 		<NativePocStartupMarks Condition="'$(NativePocStartupMarks)' == ''">false</NativePocStartupMarks>
 		<NativePocDeferNatives Condition="'$(NativePocDeferNatives)' == ''">false</NativePocDeferNatives>
@@ -70,6 +73,16 @@
 	<PropertyGroup Condition="'$(NativePocTransition)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_TRANSITION</DefineConstants>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocImage)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_IMAGE</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocJni)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_JNI</DefineConstants>
+		<AndroidManifestPlaceholders>$(AndroidManifestPlaceholders);nativepocJni=1</AndroidManifestPlaceholders>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(NativePocJni)' == 'true'">
+		<AndroidManifestOverlay Include="Properties/VibratePermission.xml" />
+	</ItemGroup>
 	<PropertyGroup Condition="'$(NativePocLocation)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_LOCATION</DefineConstants>
 		<!-- The manifest merger skips when its inputs are unchanged, and an overlay
@@ -136,6 +149,16 @@
 	<PropertyGroup Condition="'$(NativePocPersist)' != 'true' Or '$(NativePocNav)' != 'true'">
 		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\notes\**</NativePocSampleExclude>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocJni)' != 'true'">
+		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\bind\**</NativePocSampleExclude>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocShowcase)' != 'true'">
+		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\showcase\**</NativePocSampleExclude>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocShowcase)' == 'true'">
+		<ApplicationId>com.scratch.nativepoc.showcase</ApplicationId>
+		<DefineConstants>$(DefineConstants);NATIVEPOC_ROOT_HOME</DefineConstants>
+	</PropertyGroup>
 	<Target Name="RefuseDevListenerInRelease" BeforeTargets="Build;Publish">
 		<Error
 			Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' == 'Release'"
@@ -180,6 +203,7 @@
 		<Compile Remove="PersistStore.cs" Condition="'$(NativePocPersist)' != 'true'" />
 		<Compile Remove="NavFocus.cs" Condition="'$(NativePocNav)' != 'true'" />
 		<Compile Remove="NavTransition.cs" Condition="'$(NativePocTransition)' != 'true'" />
+		<Compile Remove="ImageModule.cs" Condition="'$(NativePocImage)' != 'true'" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\NativePoc.Core\NativePoc.Core.csproj" />

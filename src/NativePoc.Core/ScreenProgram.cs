@@ -8,7 +8,7 @@ namespace NativePoc;
 /// A screen as data. The bytes are a stack program the process already contains.
 /// Applying one does not load an assembly.
 /// </summary>
-public static partial class ScreenProgram
+internal static partial class ScreenProgram
 {
 	public const byte Version = 1;
 
@@ -109,7 +109,7 @@ public static partial class ScreenProgram
 		return Convert.ToHexString(hash.AsSpan(0, HashSize)).ToLowerInvariant();
 	}
 
-	public readonly struct Bound
+	internal readonly struct Bound
 	{
 		public Bound(Func<AppState, IPlatform, Element> render, string sourceHash)
 		{
@@ -122,7 +122,7 @@ public static partial class ScreenProgram
 		public string SourceHash { get; }
 	}
 
-	public readonly struct PackingBound
+	internal readonly struct PackingBound
 	{
 		public PackingBound(Func<IPackingProgram, Element> render, string sourceHash)
 		{
@@ -163,7 +163,7 @@ public static partial class ScreenProgram
 			sourceHash);
 	}
 
-	public sealed class Writer
+	internal sealed class Writer
 	{
 		readonly List<string> _strings = new();
 		readonly List<byte> _code = new();

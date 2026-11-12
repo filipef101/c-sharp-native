@@ -189,7 +189,7 @@ public sealed class PackingActivity : Activity, IPackingHost
 	PackingModel? _model;
 	PackingPlatform? _platform;
 
-	public static string UseProgram(RecordProgram.Bound program)
+	internal static string UseProgram(RecordProgram.Bound program)
 	{
 		_record = program;
 		var current = Current;

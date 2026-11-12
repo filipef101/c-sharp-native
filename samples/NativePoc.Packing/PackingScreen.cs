@@ -189,7 +189,7 @@ public static class PackingScreen
 				new Text(item.Note) { Key = "note" },
 				new Switch(item.Packed, value => { PackingTelemetry.SwitchDeliveries++; item.Packed = value; host.Pulse(); host.RequestRender(); }, "Packed " + item.Name) { Key = "packed" },
 				new Button("Edit", () => { state.EditingId = item.Id; state.DraftName = item.Name; state.DraftPacked = item.Packed; state.Editing = true; host.RequestRender(); }, "Edit " + item.Name) { Key = "edit" },
-				new Image(item.Picture) { Key = "picture" },
+				new Image(item.Picture) { Key = "picture", Description = item.Name },
 			])
 			{
 				Key = item.Id,

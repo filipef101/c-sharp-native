@@ -86,8 +86,11 @@ sealed class PackHost : IElementHost<PackNode>
 	{
 	}
 
-	public void SetImage(PackNode view, string source)
+	public void SetImage(PackNode view, string source, string description, bool decorative)
 	{
+		_ = source;
+		_ = description;
+		_ = decorative;
 	}
 
 	public void SetHost(PackNode view, string kind, string prop, string value, string eventName, Action<string, string>? onEvent)

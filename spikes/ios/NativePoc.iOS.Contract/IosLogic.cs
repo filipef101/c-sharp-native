@@ -103,11 +103,11 @@ public sealed class IosLogicHost : IElementHost<IosView>
 
 	public void SetGesture(IosView view, byte mask) => view.TouchFloor = HostPolicy.TouchFloor(mask);
 
-	public void SetImage(IosView view, string source)
+	public void SetImage(IosView view, string source, string description, bool decorative)
 	{
 		view.Text = source;
 		view.Hidden = source.Length == 0;
-		view.AccessibilityValue = source;
+		view.AccessibilityValue = decorative ? "" : (description.Length > 0 ? description : source);
 	}
 
 	public void SetHost(IosView view, string kind, string prop, string value, string eventName, Action<string, string>? onEvent)
@@ -117,19 +117,19 @@ public sealed class IosLogicHost : IElementHost<IosView>
 		_ = onEvent;
 	}
 
-	public void OnMounted(NodePath path, IosView view)
+	void IElementHost<IosView>.OnMounted(NodePath path, IosView view)
 	{
 		_ = path;
 		_ = view;
 	}
 
-	public void Retarget(NodePath path, IosView view)
+	void IElementHost<IosView>.Retarget(NodePath path, IosView view)
 	{
 		_ = path;
 		_ = view;
 	}
 
-	public void OnUnmounted(NodePath path, IosView view)
+	void IElementHost<IosView>.OnUnmounted(NodePath path, IosView view)
 	{
 		_ = path;
 		view.Hidden = true;
@@ -148,7 +148,7 @@ public sealed class IosLogicSurface : IPlatform, IPlatformSurface
 
 	public IosLogicHost Host => _host;
 
-	public ViewReconciler<IosView> Reconciler => _reconciler;
+	internal ViewReconciler<IosView> Reconciler => _reconciler;
 
 	public Element? Tree { get; private set; }
 
@@ -166,7 +166,7 @@ public sealed class IosLogicSurface : IPlatform, IPlatformSurface
 		Paint();
 	}
 
-	public Element Apply(ReadOnlySpan<byte> program, RecordProgram.Bag bag)
+	Element IPlatformSurface.Apply(ReadOnlySpan<byte> program, RecordProgram.Bag bag)
 	{
 		var bound = RecordProgram.Bind(program, bag);
 		Show(bound.Render);

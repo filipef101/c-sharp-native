@@ -2,7 +2,7 @@ using System.Threading;
 
 namespace NativePoc;
 
-public sealed class ActionStoppedException : InvalidOperationException
+internal sealed class ActionStoppedException : InvalidOperationException
 {
 	public ActionStoppedException(string message)
 		: base(message)

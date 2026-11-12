@@ -1,6 +1,6 @@
 namespace NativePoc;
 
-public readonly record struct NodePath(byte Length, int S0 = 0, int S1 = 0, int S2 = 0, int S3 = 0)
+internal readonly record struct NodePath(byte Length, int S0 = 0, int S1 = 0, int S2 = 0, int S3 = 0)
 {
 	public static NodePath Root { get; } = new(0);
 
@@ -65,44 +65,44 @@ public readonly record struct NodePath(byte Length, int S0 = 0, int S1 = 0, int 
 	}
 }
 
-public abstract record Patch
+internal abstract record Patch
 {
 	private protected Patch()
 	{
 	}
 }
 
-public sealed record Mount(NodePath Path, ElementKind Kind) : Patch;
+internal sealed record Mount(NodePath Path, ElementKind Kind) : Patch;
 
-public sealed record Replace(NodePath Path, ElementKind Kind) : Patch;
+internal sealed record Replace(NodePath Path, ElementKind Kind) : Patch;
 
-public sealed record Unmount(NodePath Path) : Patch;
+internal sealed record Unmount(NodePath Path) : Patch;
 
-public sealed record SetText(NodePath Path, string Value) : Patch;
+internal sealed record SetText(NodePath Path, string Value) : Patch;
 
-public sealed record SetButton(NodePath Path, string Title, string AccessibilityLabel) : Patch;
+internal sealed record SetButton(NodePath Path, string Title, string AccessibilityLabel) : Patch;
 
-public sealed record SetTextField(NodePath Path, string Value, string Placeholder, string AccessibilityLabel) : Patch;
+internal sealed record SetTextField(NodePath Path, string Value, string Placeholder, string AccessibilityLabel) : Patch;
 
-public sealed record SetFieldMode(NodePath Path, Keyboard Keyboard, int Lines, Submit Submit) : Patch;
+internal sealed record SetFieldMode(NodePath Path, Keyboard Keyboard, int Lines, Submit Submit) : Patch;
 
-public sealed record SetSwitch(NodePath Path, bool Value, string AccessibilityLabel) : Patch;
+internal sealed record SetSwitch(NodePath Path, bool Value, string AccessibilityLabel) : Patch;
 
-public sealed record Reorder(NodePath Parent, IReadOnlyList<int> Sources) : Patch;
+internal sealed record Reorder(NodePath Parent, IReadOnlyList<int> Sources) : Patch;
 
-public sealed record SetList(NodePath Path, IReadOnlyList<Element> Rows) : Patch;
+internal sealed record SetList(NodePath Path, IReadOnlyList<Element> Rows) : Patch;
 
-public sealed record SetStyle(NodePath Path, Style Style) : Patch;
+internal sealed record SetStyle(NodePath Path, Style Style) : Patch;
 
-public sealed record SetMotion(NodePath Path, Motion Motion) : Patch;
+internal sealed record SetMotion(NodePath Path, Motion Motion) : Patch;
 
-public sealed record SetGesture(NodePath Path, byte Mask) : Patch;
+internal sealed record SetGesture(NodePath Path, byte Mask) : Patch;
 
-public sealed record SetImage(NodePath Path, string Source) : Patch;
+internal sealed record SetImage(NodePath Path, string Source, string Description, bool Decorative) : Patch;
 
-public sealed record SetHost(NodePath Path, string Kind, string Prop, string Value, string Event, Action<string, string>? OnEvent) : Patch;
+internal sealed record SetHost(NodePath Path, string Kind, string Prop, string Value, string Event, Action<string, string>? OnEvent) : Patch;
 
-public static class TreeDiff
+internal static class TreeDiff
 {
 	public static List<Patch> Diff(Element? previous, Element next)
 	{
@@ -308,8 +308,13 @@ public static class TreeDiff
 				patches.Add(new SetList(path, list.Rows));
 				return;
 			case Image image:
-				if (previous is not Image previousImage || previousImage.Source != image.Source)
-					patches.Add(new SetImage(path, image.Source));
+				if (previous is not Image previousImage
+					|| previousImage.Source != image.Source
+					|| previousImage.Description != image.Description
+					|| previousImage.Decorative != image.Decorative)
+				{
+					patches.Add(new SetImage(path, image.Source, image.Description, image.Decorative));
+				}
 				return;
 			case HostView host:
 				patches.Add(new SetHost(path, host.Kind, host.Prop, host.Value, host.Event, host.OnEvent));

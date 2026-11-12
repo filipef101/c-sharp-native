@@ -1,6 +1,6 @@
 namespace NativePoc;
 
-public static class StateEpoch
+internal static class StateEpoch
 {
 	static int _value;
 

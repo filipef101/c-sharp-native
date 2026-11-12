@@ -226,7 +226,7 @@ public sealed class NavScreen
 {
 	public string Id { get; init; } = "";
 
-	public RecordProgram.BagImage State { get; init; } = new();
+	internal RecordProgram.BagImage State { get; init; } = new();
 
 	public byte[] Program { get; init; } = [];
 }
@@ -249,7 +249,7 @@ public sealed class ScreenNav
 	   A named root is the only frame a cold launch may add. */
 	public string LaunchRoot { get; set; } = "";
 
-	public RecordProgram.Bag Bag(string id)
+	internal RecordProgram.Bag Bag(string id)
 	{
 		lock (_gate)
 			return BagLocked(id);
@@ -510,7 +510,7 @@ public sealed class ScreenNav
 		}
 	}
 
-	public RecordProgram.Bound? Top()
+	internal RecordProgram.Bound? Top()
 	{
 		lock (_gate)
 		{
@@ -554,7 +554,7 @@ public sealed class ScreenNav
 		}
 	}
 
-	public void Prepare(Action<byte[], RecordProgram.Bag> prepare)
+	internal void Prepare(Action<byte[], RecordProgram.Bag> prepare)
 	{
 		ArgumentNullException.ThrowIfNull(prepare);
 		List<(byte[] Program, RecordProgram.Bag Bag)> pairs;

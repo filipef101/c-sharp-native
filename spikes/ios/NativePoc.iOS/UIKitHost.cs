@@ -302,12 +302,12 @@ sealed class UIKitHost : IElementHost<UIView>
 		height.Active = true;
 	}
 
-	public void SetImage(UIView view, string source)
+	public void SetImage(UIView view, string source, string description, bool decorative)
 	{
 		if (view is not UIImageView image)
 			throw new InvalidOperationException("Image patch targeted a non-image view.");
 		image.Image = UIImage.FromBundle(source);
-		image.AccessibilityLabel = source;
+		image.AccessibilityLabel = decorative ? "" : (description.Length > 0 ? description : source);
 	}
 
 	public void SetHost(UIView view, string kind, string prop, string value, string eventName, Action<string, string>? onEvent)

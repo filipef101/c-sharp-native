@@ -7,7 +7,7 @@ public readonly record struct PersistRecord(string Id, string Title, string Note
 
 /* Length-prefixed text. No reflection and no serializer. A value may contain
    newlines because the reader takes the declared character count. */
-public static class PersistCodec
+internal static class PersistCodec
 {
 	public static string Encode(PersistRecord record)
 	{

@@ -45,7 +45,9 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 		Paint();
 	}
 
-	public Element Apply(ReadOnlySpan<byte> program, RecordProgram.Bag bag)
+	Element IPlatformSurface.Apply(ReadOnlySpan<byte> program, RecordProgram.Bag bag) => Apply(program, bag);
+
+	internal Element Apply(ReadOnlySpan<byte> program, RecordProgram.Bag bag)
 	{
 		ArgumentNullException.ThrowIfNull(bag);
 		var bound = RecordProgram.Bind(program, bag);

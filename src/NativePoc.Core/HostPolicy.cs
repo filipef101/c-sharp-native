@@ -4,7 +4,7 @@ namespace NativePoc;
 
 /* Decisions shared by AndroidHost and the UIKit host. The numbers are the
    ones PlatformConformance and cnative inspect already require. */
-public static class HostPolicy
+internal static class HostPolicy
 {
 	public const int TouchFloorDp = 48;
 

@@ -287,7 +287,7 @@ sealed class RowWindow : AndroidScroll
 				return;
 			}
 
-			PictureBinder.Show(_picture, face.Picture, context ?? throw new InvalidOperationException("List row has no context."));
+			PictureBinder.Show(_picture, face.Picture, context ?? throw new InvalidOperationException("List row has no context."), description, false);
 			if (_picture.LayoutParameters is LayoutParams layout)
 			{
 				layout.Height = _image;

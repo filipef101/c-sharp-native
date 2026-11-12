@@ -11,6 +11,7 @@
 			<Compile Remove="$(NativePocHostDir)PersistStore.cs" Condition="'$(NativePocPersist)' != 'true'" />
 			<Compile Remove="$(NativePocHostDir)NavFocus.cs" Condition="'$(NativePocNav)' != 'true'" />
 			<Compile Remove="$(NativePocHostDir)NavTransition.cs" Condition="'$(NativePocTransition)' != 'true'" />
+			<Compile Remove="$(NativePocHostDir)ImageModule.cs" Condition="'$(NativePocImage)' != 'true'" />
 		</ItemGroup>
 	</Target>
 	<ItemGroup>
@@ -30,6 +31,12 @@
 	<ItemGroup Condition="'$(NativePocLocation)' == 'true'">
 		<AndroidManifestOverlay Include="$(NativePocHostDir)Properties\LocationPermission.xml" />
 	</ItemGroup>
+	<ItemGroup Condition="'$(NativePocJni)' == 'true'">
+		<AndroidManifestOverlay Include="$(NativePocHostDir)Properties\VibratePermission.xml" />
+	</ItemGroup>
+	<PropertyGroup Condition="'$(NativePocJni)' == 'true'">
+		<AndroidManifestPlaceholders>$(AndroidManifestPlaceholders);nativepocJni=1</AndroidManifestPlaceholders>
+	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocLocation)' == 'true'">
 		<!-- Same reason as the app project: the manifest merger only reruns when an
 		     input such as build.props changes, and an overlay is not an input. -->

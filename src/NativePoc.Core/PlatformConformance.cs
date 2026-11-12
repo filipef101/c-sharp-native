@@ -5,7 +5,7 @@ namespace NativePoc;
    surface. The Android activity drives the same checks through
    ViewReconciler; that host is exercised from the core tests because
    Android.Views is not available here. */
-public interface IPlatformSurface
+internal interface IPlatformSurface
 {
 	void Show(Func<IPlatform, Element> render);
 
@@ -24,7 +24,7 @@ public interface IPlatformSurface
 
 public static class PlatformConformance
 {
-	public static void Run(IPlatformSurface surface)
+	internal static void Run(IPlatformSurface surface)
 	{
 		ArgumentNullException.ThrowIfNull(surface);
 		var state = new Probe();

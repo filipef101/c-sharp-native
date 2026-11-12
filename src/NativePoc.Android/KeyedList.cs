@@ -219,7 +219,7 @@ static class KeyedList
 				var context = state.View.Context ?? throw new InvalidOperationException("List row has no context.");
 				if (timed)
 					mark = System.Diagnostics.Stopwatch.GetTimestamp();
-				PictureBinder.Show(imageView, face.Picture, context);
+				PictureBinder.Show(imageView, face.Picture, context, face.Title, false);
 				if (timed)
 					BindTimes.Add(rowUs, faceUs, textUs, BindTimes.Micros(mark));
 			}
@@ -395,7 +395,7 @@ static class KeyedList
 			{
 				var context = image.Context;
 				if (context is not null)
-					PictureBinder.Show(image, source, context);
+					PictureBinder.Show(image, source, context, "", false);
 				return;
 			}
 
@@ -417,7 +417,7 @@ static class KeyedList
 				var context = pending.Image.Context;
 				if (context is null)
 					continue;
-				PictureBinder.Show(pending.Image, pending.Source, context);
+				PictureBinder.Show(pending.Image, pending.Source, context, "", false);
 			}
 
 #if NATIVEPOC_STARTUP_MARKS

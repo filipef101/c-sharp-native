@@ -9,4 +9,17 @@
 		<Version>0.3.0</Version>
 		<IsPackable>true</IsPackable>
 	</PropertyGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="NativePoc.Core.Tests" />
+		<InternalsVisibleTo Include="cnative" />
+		<InternalsVisibleTo Include="NativePoc.Devx.Cli.Tests" />
+		<InternalsVisibleTo Include="NativePoc.Android" />
+		<InternalsVisibleTo Include="NativePoc.Packing" />
+		<InternalsVisibleTo Include="NativePoc.Packing.Tests" />
+		<InternalsVisibleTo Include="NativePoc.iOS" />
+		<InternalsVisibleTo Include="NativePoc.iOS.Contract" />
+		<InternalsVisibleTo Include="NativePoc.iOS.Tests" />
+		<InternalsVisibleTo Include="NativePoc.ReloadAot" />
+		<InternalsVisibleTo Include="NativePoc.HotReload.Host" />
+	</ItemGroup>
 </Project>

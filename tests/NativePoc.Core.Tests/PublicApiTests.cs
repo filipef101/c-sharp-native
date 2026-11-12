@@ -63,6 +63,7 @@ public sealed class PublicApiTests
 		{
 			"CompiledScreenGenerator",
 			"FeedModule",
+			"JniBindingGenerator",
 			"MainActivity",
 			"PackingActivity",
 			"RecreateReceiver",
@@ -103,7 +104,7 @@ public sealed class PublicApiTests
 			{
 				if (type.Namespace is null || !type.Namespace.StartsWith("NativePoc", StringComparison.Ordinal))
 					continue;
-				if (!(type.IsPublic || type.IsNestedPublic))
+				if (!Exposed(type))
 					continue;
 				if (type.Name.Contains('<', StringComparison.Ordinal))
 					continue;
@@ -182,6 +183,18 @@ public sealed class PublicApiTests
 		var name = type.Name;
 		var tick = name.IndexOf('`');
 		return tick < 0 ? name : name[..tick];
+	}
+
+	static bool Exposed(Type type)
+	{
+		for (var current = type; current is not null; current = current.DeclaringType)
+		{
+			var visible = current.IsNested ? current.IsNestedPublic : current.IsPublic;
+			if (!visible)
+				return false;
+		}
+
+		return true;
 	}
 
 	static string Mark(Type type)
@@ -267,6 +280,8 @@ public sealed class PublicApiTests
 		["CounterService"] = "experimental",
 		["NavFocusState"] = "experimental",
 		["NavCheckpoint"] = "experimental",
+		["JniTypeAttribute"] = "experimental",
+		["JniMethodAttribute"] = "experimental",
 		["StyleCodec"] = "internal-ought-to-be",
 		["MotionCodec"] = "internal-ought-to-be",
 		["MotionMath"] = "internal-ought-to-be",

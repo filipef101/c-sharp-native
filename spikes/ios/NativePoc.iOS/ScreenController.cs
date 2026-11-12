@@ -30,7 +30,7 @@ public sealed class ScreenController : UIViewController
 
 	public void RequestRender() => RenderNow();
 
-	public Element Apply(ReadOnlySpan<byte> program, RecordProgram.Bag bag)
+	internal Element Apply(ReadOnlySpan<byte> program, RecordProgram.Bag bag)
 	{
 		_applied = RecordProgram.Bind(program, bag);
 		RenderNow();

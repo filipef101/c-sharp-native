@@ -2,9 +2,9 @@ using System.Globalization;
 
 namespace NativePoc;
 
-public static class ElementIds
+internal static class ElementIds
 {
-	public readonly record struct Node(string Id, int Depth, Element Element, NodePath Path);
+	internal readonly record struct Node(string Id, int Depth, Element Element, NodePath Path);
 
 	public static IReadOnlyList<Node> Flatten(Element root)
 	{

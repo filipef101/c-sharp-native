@@ -68,7 +68,7 @@ public readonly record struct Style
 	public uint Background { get; init; }
 }
 
-public static class StyleCodec
+internal static class StyleCodec
 {
 	public const int Bytes = 22;
 
@@ -163,7 +163,7 @@ public readonly record struct Motion
 	};
 }
 
-public static class MotionCodec
+internal static class MotionCodec
 {
 	public const int Bytes = 20;
 
@@ -217,7 +217,7 @@ public static class MotionCodec
 	}
 }
 
-public static class MotionMath
+internal static class MotionMath
 {
 	public static int Lerp(int from, int to, int elapsed, int duration)
 	{
@@ -229,7 +229,7 @@ public static class MotionMath
 	}
 }
 
-public static class ThemeTokens
+internal static class ThemeTokens
 {
 	public static bool ResolveDark(bool systemDark, string mode) =>
 		mode switch
@@ -444,7 +444,12 @@ public sealed class DeferredList : IReadOnlyList<Element>
 	System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 }
 
-public sealed record Image(string Source) : Element;
+public sealed record Image(string Source) : Element
+{
+	public string Description { get; init; } = "";
+
+	public bool Decorative { get; init; }
+}
 
 public sealed record HostView(string Kind, string Prop, string Value) : Element
 {

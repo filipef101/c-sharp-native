@@ -1,6 +1,6 @@
 namespace NativePoc;
 
-public interface IPackingProgram
+internal interface IPackingProgram
 {
 	int ItemCount { get; }
 

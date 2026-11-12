@@ -26,6 +26,9 @@ static class PlatformModules
 			case ("theme", "Mode", 1):
 				ThemeRuntime.Set(activity, args[0]);
 				return;
+			case ("theme", "Scale", 1):
+				ThemeRuntime.SetScale(activity, args[0]);
+				return;
 			case ("animate", "Play", 1):
 				MotionPlayer.Replay(args[0]);
 				return;

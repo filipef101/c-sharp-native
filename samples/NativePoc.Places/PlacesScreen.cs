@@ -19,7 +19,7 @@ public static class PlacesScreen
 			new Text("Place") { Key = "where", Style = new Style { FontSize = 22 } },
 			new Text(state.Banner) { Key = "banner" },
 			new Text("t" + state.Tick) { Key = "tick" },
-			new Image("marker") { Key = "marker" }
+			new Image("marker") { Key = "marker", Decorative = true }
 		)
 		{ Key = "places" };
 	}

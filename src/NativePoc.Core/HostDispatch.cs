@@ -1,6 +1,6 @@
 namespace NativePoc;
 
-public enum HostInput
+internal enum HostInput
 {
 	None = 0,
 	Button = 1,
@@ -8,7 +8,7 @@ public enum HostInput
 	Switch = 3,
 }
 
-public static class HostDispatch
+internal static class HostDispatch
 {
 	public static HostInput Choose(Type view, Type button, Type textField, Type toggle)
 	{

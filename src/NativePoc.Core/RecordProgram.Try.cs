@@ -1,6 +1,6 @@
 namespace NativePoc;
 
-public static partial class RecordProgram
+internal static partial class RecordProgram
 {
 	internal sealed partial class HandlerFrame
 	{

@@ -1,6 +1,6 @@
 namespace NativePoc;
 
-public interface IElementHost<TView>
+internal interface IElementHost<TView>
 	where TView : class
 {
 	TView Create(ElementKind kind);
@@ -27,7 +27,7 @@ public interface IElementHost<TView>
 
 	void SetGesture(TView view, byte mask);
 
-	void SetImage(TView view, string source);
+	void SetImage(TView view, string source, string description, bool decorative);
 
 	void SetHost(TView view, string kind, string prop, string value, string eventName, Action<string, string>? onEvent);
 
@@ -38,7 +38,7 @@ public interface IElementHost<TView>
 	void OnUnmounted(NodePath path, TView view);
 }
 
-public sealed class ViewReconciler<TView>
+internal sealed class ViewReconciler<TView>
 	where TView : class
 {
 	readonly IElementHost<TView> _host;
@@ -132,7 +132,7 @@ public sealed class ViewReconciler<TView>
 				_host.SetGesture(ViewAt(setGesture.Path), setGesture.Mask);
 				return;
 			case SetImage setImage:
-				_host.SetImage(ViewAt(setImage.Path), setImage.Source);
+				_host.SetImage(ViewAt(setImage.Path), setImage.Source, setImage.Description, setImage.Decorative);
 				return;
 			case SetHost setHost:
 				_host.SetHost(ViewAt(setHost.Path), setHost.Kind, setHost.Prop, setHost.Value, setHost.Event, setHost.OnEvent);

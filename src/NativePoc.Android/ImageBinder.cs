@@ -9,7 +9,7 @@ namespace NativePoc;
 
 static class PictureBinder
 {
-	public static void Show(ImageView image, string source, Context context)
+	public static void Show(ImageView image, string source, Context context, string description, bool decorative)
 	{
 		if (source.Length == 0)
 		{
@@ -19,6 +19,9 @@ static class PictureBinder
 			return;
 		}
 
+#if NATIVEPOC_IMAGE
+		ImageModule.Show(image, source, context, description, decorative);
+#else
 #if NATIVEPOC_HTTP
 		if (ImageSource.IsRemote(source) || IsBitmap(context, source))
 		{
@@ -30,8 +33,22 @@ static class PictureBinder
 		if (id == 0)
 			throw new InvalidOperationException("Drawable " + source + " was not found.");
 		image.SetImageResource(id);
-		image.ContentDescription = source;
+		Describe(image, source, description, decorative);
 		image.Visibility = ViewStates.Visible;
+#endif
+	}
+
+	internal static void Describe(ImageView image, string source, string description, bool decorative)
+	{
+		if (decorative)
+		{
+			image.ContentDescription = null;
+			image.ImportantForAccessibility = ImportantForAccessibility.No;
+			return;
+		}
+
+		image.ImportantForAccessibility = ImportantForAccessibility.Yes;
+		image.ContentDescription = description.Length > 0 ? description : source;
 	}
 
 #if NATIVEPOC_HTTP

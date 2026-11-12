@@ -1,6 +1,6 @@
 namespace NativePoc;
 
-public sealed class ScreenSession : IPlatform
+internal sealed class ScreenSession : IPlatform
 {
 	readonly RecordProgram.Bound _bound;
 	readonly List<string> _every = new();

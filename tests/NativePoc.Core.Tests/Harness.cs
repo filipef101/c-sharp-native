@@ -105,7 +105,7 @@ sealed class MemoryHost : IElementHost<MemoryNode>
 
 	public void SetGesture(MemoryNode view, byte mask) => view.Gesture = mask;
 
-	public void SetImage(MemoryNode view, string source) => view.Text = source;
+	public void SetImage(MemoryNode view, string source, string description, bool decorative) => view.Text = decorative ? source : description + source;
 
 	public void SetHost(MemoryNode view, string kind, string prop, string value, string eventName, Action<string, string>? onEvent)
 	{

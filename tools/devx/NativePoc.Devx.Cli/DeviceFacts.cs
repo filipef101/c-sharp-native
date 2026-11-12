@@ -67,7 +67,10 @@ static class ActivityName
 
 static class LaunchCommand
 {
-	public const string Package = "com.scratch.nativepoc";
+	public static string Package =>
+		Environment.GetEnvironmentVariable("NATIVEPOC_PACKAGE") is { Length: > 0 } package
+			? package.Trim()
+			: "com.scratch.nativepoc";
 
 	public static string[] Start(string component) =>
 		["shell", "am", "start", "-n", component];

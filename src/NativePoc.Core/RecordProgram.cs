@@ -4,7 +4,7 @@ using System.Text;
 
 namespace NativePoc;
 
-public static partial class RecordProgram
+internal static partial class RecordProgram
 {
 	public const byte OpPushStr = 1;
 	public const byte OpPushBool = 2;
@@ -144,7 +144,7 @@ public static partial class RecordProgram
 
 	public static Bag Shared { get; } = new();
 
-	public readonly record struct PropDef(
+	internal readonly record struct PropDef(
 		byte Type,
 		int Name,
 		int Text,
@@ -154,7 +154,7 @@ public static partial class RecordProgram
 		int[][] Rows,
 		byte[]? Code = null);
 
-	public readonly struct Bound
+	internal readonly struct Bound
 	{
 		readonly Bag _bag;
 		readonly string[] _names;
@@ -377,7 +377,7 @@ public static partial class RecordProgram
 		return names.ToArray();
 	}
 
-	public readonly record struct ListShape(string Name, string[] Fields);
+	internal readonly record struct ListShape(string Name, string[] Fields);
 
 	public static ListShape[] Lists(ReadOnlySpan<byte> payload)
 	{
@@ -946,8 +946,12 @@ public static partial class RecordProgram
 			case OpMakeImage:
 			{
 				var key = Key(strings, TakeU16(code, ref ip, end));
+				if (ip >= end)
+					throw new InvalidOperationException("Rejected record program.");
+				var decorative = (code[ip++] & 1) != 0;
 				var source = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
-				Push(stack, ref sp, Slot.Elem(new Image(source) { Key = key }));
+				var description = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
+				Push(stack, ref sp, Slot.Elem(new Image(source) { Key = key, Description = description, Decorative = decorative }));
 				return ip;
 			}
 			case OpEffect:
@@ -2121,7 +2125,7 @@ public static partial class RecordProgram
 		public static Slot Mark() => new(SlotKind.Mark, null, false, null);
 	}
 
-	public sealed class WindowList : IReadOnlyList<Element>
+	internal sealed class WindowList : IReadOnlyList<Element>
 	{
 		readonly byte[] _code;
 		readonly string[] _strings;
@@ -2191,7 +2195,7 @@ public static partial class RecordProgram
 		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 	}
 
-	public sealed class BagImage
+	internal sealed class BagImage
 	{
 		public IReadOnlyList<(string Name, string Value)> Strings { get; init; } = [];
 
@@ -2202,7 +2206,7 @@ public static partial class RecordProgram
 		public IReadOnlyList<(string Name, string[][] Rows)> Lists { get; init; } = [];
 	}
 
-	public sealed class Routine
+	internal sealed class Routine
 	{
 		public Routine(string name, byte returnKind, byte argc, byte[] argKinds, bool element, byte[] code)
 		{
@@ -2227,7 +2231,7 @@ public static partial class RecordProgram
 		public byte[] Code { get; }
 	}
 
-	public sealed class Bag
+	internal sealed class Bag
 	{
 		readonly Dictionary<string, string> _strings = new(StringComparer.Ordinal);
 		Routine[] _routines = Array.Empty<Routine>();

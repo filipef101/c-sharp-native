@@ -1,4 +1,5 @@
 using System.Globalization;
+using Android.Content;
 using Android.Graphics;
 using Android.Graphics.Drawables;
 using Android.Views;
@@ -38,13 +39,46 @@ static class ThemeRuntime
 		Mode = ThemeTokens.Persist(mode);
 		AppStorage.Set(activity, "theme", Mode);
 		if (Mode == "system")
-		{
 			ObserveNight(activity);
-			ScreenNav.Shared.Bag("settings").WriteBool("Dark", IsDark(activity));
-		}
-
+		Stamp(activity);
 		Paint(activity, activity.Window?.DecorView);
 		Android.Util.Log.Info(MainActivity.Tag, "theme mode=" + Mode + " dark=" + (IsDark(activity) ? "1" : "0") + " scale=" + FontScale(activity));
+	}
+
+	public static void SetScale(Activity activity, string raw)
+	{
+		var large = raw is "true" or "2" or "2.0";
+		AppStorage.Set(activity, "font-scale", large ? "2" : "1");
+		Stamp(activity);
+		var current = activity.Resources?.Configuration?.FontScale ?? 1f;
+		var next = large ? 2f : 1f;
+		Android.Util.Log.Info(MainActivity.Tag, "theme scale=" + (large ? "2" : "1"));
+		if (Math.Abs(current - next) < 0.05f)
+			return;
+		activity.Recreate();
+	}
+
+	public static Context? Wrap(Context? context)
+	{
+		if (context?.Resources?.Configuration is not { } current)
+			return context;
+		if (AppStorage.Get(context, "font-scale") is not "2")
+			return context;
+		var config = new Android.Content.Res.Configuration(current);
+		config.FontScale = 2f;
+		return context.CreateConfigurationContext(config) ?? context;
+	}
+
+	public static void Stamp(Activity activity)
+	{
+		var dark = IsDark(activity);
+		var large = AppStorage.Get(activity, "font-scale") == "2";
+		foreach (var id in new[] { "settings", "trips", "home", "shelf", "piece", "room" })
+		{
+			var bag = ScreenNav.Shared.Bag(id);
+			bag.WriteBool("Dark", dark);
+			bag.WriteBool("Large", large);
+		}
 	}
 
 	public static void ApplyWindow(Activity activity)
@@ -124,6 +158,7 @@ static class StorageSeed
 			bag.WriteString("Note", note);
 		bag.WriteBool("Dark", ThemeRuntime.IsDark(activity));
 		ScreenNav.Shared.Bag("trips").WriteBool("Dark", ThemeRuntime.IsDark(activity));
+		ThemeRuntime.Stamp(activity);
 		Refresh(activity, "trip");
 		ThemeRuntime.Paint(activity, activity.Window?.DecorView);
 		Android.Util.Log.Info(MainActivity.Tag, "theme mode=" + ThemeRuntime.Mode + " dark=" + (ThemeRuntime.IsDark(activity) ? "1" : "0") + " scale=" + ThemeRuntime.FontScale(activity));

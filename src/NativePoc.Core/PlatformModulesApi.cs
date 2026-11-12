@@ -86,4 +86,10 @@ public static class Theme
 	}
 
 	public static void Mode(IPlatform platform, bool dark) => Mode(platform, dark ? "true" : "false");
+
+	public static void Scale(IPlatform platform, bool large)
+	{
+		ArgumentNullException.ThrowIfNull(platform);
+		platform.Module("theme", "Scale", [large ? "true" : "false"]);
+	}
 }

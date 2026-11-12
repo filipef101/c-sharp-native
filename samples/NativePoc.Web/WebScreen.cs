@@ -17,7 +17,7 @@ public static class WebScreen
 			{
 				Key = "page",
 				Event = "navigate",
-				OnEvent = value =>
+				OnEvent = (_, value) =>
 				{
 					state.Url = value;
 					platform.RequestRender();

@@ -3,6 +3,16 @@ namespace NativePoc.Tests;
 public sealed class ImageCacheTests
 {
 	[Fact]
+	public void Downsample_keeps_the_view_size_and_halves_until_it_fits()
+	{
+		Assert.Equal(1, ImageSample.InSampleSize(48, 48, 48));
+		Assert.Equal(1, ImageSample.InSampleSize(80, 80, 48));
+		Assert.Equal(2, ImageSample.InSampleSize(96, 96, 48));
+		Assert.Equal(4, ImageSample.InSampleSize(400, 300, 48));
+		Assert.Equal(1, ImageSample.InSampleSize(0, 100, 48));
+	}
+
+	[Fact]
 	public void Remote_sources_are_http_urls()
 	{
 		Assert.True(ImageSource.IsRemote("http://10.0.2.2:8094/img/0001"));

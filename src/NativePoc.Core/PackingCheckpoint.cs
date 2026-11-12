@@ -3,9 +3,9 @@ using System.Text;
 
 namespace NativePoc;
 
-public readonly record struct PackingCheckpointItem(string Id, string Name, bool Packed);
+internal readonly record struct PackingCheckpointItem(string Id, string Name, bool Packed);
 
-public sealed class PackingCheckpoint
+internal sealed class PackingCheckpoint
 {
 	public bool Editor { get; init; }
 

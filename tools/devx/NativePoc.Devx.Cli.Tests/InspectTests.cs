@@ -96,6 +96,28 @@ public sealed class InspectTests
 	}
 
 	[Fact]
+	public void Inspect_flags_an_image_without_a_description_or_decorative_flag()
+	{
+		var bare = new Column(
+		[
+			new Text("Pictures") { Key = "title", Style = new Style { FontSize = 22 } },
+			new Image("marker") { Key = "bare" },
+		]);
+		var json = ScreenInspect.Format(bare);
+		Assert.Contains("\"code\":\"image-a11y\",\"id\":\"bare\"", json, StringComparison.Ordinal);
+		Assert.Contains("needs a description or Decorative = true.", json, StringComparison.Ordinal);
+
+		var described = new Column(
+		[
+			new Text("Pictures") { Key = "title", Style = new Style { FontSize = 22 } },
+			new Image("marker") { Key = "told", Description = "Map marker" },
+			new Image("rule") { Key = "quiet", Decorative = true },
+		]);
+		var held = ScreenInspect.Format(described);
+		Assert.DoesNotContain("image-a11y", held, StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void Inspect_fails_a_screen_with_no_heading()
 	{
 		var json = ScreenInspect.Format(new Text("Hello") { Key = "body" });

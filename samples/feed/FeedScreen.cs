@@ -50,7 +50,7 @@ public static class FeedScreen
 			return new Column(
 			[
 				new Text("• " + item.Title),
-				new Image(item.Id == "0000" ? "feed_mark" : "http://10.0.2.2:8094/img/" + item.Id),
+				new Image(item.Id == "0000" ? "feed_mark" : "http://10.0.2.2:8094/img/" + item.Id) { Description = item.Title },
 			])
 			{
 				Key = item.Id,

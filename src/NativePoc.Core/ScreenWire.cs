@@ -272,9 +272,9 @@ public static class StateCheckpoint
 {
 	public static byte[] Write(AppState state) => Write(state, null, null);
 
-	public static byte[] Write(AppState state, PackingCheckpoint? packing) => Write(state, packing, null);
+	internal static byte[] Write(AppState state, PackingCheckpoint? packing) => Write(state, packing, null);
 
-	public static byte[] Write(AppState state, PackingCheckpoint? packing, NavCheckpoint? nav)
+	internal static byte[] Write(AppState state, PackingCheckpoint? packing, NavCheckpoint? nav)
 	{
 		ArgumentNullException.ThrowIfNull(state);
 		var name = Encoding.UTF8.GetBytes(state.Name);
@@ -326,7 +326,7 @@ public static class StateCheckpoint
 		state.Name = name;
 	}
 
-	public static bool TryReadPacking(ReadOnlySpan<byte> payload, out PackingCheckpoint packing)
+	internal static bool TryReadPacking(ReadOnlySpan<byte> payload, out PackingCheckpoint packing)
 	{
 		ReadApp(payload, out var read, out _);
 		if (read is null)

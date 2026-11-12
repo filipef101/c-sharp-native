@@ -5,7 +5,7 @@ public static class EffectContext
 	[ThreadStatic]
 	static RecordProgram.Bag? _bag;
 
-	public static RecordProgram.Bag? Bag
+	internal static RecordProgram.Bag? Bag
 	{
 		get => _bag;
 		set => _bag = value;

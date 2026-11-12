@@ -59,3 +59,4 @@ Still not a build:
 - No iOS binary, simulator log, or device log exists. Do not read this section as an iOS run.
 - The hot-reload error overlay is Android `DevOverlay`, compiled only for a Debug listener. It was not added to the UIKit host. The startup phase logs (`state-load`, `nav-restore`, `persist-read`) are Android. This wave did not compile `net10.0-ios`.
 - Nav transitions, night mode, and font scale are Android. `NavTransition.cs` is compiled only when `NativePocTransition` is true. The UIKit host has no `Slide` transition and does not read `fontScale`. `net10.0-ios` was not compiled.
+- A declared Android binding is `[JniType]` and `[JniMethod]` on a partial class. `JniBindingGenerator` emits `JNIEnv` calls. The iOS shape is the same declaration with an `[ObjcType]` / `[ObjcMethod]` generator that would emit `objc_msgSend`. That generator is not written. `net10.0-ios` was not compiled. This iOS shape is unverified.

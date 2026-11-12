@@ -1,6 +1,6 @@
 namespace NativePoc;
 
-public static class TapTrace
+internal static class TapTrace
 {
 	public static bool Enabled { get; set; }
 

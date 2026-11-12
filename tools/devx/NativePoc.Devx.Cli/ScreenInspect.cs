@@ -151,6 +151,8 @@ static class ScreenInspect
 			}
 			if (MissingLabel(node.Element))
 				findings.Add(new Finding("missing-label", node.Id, "Missing label on " + ScreenSnapshot.Role(node.Element) + " " + node.Id + "."));
+			if (ImageAccess(node.Element, node.Id) is { } imageAccess)
+				findings.Add(imageAccess);
 			if (FixedHeight(node.Element, node.Id, boxes, scaled) is { } fixedHeight)
 				findings.Add(fixedHeight);
 			if (IsTouch(node.Element))
@@ -200,6 +202,15 @@ static class ScreenInspect
 			"fixed-height",
 			id,
 			"Text in " + id + " stays " + box.Height.ToString(CultureInfo.InvariantCulture) + " dp at font scale 2.");
+	}
+
+	static Finding? ImageAccess(Element element, string id)
+	{
+		if (element is not Image image)
+			return null;
+		if (image.Decorative || image.Description.Length > 0)
+			return null;
+		return new Finding("image-a11y", id, "Image " + id + " needs a description or Decorative = true.");
 	}
 
 	static bool ContainsText(Element element)

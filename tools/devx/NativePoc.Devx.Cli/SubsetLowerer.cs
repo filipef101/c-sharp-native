@@ -117,6 +117,7 @@ public static partial class SubsetLowerer
 		if (!CollectExtras(companions, callables, components, calls, source, out var extraError))
 			return SubsetResult.Refuse(extraError!);
 		var lower = new Lower(source, stateName, platformName, fields, records, consts, methods, stateType, components, calls);
+		lower.UseBindings(BindingCalls(source, companions));
 		lower.SetOrigin(originFile);
 		try
 		{
@@ -291,6 +292,50 @@ public static partial class SubsetLowerer
 		if (parent is BinaryExpressionSyntax binary && binary.IsKind(SyntaxKind.AddExpression))
 			return ValueKind.Int;
 		return null;
+	}
+
+	static HashSet<string> BindingCalls(string source, IReadOnlyList<string>? companions)
+	{
+		var found = new HashSet<string>(StringComparer.Ordinal);
+		ScanBindings(source, found);
+		if (companions is not null)
+		{
+			foreach (var companion in companions)
+				ScanBindings(companion, found);
+		}
+
+		return found;
+	}
+
+	static void ScanBindings(string source, HashSet<string> found)
+	{
+		var tree = CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Preview));
+		foreach (var type in tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>())
+		{
+			if (!HasAttribute(type.AttributeLists, "JniType"))
+				continue;
+			foreach (var method in type.Members.OfType<MethodDeclarationSyntax>())
+			{
+				if (!HasAttribute(method.AttributeLists, "JniMethod"))
+					continue;
+				found.Add(type.Identifier.ValueText + "." + method.Identifier.ValueText);
+			}
+		}
+	}
+
+	static bool HasAttribute(SyntaxList<AttributeListSyntax> lists, string name)
+	{
+		foreach (var list in lists)
+		{
+			foreach (var attribute in list.Attributes)
+			{
+				var text = attribute.Name.ToString();
+				if (text == name || text == name + "Attribute" || text.EndsWith("." + name, StringComparison.Ordinal) || text.EndsWith("." + name + "Attribute", StringComparison.Ordinal))
+					return true;
+			}
+		}
+
+		return false;
 	}
 
 	static bool CompanionRecords(
@@ -715,6 +760,8 @@ public static partial class SubsetLowerer
 		string _rows = "";
 		Style? _pendingStyle;
 		Motion? _pendingMotion;
+		ExpressionSyntax? _pendingDescription;
+		bool _pendingDecorative;
 		string? _pendingEventName;
 		byte[]? _pendingEventScript;
 		readonly List<(byte Kind, byte[] Script)> _pendingGestures = new();
@@ -724,6 +771,7 @@ public static partial class SubsetLowerer
 		byte[]? _pendingSubmitScript;
 		string _listName = "";
 		readonly Dictionary<string, BlockSyntax> _localFns = new(StringComparer.Ordinal);
+		readonly HashSet<string> _bindings = new(StringComparer.Ordinal);
 		string _originFile = "src/NativePoc.Screen/Screen.cs";
 		Dictionary<string, (byte Slot, ValueKind Kind)>? _locals;
 		byte _localSlots;
@@ -858,7 +906,9 @@ public static partial class SubsetLowerer
 
 			while (index < statements.Count)
 			{
-				if (!TryEffect(statements[index], out var consumed))
+				if (!TryBinding(statements[index], out var consumed))
+					return false;
+				if (!consumed && !TryEffect(statements[index], out consumed))
 					return false;
 				if (!consumed && !TrySeed(statements[index], out consumed))
 					return false;
@@ -903,6 +953,25 @@ public static partial class SubsetLowerer
 			if (statements.Count == 1 && statements[0] is ReturnStatementSyntax single)
 				return Returned(single);
 			return Fail(UnknownExpression, "The screen subset does not include this expression.", block);
+		}
+
+		internal void UseBindings(IEnumerable<string> bindings)
+		{
+			foreach (var binding in bindings)
+				_bindings.Add(binding);
+		}
+
+		bool TryBinding(StatementSyntax statement, out bool consumed)
+		{
+			consumed = false;
+			if (statement is not ExpressionStatementSyntax expr || expr.Expression is not InvocationExpressionSyntax invocation)
+				return true;
+			if (invocation.Expression is not MemberAccessExpressionSyntax member || member.Expression is not IdentifierNameSyntax owner)
+				return true;
+			if (!_bindings.Contains(owner.Identifier.ValueText + "." + member.Name.Identifier.ValueText))
+				return true;
+			consumed = true;
+			return true;
 		}
 
 		bool TryEffect(StatementSyntax statement, out bool consumed)
@@ -1303,16 +1372,29 @@ public static partial class SubsetLowerer
 		{
 			if (creation.ArgumentList?.Arguments.Count != 1)
 				return Fail(UnknownElement, "The screen subset does not include Image.", creation);
-			if (!TextValue(creation.ArgumentList.Arguments[0].Expression))
-				return false;
+			var source = creation.ArgumentList.Arguments[0].Expression;
 			if (!KeyOf(creation, out var key, out var dynamic, out _))
 				return false;
 			if (dynamic)
 				return Fail(UnknownExpression, "The screen subset does not include this expression.", creation);
 			if (!keys.Add(this, key, false, creation))
 				return false;
+			if (_pendingDescription is { } description)
+			{
+				if (!TextValue(description))
+					return false;
+			}
+			else
+			{
+				_code.Op(RecordProgram.OpPushStr);
+				_code.U16(_code.Intern(""));
+			}
+
+			if (!TextValue(source))
+				return false;
 			_code.Op(RecordProgram.OpMakeImage);
 			_code.U16(key);
+			_code.U8((byte)(_pendingDecorative ? 1 : 0));
 			EmitStyle();
 			return true;
 		}
@@ -1765,6 +1847,8 @@ public static partial class SubsetLowerer
 			field = 0;
 			_pendingStyle = null;
 			_pendingMotion = null;
+			_pendingDescription = null;
+			_pendingDecorative = false;
 			_pendingGestures.Clear();
 			_pendingEventName = null;
 			_pendingEventScript = null;
@@ -1778,6 +1862,21 @@ public static partial class SubsetLowerer
 			{
 				if (expression is not AssignmentExpressionSyntax assignment || assignment.Left is not IdentifierNameSyntax name)
 					return Fail(UnknownMember, "The screen subset does not include an element initializer.", creation.Initializer);
+				if (name.Identifier.ValueText == "Description" && TypeName(creation) == "Image")
+				{
+					_pendingDescription = assignment.Right;
+					continue;
+				}
+
+				if (name.Identifier.ValueText == "Decorative" && TypeName(creation) == "Image")
+				{
+					if (assignment.Right is not LiteralExpressionSyntax decorative
+						|| (!decorative.IsKind(SyntaxKind.TrueLiteralExpression) && !decorative.IsKind(SyntaxKind.FalseLiteralExpression)))
+						return Fail(UnknownExpression, "The screen subset does not include this expression.", assignment.Right);
+					_pendingDecorative = decorative.IsKind(SyntaxKind.TrueLiteralExpression);
+					continue;
+				}
+
 				if (name.Identifier.ValueText == "Style")
 				{
 					if (!StyleOf(assignment.Right, out var style))
@@ -2207,6 +2306,7 @@ public static partial class SubsetLowerer
 			{
 				SimpleLambdaExpressionSyntax simple => simple.Parameter.Identifier.ValueText,
 				ParenthesizedLambdaExpressionSyntax parenthesized when parenthesized.ParameterList.Parameters.Count == 1 => parenthesized.ParameterList.Parameters[0].Identifier.ValueText,
+				ParenthesizedLambdaExpressionSyntax parenthesized when parenthesized.ParameterList.Parameters.Count == 2 => parenthesized.ParameterList.Parameters[1].Identifier.ValueText,
 				ParenthesizedLambdaExpressionSyntax parenthesized when parenthesized.ParameterList.Parameters.Count == 0 => "",
 				_ => null,
 			};
@@ -2465,6 +2565,8 @@ public static partial class SubsetLowerer
 				return ListMutate(listField, listCall.Name.Identifier.ValueText, invocation, script);
 			if (invocation.Expression is not MemberAccessExpressionSyntax member || member.Expression is not IdentifierNameSyntax owner)
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			if (_bindings.Contains(owner.Identifier.ValueText + "." + member.Name.Identifier.ValueText))
+				return true;
 			if (owner.Identifier.ValueText == _state && member.Name.Identifier.ValueText == "Drop")
 				return DropRow(invocation, script);
 			if (owner.Identifier.ValueText == _state && _methods.ContainsKey(_stateType + "." + member.Name.Identifier.ValueText))
@@ -2635,6 +2737,11 @@ public static partial class SubsetLowerer
 					return false;
 			}
 			else if (module == "Theme" && method == "Mode" && args.Count == 2)
+			{
+				if (!ModuleArg(args[1].Expression, encoded))
+					return false;
+			}
+			else if (module == "Theme" && method == "Scale" && args.Count == 2)
 			{
 				if (!ModuleArg(args[1].Expression, encoded))
 					return false;

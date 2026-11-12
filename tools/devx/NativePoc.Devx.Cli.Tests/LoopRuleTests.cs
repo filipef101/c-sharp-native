@@ -23,6 +23,23 @@ public sealed class LoopRuleTests
 	}
 
 	[Fact]
+	public void Package_follows_NATIVEPOC_PACKAGE()
+	{
+		var previous = Environment.GetEnvironmentVariable("NATIVEPOC_PACKAGE");
+		try
+		{
+			Environment.SetEnvironmentVariable("NATIVEPOC_PACKAGE", null);
+			Assert.Equal("com.scratch.nativepoc", LaunchCommand.Package);
+			Environment.SetEnvironmentVariable("NATIVEPOC_PACKAGE", " com.scratch.nativepoc.showcase ");
+			Assert.Equal("com.scratch.nativepoc.showcase", LaunchCommand.Package);
+		}
+		finally
+		{
+			Environment.SetEnvironmentVariable("NATIVEPOC_PACKAGE", previous);
+		}
+	}
+
+	[Fact]
 	public void Launch_leaves_the_debug_state_file()
 	{
 		var commands = LaunchCommand.BeforeStart(
