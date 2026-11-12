@@ -15,13 +15,13 @@ static class ImageModule
 	static readonly ConditionalWeakTable<ImageView, ImageSlot> Slots = new();
 	static readonly object Gate = new();
 
-	public static void Show(ImageView image, string source, Context context, string description, bool decorative)
+	public static void Show(ImageView image, string source, Context context, string description, bool decorative, int radiusDp)
 	{
 		var slot = Slots.GetValue(image, static _ => new ImageSlot());
 		var token = slot.Begin();
 		var target = TargetPx(image, context);
 		image.Visibility = ViewStates.Visible;
-		image.SetScaleType(ImageView.ScaleType.CenterCrop);
+		image.SetScaleType(radiusDp > 0 ? ImageView.ScaleType.FitXy : ImageView.ScaleType.CenterCrop);
 		PictureBinder.Describe(image, source, description, decorative);
 		var key = source + "@" + target.ToString(System.Globalization.CultureInfo.InvariantCulture);
 		Bitmap? cached = null;
@@ -33,8 +33,8 @@ static class ImageModule
 
 		if (cached is not null)
 		{
-			image.SetImageBitmap(cached);
 			Android.Util.Log.Info(MainActivity.Tag, "image-cache hit source=" + source);
+			Place(image, slot, token, cached, source, description, decorative, radiusDp, target);
 			return;
 		}
 
@@ -59,30 +59,68 @@ static class ImageModule
 					Cache.Add(key, bitmap);
 			}
 
-			image.Post(() =>
-			{
-				if (!slot.Current(token))
-					return;
-				PictureBinder.Describe(image, source, description, decorative);
-				if (bitmap is null)
-				{
-					image.SetImageDrawable(new ColorDrawable(new Color(unchecked((int)0xFFB00020))));
-					image.Visibility = ViewStates.Visible;
-					Android.Util.Log.Info(MainActivity.Tag, "image-fail source=" + source);
-					return;
-				}
-
-				image.SetImageBitmap(bitmap);
-				image.Visibility = ViewStates.Visible;
-				Android.Util.Log.Info(
-					MainActivity.Tag,
-					"image-placed source=" + source
-					+ " view=" + image.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
-					+ "x" + image.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)
-					+ " clip=" + (image.ClipToOutline ? "1" : "0")
-					+ " elevation=" + image.Elevation.ToString(System.Globalization.CultureInfo.InvariantCulture));
-			});
+			Place(image, slot, token, bitmap, source, description, decorative, radiusDp, target);
 		});
+	}
+
+	static void Place(ImageView image, ImageSlot slot, int token, Bitmap? bitmap, string source, string description, bool decorative, int radiusDp, int target)
+	{
+		var waits = 0;
+		void Draw()
+		{
+			if (!slot.Current(token))
+				return;
+			PictureBinder.Describe(image, source, description, decorative);
+			if (bitmap is null)
+			{
+				image.SetImageDrawable(new ColorDrawable(new Color(unchecked((int)0xFFB00020))));
+				image.Visibility = ViewStates.Visible;
+				Android.Util.Log.Info(MainActivity.Tag, "image-fail source=" + source);
+				return;
+			}
+
+			if ((image.Width <= 0 || image.Height <= 0) && waits < 4)
+			{
+				waits++;
+				image.Post(Draw);
+				return;
+			}
+
+			var width = image.Width > 0 ? image.Width : target;
+			var height = image.Height > 0 ? image.Height : target;
+			var drawn = Fit(bitmap, width, height);
+			Android.Util.Log.Info(
+				MainActivity.Tag,
+				"image-bitmap drawn=" + drawn.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+				+ "x" + drawn.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)
+				+ " radius=" + radiusDp.ToString(System.Globalization.CultureInfo.InvariantCulture));
+			if (radiusDp > 0)
+			{
+				var density = image.Resources?.DisplayMetrics?.Density ?? 1f;
+				if (density <= 0)
+					density = 1f;
+				image.SetImageDrawable(new RoundBitmapDrawable(drawn, radiusDp * density));
+			}
+			else
+				image.SetImageBitmap(drawn);
+			image.Visibility = ViewStates.Visible;
+			Android.Util.Log.Info(
+				MainActivity.Tag,
+				"image-placed source=" + source
+				+ " view=" + image.Width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+				+ "x" + image.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)
+				+ " clip=" + (image.ClipToOutline ? "1" : "0")
+				+ " elevation=" + image.Elevation.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		}
+
+		image.Post(Draw);
+	}
+
+	static Bitmap Fit(Bitmap bitmap, int width, int height)
+	{
+		if (width < 1 || height < 1 || (bitmap.Width == width && bitmap.Height == height))
+			return bitmap;
+		return Bitmap.CreateScaledBitmap(bitmap, width, height, true) ?? bitmap;
 	}
 
 	static int TargetPx(ImageView image, Context context)
@@ -189,6 +227,41 @@ static class ImageModule
 			{
 			}
 		}
+	}
+
+	sealed class RoundBitmapDrawable : Drawable
+	{
+		readonly Bitmap _bitmap;
+		readonly float _radius;
+		readonly Paint _paint;
+		readonly BitmapShader _shader;
+
+		public RoundBitmapDrawable(Bitmap bitmap, float radius)
+		{
+			_bitmap = bitmap;
+			_radius = radius;
+			_shader = new BitmapShader(bitmap, Shader.TileMode.Clamp!, Shader.TileMode.Clamp!);
+			_paint = new Paint(PaintFlags.AntiAlias);
+			_paint.SetShader(_shader);
+		}
+
+		public override void Draw(Canvas canvas)
+		{
+			var bounds = Bounds;
+			if (bounds is null || bounds.Width() < 1 || bounds.Height() < 1 || _bitmap.Width < 1 || _bitmap.Height < 1)
+				return;
+			var matrix = new Matrix();
+			matrix.SetScale(bounds.Width() / (float)_bitmap.Width, bounds.Height() / (float)_bitmap.Height);
+			matrix.PostTranslate(bounds.Left, bounds.Top);
+			_shader.SetLocalMatrix(matrix);
+			canvas.DrawRoundRect(bounds.Left, bounds.Top, bounds.Right, bounds.Bottom, _radius, _radius, _paint);
+		}
+
+		public override void SetAlpha(int alpha) => _paint.Alpha = alpha;
+
+		public override void SetColorFilter(ColorFilter? colorFilter) => _paint.SetColorFilter(colorFilter);
+
+		public override int Opacity => (int)Format.Translucent;
 	}
 }
 #endif

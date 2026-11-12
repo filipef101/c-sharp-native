@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using NativePoc;
 
 namespace NativePoc.Devx;
 
@@ -170,6 +171,8 @@ static class ScreenInspect
 				findings.Add(imageAccess);
 			if (FixedHeight(node, nodes, boxes, scaled) is { } fixedHeight)
 				findings.Add(fixedHeight);
+			if (node.Element is Button && boxes.TryGetValue(node.Id, out var buttonBox) && HostPolicy.ButtonLabel(buttonBox.Height, node.Id) is { } buttonLabel)
+				findings.Add(new Finding("button-label", node.Id, buttonLabel));
 			if (node.Path.Length > 0 && byPath.TryGetValue(node.Path.Parent(), out var parent))
 			{
 				if (Overflow(node.Id, parent.Id, boxes, scaled: false) is { } overflow)

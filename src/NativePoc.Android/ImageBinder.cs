@@ -9,8 +9,10 @@ namespace NativePoc;
 
 static class PictureBinder
 {
-	public static void Show(ImageView image, string source, Context context, string description, bool decorative)
+	public static void Show(ImageView image, string source, Context context, string description, bool decorative, int radius = 0)
 	{
+		if (radius < 0)
+			radius = 0;
 		if (source.Length == 0)
 		{
 			image.SetImageDrawable(null);
@@ -20,7 +22,7 @@ static class PictureBinder
 		}
 
 #if NATIVEPOC_IMAGE
-		ImageModule.Show(image, source, context, description, decorative);
+		ImageModule.Show(image, source, context, description, decorative, radius);
 #else
 #if NATIVEPOC_HTTP
 		if (ImageSource.IsRemote(source) || IsBitmap(context, source))

@@ -3,6 +3,29 @@ namespace NativePoc.Tests;
 public sealed class HeadlessHostTests
 {
 	[Fact]
+	public void A_button_label_sits_in_a_normal_height()
+	{
+		Assert.Equal(52, HostPolicy.ButtonDp(16, 14, 1f));
+		Assert.Equal(56, HostPolicy.ButtonDp(16, 16, 1f));
+		Assert.Equal(48, HostPolicy.ButtonDp(22, 8, 1f));
+		Assert.Equal(104, HostPolicy.ButtonDp(16, 14, 2f));
+		Assert.Contains("88 dp", HostPolicy.ButtonLabel(88, "keep"), StringComparison.Ordinal);
+		Assert.Null(HostPolicy.ButtonLabel(52, "keep"));
+
+		var kept = new Column(
+		[
+			new Text("Piece") { Key = "title", Style = new Style { FontSize = 22 } },
+			new Button("Keep", () => { }, "Keep")
+			{
+				Key = "keep",
+				Style = new Style { Padding = 14, FontSize = 16, Align = Align.Center },
+			},
+		]);
+		var keep = HeadlessLayout.Measure(kept).Single(box => box.Id == "keep");
+		Assert.InRange(keep.Height, HostPolicy.ButtonMinDp, HostPolicy.ButtonMaxDp);
+	}
+
+	[Fact]
 	public void The_counter_renders_accessibility_and_layout_and_a_program_replaces_it()
 	{
 		var state = new AppState();

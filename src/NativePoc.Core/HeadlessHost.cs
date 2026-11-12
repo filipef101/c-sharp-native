@@ -179,7 +179,16 @@ public static class HeadlessLayout
 		var children = Children(element);
 		if (children.Count == 0)
 		{
-			var height = LeafHeight(element, fontScale, widthShare) + (pad * 2);
+			int height;
+			if (element is Button button)
+			{
+				var scale = fontScale;
+				if (!widthShare && button.Style is { Grow: > 0 })
+					scale = 1f;
+				height = HostPolicy.ButtonDp(button.Style?.FontSize ?? 0, pad, scale);
+			}
+			else
+				height = LeafHeight(element, fontScale, widthShare) + (pad * 2);
 			Floor(element, allotted, ref width, ref height);
 			boxes.Add(new Box(id, left, top, width, height));
 			return height;
@@ -271,7 +280,6 @@ public static class HeadlessLayout
 				}
 
 				return line;
-			case Button:
 			case TextField:
 			case TextInput:
 			case Switch:

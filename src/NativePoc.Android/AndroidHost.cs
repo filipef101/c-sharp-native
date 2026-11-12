@@ -391,6 +391,8 @@ sealed class AndroidHost : IElementHost<View>
 			text.SetTextColor(style.Color == 0
 				? new Android.Graphics.Color(unchecked((int)ThemeTokens.Text(ThemeRuntime.IsDark(_activity))))
 				: new Android.Graphics.Color(unchecked((int)style.Color)));
+			if (text is AndroidButton fitted)
+				FitButton(fitted, style);
 		}
 
 		if (style.Background != 0 || style.Wash != 0 || style.Radius > 0 || style.Stroke != 0)
@@ -527,6 +529,15 @@ sealed class AndroidHost : IElementHost<View>
 
 	void ApplyChrome(View view, Style style)
 	{
+		if (view is ImageView && style.Radius > 0)
+		{
+			view.Background = null;
+			view.OutlineProvider = null;
+			view.ClipToOutline = false;
+			view.Elevation = 0;
+			return;
+		}
+
 		var gradient = style.Wash != 0 && style.Background != 0;
 		if (gradient)
 			StartupMarks.Phase("gradient");
@@ -672,18 +683,57 @@ sealed class AndroidHost : IElementHost<View>
 		}
 
 		var side = HostPolicy.TouchFloorDp;
-		if (_paths.TryGetValue(view, out var imagePath) && CurrentElement(imagePath) is Image picture && picture.Side > 0)
-			side = picture.Side;
+		var radius = 0;
+		if (_paths.TryGetValue(view, out var imagePath) && CurrentElement(imagePath) is Image picture)
+		{
+			if (picture.Side > 0)
+				side = picture.Side;
+			if (picture.Style is { Radius: > 0 } tile)
+				radius = tile.Radius;
+		}
 		var px = Dp(side);
 		image.SetMinimumWidth(px);
 		image.SetMinimumHeight(px);
 		image.LayoutParameters = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, px);
-		PictureBinder.Show(image, source, _activity, description, decorative);
+		PictureBinder.Show(image, source, _activity, description, decorative, radius);
 		TouchTarget(image);
+	}
+
+	void FitButton(AndroidButton button, Style? style)
+	{
+		style ??= _paths.TryGetValue(button, out var path) ? CurrentElement(path)?.Style : null;
+		var scale = _activity.Resources?.Configuration?.FontScale ?? 1f;
+		var height = Dp(HostPolicy.ButtonDp(style?.FontSize ?? 0, style?.Padding ?? 0, scale));
+		var floor = Dp(HostPolicy.TouchFloorDp);
+		button.SetMinimumHeight(height);
+		button.SetMinHeight(height);
+		button.SetMinWidth(floor);
+		if (button.MinimumWidth < floor)
+			button.SetMinimumWidth(floor);
+		var horizontal = (style?.Align ?? Align.Start) switch
+		{
+			Align.Center => GravityFlags.CenterHorizontal,
+			Align.End => GravityFlags.End,
+			Align.Stretch => GravityFlags.FillHorizontal,
+			Align.Start => GravityFlags.Start,
+			_ => throw new InvalidOperationException("Unknown alignment."),
+		};
+		button.Gravity = horizontal | GravityFlags.CenterVertical;
+		if (button.LayoutParameters is LinearLayout.LayoutParams linear && !(linear.Height == 0 && linear.Weight > 0))
+		{
+			linear.Height = height;
+			button.LayoutParameters = linear;
+		}
 	}
 
 	void TouchTarget(View view)
 	{
+		if (view is AndroidButton button)
+		{
+			FitButton(button, null);
+			return;
+		}
+
 		var min = Dp(HostPolicy.TouchFloorDp);
 		if (view.MinimumWidth > min)
 			min = view.MinimumWidth;

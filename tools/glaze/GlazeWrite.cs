@@ -28,23 +28,34 @@ static void WritePng(string path, int size, uint background, uint ring)
 	var ringG = (byte)((ring >> 8) & 0xFF);
 	var ringB = (byte)(ring & 0xFF);
 	var index = 0;
+	var cx = size / 2;
+	var cy = size * 46 / 100;
+	var radius = size * 58L / 100;
+	var radius2 = radius * radius;
 	for (var y = 0; y < size; y++)
 	{
 		for (var x = 0; x < size; x++)
 		{
-			var cover = 0;
-			for (var sy = 0; sy < 2; sy++)
-			{
-				for (var sx = 0; sx < 2; sx++)
-				{
-					if (InRing(x * 2 + sx, y * 2 + sy, size * 2))
-						cover++;
-				}
-			}
-
-			pixels[index++] = Mix(bgR, ringR, cover);
-			pixels[index++] = Mix(bgG, ringG, cover);
-			pixels[index++] = Mix(bgB, ringB, cover);
+			var dx = x - cx;
+			var dy = y - cy;
+			var dist2 = dx * (long)dx + dy * (long)dy;
+			var fall = dist2 >= radius2 ? 255 : (int)(dist2 * 255 / radius2);
+			fall = fall * fall / 255;
+			var r = Mix(ringR, bgR, fall);
+			var g = Mix(ringG, bgG, fall);
+			var b = Mix(ringB, bgB, fall);
+			var drip = Drip(x, y, size);
+			r = Mix(r, bgR, drip);
+			g = Mix(g, bgG, drip);
+			b = Mix(b, bgB, drip);
+			var highlight = Highlight(x, y, size);
+			r = Mix(r, 255, highlight);
+			g = Mix(g, 255, highlight);
+			b = Mix(b, 255, highlight);
+			var speck = Speck(x, y);
+			pixels[index++] = Clamp(r + speck);
+			pixels[index++] = Clamp(g + speck);
+			pixels[index++] = Clamp(b + speck);
 		}
 	}
 
@@ -72,18 +83,90 @@ static void WritePng(string path, int size, uint background, uint ring)
 	Chunk(output, "IEND", Array.Empty<byte>());
 }
 
-static bool InRing(int x, int y, int size)
+static byte Mix(byte from, byte to, int cover)
 {
-	var dx = x - size / 2;
-	var dy = y - size / 2;
-	var distance = dx * (long)dx + dy * (long)dy;
-	var outer = size * 42L / 100;
-	var inner = size * 18L / 100;
-	return distance <= outer * outer && distance >= inner * inner;
+	if (cover <= 0)
+		return from;
+	if (cover >= 255)
+		return to;
+	return (byte)((from * (255 - cover) + to * cover) / 255);
 }
 
-static byte Mix(byte background, byte ring, int cover) =>
-	(byte)((background * (4 - cover) + ring * cover) / 4);
+static byte Clamp(int value)
+{
+	if (value < 0)
+		return 0;
+	if (value > 255)
+		return 255;
+	return (byte)value;
+}
+
+static int Drip(int x, int y, int size)
+{
+	ReadOnlySpan<int> seeds = [31, 54, 71];
+	var best = 0;
+	for (var i = 0; i < seeds.Length; i++)
+	{
+		var start = size * (18 + (i * 5)) / 100;
+		if (y < start)
+			continue;
+		var column = size * seeds[i] / 100;
+		var width = size * (5 + (i * 2)) / 100;
+		var adx = x - column;
+		if (adx < 0)
+			adx = -adx;
+		if (adx >= width)
+			continue;
+		var length = size * (46 + (i * 10)) / 100;
+		var fall = y - start;
+		if (fall >= length)
+			continue;
+		var head = length * 22 / 100;
+		if (head < 1)
+			head = 1;
+		var fadeIn = fall >= head ? 255 : fall * 255 / head;
+		var tail = length * 35 / 100;
+		if (tail < 1)
+			tail = 1;
+		var remain = length - fall;
+		var fadeOut = remain >= tail ? 255 : remain * 255 / tail;
+		var across = (width - adx) * 255 / width;
+		var cover = across * fadeIn / 255 * fadeOut / 255;
+		if (cover > best)
+			best = cover;
+	}
+
+	return best * 150 / 255;
+}
+
+static int Highlight(int x, int y, int size)
+{
+	var hx = x - (size * 38 / 100);
+	var hy = y - (size * 32 / 100);
+	var h2 = hx * (long)hx + hy * (long)hy * 2;
+	var rad = size * 16L / 100;
+	var rad2 = rad * rad;
+	if (h2 >= rad2)
+		return 0;
+	return (int)((rad2 - h2) * 140 / rad2);
+}
+
+static int Speck(int x, int y)
+{
+	var cell = Hash(x / 4, y / 4);
+	if (cell > 248)
+		return 16;
+	if (cell < 6)
+		return -12;
+	return 0;
+}
+
+static int Hash(int x, int y)
+{
+	var n = (uint)(x * 374761393 + y * 668265263);
+	n = (n ^ (n >> 13)) * 1274126177u;
+	return (int)((n ^ (n >> 16)) & 255);
+}
 
 static void Chunk(Stream output, string type, byte[] data)
 {

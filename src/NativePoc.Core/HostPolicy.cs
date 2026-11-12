@@ -7,6 +7,28 @@ namespace NativePoc;
 internal static class HostPolicy
 {
 	public const int TouchFloorDp = 48;
+	public const int ButtonMinDp = 48;
+	public const int ButtonMaxDp = 56;
+
+	public static int ButtonDp(int fontSize, int padding, float fontScale)
+	{
+		if (fontScale <= 0)
+			fontScale = 1f;
+		var line = (fontSize > 0 ? fontSize : 16) + 8;
+		var body = line + (padding * 2);
+		if (body < ButtonMinDp)
+			body = ButtonMinDp;
+		if (body > ButtonMaxDp)
+			body = ButtonMaxDp;
+		return fontScale == 1f ? body : (int)Math.Ceiling(body * fontScale);
+	}
+
+	public static string? ButtonLabel(int heightDp, string id)
+	{
+		if (heightDp <= ButtonMaxDp)
+			return null;
+		return "Button " + id + " is " + heightDp.ToString(CultureInfo.InvariantCulture) + " dp tall and the label is not centred.";
+	}
 
 	public static bool TextIsHidden(string value) => value.Length == 0;
 

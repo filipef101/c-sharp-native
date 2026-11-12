@@ -75,6 +75,36 @@ public sealed class InspectTests
 	}
 
 	[Fact]
+	public void Inspect_flags_a_button_whose_label_is_not_centred()
+	{
+		var tall = new Column(
+		[
+			new Text("Piece") { Key = "title", Style = new Style { FontSize = 22 } },
+			new Button("Keep", () => { }, "Keep") { Key = "keep" },
+		]);
+		var json = ScreenInspect.Format(tall, [
+			new HeadlessLayout.Box("root", 0, 0, 360, 200),
+			new HeadlessLayout.Box("title", 0, 0, 360, 30),
+			new HeadlessLayout.Box("keep", 16, 70, 328, 88),
+		]);
+		Assert.Contains("\"code\":\"button-label\",\"id\":\"keep\"", json, StringComparison.Ordinal);
+		Assert.Contains("88 dp tall and the label is not centred.", json, StringComparison.Ordinal);
+
+		var kept = new Column(
+		[
+			new Text("Piece") { Key = "title", Style = new Style { FontSize = 22 } },
+			new Button("Keep", () => { }, "Keep")
+			{
+				Key = "keep",
+				Style = new Style { Padding = 14, FontSize = 16, Align = Align.Center },
+			},
+		]);
+		var keep = HeadlessLayout.Measure(kept).Single(box => box.Id == "keep");
+		Assert.InRange(keep.Height, HostPolicy.ButtonMinDp, HostPolicy.ButtonMaxDp);
+		Assert.DoesNotContain("button-label", ScreenInspect.Format(kept), StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void Inspect_flags_a_fixed_height_text_container()
 	{
 		var clipped = new Column(
