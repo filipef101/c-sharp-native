@@ -23,13 +23,19 @@ The paragraphs above are older series. They were not remeasured for this section
 
 Mac emulator, `c666e52`, feed APK sha256 prefix `740a0f5d`, `--n 20 --repeat 5`, guest load 3.6–14. Feed minus floor block deltas: 57.0, 53.5, 64.0, 82.5, 66.0. Median 64.0. Bootstrap 95% interval 53.5–82.5. TotalTime p50: feed 337, thin 293.5, floor 274. Feed p50 minus floor p50 is 63. Marks, p50, milliseconds since process start. Feed: java_end 44.5, jcw_enter 55, jcw_register 55.5, jcw_registered 71.5, jni 74, enter 82, layout 183, idle 251, flush 295. Floor: oncreate 37, layout 143. Thin: java_end 46, thin_class 58, thin_jni 65, thin_oncreate 71.
 
+Mac emulator, `ca9992e`, feed APK sha256 prefix `cc759810`, `--n 20 --repeat 5`, guest load 7–26. Feed minus floor block deltas: 65.5, 61.5, 56.5, 44.0, 32.5. Median 56.5. Interval 32.5–65.5. TotalTime p50: counter 303.5, feed 320.5, thin 281.5, floor 269.5. Feed jcw_register 54.0 to jcw_registered 66.5 is 12.5 ms. `a11y-dismiss.sh` with that arm64 feed APK logged `performed=1 gone=1 next=1 undone=1 restored=1`. That run has no layout split. The 23 ms after the first layout is the `c666e52` split above.
+
 The feed's first layout is 40 behind the floor (183, and the floor is at 143). The floor is already in onCreate at 37. The feed enters OnCreate at 82, so screen work starts 45 later. Enter to layout is 101 on the feed. Floor onCreate to layout is 106. The managed screen and the first layout are not the extra. After layout, the feed takes 154 to TotalTime and the floor takes 131, about 23. Those two slices are the 63. Before enter, the feed spends 44.5 to java_end, 10.5 loading the activity class, 0.5 building the method string, 16 in `registerNativeMembers` (55.5 to 71.5), 2.5 through the managed static constructor, and 8 to enter OnCreate. The 16 is five `Delegate.CreateDelegate` lookups plus one `RegisterNatives`. Thin, one JNI method, takes 19 from java_end 46 to thin_jni 65. The feed takes 29.5 from java_end 44.5 to jni 74. The five registrations are the slice the thin activity does not pay.
 
 Not kept. `NativePocDeferNatives`, emulator-run: baseline block deltas 200.0 and 233.0, median 216.5, interval 200.0–233.0. Deferred: 210.5 and 227.0, median 218.8, interval 210.5–227.0, inside the baseline. `NativePocFastNatives`, one `RegisterNatives` of five prebuilt delegates, two emulator-run pairs, `--n 6 --repeat 2`, guest_load_p50 5.0–7.6. First pair: baseline 269.5 and 324.0, median 296.8, interval 269.5–324.0. Fast: 138.5 and 268.5, median 203.5, interval 138.5–268.5. The 1.0 gap is a floor block at 829.5, from samples 1339 and 1020, both over 1.5 times the floor median and still included. Second pair: baseline 292.0 and 213.5, median 252.8, interval 213.5–292.0. Fast: 195.0 and 264.5, median 229.8, interval 195.0–264.5. The intervals overlap. Register to registered on that pair was 1.5 and 1.0. The flag stays false. RELR, `NativePocEmbedSo`, `NativePocPackRelocs`, `NativePocVersionScript`, and `NativePocSymbolOrder` stayed off. The reloc experiment did not shorten startup.
 
+Not kept. Moving the row-fit padding and the image flush to a message posted after the launch frame, emulator-run, `--n 6 --repeat 2`, guest_load_p50 6.7–7.0. Baseline block deltas 201.5 and 235.0, median 218.2, interval 201.5–235.0. Treatment: 270.5 and 314.0, median 292.2, interval 270.5–314.0. The treatment interval sits above the baseline. The code is the one-frame skip again. On a baseline sample, layout and draw were the same millisecond and the direction warm was after `Displayed`. A later feed launch logged `image-us=135`. The Mac flush at 295 is still 42 before TotalTime 337, and this emulator did not show that slice getting shorter.
+
 Emulator-run developer loop, template `/tmp/p37/loop`, Debug listener, pid 25116. Unchanged `cnative run android --once`: wrapper 1.185 s, including a 0.87 s CLI build, then `Skipping publish`, `Skipping install`, `Skipping launch`, `Skipping reload`. The same run with `dotnet exec` of the built CLI was 0.187 s. An edit of the title initializer, Hello to Hiya, was 0.250 s, skipped install and launch, and logged `reloaded in 56.5 ms (lower 32.3 ms, apply 16.5 ms)`. The pid stayed 25116.
 
-Built, no device: `HeadlessHost` is an `IPlatform` with no Android view and no iOS view. A test builds a screen, renders the tree, reads the accessibility dump and the layout dump, and applies a hot-reload edit. Core `HeadlessHostTests` uses the counter. Devx `HeadlessScreenTests` uses the lowered counter, feed, and visit. Devx tests: 148 passed. Packing tests: 14 passed. Core tests excluding `ReloadAotPublishTests`: 78 passed.
+`cnative inspect <Screen.cs>` renders on `HeadlessHost` and prints tree, accessibility, and layout as JSON. It exits 1 for a missing label, a touch target under 48 dp, no heading, or a focus-order reversal, and the message names the id. Devx `InspectTests` runs it on the counter, the feed, the visit form, and packing. Packing reports `scroll/list/tent/name` at 336 by 24 dp. Devx tests: 151 passed. Packing tests: 14 passed. Core tests: 81 passed. `ReloadAotPublishTests` builds the generator in the default run and kills the child if that build passes 90 s. The NativeAOT publish runs only when `NATIVEPOC_RELOAD_AOT=1`, and that publish was not run here.
+
+Emulator-run, visit x64, pid 32456. IME Next on Place logged `field-next from=place to=when`. IME Go on When logged `field-submit key=when` and `a11y-announce text=Place is required`. With the keyboard shown (`mInputShown=true`, screen 1080x2400, visible bottom 1517), Place bottom 394 and When bottom 541 logged `field-scroll` `above=1`. Debug listener pid 32727, edit of the Locate title to Find: `reloaded in 27.1 ms (apply 23.2 ms)`, `state kept Place="Cafe" (initializer "")`, and the field still read Cafe. The source was put back to Locate.
 
 Rerun the cold start on a pixel_8 arm64 emulator:
 
@@ -51,18 +57,20 @@ tools/bench/cold-start.sh --device <pixel_8> --n 10 --name visit --out /tmp/cold
   --apk nativepoc-visit-android-arm64.apk \
   --component com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
   -- --es nativepoc_root visit
-tools/bench/a11y-dismiss.sh --apk nativepoc-feed-android-x64.apk --serial <pixel_8>
+tools/bench/a11y-dismiss.sh --apk nativepoc-feed-android-arm64.apk --serial <pixel_8>
 ```
+
+A pixel_8 is arm64-v8a, so the dismiss check uses the arm64 feed APK. If the APK has no `lib` folder for the device ABI and a sibling file swaps `android-x64` and `android-arm64` in the name, `a11y-dismiss.sh` installs that sibling.
 
 | build | label | APK bytes | APK sha256 |
 | --- | --- | --- | --- |
-| counter arm64 | built | 2,896,760 | `258c51e0f67e757e280a317d41f1ab28738f5d42c9cf1b0a449e19e409d93a67` |
-| counter x64 | built | 3,056,501 | `b5179cb8cb63e917b3e987c0186e9ec5acdb7751ae185eb12267ddba2f37f2b6` |
-| feed arm64, marks on | built | 3,129,071 | `a7ea094b9602e84f308c79a30916f67b0754af82f714c33b7952835505d3a54e` |
-| feed x64, marks on | emulator-run | 3,288,812 | `39e83319cb13ccb08aeae2001dc38138aee4a51070a272e66117b814f4cfc3a4` |
-| list floor arm64 | emulator-run, not rebuilt | 531,381 | `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1` |
-| visit arm64 | built | 2,982,776 | `e49a44a70df2e291f9b872f0df7c41393856443d7f66042182c78cf296f79d7c` |
-| visit x64 | built | 3,146,613 | `b977baf6eadae6bff74716f8d65f48f205155bc83a94ec56086b1f4a51ace5b1` |
+| counter arm64 | built | 2,904,952 | `e077472f50cf1545737d5c15f4175f2492b1a608ce301c299572a1d9a7551f53` |
+| counter x64 | built | 3,064,693 | `c3508bad7aeb88795722df2a113a14a54f0363ac383b84ecf6f4ddc1079a2eb0` |
+| feed arm64, marks on | built | 3,137,263 | `4e8ddba6e14074f4d4584fc570c27404a2903a9fd29bb88929de271a9a4d7e26` |
+| feed x64, marks on | emulator-run, dismiss | 3,301,100 | `279e862f390fb22b986f7cd71aa7bef07fcd05cf75791d5e2886acf89c296313` |
+| list floor arm64 | not rebuilt | 531,381 | `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1` |
+| visit arm64 | built | 2,990,968 | `3bd945d54fda691912ea69df22fd51a0b210aeb5d08f7cb52ab9c037ba89ef3f` |
+| visit x64 | emulator-run, keyboard | 3,154,805 | `9d3433f357bc50c3c8c59df504dcd506d423cc4d1417a55f11c29eef28f2471d` |
 
 iOS is authored only. The UIKit host is in `spikes/ios` and is not in the solution this tree builds. [docs/ios-status.md](docs/ios-status.md). Unverified as a build.
 

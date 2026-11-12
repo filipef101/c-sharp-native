@@ -68,6 +68,11 @@ static class ArgParser
 		    layout is bounds per id.
 		    logs is the NativePoc logcat. clock is 0 until a screen calls Every.
 		    --running drives the program on screen, not only Screen.cs.
+		  cnative inspect <Screen.cs>
+		    Renders the screen on the headless host and prints its tree,
+		    accessibility, and layout as JSON. Exits 1 when the lint finds a
+		    missing label, a touch target under 48 dp, no heading, or a
+		    focus-order reversal. The message names the id.
 		  cnative lower <file> [--json] [--bytes] [--apply]
 		    Lower any screen in the documented subset. --json prints
 		    diagnostics with stable ids and source spans.

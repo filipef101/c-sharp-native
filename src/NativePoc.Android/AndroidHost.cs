@@ -1,3 +1,4 @@
+using System.Globalization;
 using Android.Content;
 using Android.Graphics;
 using Android.Graphics.Drawables;
@@ -98,9 +99,22 @@ sealed class AndroidHost : IElementHost<View>
 	{
 		if (view is not TextView text)
 			throw new InvalidOperationException("Text patch targeted a non-text view.");
+		var previous = text.Text ?? "";
 		text.Text = value;
 		text.ContentDescription = value;
 		text.Visibility = value.Length == 0 ? ViewStates.Gone : ViewStates.Visible;
+		if (value.Length == 0 || string.Equals(previous, value, StringComparison.Ordinal))
+			return;
+		if (!_paths.TryGetValue(view, out var path) || CurrentElement(path) is not Text spoken)
+			return;
+		var key = spoken.Key ?? "";
+		if (!string.Equals(key, "error", StringComparison.Ordinal) && !key.EndsWith("/error", StringComparison.Ordinal))
+			return;
+		text.AccessibilityLiveRegion = AccessibilityLiveRegion.Polite;
+#pragma warning disable CA1422
+		text.AnnounceForAccessibility(value);
+#pragma warning restore CA1422
+		Log.Info(MainActivity.Tag, "a11y-announce text=" + value);
 	}
 
 	public void SetButton(View view, string title, string accessibilityLabel)
@@ -649,7 +663,9 @@ sealed class AndroidHost : IElementHost<View>
 				TextInput input => input.Submit,
 				_ => Submit.None,
 			};
-			if (submit is null || current is not (TextField or TextInput))
+			if (current is not (TextField or TextInput))
+				return;
+			if (args.Event is { Action: not KeyEventActions.Down })
 				return;
 			var expected = kind switch
 			{
@@ -660,9 +676,13 @@ sealed class AndroidHost : IElementHost<View>
 				Submit.None => ImeAction.Done,
 				_ => throw new InvalidOperationException("Unknown submit action."),
 			};
-			if (args.ActionId != expected)
+			if (args.ActionId != expected && args.ActionId != ImeAction.ImeNull)
 				return;
-			if (args.Event is { Action: not KeyEventActions.Down })
+			var key = edit is AndroidField marked ? marked.Key ?? "" : "";
+			Log.Info(MainActivity.Tag, "field-action key=" + key + " action=" + args.ActionId);
+			if (kind == Submit.Next && edit is EditText nextFrom && FieldIme.FocusNext(nextFrom))
+				args.Handled = true;
+			if (submit is null)
 				return;
 			if (edit is AndroidField gate)
 			{
@@ -676,6 +696,7 @@ sealed class AndroidHost : IElementHost<View>
 #else
 			submit();
 #endif
+			Log.Info(MainActivity.Tag, "field-submit key=" + key);
 			args.Handled = true;
 		};
 		edit.EditorAction += editor;
@@ -685,9 +706,10 @@ sealed class AndroidHost : IElementHost<View>
 			field.Key = CurrentElement(path)?.Key;
 			field.FocusChange += (_, args) =>
 			{
-			if (!args.HasFocus || field.Key is null || FieldFocus.Frozen)
-				return;
-			FieldFocus.Note(field.Key, field.SelectionStart, field.SelectionEnd);
+				if (!args.HasFocus || field.Key is null || FieldFocus.Frozen)
+					return;
+				FieldFocus.Note(field.Key, field.SelectionStart, field.SelectionEnd);
+				FieldIme.Show(field);
 			};
 		}
 	}
@@ -789,6 +811,94 @@ sealed class AndroidHost : IElementHost<View>
 
 	static InvalidOperationException UnknownKind(ElementKind kind) =>
 		new("Unknown element kind.");
+}
+
+static class FieldIme
+{
+	static bool _watching;
+
+	public static void Show(AndroidField field)
+	{
+		if (field.Context is Activity activity)
+			activity.Window?.SetSoftInputMode(SoftInput.AdjustResize | SoftInput.StateVisible);
+		var imm = (InputMethodManager?)field.Context?.GetSystemService(Context.InputMethodService);
+		imm?.ShowSoftInput(field, ShowFlags.Implicit);
+		field.Post(() =>
+		{
+			var rect = new Rect(0, 0, Math.Max(field.Width, 1), Math.Max(field.Height, 1));
+			field.RequestRectangleOnScreen(rect, true);
+			LogScroll(field);
+		});
+		if (_watching)
+			return;
+		var decor = (field.Context as Activity)?.Window?.DecorView;
+		if (decor?.ViewTreeObserver is null)
+			return;
+		_watching = true;
+		decor.ViewTreeObserver.AddOnGlobalLayoutListener(new KeyboardLayout(decor));
+	}
+
+	public static bool FocusNext(EditText edit)
+	{
+		var root = edit.RootView;
+		if (root is null)
+			return false;
+		var fields = new List<EditText>();
+		Collect(root, fields);
+		var index = fields.IndexOf(edit);
+		if (index < 0 || index + 1 >= fields.Count)
+			return false;
+		var next = fields[index + 1];
+		var from = edit is AndroidField fromField ? fromField.Key ?? "" : "";
+		var to = next is AndroidField toField ? toField.Key ?? "" : "";
+		if (!next.RequestFocus())
+			return false;
+		Log.Info(MainActivity.Tag, "field-next from=" + from + " to=" + to);
+		return true;
+	}
+
+	static void LogScroll(AndroidField field)
+	{
+		var visible = new Rect();
+		field.GetWindowVisibleDisplayFrame(visible);
+		var location = new int[2];
+		field.GetLocationOnScreen(location);
+		var bottom = location[1] + field.Height;
+		var above = bottom <= visible.Bottom ? "1" : "0";
+		Log.Info(
+			MainActivity.Tag,
+			"field-scroll key=" + (field.Key ?? "")
+			+ " field-bottom=" + bottom.ToString(CultureInfo.InvariantCulture)
+			+ " visible-bottom=" + visible.Bottom.ToString(CultureInfo.InvariantCulture)
+			+ " above=" + above);
+	}
+
+	static void Collect(View view, List<EditText> fields)
+	{
+		if (view is EditText edit)
+			fields.Add(edit);
+		if (view is not ViewGroup group)
+			return;
+		for (var index = 0; index < group.ChildCount; index++)
+		{
+			var child = group.GetChildAt(index);
+			if (child is not null)
+				Collect(child, fields);
+		}
+	}
+
+	sealed class KeyboardLayout : Java.Lang.Object, ViewTreeObserver.IOnGlobalLayoutListener
+	{
+		readonly View _decor;
+
+		public KeyboardLayout(View decor) => _decor = decor;
+
+		public void OnGlobalLayout()
+		{
+			if (_decor.FindFocus() is AndroidField field)
+				LogScroll(field);
+		}
+	}
 }
 
 sealed class AndroidField : EditText

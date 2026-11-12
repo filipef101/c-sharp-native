@@ -3,6 +3,8 @@
 # Requires a feed APK that contains nativepoc.KeyedList and the feed root.
 # Instrumentation inside the NativeAOT process never reaches onStart, so the
 # probe is a separate service with canRetrieveWindowContent.
+# A pixel_8 is arm64-v8a. If the given APK has no lib folder for the device
+# ABI, a sibling whose name swaps android-x64 and android-arm64 is used.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 serial="${ANDROID_SERIAL:-emulator-5554}"
@@ -14,11 +16,41 @@ while [[ $# -gt 0 ]]; do
 		*) echo "unknown arg $1" >&2; exit 2 ;;
 	esac
 done
-if [[ -z "$feed" ]]; then
+if [[ -z "$feed" || ! -f "$feed" ]]; then
 	echo "a11y-dismiss.sh --apk <feed.apk> [--serial emulator-5554]" >&2
 	exit 2
 fi
+feed="$(cd "$(dirname "$feed")" && pwd)/$(basename "$feed")"
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/android-sdk}"
+device_abi="$(adb -s "$serial" shell getprop ro.product.cpu.abi | tr -d '\r')"
+case "$device_abi" in
+	arm64-v8a) lib_dir="lib/arm64-v8a/" ; other="android-x64" ; mine="android-arm64" ;;
+	x86_64) lib_dir="lib/x86_64/" ; other="android-arm64" ; mine="android-x64" ;;
+	*) lib_dir="" ; other="" ; mine="" ;;
+esac
+if [[ -n "$lib_dir" ]] && ! python3 - "$feed" "$lib_dir" <<'PY'
+import sys, zipfile
+path, needle = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(path) as archive:
+    sys.exit(0 if any(name.startswith(needle) for name in archive.namelist()) else 1)
+PY
+then
+	base="$(basename "$feed")"
+	alt="$(dirname "$feed")/${base/$other/$mine}"
+	if [[ "$base" == *"$other"* && -f "$alt" ]] && python3 - "$alt" "$lib_dir" <<'PY'
+import sys, zipfile
+path, needle = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(path) as archive:
+    sys.exit(0 if any(name.startswith(needle) for name in archive.namelist()) else 1)
+PY
+	then
+		echo "a11y-dismiss: device $device_abi, using $alt"
+		feed="$alt"
+	else
+		echo "a11y-dismiss: $feed has no $lib_dir and $serial is $device_abi" >&2
+		exit 2
+	fi
+fi
 probe="/tmp/nativepoc-bench/a11y-dismiss.apk"
 bash "$root/tools/bench/build-a11y-dismiss.sh" "$probe"
 adb -s "$serial" install -r -d "$feed" >/tmp/a11y-dismiss-feed-install.txt

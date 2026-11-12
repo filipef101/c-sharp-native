@@ -737,7 +737,7 @@ tools/bench/cold-start.sh --device <pixel_8> --n 10 --name visit --out /tmp/cold
 ```
 
 ```
-tools/bench/a11y-dismiss.sh --apk nativepoc-feed-android-x64.apk --serial <pixel_8>
+tools/bench/a11y-dismiss.sh --apk nativepoc-feed-android-arm64.apk --serial <pixel_8>
 ```
 
 Core tests: 78 passed, including `FeedUndoTests` and `RecordWarmTests`. Packing tests: 14 passed. Devx tests: 144 passed, including `IlcStampTests`. The accessibility script above exited 0 on emulator-5554.
@@ -832,7 +832,7 @@ tools/bench/cold-start.sh --device <pixel_8> --n 10 --name visit --out /tmp/cold
 ```
 
 ```
-tools/bench/a11y-dismiss.sh --apk nativepoc-feed-android-x64.apk --serial <pixel_8>
+tools/bench/a11y-dismiss.sh --apk nativepoc-feed-android-arm64.apk --serial <pixel_8>
 ```
 
 The emulator pairs above were:
@@ -847,3 +847,55 @@ tools/bench/mac-bench.sh --device emulator-5554 --n 6 --repeat 2 --quiesce warn 
 
 The fast pair used the same command with `/tmp/p38/feed-fast.apk`. The second pair wrote `/tmp/p38/bench-base2` and `/tmp/p38/bench-fast2`.
 
+
+### Bounded reload publish, post-layout flush, inspect, visit keyboard
+
+`ReloadAotPublishTests` did not finish the previous run. `Process.WaitForExit(240000)` was called with stdout and stderr redirected, and a timed `WaitForExit` can ignore the timeout in that case. The test did not kill the child. After about 11 minutes the testhost had no children, the MSBuild node was idle, and a `clr-debug-pipe` was attached to that node. The default test is now `dotnet build -c Release -f net10.0 -r linux-x64 -p:EmitCompilerGeneratedFiles=true` with a 90 s bound. The wait is `ManualResetEventSlim`, and a timeout calls `Kill(entireProcessTree: true)`. `MSBUILDDISABLENODEREUSE=1`. The NativeAOT publish runs only when `NATIVEPOC_RELOAD_AOT=1`, with a 240 s bound and the same kill. That publish was not run. A separate fact starts `sleep 120` and checks the kill returns inside 8 s. Core tests: 81 passed, 2 s, including the three facts. Devx tests: 151 passed. Packing tests: 14 passed.
+
+The about 23 ms is the `c666e52` Mac split, not the `ca9992e` run. `ca9992e` has no layout marks. Feed layout 183 to TotalTime 337 is 154. Floor layout 143 to TotalTime 274 is 131. The difference is 23. Feed idle is 251 and flush is 295, so the flush is 42 before TotalTime. On emulator-5554 the same path is not inside TotalTime. Baseline sample `feed-log-0`, guest load around 7: layout and draw at since-process 158, `report-fully-drawn` at 159, idle at 563, `Displayed` +800 ms on the following log line, direction at 706 and warm at 707. A later feed launch, not a cold-start sample, logged `startup frame binds=9 text-us=387 image-us=135`. The placeholder bind is a fraction of a millisecond. The Mac extra is the frame the flush still sits in. The emulator's post-layout time is mostly the main thread waiting, and the warm is already after `Displayed`.
+
+Not kept. The trial took `fitWholeRows` off `onLayout` and posted the locale warm and the image flush twice from the frame callback, so they would run after that traversal. Emulator-run, `--device emulator-5554 --n 6 --repeat 2 --quiesce warn`, same feed APK for counter, feed, and thin, floor `/opt/cursor/artifacts/nativepoc-listfloor-android-x64.apk` sha256 `d7ffd1727fe71891e53e1e4e5ef8f058bdc5de70f3047d45a8f7c742dbc97c88`. Baseline APK sha256 `4b517a280ffe66744798bea0c6ac9879cf539fa37df6d4991b54512e46952687`, dex `6b319683` (same bytes as `7277758`). guest_load_p50 feed 7.0, floor 6.9. Block deltas 201.5 and 235.0, median 218.2, interval 201.5–235.0. TotalTime p50 counter/feed/thin/floor 965.0/809.0/629.5/588.0. Treatment APK sha256 `3f9c0716b033974e5a3d50f1825d12e27745f14dd00883fc71c564fcbf2269aa`, not shipped. guest_load_p50 feed 6.8, floor 7.0. Block deltas 270.5 and 314.0, median 292.2, interval 270.5–314.0. TotalTime p50 965.0/876.0/628.0/569.5. The treatment interval is above the baseline. The row fit and the one-frame skip are restored. `NativePocDeferNatives` and `NativePocFastNatives` stay false.
+
+`cnative inspect <Screen.cs>` lowers the screen, renders it on `HeadlessHost`, and prints JSON with `accessibility`, `layout`, `lint`, and `tree`. Lint codes are `missing-label`, `touch-target` under 48 dp, `missing-heading`, and `focus-order`. The message names the id. Exit 1 when `lint` is not empty. A companion that the subset cannot parse is dropped and the screen file is lowered alone, which is how packing lowers. `InspectTests` covers the counter, the feed, the visit form, and packing. Counter, feed, and visit have an empty lint. Packing reports `Touch target scroll/list/tent/name is 336 by 24 dp, under 48 dp.` The failure fact checks a missing label, a 24 dp target, a reversed focus, and a screen with no heading.
+
+Visit keyboard, emulator-run, visit x64 pid 32456, LatinIME, `mInputShown=true`, screen 1080x2400. Place empty, When focused, keyevent 66: `field-action key=when action=Go`, `field-submit key=when`, `a11y-announce text=Place is required`. Place then received `Cafe` and keyevent 66: `field-action key=place action=Next`, `field-next from=place to=when`. `field-scroll key=place field-bottom=394 visible-bottom=1517 above=1` and `field-scroll key=when field-bottom=541 visible-bottom=1517 above=1`. The visible bottom is the frame above the keyboard, not the 2400 panel. Debug listener pid 32727, `--root visit`. The Locate title was edited to Find. `reloaded in 27.1 ms (apply 23.2 ms)`. `state kept Place="Cafe" (initializer "")`. The dump still had Place text Cafe and the button text FIND. The source was restored to Locate. `tools/bench/visit-ime.sh --serial emulator-5554`.
+
+`a11y-dismiss.sh` reads `ro.product.cpu.abi`. A pixel_8 is arm64-v8a. If the APK has no matching `lib/` and a sibling swaps `android-x64` and `android-arm64` in the file name, the script installs the sibling and prints the path. An arm64-only file on emulator-5554 exited 2: `only-arm64.apk has no lib/x86_64/ and emulator-5554 is x86_64`. Passing `nativepoc-feed-android-arm64.apk` beside the x64 sibling printed `device x86_64, using .../nativepoc-feed-android-x64.apk`. A second run of the x64 feed, sha256 `279e862f390fb22b986f7cd71aa7bef07fcd05cf75791d5e2886acf89c296313`, logged `performed=1 gone=1 next=1 undone=1 restored=1`. The Mac line in this file and in the README now names the arm64 APK. The `ca9992e` Mac pass above used arm64 feed `cc759810`, not this build.
+
+### Sizes
+
+`NativePocFastNatives` and `NativePocDeferNatives` are false. Visit passes `NativePocHttp` and `NativePocLocation`. Feed passes `NativePocHttp`, `NativePocRecycler`, and `NativePocStartupMarks`. Counter passes no extra flag. The list floor was not rebuilt. Feed x64 was installed for the dismiss check and was not the cold-start APK. Visit x64 is the keyboard run. The other four were built and not timed.
+
+| build | label | APK | APK sha256 | .so | .so sha256 | dex bytes |
+| --- | --- | --- | --- | --- | --- | --- |
+| counter x64 | built | 3,064,693 | `c3508bad7aeb88795722df2a113a14a54f0363ac383b84ecf6f4ddc1079a2eb0` | 7,064,528 | `9074856633db766c00825bc495c3f511d72fa2b4dff6da6f39f3e06fe8fd9f89` | 50,424 |
+| counter arm64 | built | 2,904,952 | `e077472f50cf1545737d5c15f4175f2492b1a608ce301c299572a1d9a7551f53` | 7,289,520 | `5c430e28364c0b6bfb15f7244169cd5c8903119cfdd965c82ed359a89455ac56` | 50,424 |
+| feed x64, marks on | emulator-run, dismiss | 3,301,100 | `279e862f390fb22b986f7cd71aa7bef07fcd05cf75791d5e2886acf89c296313` | 7,225,280 | `4d3aed2024d6644271f0a8c1e8efa9c3022b4895b6a06f3c8156fb84fbefa32f` | 331,300 |
+| feed arm64, marks on | built | 3,137,263 | `4e8ddba6e14074f4d4584fc570c27404a2903a9fd29bb88929de271a9a4d7e26` | 7,459,000 | `826f43957b3424cd542da1ae953e083235b1fa2aeac8724cd0b4cac616e366a7` | 331,300 |
+| visit x64 | emulator-run, keyboard | 3,154,805 | `9d3433f357bc50c3c8c59df504dcd506d423cc4d1417a55f11c29eef28f2471d` | 7,277,936 | `a7f31b77b7709d4e9ea793bbb62759121eee42a1ddcf5d858df4dfc13bfeddc6` | 52,784 |
+| visit arm64 | built | 2,990,968 | `3bd945d54fda691912ea69df22fd51a0b210aeb5d08f7cb52ab9c037ba89ef3f` | 7,514,272 | `2102331821ed12b1992f5519184abb015bb665dc1d18359880b623ea205e5e0f` | 52,784 |
+
+Dex sha256, both ABIs: counter `34dd8b002b1c9aa71ef53f1d1a8ddac7cddccbcb129a804ea51d92638b8c49b6`, feed `93224637fbbb34b772e6971b68487ca1d3295ba9b588b5914ca19ebddd45c770`, visit `884a3b5857654b8797fb35c77d2e5b9a872b60a31ac10c7f8e019dd01be6dae6`. List floor arm64 was not rebuilt: 531,381 bytes, sha256 `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1`.
+
+```
+tools/bench/mac-bench.sh --device <pixel_8> --n 20 --repeat 5 --quiesce warn --out /tmp/feed-cold \
+  --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run thin:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/nativepoc.ThinActivity \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+tools/bench/a11y-dismiss.sh --apk nativepoc-feed-android-arm64.apk --serial <pixel_8>
+tools/bench/visit-ime.sh --serial emulator-5554
+tools/devx/cnative inspect samples/visit/VisitScreen.cs
+```
+
+The emulator pair was:
+
+```
+tools/bench/mac-bench.sh --device emulator-5554 --n 6 --repeat 2 --quiesce warn --out /tmp/p39/bench-base \
+  --run counter:/tmp/p39/feed-base.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:/tmp/p39/feed-base.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run thin:/tmp/p39/feed-base.apk:com.scratch.nativepoc/nativepoc.ThinActivity \
+  --run floor:/opt/cursor/artifacts/nativepoc-listfloor-android-x64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+The treatment pair used the same command with `/tmp/p39/feed-treat.apk` and `--out /tmp/p39/bench-treat`.
