@@ -89,6 +89,9 @@ public static partial class RecordProgram
 	public const byte ActThrow = 37;
 	public const byte ActSource = 38;
 	public const byte ActAwait = 39;
+	public const byte ActTry = 40;
+	public const byte ActLeave = 41;
+	public const byte ActEndFinally = 42;
 
 	public const int ActionStepBudget = 100_000;
 
@@ -1263,6 +1266,13 @@ public static partial class RecordProgram
 			stop = ex.Message;
 			platform.RequestRender();
 		}
+		catch (InvalidOperationException ex) when (!ex.Message.StartsWith("Rejected", StringComparison.Ordinal))
+		{
+			stop = ex.Message;
+			platform.RequestRender();
+			if (ActionLog.OnFault is not null)
+				ActionLog.OnFault(source.Length == 0 ? "screen" : source, ex.Message);
+		}
 		catch (Exception ex) when (ActionLog.OnFault is not null)
 		{
 			ActionLog.OnFault(source.Length == 0 ? "screen" : source, ex.Message);
@@ -1315,6 +1325,13 @@ public static partial class RecordProgram
 			stop = ex.Message;
 			platform.RequestRender();
 		}
+		catch (InvalidOperationException ex) when (!ex.Message.StartsWith("Rejected", StringComparison.Ordinal))
+		{
+			stop = ex.Message;
+			platform.RequestRender();
+			if (ActionLog.OnFault is not null)
+				ActionLog.OnFault(source.Length == 0 ? "screen" : source, ex.Message);
+		}
 		catch (Exception ex) when (ActionLog.OnFault is not null)
 		{
 			ActionLog.OnFault(source.Length == 0 ? "screen" : source, ex.Message);
@@ -1345,6 +1362,8 @@ public static partial class RecordProgram
 		while (ip < end)
 		{
 			frame.Tick();
+			try
+			{
 			var op = script[ip++];
 			switch (op)
 			{
@@ -1441,6 +1460,27 @@ public static partial class RecordProgram
 					break;
 				case ActThrow:
 					throw new InvalidOperationException(strings[RequireString(TakeU16(script, ref ip, script.Length), strings)]);
+				case ActTry:
+				{
+					var tryLen = TakeU16(script, ref ip, end);
+					var catchLen = TakeU16(script, ref ip, end);
+					var finallyLen = TakeU16(script, ref ip, end);
+					var type = TakeU16(script, ref ip, end);
+					var tryAt = ip;
+					var catchAt = tryAt + tryLen;
+					var finallyAt = catchAt + catchLen;
+					var endAt = finallyAt + finallyLen;
+					if (endAt > end)
+						throw new InvalidOperationException("Rejected record program.");
+					frame.EnterAct(script, catchLen == 0 ? -1 : catchAt, finallyLen == 0 ? -1 : finallyAt, endAt, type == 0xFFFF ? -1 : type);
+					break;
+				}
+				case ActLeave:
+					frame.LeaveAct(script, ref ip);
+					break;
+				case ActEndFinally:
+					frame.EndActFinally(script, strings, ref ip);
+					break;
 				case ActPop:
 					platform.Pop();
 					break;
@@ -1641,10 +1681,20 @@ public static partial class RecordProgram
 				default:
 					throw new InvalidOperationException("Rejected record program.");
 			}
+			}
+			catch (Exception ex) when (IsUserFault(ex))
+			{
+				if (!frame.DispatchAct(script, strings, ex, ref ip))
+				{
+					if (frame.HasOuterAct(script) || ex is InvalidOperationException)
+						throw;
+					throw new ActionStoppedException(ex.Message);
+				}
+			}
 		}
 	}
 
-	internal sealed class HandlerFrame
+	internal sealed partial class HandlerFrame
 	{
 		public int[] Ints = new int[8];
 		public double[] Doubles = new double[8];

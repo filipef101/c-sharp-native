@@ -13,6 +13,7 @@
 		<IsAotCompatible>true</IsAotCompatible>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 		<NoWarn>$(NoWarn);IL3053</NoWarn>
+		<NativePocHttp Condition="'$(NativePocHttp)' == ''">false</NativePocHttp>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
@@ -32,6 +33,12 @@
 	</ItemGroup>
 	<PropertyGroup Condition="'$(NativePocProgramOnly)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_PROGRAM_ONLY</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocHttp)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_HTTP</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocHttp)' != 'true'">
+		<NativePocSampleExclude>..\..\samples\feed\**</NativePocSampleExclude>
 	</PropertyGroup>
 	<Target Name="RefuseDevListenerInRelease" BeforeTargets="Build;Publish">
 		<Error
@@ -62,7 +69,8 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<Using Include="NativePoc" />
-		<Compile Include="..\..\samples\*\*.cs" Exclude="..\..\samples\NativePoc.*\**;**\bin\**;**\obj\**" />
+		<Compile Include="..\..\samples\*\*.cs" Exclude="..\..\samples\NativePoc.*\**;**\bin\**;**\obj\**;$(NativePocSampleExclude)" />
+		<Compile Remove="FeedJson.cs" Condition="'$(NativePocHttp)' != 'true'" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\NativePoc.Core\NativePoc.Core.csproj" />

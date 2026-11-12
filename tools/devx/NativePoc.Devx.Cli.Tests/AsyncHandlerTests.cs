@@ -112,6 +112,89 @@ public sealed class AsyncHandlerTests
 	}
 
 	[Fact]
+	public void A_try_around_await_catches_a_throw_inside_if()
+	{
+		const string source = """
+			namespace NativePoc.Feed;
+			public sealed class FeedItem
+			{
+				public string Id { get; set; } = "";
+				public string Title { get; set; } = "";
+			}
+			public sealed class FeedState
+			{
+				public string Phase { get; set; } = "";
+				public string Error { get; set; } = "";
+				public string Json { get; set; } = "";
+				public string Mark { get; set; } = "";
+				public bool Loading { get; set; }
+				public List<FeedItem> Items { get; set; } = new List<FeedItem>();
+			}
+			public static class FeedScreen
+			{
+				public const string ScreenId = "feed";
+				public static Element Render(FeedState state, IPlatform platform)
+				{
+					async void Load()
+					{
+						try
+						{
+							state.Loading = true;
+							state.Phase = "loading";
+							state.Error = "";
+							platform.RequestRender();
+							state.Mark = await Timer.After(platform, 1);
+							state.Json = await Http.GetJson(platform, "http://10.0.2.2:8094/feed");
+							if (state.Json.StartsWith("http-error:"))
+								throw new InvalidOperationException("down");
+							state.Phase = "ready";
+							state.Error = "";
+						}
+						catch (InvalidOperationException)
+						{
+							state.Error = state.Json;
+							state.Json = await Storage.Get(platform, "feed-json");
+							if (state.Json.Length == 0)
+							{
+								state.Phase = "error";
+								FeedModule.Apply(platform, state, "");
+							}
+							else
+							{
+								FeedModule.Apply(platform, state, state.Json);
+								state.Phase = "caught";
+							}
+						}
+						finally
+						{
+							state.Loading = false;
+						}
+					}
+					return new Column(
+					[
+						new Text(state.Phase) { Key = "phase" },
+						new Button("Refresh", () => Load(), "Refresh") { Key = "refresh" },
+					])
+					{ Key = "root" };
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source, originFile: "samples/feed/FeedScreen.cs");
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message + " @" + lowered.Diagnostics[0].Line);
+		var bag = new RecordProgram.Bag();
+		var bound = RecordProgram.Bind(lowered.Program!, bag);
+		var platform = new AsyncPlatform { Storage = "{\"items\":[{\"id\":\"a\",\"title\":\"Ada\"}]}" };
+		ElementIds.Invoke(bound.Render(platform), "refresh", null);
+		platform.Release("ok");
+		platform.Release("http-error: SocketTimeoutException");
+		Assert.Equal("caught", bag.ReadString("Phase"));
+		Assert.Equal("http-error: SocketTimeoutException", bag.ReadString("Error"));
+		Assert.False(bag.ReadBool("Loading"));
+		Assert.Contains(platform.Calls, call => call == "feed.Apply");
+		Assert.Null(ActionLog.LastStop);
+	}
+
+	[Fact]
 	public void A_faulted_fetch_keeps_the_error_and_falls_back()
 	{
 		var lowered = SubsetLowerer.TryLower(Screen, originFile: "samples/feed/FeedScreen.cs");
@@ -146,6 +229,8 @@ public sealed class AsyncHandlerTests
 	{
 		public List<string> Calls { get; } = new();
 
+		public string Storage { get; set; } = "";
+
 		Action<string>? _resume;
 
 		public void CopyNonce(string nonce)
@@ -162,7 +247,7 @@ public sealed class AsyncHandlerTests
 		{
 			Calls.Add(module + "." + method);
 			if (module == "storage")
-				return Task.FromResult("");
+				return Task.FromResult(Storage);
 			return new TaskCompletionSource<string>().Task;
 		}
 

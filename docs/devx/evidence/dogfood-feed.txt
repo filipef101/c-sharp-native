@@ -1,5 +1,7 @@
 # Feed, built through the listener
 
+The Show rule and the Release size in this log are that run. `Show` of an id already on the stack now moves that frame to the top. The later sizes and the `try` edit are in [size-try.txt](size-try.txt).
+
 Emulator-run on boot `56815464-4bc4-4f4c-a503-944cb91ab31f`. The command was `tools/devx/cnative run android --listener --restart-on-rude --device emulator-5554 --root feed`. Nothing was published.
 
 The screen is `samples/feed/FeedScreen.cs`. Refresh and a pull on the scroll call the same `Load` handler. That handler sets loading, awaits `Timer.After` then `Http.GetJson` of `http://10.0.2.2:8094/feed`, and on `http-error:` reads `Storage` key `feed-json`. A hit shows `offline` and the cached rows. A miss shows `error` and an empty list. Post calls `Http.PostJson`.

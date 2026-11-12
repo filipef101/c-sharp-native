@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using NativePoc.Feed;
 
 namespace NativePoc;
@@ -23,7 +21,7 @@ static class FeedJson
 		if (!TryRead(json, out var rows))
 			return;
 		foreach (var row in rows)
-			items.Add(new FeedItem { Id = row.Id ?? "", Title = row.Title ?? "" });
+			items.Add(new FeedItem { Id = row.Id, Title = row.Title });
 	}
 
 	public static void FillBag(string json)
@@ -35,37 +33,276 @@ static class FeedJson
 		if (!TryRead(json, out var rows))
 			return;
 		foreach (var row in rows)
-			bag.AddRow("Items", [row.Id ?? "", row.Title ?? ""]);
+			bag.AddRow("Items", [row.Id, row.Title]);
 	}
 
-	static bool TryRead(string json, out List<FeedRow> rows)
+	static bool TryRead(string json, out List<Row> rows)
 	{
 		rows = [];
 		if (json.Length == 0 || json.StartsWith("http-error:", StringComparison.Ordinal))
 			return false;
-		var document = JsonSerializer.Deserialize(json, FeedJsonContext.Default.FeedDocument);
-		if (document?.Items is null)
-			return false;
-		rows = document.Items;
-		return true;
+		var scan = new Scan(json);
+		return scan.TryDocument(rows);
 	}
-}
 
-public sealed class FeedDocument
-{
-	public List<FeedRow>? Items { get; set; }
-}
+	readonly struct Row(string id, string title)
+	{
+		public string Id { get; } = id;
 
-public sealed class FeedRow
-{
-	public string? Id { get; set; }
+		public string Title { get; } = title;
+	}
 
-	public string? Title { get; set; }
-}
+	struct Scan
+	{
+		readonly string _text;
+		int _at;
 
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
-[JsonSerializable(typeof(FeedDocument))]
-[JsonSerializable(typeof(FeedRow))]
-sealed partial class FeedJsonContext : JsonSerializerContext
-{
+		public Scan(string text)
+		{
+			_text = text;
+			_at = 0;
+		}
+
+		public bool TryDocument(List<Row> rows)
+		{
+			if (!Eat('{'))
+				return false;
+			if (Eat('}'))
+				return true;
+			do
+			{
+				if (!TryString(out var key) || !Eat(':'))
+					return false;
+				if (key == "items")
+				{
+					if (!TryItems(rows))
+						return false;
+				}
+				else if (!SkipValue())
+					return false;
+			}
+			while (Eat(','));
+
+			return Eat('}');
+		}
+
+		bool TryItems(List<Row> rows)
+		{
+			if (!Eat('['))
+				return false;
+			if (Eat(']'))
+				return true;
+			do
+			{
+				if (!TryRow(out var row))
+					return false;
+				rows.Add(row);
+			}
+			while (Eat(','));
+
+			return Eat(']');
+		}
+
+		bool TryRow(out Row row)
+		{
+			row = default;
+			if (!Eat('{'))
+				return false;
+			var id = "";
+			var title = "";
+			if (!Eat('}'))
+			{
+				do
+				{
+					if (!TryString(out var key) || !Eat(':'))
+						return false;
+					if (key is "id" or "title")
+					{
+						if (!TryString(out var value))
+							return false;
+						if (key == "id")
+							id = value;
+						else
+							title = value;
+					}
+					else if (!SkipValue())
+						return false;
+				}
+				while (Eat(','));
+
+				if (!Eat('}'))
+					return false;
+			}
+
+			row = new Row(id, title);
+			return true;
+		}
+
+		bool SkipValue()
+		{
+			Skip();
+			if (_at >= _text.Length)
+				return false;
+			var c = _text[_at];
+			if (c == '"')
+				return TryString(out _);
+			if (c == '{')
+				return SkipObject();
+			if (c == '[')
+				return SkipArray();
+			if (Starts("true"))
+			{
+				_at += 4;
+				return true;
+			}
+
+			if (Starts("false"))
+			{
+				_at += 5;
+				return true;
+			}
+
+			if (Starts("null"))
+			{
+				_at += 4;
+				return true;
+			}
+
+			if (c is '-' or '+' or '.' or (>= '0' and <= '9'))
+				return SkipNumber();
+			return false;
+		}
+
+		bool SkipObject()
+		{
+			if (!Eat('{'))
+				return false;
+			if (Eat('}'))
+				return true;
+			do
+			{
+				if (!TryString(out _) || !Eat(':') || !SkipValue())
+					return false;
+			}
+			while (Eat(','));
+
+			return Eat('}');
+		}
+
+		bool SkipArray()
+		{
+			if (!Eat('['))
+				return false;
+			if (Eat(']'))
+				return true;
+			do
+			{
+				if (!SkipValue())
+					return false;
+			}
+			while (Eat(','));
+
+			return Eat(']');
+		}
+
+		bool SkipNumber()
+		{
+			Skip();
+			var start = _at;
+			while (_at < _text.Length)
+			{
+				var c = _text[_at];
+				if (c is >= '0' and <= '9' or '-' or '+' or '.' or 'e' or 'E')
+					_at++;
+				else
+					break;
+			}
+
+			return _at > start;
+		}
+
+		bool TryString(out string value)
+		{
+			value = "";
+			Skip();
+			if (_at >= _text.Length || _text[_at] != '"')
+				return false;
+			_at++;
+			var buffer = new System.Text.StringBuilder();
+			while (_at < _text.Length)
+			{
+				var c = _text[_at++];
+				if (c == '"')
+				{
+					value = buffer.ToString();
+					return true;
+				}
+
+				if (c != '\\')
+				{
+					buffer.Append(c);
+					continue;
+				}
+
+				if (_at >= _text.Length)
+					return false;
+				var escaped = _text[_at++];
+				switch (escaped)
+				{
+					case '"' or '\\' or '/':
+						buffer.Append(escaped);
+						break;
+					case 'b':
+						buffer.Append('\b');
+						break;
+					case 'f':
+						buffer.Append('\f');
+						break;
+					case 'n':
+						buffer.Append('\n');
+						break;
+					case 'r':
+						buffer.Append('\r');
+						break;
+					case 't':
+						buffer.Append('\t');
+						break;
+					case 'u':
+						if (_at + 4 > _text.Length)
+							return false;
+						var hex = _text.Substring(_at, 4);
+						_at += 4;
+						if (!int.TryParse(hex, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var code))
+							return false;
+						buffer.Append((char)code);
+						break;
+					default:
+						return false;
+				}
+			}
+
+			return false;
+		}
+
+		bool Eat(char want)
+		{
+			Skip();
+			if (_at >= _text.Length || _text[_at] != want)
+				return false;
+			_at++;
+			return true;
+		}
+
+		void Skip()
+		{
+			while (_at < _text.Length && char.IsWhiteSpace(_text[_at]))
+				_at++;
+		}
+
+		bool Starts(string word)
+		{
+			Skip();
+			return _at + word.Length <= _text.Length && string.CompareOrdinal(_text, _at, word, 0, word.Length) == 0;
+		}
+	}
 }

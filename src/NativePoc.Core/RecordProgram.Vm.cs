@@ -54,6 +54,10 @@ public static partial class RecordProgram
 	public const byte VmUser = 46;
 	public const byte VmWatch = 47;
 	public const byte VmApp = 48;
+	public const byte VmTry = 49;
+	public const byte VmLeave = 50;
+	public const byte VmEndFinally = 51;
+	public const byte VmLeaveTo = 52;
 
 	public const string CollectionModified = "Collection was modified; enumeration operation may not execute.";
 
@@ -220,6 +224,8 @@ public static partial class RecordProgram
 		{
 			if (++frame.Steps > ActionStepBudget)
 				throw new ActionStoppedException("action stopped after " + ActionStepBudget.ToString(CultureInfo.InvariantCulture) + " steps");
+			try
+			{
 			var op = code[ip++];
 			switch (op)
 			{
@@ -513,8 +519,46 @@ public static partial class RecordProgram
 						Push(stack, ref sp, FromApp(result));
 					break;
 				}
+				case VmTry:
+				{
+					var catchRel = ReadI16(code, ref ip);
+					var finallyRel = ReadI16(code, ref ip);
+					var endRel = ReadI16(code, ref ip);
+					var type = TakeU16(code, ref ip, end);
+					var here = ip;
+					frame.EnterVm(
+						catchRel == short.MinValue ? -1 : here + catchRel,
+						finallyRel == short.MinValue ? -1 : here + finallyRel,
+						here + endRel,
+						type == 0xFFFF ? -1 : type,
+						sp,
+						depth);
+					break;
+				}
+				case VmLeave:
+					frame.LeaveVm(ref ip, frame.VmEnd(depth), depth);
+					break;
+				case VmLeaveTo:
+				{
+					var rel = ReadI16(code, ref ip);
+					frame.LeaveVm(ref ip, ip + rel, depth);
+					break;
+				}
+				case VmEndFinally:
+					frame.EndVmFinally(strings, ref ip, ref sp, depth);
+					break;
 				default:
 					throw new InvalidOperationException("Rejected record program.");
+			}
+			}
+			catch (Exception ex) when (IsUserFault(ex))
+			{
+				if (!frame.DispatchVm(strings, ex, ref ip, ref sp, depth))
+				{
+					if (frame.ActCount > 0 || ex is InvalidOperationException)
+						throw;
+					throw new ActionStoppedException(ex.Message);
+				}
 			}
 		}
 
@@ -562,14 +606,7 @@ public static partial class RecordProgram
 			{
 				var source = RequireText(args, args.Length);
 				var start = AsInt(args[1]);
-				try
-				{
-					return Val.FromStr(args.Length == 3 ? source.Substring(start, AsInt(args[2])) : source.Substring(start));
-				}
-				catch (ArgumentOutOfRangeException ex)
-				{
-					throw new ActionStoppedException(ex.Message);
-				}
+				return Val.FromStr(args.Length == 3 ? source.Substring(start, AsInt(args[2])) : source.Substring(start));
 			}
 			case VmLength:
 				return Val.FromInt(RequireText(args, 1).Length);
@@ -581,14 +618,7 @@ public static partial class RecordProgram
 			case VmRound:
 				return Val.FromDouble(Math.Round(AsDouble(RequireNumber(args, 1)), MidpointRounding.ToEven));
 			case VmParse:
-				try
-				{
-					return Val.FromInt(int.Parse(RequireText(args, 1), NumberStyles.Integer, CultureInfo.InvariantCulture));
-				}
-				catch (Exception ex) when (ex is FormatException or OverflowException)
-				{
-					throw new ActionStoppedException(ex.Message);
-				}
+				return Val.FromInt(int.Parse(RequireText(args, 1), NumberStyles.Integer, CultureInfo.InvariantCulture));
 			default:
 				throw new InvalidOperationException("Rejected record program.");
 		}
@@ -614,14 +644,7 @@ public static partial class RecordProgram
 	{
 		if (value.Kind == ValDouble)
 			return Val.FromDouble(Math.Abs(value.Double));
-		try
-		{
-			return Val.FromInt(Math.Abs(AsInt(value)));
-		}
-		catch (OverflowException ex)
-		{
-			throw new ActionStoppedException(ex.Message);
-		}
+		return Val.FromInt(Math.Abs(AsInt(value)));
 	}
 
 	static string RequireText(Val[] args, int count)
@@ -682,17 +705,7 @@ public static partial class RecordProgram
 
 	static int Remainder(int left, int right) => Whole(left, right, false);
 
-	static int Whole(int left, int right, bool divide)
-	{
-		try
-		{
-			return divide ? left / right : left % right;
-		}
-		catch (Exception ex) when (ex is DivideByZeroException or OverflowException)
-		{
-			throw new ActionStoppedException(ex.Message);
-		}
-	}
+	static int Whole(int left, int right, bool divide) => divide ? left / right : left % right;
 
 	static bool Compare(byte op, Val left, Val right)
 	{

@@ -353,8 +353,15 @@ public sealed class ScreenNav
 			_programs[id] = program.ToArray();
 			_ = BagLocked(id);
 			DropCache();
-			if (!_stack.Contains(id))
+			var at = _stack.IndexOf(id);
+			if (at < 0)
 				_stack.Add(id);
+			else if (at != _stack.Count - 1)
+			{
+				_stack.RemoveAt(at);
+				_stack.Add(id);
+			}
+
 			StateEpoch.Bump();
 		}
 	}

@@ -1,0 +1,74 @@
+# Release size, Show, and try
+
+Measured on the built binaries. Emulator-run is the x86_64 AVD `poc34`, API 34, boot `56815464-4bc4-4f4c-a503-944cb91ab31f`, process command `-gpu swiftshader_indirect`. No iOS run. No physical-device run. arm64 was built and not run.
+
+## What grew the Release .so
+
+The previous Release `.so` (`lib/x86_64/libNativePoc.Android.so` inside the signed APK) is sha256 `cf2c4bcbf9da2417a9af57a91125ae1172ca1a433845428574025060e7602b1a`, 10,768,168 bytes. The Release before Http was sha256 `8ad3a712a4b39dccd87368b6965335a2a2e78b265cfcc39c2855c1dee210e6bd`, 6,703,488 bytes. Delta +4,064,680 bytes.
+
+`IlcGenerateMstatFile=true` on that 10,768,168-byte publish. The `.so` hash did not change. Method and type sizes from the mstat, in bytes:
+
+| bucket | methods | types |
+| --- | ---: | ---: |
+| System.Net.Http | 525,845 | 122,412 |
+| System.Text.Json | 164,872 | 74,452 |
+| System.Security.Cryptography | 210,270 | 44,976 |
+| System.Net.Security | 194,275 | 35,484 |
+| System.Net.Sockets | 111,759 | 23,288 |
+| other System.Net | 81,772 | 39,544 |
+| NativePoc | 208,312 | 21,776 |
+
+`SocketsHttpHandler` pulls the HTTP stack, TLS, and cryptography even for a cleartext URL. `System.Text.Json` is the feed reader. NativePoc itself is about 230 KB. Setting `JsonSerializerIsReflectionEnabledByDefault` roots the `System.Text.Json` assembly for the trimmer. An intermediate counter publish with that switch and no `HttpClient` was 7,090,048 bytes and the mstat still had System.Text.Json methods 75,418 plus types 43,348. The switch is left unset. The feed reader is a direct scan of `{ "items": [{ "id", "title" }] }`. The transport is `HttpURLConnection` on a background thread. `samples/feed`, `FeedJson.cs`, and the HTTP arm compile only when `-p:NativePocHttp=true`. The listener publish passes that flag. A counter publish does not.
+
+## After
+
+Counter x64 `.so` sha256 `18d3e0c3ca8da0d35b32b1bf9b86c139888263c5c7ba41e8ca139400752326ad`, 6,733,712 bytes. That is +30,224 over 6,703,488 and −4,034,456 from 10,768,168. The mstat has no System.Net.Http, System.Net.Security, System.Security.Cryptography, System.Net.Sockets, or System.Text.Json bucket. NativePoc methods are 210,003. The strings `SocketsHttpHandler` and `System.Text.Json` that remain are the runtime-knob names, not those libraries. `TryRunReplacement` and `npoc-hotreload` are absent.
+
+Feed x64 `.so` sha256 `be77df71048ff8d3a1684360f1aa3595272c947a55d5b3622578e3ac013c6bb1`, 6,790,032 bytes. Delta +56,320 over the counter. `HttpURLConnection` and `FeedScreen` are present. Android methods 1,001,817 against the counter's 976,570.
+
+Counter arm64 `.so` sha256 `3f34e40a5a702b83b5fc4831f770262141b1f19a0d8d9112b9ecdaa891362962`, 6,954,704 bytes. No `HttpURLConnection`, no `FeedScreen`. Built, not run.
+
+Feed arm64 `.so` sha256 `fb99728aea968c33c1834039056dc3a91fae932cc1048e7293c38278cfa67cb2`, 7,014,824 bytes. Delta +60,120 over the counter arm64. Built, not run.
+
+Signed APKs, sha256 and size:
+
+| apk | sha256 | bytes |
+| --- | --- | ---: |
+| counter x64 | `bdfe0154e1aeee36eff2c7c76afcadfa430aa5f8fb6521aee5a6e60f5b0c5e1b` | 2,917,165 |
+| feed x64 | `b8baa148ec758915667ca3b817612b021f005d0cbc9c7afafe196e5be62bbf7c` | 2,941,741 |
+| counter arm64 | `33214dd6e63daf8e4a916138d401960b863ce37a61476933f1059b1f4b92c9d5` | 2,761,520 |
+| feed arm64 | `4eb7ed708d245444c9c68a2d7057694c5439c37d057ef1c4bc04846e7134f55f` | 2,786,096 |
+
+The listener x64 `.so` from the Debug publish is sha256 `a2aad89405351449aa8c177897ca93ddbf9b7b7b493aa6b038750c76540599b7`, 11,072,640 bytes. It contains `TryRunReplacement`. Its ILC response still roots `System.Text.Json`; the Release mstat does not. Measured on the built listener `.so`.
+
+## Cold start
+
+`am start -W -S`, component `com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity`. One discarded warmup per APK, then 20 rounds. Each round installs the 10,768,168-byte counter, records TotalTime, installs the 6,733,712-byte counter, and records TotalTime. Every sample, including the warmups, logged `LaunchState: COLD`. Percentiles are Hyndman-Fan type 7.
+
+Before, the 10,768,168-byte binary: p50 1010.5 ms, p90 1061.1 ms. Samples 959, 993, 907, 1026, 1004, 1023, 1055, 928, 1161, 992, 1058, 1032, 1017, 973, 1060, 1036, 970, 972, 1071, 985.
+
+After, the 6,733,712-byte binary: p50 1007.0 ms, p90 1093.5 ms. Samples 1092, 937, 1139, 1071, 1029, 1011, 1048, 1081, 984, 889, 946, 932, 959, 1060, 878, 969, 1107, 1003, 1032, 886.
+
+Emulator-run. swiftshader_indirect. This is TotalTime, not the earlier draw series.
+
+## Show
+
+`Show` of an id that is not on the stack appends it. `Show` of the current top leaves the stack and replaces the program. `Show` of an id already further down moves that frame to the top and does not add a second copy. Frames that were above it stay underneath. That is the same stack effect as `Push` of an existing id. It is not React Navigation's `navigate`, which pops back and drops the screens above. `A_show_of_a_screen_already_on_the_stack_moves_that_frame_to_the_top` is the test. Tested. The pid 16153 tree in the notes walkthrough is the previous rule.
+
+## try / catch / finally
+
+An exception thrown in the interpreter unwinds to the nearest interpreted handler. `catch (Exception)` and `catch (ArithmeticException)` match `DivideByZeroException` by walking base types. `catch (FormatException)` does not. `finally` runs on the way out. An exception thrown in `finally` replaces the pending one. `try { return n; } finally { n = 9; }` returns the value from before `finally`. A catch variable the block reads, a `when` filter, and `return` inside `finally` are refused. An exception no handler takes stops the action with that exception's message. `ActionParityTests.Try_catch_finally_matches_compiled_csharp` and `MethodBodyTests.Try_catch_finally_matches_compiled_csharp` compare those results with compiled C#. `A_try_around_await_catches_a_throw_inside_if` awaits, then throws inside `if (state.Json.StartsWith(...))`, and the catch sets the phase. Tested.
+
+`ReloadAotPublishTests` is the one fact that publishes a linux-x64 NativeAOT binary. It was left out of the previous Android run because that publish overlaps ILC. Run on its own it passed. Nothing in it failed. Tested.
+
+## Feed edit on one pid
+
+Command: `tools/devx/cnative run android --listener --restart-on-rude --device emulator-5554 --root feed`. Pid 22404. `IsDynamicCodeSupported=False`. Stack `counter`, `packing`, `note`, `notes`, `feed`.
+
+Refresh with the server up, before the edit: `Loading feed`, then `http-get chars=69`, then `ready` with Ada and Bea. Emulator-run.
+
+The edit added `try` / `catch` / `finally` to `Load` in `samples/feed/FeedScreen.cs`. `reloaded in 31.5 ms (apply 22.9 ms)`. `edit-to-reply 72 ms`. Reply `ready`. Same pid.
+
+Server stopped. Refresh: `http-error module=http.GET IOException`, `storage-load key=feed-json chars=69`, title `caught`, error text `http-error: IOException`, rows Ada and Bea. The throw inside the `if` was caught. Same pid 22404.
+
+Server started again. Refresh: `http-get chars=69`, `storage-set key=feed-json chars=69`, title `ready`. Same pid.

@@ -21,6 +21,7 @@ static class AndroidBuild
 		"-f", "net10.0-android",
 		"-r", rid,
 		"-p:NativePocDevListener=true",
+		"-p:NativePocHttp=true",
 	];
 
 	public static string PublishDirectory(string repo, string configuration, string rid) =>

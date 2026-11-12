@@ -1,21 +1,10 @@
 using System.Globalization;
-using System.Net.Http;
-using System.Text;
 using Android.Content;
 
 namespace NativePoc;
 
 static class PlatformModules
 {
-	static readonly HttpClient Http = new(new SocketsHttpHandler
-	{
-		PooledConnectionLifetime = TimeSpan.FromMinutes(1),
-		ConnectTimeout = TimeSpan.FromSeconds(8),
-	})
-	{
-		Timeout = TimeSpan.FromSeconds(8),
-	};
-
 	public static void Dispatch(Activity activity, string module, string method, string[] args)
 	{
 		switch (module, method, args.Length)
@@ -37,9 +26,11 @@ static class PlatformModules
 			case ("theme", "Mode", 1):
 				ThemeRuntime.Set(activity, args[0]);
 				return;
+#if NATIVEPOC_HTTP
 			case ("feed", "Apply", 1):
 				FeedJson.FillBag(args[0]);
 				return;
+#endif
 			default:
 				throw new InvalidOperationException("Unknown platform module " + module + "." + method + ".");
 		}
@@ -51,10 +42,12 @@ static class PlatformModules
 		{
 			switch (module, method, args.Length)
 			{
+#if NATIVEPOC_HTTP
 				case ("http", "GetJson", 1):
-					return await Send(HttpMethod.Get, args[0], null, cancel);
+					return await Task.Run(() => HttpTransport.Send("GET", args[0], null, cancel), cancel);
 				case ("http", "PostJson", 2):
-					return await Send(HttpMethod.Post, args[0], args[1], cancel);
+					return await Task.Run(() => HttpTransport.Send("POST", args[0], args[1], cancel), cancel);
+#endif
 				case ("storage", "Get", 1):
 					return AppStorage.Get(activity, args[0]) ?? "";
 				case ("timer", "After", 1):
@@ -81,23 +74,6 @@ static class PlatformModules
 			Android.Util.Log.Info(MainActivity.Tag, "http-error module=" + module + "." + method + " " + ex.GetType().Name);
 			return "http-error: " + ex.GetType().Name;
 		}
-	}
-
-	static async Task<string> Send(HttpMethod method, string url, string? json, CancellationToken cancel)
-	{
-		using var request = new HttpRequestMessage(method, url);
-		if (json is not null)
-			request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-		using var response = await Http.SendAsync(request, cancel);
-		var body = await response.Content.ReadAsStringAsync(cancel);
-		if (!response.IsSuccessStatusCode)
-		{
-			Android.Util.Log.Info(MainActivity.Tag, "http-status " + (int)response.StatusCode);
-			return "http-error: " + ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture);
-		}
-
-		Android.Util.Log.Info(MainActivity.Tag, "http-" + method.Method.ToLowerInvariant() + " chars=" + body.Length.ToString(CultureInfo.InvariantCulture));
-		return body;
 	}
 
 	static void Share(Activity activity, string text)

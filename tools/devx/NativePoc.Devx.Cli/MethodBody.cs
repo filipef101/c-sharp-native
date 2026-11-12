@@ -18,7 +18,7 @@ internal static class MethodBody
 		{
 			if (diagnostic.Severity != DiagnosticSeverity.Error)
 				continue;
-			refusal = Describe(diagnostic) + " could not be lowered into the action VM. The new body is not locals, if, loops, and return of int, bool, or string. Relaunching.";
+			refusal = Describe(diagnostic) + " could not be lowered into the action VM. The new body is not locals, if, loops, try, and return of int, bool, or string. Relaunching.";
 			return false;
 		}
 
@@ -125,7 +125,7 @@ internal static class MethodBody
 	}
 
 	static string Refuse(string typeName, string method) =>
-		typeName + "." + method + " could not be lowered into the action VM. The new body is not locals, if, loops, and return of int, bool, or string. Relaunching.";
+		typeName + "." + method + " could not be lowered into the action VM. The new body is not locals, if, loops, try, and return of int, bool, or string. Relaunching.";
 
 	static string Describe(Diagnostic diagnostic)
 	{
@@ -178,7 +178,7 @@ internal static class MethodBody
 		{
 			if (complete)
 				return false;
-			if (!WriteStatement(statement, names, kinds, ret, buf, exits, ref complete))
+			if (!WriteStatement(statement, names, kinds, ret, buf, exits, 0, ref complete))
 				return false;
 		}
 
@@ -187,7 +187,7 @@ internal static class MethodBody
 		return true;
 	}
 
-	static bool WriteStatement(StatementSyntax statement, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits, ref bool complete)
+	static bool WriteStatement(StatementSyntax statement, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits, int tries, ref bool complete)
 	{
 		switch (statement)
 		{
@@ -196,7 +196,7 @@ internal static class MethodBody
 				{
 					if (complete)
 						return false;
-					if (!WriteStatement(child, names, kinds, ret, buf, exits, ref complete))
+					if (!WriteStatement(child, names, kinds, ret, buf, exits, tries, ref complete))
 						return false;
 				}
 
@@ -204,15 +204,17 @@ internal static class MethodBody
 			case LocalDeclarationStatementSyntax local:
 				return Declare(local, names, kinds, buf);
 			case IfStatementSyntax branch:
-				return WriteIf(branch, names, kinds, ret, buf, exits, ref complete);
+				return WriteIf(branch, names, kinds, ret, buf, exits, tries, ref complete);
 			case WhileStatementSyntax loop:
-				return WriteWhile(loop, names, kinds, ret, buf, exits);
+				return WriteWhile(loop, names, kinds, ret, buf, exits, tries);
 			case ForStatementSyntax loop:
-				return WriteFor(loop, names, kinds, ret, buf, exits);
+				return WriteFor(loop, names, kinds, ret, buf, exits, tries);
+			case TryStatementSyntax tried:
+				return WriteTry(tried, names, kinds, ret, buf, exits, tries, ref complete);
 			case ReturnStatementSyntax returned:
 				if (returned.Expression is null || !Emit(returned.Expression, names, kinds, buf, out var kind) || kind != ret)
 					return false;
-				exits.Add(buf.Reserve(RecordProgram.VmJump));
+				exits.Add(buf.Reserve(tries > 0 ? RecordProgram.VmLeaveTo : RecordProgram.VmJump));
 				complete = true;
 				return true;
 			case ExpressionStatementSyntax expression:
@@ -248,13 +250,13 @@ internal static class MethodBody
 		return true;
 	}
 
-	static bool WriteIf(IfStatementSyntax branch, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits, ref bool complete)
+	static bool WriteIf(IfStatementSyntax branch, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits, int tries, ref bool complete)
 	{
 		if (!Emit(branch.Condition, names, kinds, buf, out var cond) || cond != RecordProgram.VmKindBool)
 			return false;
 		var skip = buf.Reserve(RecordProgram.VmJumpIfFalse);
 		var thenDone = false;
-		if (!WriteStatement(branch.Statement, names, kinds, ret, buf, exits, ref thenDone))
+		if (!WriteStatement(branch.Statement, names, kinds, ret, buf, exits, tries, ref thenDone))
 			return false;
 		if (branch.Else is null)
 		{
@@ -265,28 +267,28 @@ internal static class MethodBody
 		var end = buf.Reserve(RecordProgram.VmJump);
 		buf.Patch(skip);
 		var elseDone = false;
-		if (!WriteStatement(branch.Else.Statement, names, kinds, ret, buf, exits, ref elseDone))
+		if (!WriteStatement(branch.Else.Statement, names, kinds, ret, buf, exits, tries, ref elseDone))
 			return false;
 		buf.Patch(end);
 		complete = thenDone && elseDone;
 		return true;
 	}
 
-	static bool WriteWhile(WhileStatementSyntax loop, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits)
+	static bool WriteWhile(WhileStatementSyntax loop, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits, int tries)
 	{
 		var start = buf.Bytes.Count;
 		if (!Emit(loop.Condition, names, kinds, buf, out var cond) || cond != RecordProgram.VmKindBool)
 			return false;
 		var skip = buf.Reserve(RecordProgram.VmJumpIfFalse);
 		var ignored = false;
-		if (!WriteStatement(loop.Statement, names, kinds, ret, buf, exits, ref ignored))
+		if (!WriteStatement(loop.Statement, names, kinds, ret, buf, exits, tries, ref ignored))
 			return false;
 		buf.Jump(start);
 		buf.Patch(skip);
 		return true;
 	}
 
-	static bool WriteFor(ForStatementSyntax loop, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits)
+	static bool WriteFor(ForStatementSyntax loop, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits, int tries)
 	{
 		if (loop.Initializers.Count != 0 || loop.Declaration is not { Variables: [{ Initializer: not null } only] } || loop.Condition is null || loop.Incrementors.Count != 1)
 			return false;
@@ -305,8 +307,114 @@ internal static class MethodBody
 		names.Add(only.Identifier.ValueText);
 		kinds.Add(kind);
 		var header = SyntaxFactory.WhileStatement(loop.Condition, WithStep(loop.Statement, loop.Incrementors[0]));
-		return WriteWhile(header, names, kinds, ret, buf, exits);
+		return WriteWhile(header, names, kinds, ret, buf, exits, tries);
 	}
+
+	static bool WriteTry(TryStatementSyntax statement, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits, int tries, ref bool complete)
+	{
+		foreach (var clause in statement.Catches)
+		{
+			if (clause.Filter is not null)
+				return false;
+			var bound = clause.Declaration?.Identifier.ValueText ?? "";
+			if (bound.Length > 0 && clause.Block.DescendantNodes().OfType<IdentifierNameSyntax>().Any(name => name.Identifier.ValueText == bound))
+				return false;
+		}
+
+		if (statement.Finally is not null && statement.Finally.DescendantNodes().OfType<ReturnStatementSyntax>().Any())
+			return false;
+		return WriteTryRegion(statement.Block, statement.Catches, statement.Finally, names, kinds, ret, buf, exits, tries, ref complete);
+	}
+
+	static bool WriteTryRegion(BlockSyntax body, IReadOnlyList<CatchClauseSyntax> catches, FinallyClauseSyntax? fin, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits, int tries, ref bool complete)
+	{
+		if (catches.Count > 1)
+		{
+			var inner = catches.Take(catches.Count - 1).ToArray();
+			bool Inner(Buf target, ref bool done) => WriteTryRegion(body, inner, null, names, kinds, ret, target, exits, tries, ref done);
+			return WriteOneTry(Inner, catches[^1], fin, names, kinds, ret, buf, exits, tries, ref complete);
+		}
+
+		bool Direct(Buf target, ref bool done) => WriteStatements(body.Statements, names, kinds, ret, target, exits, tries + 1, ref done);
+		return WriteOneTry(Direct, catches.Count == 0 ? null : catches[0], fin, names, kinds, ret, buf, exits, tries, ref complete);
+	}
+
+	static bool WriteStatements(IEnumerable<StatementSyntax> statements, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits, int tries, ref bool complete)
+	{
+		var mark = names.Count;
+		foreach (var statement in statements)
+		{
+			if (complete)
+				return false;
+			if (!WriteStatement(statement, names, kinds, ret, buf, exits, tries, ref complete))
+				return false;
+		}
+
+		while (names.Count > mark)
+		{
+			names.RemoveAt(names.Count - 1);
+			kinds.RemoveAt(kinds.Count - 1);
+		}
+
+		return true;
+	}
+
+	static bool WriteOneTry(TryBody writeBody, CatchClauseSyntax? caught, FinallyClauseSyntax? fin, List<string> names, List<byte> kinds, byte ret, Buf buf, List<int> exits, int tries, ref bool complete)
+	{
+		buf.Op(RecordProgram.VmTry);
+		var catchAt = buf.Bytes.Count;
+		buf.Raw(0);
+		buf.Raw(0);
+		var finallyAt = buf.Bytes.Count;
+		buf.Raw(0);
+		buf.Raw(0);
+		var endAt = buf.Bytes.Count;
+		buf.Raw(0);
+		buf.Raw(0);
+		var type = caught?.Declaration is null
+			? caught is null ? 0xFFFE : 0xFFFF
+			: buf.Intern(caught.Declaration.Type.ToString());
+		if (type > ushort.MaxValue)
+			return false;
+		buf.U16(type);
+		var origin = buf.Bytes.Count;
+		var bodyDone = false;
+		if (!writeBody(buf, ref bodyDone))
+			return false;
+		if (!bodyDone)
+			buf.Op(RecordProgram.VmLeave);
+		var catchIp = buf.Bytes.Count;
+		var catchDone = caught is null;
+		if (caught is not null)
+		{
+			catchDone = false;
+			if (!WriteStatements(caught.Block.Statements, names, kinds, ret, buf, exits, tries + 1, ref catchDone))
+				return false;
+			if (!catchDone)
+				buf.Op(RecordProgram.VmLeave);
+		}
+
+		var finallyIp = buf.Bytes.Count;
+		if (fin is not null)
+		{
+			var ignored = false;
+			if (!WriteStatements(fin.Block.Statements, names, kinds, ret, buf, exits, tries + 1, ref ignored))
+				return false;
+			buf.Op(RecordProgram.VmEndFinally);
+		}
+
+		var endIp = buf.Bytes.Count;
+		if (!buf.PatchTo(catchAt, caught is null ? short.MinValue : catchIp - origin))
+			return false;
+		if (!buf.PatchTo(finallyAt, fin is null ? short.MinValue : finallyIp - origin))
+			return false;
+		if (!buf.PatchTo(endAt, endIp - origin))
+			return false;
+		complete = bodyDone && catchDone;
+		return true;
+	}
+
+	delegate bool TryBody(Buf buf, ref bool complete);
 
 	static StatementSyntax WithStep(StatementSyntax body, ExpressionSyntax step)
 	{
@@ -573,6 +681,15 @@ internal static class MethodBody
 			var relative = Bytes.Count - (at + 2);
 			Bytes[at] = (byte)relative;
 			Bytes[at + 1] = (byte)(relative >> 8);
+		}
+
+		public bool PatchTo(int at, int relative)
+		{
+			if (relative < short.MinValue || relative > short.MaxValue)
+				return false;
+			Bytes[at] = (byte)relative;
+			Bytes[at + 1] = (byte)(relative >> 8);
+			return true;
 		}
 
 		public void Jump(int target)

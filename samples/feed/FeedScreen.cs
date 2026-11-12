@@ -30,13 +30,22 @@ public static class FeedScreen
 	{
 		async void Load()
 		{
-			state.Loading = true;
-			state.Phase = "loading";
-			state.Error = "";
-			platform.RequestRender();
-			state.Mark = await Timer.After(platform, 1);
-			state.Json = await Http.GetJson(platform, "http://10.0.2.2:8094/feed");
-			if (state.Json.StartsWith("http-error:"))
+			try
+			{
+				state.Loading = true;
+				state.Phase = "loading";
+				state.Error = "";
+				platform.RequestRender();
+				state.Mark = await Timer.After(platform, 1);
+				state.Json = await Http.GetJson(platform, "http://10.0.2.2:8094/feed");
+				if (state.Json.StartsWith("http-error:"))
+					throw new InvalidOperationException("down");
+				Storage.Set(platform, "feed-json", state.Json);
+				FeedModule.Apply(platform, state, state.Json);
+				state.Phase = "ready";
+				state.Error = "";
+			}
+			catch (InvalidOperationException)
 			{
 				state.Error = state.Json;
 				state.Json = await Storage.Get(platform, "feed-json");
@@ -48,19 +57,14 @@ public static class FeedScreen
 				else
 				{
 					FeedModule.Apply(platform, state, state.Json);
-					state.Phase = "offline";
+					state.Phase = "caught";
 				}
 			}
-			else
+			finally
 			{
-				Storage.Set(platform, "feed-json", state.Json);
-				FeedModule.Apply(platform, state, state.Json);
-				state.Phase = "ready";
-				state.Error = "";
+				state.Loading = false;
+				platform.RequestRender();
 			}
-
-			state.Loading = false;
-			platform.RequestRender();
 		}
 
 		async void Post()

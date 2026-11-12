@@ -28,6 +28,8 @@ public static partial class SubsetLowerer
 					return VmForeach(loop, parameter, script);
 				case ThrowStatementSyntax thrown:
 					return Throw(thrown, script);
+				case TryStatementSyntax tried:
+					return TryStatement(tried, parameter, script);
 				default:
 					return Fail(BadLambda, ActionLimit, statement);
 			}
@@ -52,6 +54,74 @@ public static partial class SubsetLowerer
 			script.AddRange(thenScript);
 			U16(script, elseScript.Count);
 			script.AddRange(elseScript);
+			return true;
+		}
+
+		bool TryStatement(TryStatementSyntax statement, string parameter, List<byte> script)
+		{
+			foreach (var clause in statement.Catches)
+			{
+				if (clause.Filter is not null)
+					return Fail(BadLambda, ActionLimit, clause);
+				var bound = clause.Declaration?.Identifier.ValueText ?? "";
+				if (bound.Length > 0 && clause.Block.DescendantNodes().OfType<IdentifierNameSyntax>().Any(name => name.Identifier.ValueText == bound))
+					return Fail(BadLambda, ActionLimit, clause);
+			}
+
+			if (statement.Finally is not null && statement.Finally.DescendantNodes().OfType<ReturnStatementSyntax>().Any())
+				return Fail(BadLambda, ActionLimit, statement.Finally);
+			return EmitActTry(statement.Block, statement.Catches, statement.Finally, parameter, script);
+		}
+
+		bool EmitActTry(BlockSyntax body, IReadOnlyList<CatchClauseSyntax> catches, FinallyClauseSyntax? fin, string parameter, List<byte> script)
+		{
+			if (catches.Count > 1)
+			{
+				var inner = new List<byte>();
+				if (!EmitActTry(body, catches.Take(catches.Count - 1).ToArray(), null, parameter, inner))
+					return false;
+				inner.Add(RecordProgram.ActLeave);
+				return EmitActRegion(inner, catches[^1], fin, parameter, script, body);
+			}
+
+			var bytes = new List<byte>();
+			if (!Branch(body, parameter, bytes))
+				return false;
+			bytes.Add(RecordProgram.ActLeave);
+			return EmitActRegion(bytes, catches.Count == 0 ? null : catches[0], fin, parameter, script, body);
+		}
+
+		bool EmitActRegion(List<byte> tryBytes, CatchClauseSyntax? caught, FinallyClauseSyntax? fin, string parameter, List<byte> script, SyntaxNode anchor)
+		{
+			var catchBytes = new List<byte>();
+			if (caught is not null)
+			{
+				if (!Branch(caught.Block, parameter, catchBytes))
+					return false;
+				catchBytes.Add(RecordProgram.ActLeave);
+			}
+
+			var finallyBytes = new List<byte>();
+			if (fin is not null)
+			{
+				if (!Branch(fin.Block, parameter, finallyBytes))
+					return false;
+				finallyBytes.Add(RecordProgram.ActEndFinally);
+			}
+
+			if (tryBytes.Count > ushort.MaxValue || catchBytes.Count > ushort.MaxValue || finallyBytes.Count > ushort.MaxValue)
+				return Fail(BadLambda, ActionLimit, anchor);
+			int type = caught?.Declaration is null
+				? caught is null ? 0xFFFE : 0xFFFF
+				: _code.Intern(caught.Declaration.Type.ToString());
+			script.Add(RecordProgram.ActTry);
+			U16(script, tryBytes.Count);
+			U16(script, catchBytes.Count);
+			U16(script, finallyBytes.Count);
+			U16(script, type);
+			script.AddRange(tryBytes);
+			script.AddRange(catchBytes);
+			script.AddRange(finallyBytes);
 			return true;
 		}
 

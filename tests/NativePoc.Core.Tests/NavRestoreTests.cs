@@ -101,18 +101,23 @@ public sealed class NavRestoreTests
 	}
 
 	[Fact]
-	public void A_show_of_a_screen_already_on_the_stack_does_not_add_another_frame()
+	public void A_show_of_a_screen_already_on_the_stack_moves_that_frame_to_the_top()
 	{
 		var nav = new ScreenNav();
 		nav.Show(Program("counter", "Hello"));
 		nav.Show(Program("packing", "Pack"));
-		nav.Show(Program("counter", "Hello again"));
-		Assert.Equal("stack 0 counter\nstack 1 packing\n", nav.Format());
+		nav.Show(Program("notes", "Notes"));
+		nav.Show(Program("packing", "Pack again"));
+		Assert.Equal("stack 0 counter\nstack 1 notes\nstack 2 packing\n", nav.Format());
 		Assert.Equal("packing", nav.TopId());
-		Assert.True(nav.Push("counter"));
-		Assert.Equal("stack 0 packing\nstack 1 counter\n", nav.Format());
+		Assert.Equal(3, nav.Format().Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
+		nav.Show(Program("counter", "Hello again"));
+		Assert.Equal("stack 0 notes\nstack 1 packing\nstack 2 counter\n", nav.Format());
+		Assert.Equal("counter", nav.TopId());
 		var top = nav.Top() ?? throw new InvalidOperationException("missing");
 		Assert.Equal("Hello again", Assert.IsType<Text>(top.Render.Invoke(new Quiet())).Value);
+		nav.Show(Program("counter", "Still top"));
+		Assert.Equal("stack 0 notes\nstack 1 packing\nstack 2 counter\n", nav.Format());
 	}
 
 	[Fact]

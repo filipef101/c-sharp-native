@@ -68,6 +68,21 @@ public sealed class ActionParityTests
 	}
 
 	[Fact]
+	public void Try_catch_finally_matches_compiled_csharp()
+	{
+		var hello = NewLoop.Template("hello");
+		Check(hello.Replace("state.Count++;", "try { state.Count = 2; } finally { state.Title = \"fin\"; }", StringComparison.Ordinal));
+		Check(hello.Replace("state.Count++;", "int z = 0; try { state.Count = 1 / z; } catch (DivideByZeroException) { state.Count = 3; } finally { state.Title = \"done\"; }", StringComparison.Ordinal));
+		Check(hello.Replace("state.Count++;", "int z = 0; try { state.Count = 1 / z; } catch (ArithmeticException) { state.Count = 3; } finally { state.Count = state.Count + 1; }", StringComparison.Ordinal));
+		Check(hello.Replace("state.Count++;", "try { state.Count = 1; if (state.Title.StartsWith(\"H\")) throw new InvalidOperationException(\"down\"); state.Count = 9; } catch (InvalidOperationException) { state.Count = 3; } finally { state.Title = \"done\"; }", StringComparison.Ordinal));
+		Check(hello.Replace("state.Count++;", "state.Title = \"no\"; try { if (state.Title.StartsWith(\"H\")) throw new InvalidOperationException(\"down\"); state.Count = 9; } catch (InvalidOperationException) { state.Count = 3; } finally { state.Title = \"ok\"; }", StringComparison.Ordinal));
+		Check(hello.Replace("state.Count++;", "try { if (state.Title.StartsWith(\"H\")) throw new InvalidOperationException(\"down\"); } catch (FormatException) { state.Count = 1; } catch (InvalidOperationException) { state.Count = 4; }", StringComparison.Ordinal));
+		Check(hello.Replace("state.Count++;", "int z = 0; try { state.Count = 1 / z; } catch { state.Count = 5; }", StringComparison.Ordinal));
+		Stop(hello.Replace("state.Count++;", "try { if (state.Title.StartsWith(\"H\")) throw new InvalidOperationException(\"down\"); } catch (FormatException) { state.Count = 7; }", StringComparison.Ordinal));
+		Stop(hello.Replace("state.Count++;", "try { if (state.Title.StartsWith(\"H\")) throw new InvalidOperationException(\"down\"); } finally { throw new InvalidOperationException(\"fin\"); }", StringComparison.Ordinal));
+	}
+
+	[Fact]
 	public void Stops_use_the_csharp_exception_message()
 	{
 		var hello = NewLoop.Template("hello");

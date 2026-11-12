@@ -94,20 +94,161 @@ public sealed class MethodBodyTests
 			{
 				public static int Next(int count)
 				{
-					try
-					{
+					foreach (var item in "ab")
 						return count;
-					}
-					catch
-					{
-						return 0;
-					}
 				}
 			}
 			""";
 		Assert.False(MethodBody.TryLower(source, out _, out var refusal));
 		Assert.Contains("could not be lowered into the action VM", refusal, StringComparison.Ordinal);
 		Assert.Contains("Relaunching.", refusal, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void Try_catch_finally_matches_compiled_csharp()
+	{
+		const string kept = """
+			namespace NativePoc;
+			public static class CounterService
+			{
+				public static int Next(int count)
+				{
+					var n = count;
+					try
+					{
+						return n;
+					}
+					finally
+					{
+						n = 9;
+					}
+				}
+			}
+			""";
+		const string caught = """
+			namespace NativePoc;
+			public static class CounterService
+			{
+				public static int Next(int count)
+				{
+					var n = 0;
+					try
+					{
+						n = 1 / count;
+					}
+					catch (DivideByZeroException)
+					{
+						n = 3;
+					}
+					finally
+					{
+						n = n + 1;
+					}
+					return n;
+				}
+			}
+			""";
+		const string wrong = """
+			namespace NativePoc;
+			public static class CounterService
+			{
+				public static int Next(int count)
+				{
+					try
+					{
+						return 1 / count;
+					}
+					catch (FormatException)
+					{
+						return 7;
+					}
+				}
+			}
+			""";
+		const string bound = """
+			namespace NativePoc;
+			public static class CounterService
+			{
+				public static int Next(int count)
+				{
+					try
+					{
+						return 1 / count;
+					}
+					catch (Exception ex)
+					{
+						return ex.Message.Length;
+					}
+				}
+			}
+			""";
+		Assert.Equal(4, Run(kept, 4));
+		Assert.Equal(4, Run(caught, 0));
+		Assert.Equal(1, Run(caught, 2));
+		Assert.Equal(CompileMessage(wrong, 0), RunStopped(wrong, 0));
+		Assert.False(MethodBody.TryLower(bound, out _, out var refusal));
+		Assert.Contains("could not be lowered", refusal, StringComparison.Ordinal);
+	}
+
+	static int Run(string source, int count)
+	{
+		Assert.True(MethodBody.TryLower(source, out var bodies, out var why), why);
+		var body = Assert.Single(bodies);
+		RecordProgram.ClearReplacements();
+		Assert.Equal("vm-body " + body.TypeName + "." + body.MethodName, Reply(ScreenQuery.ReplaceBody(body.TypeName, body.MethodName, body.ReturnKind, body.ArgKinds, body.Code, body.Strings)));
+		Assert.True(RecordProgram.TryRunReplacement("CounterService", "Next", [RecordProgram.AppValue.FromInt(count)], out var value));
+		RecordProgram.ClearReplacements();
+		Assert.Equal(Compile(source, count), value.Int);
+		return value.Int;
+	}
+
+	static string RunStopped(string source, int count)
+	{
+		Assert.True(MethodBody.TryLower(source, out var bodies, out var why), why);
+		var body = Assert.Single(bodies);
+		RecordProgram.ClearReplacements();
+		Assert.Equal("vm-body " + body.TypeName + "." + body.MethodName, Reply(ScreenQuery.ReplaceBody(body.TypeName, body.MethodName, body.ReturnKind, body.ArgKinds, body.Code, body.Strings)));
+		var thrown = Assert.ThrowsAny<Exception>(() => RecordProgram.TryRunReplacement("CounterService", "Next", [RecordProgram.AppValue.FromInt(count)], out _));
+		RecordProgram.ClearReplacements();
+		return thrown.Message;
+	}
+
+	static string CompileMessage(string source, int count)
+	{
+		try
+		{
+			Compile(source, count);
+			return "";
+		}
+		catch (Exception ex)
+		{
+			return ex.Message;
+		}
+	}
+
+	static int Compile(string source, int count)
+	{
+		var text = "using System;\n" + source;
+		var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(text);
+		var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+			"try-" + Guid.NewGuid().ToString("N"),
+			[tree],
+			[Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+				Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(Path.Combine(Path.GetDirectoryName(typeof(object).Assembly.Location)!, "System.Runtime.dll"))],
+			new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+		using var pe = new MemoryStream();
+		var emitted = compilation.Emit(pe);
+		Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+		var assembly = System.Reflection.Assembly.Load(pe.ToArray());
+		var method = assembly.GetType("NativePoc.CounterService")!.GetMethod("Next")!;
+		try
+		{
+			return (int)method.Invoke(null, [count])!;
+		}
+		catch (System.Reflection.TargetInvocationException ex) when (ex.InnerException is not null)
+		{
+			throw ex.InnerException;
+		}
 	}
 
 	[Fact]
