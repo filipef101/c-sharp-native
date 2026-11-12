@@ -23,6 +23,19 @@ public sealed class LoopRuleTests
 	}
 
 	[Fact]
+	public void An_app_package_id_comes_from_the_project()
+	{
+		var id = PackageId.FromText("""
+			<Project>
+				<PropertyGroup>
+					<ApplicationId>com.scratch.hello</ApplicationId>
+				</PropertyGroup>
+			</Project>
+			""");
+		Assert.Equal("com.scratch.hello", id);
+	}
+
+	[Fact]
 	public void Package_follows_NATIVEPOC_PACKAGE()
 	{
 		var previous = Environment.GetEnvironmentVariable("NATIVEPOC_PACKAGE");

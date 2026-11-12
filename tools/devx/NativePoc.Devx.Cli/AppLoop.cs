@@ -34,6 +34,10 @@ static class AppLoop
 		var rid = options.Abi ?? Abi.RidFromProperty(abi);
 		Console.WriteLine("cnative: app " + root + " " + serial + " rid=" + rid);
 		var project = Path.Combine(root, "cnative-app.csproj");
+		var applicationId = PackageId.FromProject(project);
+		if (Environment.GetEnvironmentVariable("NATIVEPOC_PACKAGE") is not { Length: > 0 })
+			Environment.SetEnvironmentVariable("NATIVEPOC_PACKAGE", applicationId);
+		Console.WriteLine("cnative: package " + LaunchCommand.Package);
 		var publishDir = AndroidBuild.AppPublishDirectory(root, "Debug", rid);
 		var apk = AndroidBuild.ExistingSignedApk(publishDir);
 		if (ListenerApkCurrent(project, apk))

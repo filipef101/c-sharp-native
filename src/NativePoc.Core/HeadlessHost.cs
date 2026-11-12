@@ -12,6 +12,7 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 	readonly List<string> _copied = new();
 	readonly List<string> _pushed = new();
 	readonly List<string> _calls = new();
+	readonly HashSet<string> _opened = new(StringComparer.Ordinal);
 	readonly NavFocusState _nav = new();
 	Func<IPlatform, Element>? _render;
 	bool _painting;
@@ -37,6 +38,8 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 	public void ResetNav() => _nav.Reset();
 
 	public int Renders { get; private set; }
+
+	internal Func<string, string, string[], string>? ModuleReply { get; set; }
 
 	public string Accessibility => ScreenSnapshot.FormatTree(Tree);
 
@@ -84,10 +87,29 @@ public sealed class HeadlessHost : IPlatform, IPlatformSurface
 
 	public void Pop()
 	{
+		var leaving = _nav.Top;
 		Pops++;
 		_nav.Pop();
+		if (leaving.Length > 0)
+			_opened.Remove(leaving);
 		Paint();
 		_nav.FocusFrom(Tree);
+	}
+
+	public void OnOpen(string screen, Action open)
+	{
+		ArgumentNullException.ThrowIfNull(open);
+		if (screen.Length == 0 || !_opened.Add(screen))
+			return;
+		_calls.Add("open " + screen);
+		open();
+	}
+
+	public Task<string> ModuleAsync(string module, string method, string[] args)
+	{
+		_calls.Add(module + "." + method + " " + string.Join(' ', args));
+		var text = ModuleReply?.Invoke(module, method, args) ?? "ok";
+		return Task.FromResult(text);
 	}
 
 	internal bool SwipeBack(float fraction, float velocity)

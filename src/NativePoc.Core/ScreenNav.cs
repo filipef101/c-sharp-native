@@ -333,6 +333,33 @@ public sealed class ScreenNav
 			_allowed.Add(id);
 	}
 
+	internal string[] Ids()
+	{
+		lock (_gate)
+		{
+			var ids = new SortedSet<string>(StringComparer.Ordinal);
+			foreach (var id in _allowed)
+				ids.Add(id);
+			foreach (var id in _programs.Keys)
+				ids.Add(id);
+			foreach (var id in _bags.Keys)
+				ids.Add(id);
+			foreach (var id in _pending.Keys)
+				ids.Add(id);
+			return ids.Count == 0 ? [] : ids.ToArray();
+		}
+	}
+
+	internal void StampTheme(bool dark, bool large)
+	{
+		foreach (var id in Ids())
+		{
+			var bag = Bag(id);
+			bag.WriteBool("Dark", dark);
+			bag.WriteBool("Large", large);
+		}
+	}
+
 	public string TopId()
 	{
 		lock (_gate)

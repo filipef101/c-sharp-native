@@ -65,6 +65,29 @@ static class ActivityName
 	}
 }
 
+static class PackageId
+{
+	public static string FromProject(string project) => FromText(File.ReadAllText(project));
+
+	public static string FromText(string text)
+	{
+		foreach (var line in text.Split('\n'))
+		{
+			var trimmed = line.Trim().TrimEnd('\r');
+			const string open = "<ApplicationId>";
+			const string close = "</ApplicationId>";
+			if (!trimmed.StartsWith(open, StringComparison.Ordinal) || !trimmed.EndsWith(close, StringComparison.Ordinal))
+				continue;
+			var id = trimmed[open.Length..^close.Length].Trim();
+			if (id.Length == 0 || id.Contains(' ') || !id.Contains('.'))
+				continue;
+			return id;
+		}
+
+		throw new InvalidOperationException("cnative-app.csproj has no ApplicationId.");
+	}
+}
+
 static class LaunchCommand
 {
 	public static string Package =>

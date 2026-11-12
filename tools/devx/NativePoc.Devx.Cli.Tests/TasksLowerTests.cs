@@ -22,19 +22,31 @@ public sealed class TasksLowerTests
 	}
 
 	[Fact]
-	public void Restore_replaces_the_list_from_the_saved_text()
+	public void Open_replaces_the_list_from_persist_and_a_second_render_does_not()
 	{
-		var session = ScreenSession.Open(Lowered(Tasks()));
 		var encoded = PersistRows.Encode(new List<string[]>
 		{
 			new[] { "9", "Sweep", "true" },
 		});
-		session.Bag.WriteString("Saved", encoded);
-		session.Tap("tasks/restore");
+		var session = ScreenSession.Open(Lowered(Tasks()), (module, method, _) =>
+			module == "persist" && method == "Get" ? encoded : "ok");
 		var row = Assert.Single(session.Bag.Rows("Tasks"));
 		Assert.Equal("9", row[0]);
 		Assert.Equal("Sweep", row[1]);
 		Assert.Equal("true", row[2]);
+		session.Bag.WriteString("Saved", "ok");
+		session.Tap("tasks/9/complete");
+		Assert.Equal("9", Assert.Single(session.Bag.Rows("Tasks"))[0]);
+	}
+
+	[Fact]
+	public void Push_uses_the_first_string_when_the_row_has_no_Id()
+	{
+		var lowered = SubsetLowerer.TryLower(PushTitle());
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var refused = SubsetLowerer.TryLower(PushFlag());
+		Assert.False(refused.Ok);
+		Assert.Contains("string property", refused.Diagnostics[0].Message, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -47,6 +59,41 @@ public sealed class TasksLowerTests
 		Assert.Contains("Duplicate element key \"title\"", lowered.Diagnostics[0].Message, StringComparison.Ordinal);
 		Assert.Contains("different Key", lowered.Diagnostics[0].Message, StringComparison.Ordinal);
 	}
+
+	static string PushTitle() => PushScreen("public string Title { get; set; } = \"\";", "new Note { Title = \"Milk\" }");
+
+	static string PushFlag() => PushScreen("public bool Done { get; set; }", "new Note { Done = false }");
+
+	static string PushScreen(string field, string seed) =>
+		$$"""
+		namespace NativePoc.Tasks;
+
+		public sealed class Note
+		{
+			{{field}}
+		}
+
+		public sealed class NotesState
+		{
+			public List<Note> Notes { get; set; } = new List<Note>
+			{
+				{{seed}},
+			};
+		}
+
+		public static class NotesScreen
+		{
+			public const string ScreenId = "notes";
+
+			public static Element Render(NotesState state, IPlatform platform)
+			{
+				var rows = new List<Element>();
+				foreach (var item in state.Notes)
+					rows.Add(new Button("Open", () => { platform.Push("note", item); }, "Open") { Key = "open" });
+				return new Column(rows) { Key = "notes" };
+			}
+		}
+		""";
 
 	static string Tasks() =>
 		"""
@@ -76,15 +123,18 @@ public sealed class TasksLowerTests
 			{
 				async void Save()
 				{
-					state.Saved = await Persist.Put(platform, "tasks", PersistRows.Encode(state.Tasks));
+					state.Saved = await Persist.Put(platform, "tasks", PersistRows.Encode(state.Tasks, static item => new[] { item.Id, item.Title, item.Done ? "true" : "false" }));
 					platform.RequestRender();
 				}
 
-				void Restore()
+				async void Open()
 				{
-					PersistRows.Fill(state.Tasks, state.Saved);
+					state.Saved = await Persist.Get(platform, "tasks");
+					PersistRows.Fill(state.Tasks, state.Saved, static cells => new TaskItem { Id = cells[0], Title = cells[1], Done = cells[2] == "true" });
 					platform.RequestRender();
 				}
+
+				platform.OnOpen(ScreenId, Open);
 
 				var rows = new List<Element>();
 				rows.Add(new Text("Tasks") { Key = "heading", Style = new Style { FontSize = 22 } });
@@ -96,7 +146,6 @@ public sealed class TasksLowerTests
 					{ Key = item.Id });
 				}
 
-				rows.Add(new Button("Restore", () => Restore(), "Restore") { Key = "restore" });
 				return new Column(rows) { Key = "tasks" };
 			}
 		}

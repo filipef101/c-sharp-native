@@ -55,6 +55,51 @@ public sealed class HeadlessHostTests
 	}
 
 	[Fact]
+	public void OnOpen_runs_once_and_a_fresh_host_runs_it_again()
+	{
+		var encoded = PersistRows.Encode(new List<string[]>
+		{
+			new[] { "9", "Sweep", "true" },
+		});
+		var first = new List<string> { "Buy milk" };
+		var host = new HeadlessHost
+		{
+			ModuleReply = (module, method, _) => module == "persist" && method == "Get" ? encoded : "ok",
+		};
+		var opens = 0;
+		host.Show(platform =>
+		{
+			platform.OnOpen("tasks", () =>
+			{
+				opens++;
+				var text = platform.ModuleAsync("persist", "Get", ["tasks"]).GetAwaiter().GetResult();
+				PersistRows.Fill(first, text, static cells => cells[1]);
+			});
+			return new Text(first[0]) { Key = "heading", Style = new Style { FontSize = 22 } };
+		});
+		Assert.Equal(1, opens);
+		Assert.Equal("Sweep", first[0]);
+		Assert.Contains("value=\"Sweep\"", host.Accessibility, StringComparison.Ordinal);
+		host.RequestRender();
+		Assert.Equal(1, opens);
+		host.Apply(RecordProgram.Encode(["Edited"], [], [
+			RecordProgram.OpPushStr, 0, 0,
+			RecordProgram.OpMakeText, 0xFF, 0xFF,
+			RecordProgram.OpMakeColumn, 1, 0xFF, 0xFF,
+			RecordProgram.OpReturn,
+		], "edit"), new RecordProgram.Bag());
+		Assert.Equal(1, opens);
+
+		var again = 0;
+		new HeadlessHost().Show(platform =>
+		{
+			platform.OnOpen("tasks", () => again++);
+			return new Text("Tasks") { Key = "heading", Style = new Style { FontSize = 22 } };
+		});
+		Assert.Equal(1, again);
+	}
+
+	[Fact]
 	public void An_across_column_places_children_side_by_side()
 	{
 		var host = new HeadlessHost();

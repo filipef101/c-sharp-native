@@ -1,6 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Reflection;
 using System.Text;
 
 namespace NativePoc;
@@ -26,22 +24,31 @@ public static class PersistRows
 		return builder.ToString();
 	}
 
-	public static string Encode<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(IReadOnlyList<T> rows)
+	public static string Encode<T>(IReadOnlyList<T> rows, Func<T, string[]> fields)
 	{
 		ArgumentNullException.ThrowIfNull(rows);
-		var props = Props<T>();
+		ArgumentNullException.ThrowIfNull(fields);
 		var cells = new List<string[]>(rows.Count);
 		foreach (var row in rows)
 		{
 			if (row is null)
 				throw new ArgumentNullException(nameof(rows));
-			var line = new string[props.Length];
-			for (var index = 0; index < props.Length; index++)
-				line[index] = Cell(props[index].GetValue(row));
-			cells.Add(line);
+			cells.Add(fields(row) ?? throw new ArgumentNullException(nameof(fields)));
 		}
 
 		return Encode(cells);
+	}
+
+	public static string EncodeFields(params string[] fields)
+	{
+		ArgumentNullException.ThrowIfNull(fields);
+		var builder = new StringBuilder();
+		builder.Append("2\n");
+		builder.Append(fields.Length.ToString(CultureInfo.InvariantCulture));
+		builder.Append('\n');
+		foreach (var field in fields)
+			Write(builder, field ?? "");
+		return builder.ToString();
 	}
 
 	public static bool TryDecode(string text, out List<string[]> rows)
@@ -71,44 +78,37 @@ public static class PersistRows
 		return true;
 	}
 
-	public static void Fill<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | DynamicallyAccessedMemberTypes.PublicProperties)] T>(IList<T> rows, string text)
-		where T : new()
+	public static bool TryDecodeFields(string text, out string[] fields)
+	{
+		fields = [];
+		if (text is null || !text.StartsWith("2\n", StringComparison.Ordinal))
+			return false;
+		var cursor = 2;
+		if (!ReadInt(text, ref cursor, out var count))
+			return false;
+		var line = new string[count];
+		for (var index = 0; index < count; index++)
+		{
+			if (!Read(text, ref cursor, out line[index]))
+				return false;
+		}
+
+		if (cursor != text.Length)
+			return false;
+		fields = line;
+		return true;
+	}
+
+	public static void Fill<T>(IList<T> rows, string text, Func<string[], T> make)
 	{
 		ArgumentNullException.ThrowIfNull(rows);
+		ArgumentNullException.ThrowIfNull(make);
 		if (!TryDecode(text, out var decoded))
 			return;
-		var props = Props<T>();
 		rows.Clear();
 		foreach (var cells in decoded)
-		{
-			var row = new T();
-			var width = Math.Min(props.Length, cells.Length);
-			for (var index = 0; index < width; index++)
-			{
-				if (props[index].PropertyType == typeof(bool))
-					props[index].SetValue(row, cells[index] == "true");
-				else if (props[index].PropertyType == typeof(string))
-					props[index].SetValue(row, cells[index]);
-			}
-
-			rows.Add(row);
-		}
+			rows.Add(make(cells) ?? throw new ArgumentNullException(nameof(make)));
 	}
-
-	static PropertyInfo[] Props<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
-	{
-		var props = typeof(T).GetProperties(BindingFlags.Instance | BindingFlags.Public);
-		Array.Sort(props, static (left, right) => left.MetadataToken.CompareTo(right.MetadataToken));
-		return props;
-	}
-
-	static string Cell(object? value) => value switch
-	{
-		bool flag => flag ? "true" : "false",
-		string text => text,
-		null => "",
-		_ => "",
-	};
 
 	static void Write(StringBuilder builder, string value)
 	{

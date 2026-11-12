@@ -9,6 +9,8 @@ internal sealed class ScreenSession : IPlatform
 	readonly List<string> _copies = new();
 	readonly List<string> _stack = new();
 	readonly List<string> _modules = new();
+	readonly HashSet<string> _opened = new(StringComparer.Ordinal);
+	Func<string, string, string[], string>? _reply;
 	bool _requested;
 	bool _rendering;
 	Element? _root;
@@ -19,10 +21,13 @@ internal sealed class ScreenSession : IPlatform
 		_bound = bound;
 	}
 
-	public static ScreenSession Open(byte[] program)
+	public static ScreenSession Open(byte[] program) => Open(program, null);
+
+	public static ScreenSession Open(byte[] program, Func<string, string, string[], string>? reply)
 	{
 		ArgumentNullException.ThrowIfNull(program);
 		var session = new ScreenSession(RecordProgram.Bind(program, new RecordProgram.Bag()));
+		session._reply = reply;
 		session.Render();
 		return session;
 	}
@@ -102,12 +107,20 @@ internal sealed class ScreenSession : IPlatform
 
 	public void Effect(string property, string resource) => _effects.Add(property + "=" + resource);
 
+	public void OnOpen(string screen, Action open)
+	{
+		if (screen.Length == 0 || !_opened.Add(screen))
+			return;
+		open();
+	}
+
 	public void Module(string module, string method, string[] args) => _modules.Add(module + "." + method);
 
 	public Task<string> ModuleAsync(string module, string method, string[] args)
 	{
 		_modules.Add(module + "." + method + " " + string.Join(" ", args));
-		return Task.FromResult("ok");
+		var text = _reply?.Invoke(module, method, args) ?? "ok";
+		return Task.FromResult(text);
 	}
 
 	public void Every(string property)

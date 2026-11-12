@@ -1350,7 +1350,7 @@ sealed class AndroidField : EditText
 
 	public long LastSubmit { get; set; }
 
-	public bool AllowAutofill { get; set; } = true;
+	public bool AllowAutofill { get; set; }
 
 	public AndroidField(Context context) : base(context)
 	{
@@ -1527,6 +1527,8 @@ sealed class PlatformBridge : IPlatform
 
 	readonly CancellationTokenSource _calls = new();
 
+	readonly HashSet<string> _opened = new(StringComparer.Ordinal);
+
 	CancellationTokenSource _live;
 
 	public void Pop()
@@ -1540,8 +1542,17 @@ sealed class PlatformBridge : IPlatform
 #endif
 		_live.Cancel();
 		_live = new CancellationTokenSource();
+		if (leaving.Length > 0)
+			_opened.Remove(leaving);
 		Log.Info(MainActivity.Tag, "http-cancel screen=" + leaving);
 		RequestRender();
+	}
+
+	public void OnOpen(string screen, System.Action open)
+	{
+		if (screen.Length == 0 || !_opened.Add(screen))
+			return;
+		open();
 	}
 
 	public void Effect(string property, string resource) =>

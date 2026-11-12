@@ -84,4 +84,11 @@ public static class Persist
 		ArgumentNullException.ThrowIfNull(platform);
 		return platform.ModuleAsync("persist", "PutRecord", [key, id, title, note]);
 	}
+
+	public static Task<string> PutFields(IPlatform platform, string key, params string[] fields)
+	{
+		ArgumentNullException.ThrowIfNull(platform);
+		ArgumentNullException.ThrowIfNull(fields);
+		return Put(platform, key, PersistRows.EncodeFields(fields));
+	}
 }

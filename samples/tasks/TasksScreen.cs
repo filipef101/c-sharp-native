@@ -33,14 +33,19 @@ public static class TasksScreen
 	{
 		async void Save()
 		{
-			state.Saved = await Persist.Put(platform, "tasks", PersistRows.Encode(state.Tasks));
+			state.Saved = await Persist.Put(platform, "tasks", PersistRows.Encode(state.Tasks, static item => new[] { item.Id, item.Title, item.Done ? "true" : "false" }));
 			platform.RequestRender();
 		}
 
-		async void Restore()
+		async void Open()
 		{
 			state.Saved = await Persist.Get(platform, "tasks");
-			PersistRows.Fill(state.Tasks, state.Saved);
+			PersistRows.Fill(state.Tasks, state.Saved, static cells => new TaskItem
+			{
+				Id = cells.Length > 0 ? cells[0] : "",
+				Title = cells.Length > 1 ? cells[1] : "",
+				Done = cells.Length > 2 && cells[2] == "true",
+			});
 			platform.RequestRender();
 		}
 
@@ -60,9 +65,11 @@ public static class TasksScreen
 			}
 		}
 
+		platform.OnOpen(ScreenId, Open);
+
 		var rows = new List<Element>();
 		rows.Add(new Text("Tasks") { Key = "heading", Style = new Style { FontSize = 22 } });
-		rows.Add(new TextField(state.Draft, value => { state.Draft = value; platform.RequestRender(); }, "Title", "New task") { Key = "draft", Autofill = false });
+		rows.Add(new TextField(state.Draft, value => { state.Draft = value; platform.RequestRender(); }, "Title", "New task") { Key = "draft" });
 		rows.Add(new Text(state.Error) { Key = "error" });
 		rows.Add(new Button("Add", () => Add(), "Add") { Key = "add" });
 		foreach (var item in state.Tasks)
@@ -76,7 +83,6 @@ public static class TasksScreen
 			{ Key = item.Id });
 		}
 
-		rows.Add(new Button("Restore", () => Restore(), "Restore") { Key = "restore" });
 		rows.Add(new Button("Theme", () => { state.Dark = !state.Dark; Theme.Mode(platform, state.Dark); platform.RequestRender(); }, "Theme") { Key = "theme" });
 		rows.Add(new Text(state.Saved) { Key = "saved" });
 		return new Column(rows) { Key = "tasks" };

@@ -97,7 +97,7 @@ static class NewLoop
 		builder.Append('\t').Append('\t').Append("var rows = new List<Element>();").Append('\n');
 		builder.Append('\t').Append('\t').Append("rows.Add(new Text(state.Title) { Key = \"title\", Style = new Style { FontSize = 22 } });").Append('\n');
 		builder.Append('\t').Append('\t').Append("rows.Add(new Text(\"Count \" + state.Count) { Key = \"count\" });").Append('\n');
-		builder.Append('\t').Append('\t').Append("rows.Add(new TextField(state.Draft, value => { state.Draft = value; platform.RequestRender(); }, \"Item\", \"Item\") { Key = \"draft\", Autofill = false });").Append('\n');
+		builder.Append('\t').Append('\t').Append("rows.Add(new TextField(state.Draft, value => { state.Draft = value; platform.RequestRender(); }, \"Item\", \"Item\") { Key = \"draft\" });").Append('\n');
 		builder.Append('\t').Append('\t').Append("foreach (var item in state.Items)").Append('\n');
 		builder.Append('\t').Append('\t').Append('\t').Append("rows.Add(new Text(item.Name) { Key = item.Name });").Append('\n');
 		builder.Append('\t').Append('\t').Append("rows.Add(new Button(\"Open\", () => { platform.Push(\"").Append(name).Append("\"); }, \"Open\") { Key = \"open\" });").Append('\n');

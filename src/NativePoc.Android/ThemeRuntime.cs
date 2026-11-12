@@ -73,13 +73,7 @@ static class ThemeRuntime
 	{
 		var dark = IsDark(activity);
 		var large = AppStorage.Get(activity, "font-scale") == "2";
-		foreach (var id in new[] { "settings", "trips", "home", "shelf", "piece", "room" })
-		{
-			var bag = ScreenNav.Shared.Bag(id);
-			bag.WriteBool("Dark", dark);
-			bag.WriteBool("Large", large);
-		}
-
+		ScreenNav.Shared.StampTheme(dark, large);
 		CompiledScreens.ApplyTheme(dark, large);
 		Bars(activity);
 	}

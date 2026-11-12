@@ -48,6 +48,7 @@ internal static partial class RecordProgram
 	public const byte OpCall = 40;
 	public const byte OpVmBool = 41;
 	public const byte OpSeedList = 42;
+	public const byte OpOnOpen = 43;
 
 	public const int EagerRowLimit = 24;
 
@@ -1149,6 +1150,19 @@ internal static partial class RecordProgram
 					bag.ReplaceRows(list, rows);
 				}
 
+				return ip;
+			}
+			case OpOnOpen:
+			{
+				var screen = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+				var length = TakeU16(code, ref ip, end);
+				if (ip + length > end)
+					throw new InvalidOperationException("Rejected record program.");
+				var script = code.AsSpan(ip, length).ToArray();
+				ip += length;
+				var openBag = bag;
+				var openStrings = strings;
+				platform.OnOpen(screen, () => RunScript(script, openStrings, openBag, platform, null, false, null));
 				return ip;
 			}
 			default:

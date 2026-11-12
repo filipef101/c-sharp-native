@@ -769,7 +769,7 @@ public static partial class SubsetLowerer
 		Keyboard _pendingKeyboard;
 		int _pendingLines;
 		Submit _pendingSubmit;
-		bool _pendingAutofill = true;
+		bool _pendingAutofill;
 		byte[]? _pendingSubmitScript;
 		string _listName = "";
 		readonly Dictionary<string, BlockSyntax> _localFns = new(StringComparer.Ordinal);
@@ -914,6 +914,8 @@ public static partial class SubsetLowerer
 					return false;
 				if (!consumed && !TrySeed(statements[index], out consumed))
 					return false;
+				if (!consumed && !TryOpen(statements[index], out consumed))
+					return false;
 				if (!consumed && !TryNote(statements[index], out consumed))
 					return false;
 				if (!consumed)
@@ -1051,6 +1053,45 @@ public static partial class SubsetLowerer
 			_code.U16(idField);
 			_code.U16(titleField);
 			_code.U16(_code.Intern("Row "));
+			return true;
+		}
+
+		bool TryOpen(StatementSyntax statement, out bool consumed)
+		{
+			consumed = false;
+			if (statement is not ExpressionStatementSyntax expr || expr.Expression is not InvocationExpressionSyntax invocation)
+				return true;
+			if (invocation.Expression is not MemberAccessExpressionSyntax member
+				|| member.Expression is not IdentifierNameSyntax owner
+				|| owner.Identifier.ValueText != _platform
+				|| member.Name.Identifier.ValueText != "OnOpen")
+				return true;
+			consumed = true;
+			var args = invocation.ArgumentList.Arguments;
+			if (args.Count != 2)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			string? screen = null;
+			if (args[0].Expression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
+				screen = literal.Token.ValueText;
+			else if (args[0].Expression is IdentifierNameSyntax named && _consts.TryGetValue(named.Identifier.ValueText, out var constant))
+				screen = constant;
+			if (string.IsNullOrEmpty(screen))
+				return Fail(BadLambda, "OnOpen takes the screen id and a local function.", invocation);
+			if (args[1].Expression is not IdentifierNameSyntax called || !_localFns.TryGetValue(called.Identifier.ValueText, out var body))
+				return Fail(BadLambda, "OnOpen takes the screen id and a local function.", args[1]);
+			var script = new List<byte>();
+			foreach (var line in body.Statements)
+			{
+				if (!Statement(line, "", script))
+					return false;
+			}
+
+			if (script.Count > ushort.MaxValue)
+				return Fail(BadLambda, "OnOpen takes the screen id and a local function.", invocation);
+			_code.Op(RecordProgram.OpOnOpen);
+			_code.U16(_code.Intern(screen));
+			_code.U16(script.Count);
+			_code.Bytes(script.ToArray());
 			return true;
 		}
 
@@ -1905,7 +1946,7 @@ public static partial class SubsetLowerer
 			_pendingKeyboard = Keyboard.Text;
 			_pendingLines = 0;
 			_pendingSubmit = Submit.None;
-			_pendingAutofill = true;
+			_pendingAutofill = false;
 			_pendingSubmitScript = null;
 			if (creation.Initializer is null)
 				return true;
@@ -2181,7 +2222,7 @@ public static partial class SubsetLowerer
 		void EmitFieldMode()
 		{
 			var script = _pendingSubmitScript;
-			if (_pendingKeyboard == Keyboard.Text && _pendingLines <= 1 && _pendingSubmit == Submit.None && _pendingAutofill && (script is null || script.Length == 0))
+			if (_pendingKeyboard == Keyboard.Text && _pendingLines <= 1 && _pendingSubmit == Submit.None && !_pendingAutofill && (script is null || script.Length == 0))
 				return;
 			_code.Op(RecordProgram.OpFieldMode);
 			_code.U8((byte)_pendingKeyboard);
@@ -2728,6 +2769,14 @@ public static partial class SubsetLowerer
 			return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 		}
 
+		static int RowId(List<Field> fields)
+		{
+			var named = fields.FindIndex(field => field.Name == "Id" && field.Kind == ValueKind.Str);
+			if (named >= 0)
+				return named;
+			return fields.FindIndex(field => field.Kind == ValueKind.Str);
+		}
+
 		bool PushRow(InvocationExpressionSyntax invocation, List<byte> script)
 		{
 			var args = invocation.ArgumentList.Arguments;
@@ -2743,9 +2792,9 @@ public static partial class SubsetLowerer
 				|| _listName.Length == 0
 				|| _itemFields is null)
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
-			var id = _itemFields.FindIndex(field => field.Name == "Id" && field.Kind == ValueKind.Str);
+			var id = RowId(_itemFields);
 			if (id < 0)
-				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+				return Fail(BadLambda, "Push copies same-named fields onto the destination screen. The row needs a string property.", invocation);
 			var strings = new List<Field>();
 			var flags = new List<Field>();
 			foreach (var field in _itemFields)
@@ -2792,9 +2841,9 @@ public static partial class SubsetLowerer
 			var list = _fields.FirstOrDefault(field => field.Name == member.Name.Identifier.ValueText && field.Kind == ValueKind.List);
 			if (list is null || !_records.TryGetValue(list.Item, out var itemFields))
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
-			var id = itemFields.FindIndex(field => field.Name == "Id" && field.Kind == ValueKind.Str);
+			var id = RowId(itemFields);
 			if (id < 0)
-				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+				return Fail(BadLambda, "Push copies same-named fields onto the destination screen. The row needs a string property.", invocation);
 			var strings = new List<Field>();
 			var flags = new List<Field>();
 			foreach (var field in itemFields)
@@ -2953,13 +3002,14 @@ public static partial class SubsetLowerer
 		bool FillRows(InvocationExpressionSyntax invocation, List<byte> script)
 		{
 			var args = invocation.ArgumentList.Arguments;
-			if (args.Count != 2
+			if (args.Count is not (2 or 3)
 				|| args[0].Expression is not MemberAccessExpressionSyntax listMember
 				|| !Member(listMember, out var list)
 				|| list.Kind != ValueKind.List
 				|| args[1].Expression is not MemberAccessExpressionSyntax textMember
 				|| !Member(textMember, out var text)
-				|| text.Kind != ValueKind.Str)
+				|| text.Kind != ValueKind.Str
+				|| (args.Count == 3 && args[2].Expression is not LambdaExpressionSyntax))
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
 			script.Add(RecordProgram.ActFillRows);
 			U16(script, _code.Intern(list.Name));
@@ -2974,10 +3024,11 @@ public static partial class SubsetLowerer
 				&& encodeMember.Expression is IdentifierNameSyntax encodeType
 				&& encodeType.Identifier.ValueText == "PersistRows"
 				&& encodeMember.Name.Identifier.ValueText == "Encode"
-				&& encode.ArgumentList.Arguments.Count == 1
+				&& encode.ArgumentList.Arguments.Count is 1 or 2
 				&& encode.ArgumentList.Arguments[0].Expression is MemberAccessExpressionSyntax listMember
 				&& Member(listMember, out var list)
-				&& list.Kind == ValueKind.List)
+				&& list.Kind == ValueKind.List
+				&& (encode.ArgumentList.Arguments.Count == 1 || encode.ArgumentList.Arguments[1].Expression is LambdaExpressionSyntax))
 			{
 				encoded.Add((3, _code.Intern(list.Name)));
 				return true;

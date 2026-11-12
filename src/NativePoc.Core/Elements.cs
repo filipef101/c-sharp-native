@@ -453,7 +453,7 @@ public sealed record TextField(
 
 	public Action? OnSubmit { get; init; }
 
-	public bool Autofill { get; init; } = true;
+	public bool Autofill { get; init; }
 }
 
 public sealed record TextInput(
@@ -472,7 +472,7 @@ public sealed record TextInput(
 
 	public Action? OnSubmit { get; init; }
 
-	public bool Autofill { get; init; } = true;
+	public bool Autofill { get; init; }
 }
 
 public sealed record Switch(
@@ -641,6 +641,10 @@ public interface IPlatform
 	}
 
 	void Pop()
+	{
+	}
+
+	void OnOpen(string screen, Action open)
 	{
 	}
 
