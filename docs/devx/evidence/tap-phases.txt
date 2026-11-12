@@ -38,3 +38,17 @@ content, title, and focus p50 are 0.0.
 The previous cut's Release `after` p50 was 90.0, up from 24.5. The split shows the `rendered count` log. Steady frames are 12–18 µs. The p50 is the log, not a new traversal. The log line was not moved.
 
 prep p50 8.5. diff 5.0. reconcile 54.5. layout 6.5. invalidate 1.5. paint 0.0. book 0.0. save 0.0 (Release does not write the state file).
+
+## Direction off the tap, listener
+
+pid 8720. Same bench, `--es nativepoc_bench tap10`, steps=1, ten posts 40 ms apart. Listener `.so` sha256 `d3596d59cd1f78fc63fe19e2aed91139f3a10b9851d50d6604a6632651bd208c` (9,902,672 bytes), and the same bytes are inside the Debug APK. `IsDynamicCodeSupported=False`. Boot `56815464-4bc4-4f4c-a503-944cb91ab31f`.
+
+`ApplyDirection` returns once that generation has been applied, so the steady tap does not call `getLayoutDirection`. The first frame posts a callback that resolves direction on the decor view, the content root, and a probe `TextView`, then waits one more frame before the bench starts. A `RequestRender` is queued in that same warm, so the bench's first tap is not the process's first post-direction render.
+
+`startup direction decor=114 root=545 text=2002 layout=174`. That `text=` is the probe measure, on the startup path. Emulator-run.
+
+`action-us` in order: 445 43628 718 3651 842 33529 739 523 517 468. Sorted: 445 468 517 523 718 739 842 3651 33529 43628. p50 728.5 µs. The first sample is 445 µs. On pid 7727 the first sample was 3513 µs and one sample was `dir=69718`.
+
+`dir` on the ten bench frames: 1 1 1 0 1 1 1 0 0 0. p50 1.0 µs. No sample is the 69718 µs stall.
+
+The 33529 µs sample is `state-handoff-us=31159`. That is the UI-thread checkpoint serialize inside the tap, not the direction getter. Other handoffs in this series are 61 to 258 µs. The 43628 µs sample's phase buckets are a few hundred microseconds (eval 95, diff 11, layout 60, log 151). The rest of that sample is outside those buckets. Both stalls stay in the p50. They were not dropped.

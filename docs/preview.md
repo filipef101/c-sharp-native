@@ -12,6 +12,8 @@ A Debug restart restores the screen that was showing and the program that was bo
 
 The Release counter render on pid 8067, `.so` sha256 `faea64b458078a87cfd2d57b721e5ab20b2112622f075af229bab9456cab5280`, is in [devx/evidence/tap-phases.txt](devx/evidence/tap-phases.txt). Emulator-run.
 
+Layout direction is applied once. A later tap does not call `getLayoutDirection`. The lookup runs after the first frame, before the tap bench. On listener pid 8720, `.so` sha256 `d3596d59cd1f78fc63fe19e2aed91139f3a10b9851d50d6604a6632651bd208c`, the ten `tap10` actions were 445 43628 718 3651 842 33529 739 523 517 468 µs. p50 728.5 µs. The first tap was 445 µs. `dir` on those frames was 1 1 1 0 1 1 1 0 0 0, p50 1.0 µs. The 72 ms `dir=69718` sample from pid 7727 did not recur. Two stalls remain in this p50: `state-handoff-us=31159` on the 33529 µs tap, and a 43628 µs tap whose phase buckets are a few hundred microseconds. `startup direction decor=114 root=545 text=2002 layout=174`. Emulator-run. The same file has the pid 7727 series.
+
 ## What hot reload refuses
 
 `IsDynamicCodeSupported` is false, so the process does not compile new IL. The call table is a switch that was compiled into the binary. Saving a method body prints that the body was not swapped. The running handler keeps the previous body until `cnative run android --restart-on-rude` relaunches. A method the table does not list, a new top-level type, a generic the edit constructs for the first time, and `await` are refused for the same reason: the binary has no arm, and a reload cannot invent one. The list is in [screen-program-subset.md](screen-program-subset.md). An edit under `src/NativePoc.Core` or `src/NativePoc.Android` is rude because the loader only swaps the screen assembly. That is written in [devx/comparison.md](devx/comparison.md).
@@ -20,11 +22,13 @@ The other toolkits, from their own pages and not timed on this boot, are in [com
 
 ## Startup
 
-These are not this binary. This page does not remeasure cold start.
+Mac, not measured in this workspace. Filipe's MacBook Pro M5, AVD `pixel_8`, arm64, Android 16. `am start -W -S`, LaunchState COLD, n=20 after one discarded warmup, Hyndman-Fan type 7. Those runs are older binaries. APK sha256 `b5b4a809f6e652642e0bea1394a451fa766fa00b0b05d39828773202f4873bac`: counter TotalTime p50 479.5 ms, p90 844.9 ms, packing1000 p50 457.0 ms, p90 619.2 ms. APK sha256 `ce39c83e7c1aa8aca8334fbbafd7d0dfa9be7e8e75fa933ce42abd111b881acb`: counter p50 463.0 ms, packing1000 p50 437.5 ms. APK sha256 `ac502d27eae357b7514787abe4faa245a859380ca3322406cadc41d19905b3d4`, host load 14.3: counter p50 423.5 ms, present p50 213.5 ms, UI p50 24.8 ms, draw p50 0.2 ms, floor p50 362.5 ms, packing1000 p50 413.0 ms. The sample lists are in [release-notes.md](release-notes.md).
 
-Mac, not measured in this workspace. Filipe's MacBook Pro M5, AVD `pixel_8`, arm64, Android 16. `am start -W -S`, LaunchState COLD, n=20 after one discarded warmup, Hyndman-Fan type 7. APK sha256 `b5b4a809f6e652642e0bea1394a451fa766fa00b0b05d39828773202f4873bac`. Counter TotalTime p50 479.5 ms, p90 844.9 ms. packing1000 TotalTime p50 457.0 ms, p90 619.2 ms. An interleaved run on APK sha256 `ce39c83e7c1aa8aca8334fbbafd7d0dfa9be7e8e75fa933ce42abd111b881acb` was counter p50 463.0 ms and packing1000 p50 437.5 ms. A second Mac run, host load 14.3, arm64 APK sha256 `ac502d27eae357b7514787abe4faa245a859380ca3322406cadc41d19905b3d4`, was counter TotalTime p50 423.5 ms, present p50 213.5 ms, UI p50 24.8 ms, draw p50 0.2 ms. The sample lists and the method are in [release-notes.md](release-notes.md).
+Emulator, this binary, measured in this workspace. x86_64 API 34, boot `56815464-4bc4-4f4c-a503-944cb91ab31f`. x64 Release APK sha256 `066e572bcdee253bd561f10c012fbd28ae94b6c9fe12850fc63b6bada2da3eec`. `.so` sha256 `48d2cc9b8a5bf9e956a66d1a71dc3db9feead0bf3255536f0ef15eeabdd7db25` (6,507,536 bytes). `tools/bench/mac-bench.sh --n 20`, interleaved counter, empty Java floor, packing1000, all COLD, Hyndman-Fan type 7. The reported pass started at host load 1.33 on 4 cores and climbed to 5.96. Counter TotalTime p50 778.5 ms, p90 876.7 ms, present p50 138.5 ms, UI p50 125.7 ms, draw p50 305.6 ms. Floor p50 750.0 ms, p90 836.3 ms, draw p50 169.2 ms. packing1000 p50 707.0 ms, p90 791.0 ms, draw p50 166.2 ms. `IsDynamicCodeSupported=False` on all 20 counter launches and all 20 packing1000 launches. An earlier pass of the same APK, start load 1.53, was counter p50 819.0 ms and floor p50 747.5 ms. The raw lists are in [devx/evidence/cold-start.txt](devx/evidence/cold-start.txt). Emulator-run.
 
-Emulator, measured in this workspace on an older x86_64 API 34 binary, APK sha256 `0ac29e1248567a90377ba68d5c4c179145cf8a5f4f7dd2ff5e52e3e671a14da7`. Same interleaved method, n=20, all COLD. Counter TotalTime p50 763.0 ms. packing1000 TotalTime p50 578.5 ms. First present p50 138.0 ms and 137.0 ms. A later packing1000 series on sha256 `f7e2a6411480cc6337c30d995463ae654fc7171f11d92433d6e68acae03ccab9` was TotalTime p50 513.0 ms, first present p50 137.0 ms. Not remeasured on the binaries named above.
+Older emulator binaries, same method, not this `.so`. APK sha256 `0ac29e1248567a90377ba68d5c4c179145cf8a5f4f7dd2ff5e52e3e671a14da7`: counter TotalTime p50 763.0 ms, packing1000 p50 578.5 ms, first present p50 138.0 ms and 137.0 ms. APK sha256 `f7e2a6411480cc6337c30d995463ae654fc7171f11d92433d6e68acae03ccab9`: packing1000 TotalTime p50 513.0 ms, first present p50 137.0 ms.
+
+arm64 Release for a Mac re-run of `tools/bench/mac-bench.sh`, built here, not run, not published. APK sha256 `2a82538e59cb443c02828114f5d104ee14d7692b6f69680e3df1d62c38cb5d11` (2,663,216 bytes). `.so` sha256 `9fe756b672d849829cc82136685d063cf798074562babe4abb9bea244d022393` (6,724,432 bytes), same bytes inside the APK. Built.
 
 ## iOS
 
@@ -45,3 +49,17 @@ OK NativeAOT: /home/ubuntu/.nuget/packages/microsoft.dotnet.ilcompiler
 ```
 
 The three cases (a ready machine, missing tools, an offline emulator) are `DoctorTests`. Tested.
+
+## What a developer hits next on Android
+
+These are open. The notes walkthrough that produced the evidence is [devx/evidence/dogfood-notes.txt](devx/evidence/dogfood-notes.txt).
+
+1. Showing a screen pushes another copy onto the nav stack. `ScreenNav.Show` appends the id when it is not already the top, and `cnative run` shows counter, packing, and every `samples/<name>/*Screen.cs` on launch. A restart restores the previous stack and then shows them again. On pid 9510 the tree ran counter, packing, notes, and note through stack 15. Emulator-run.
+
+2. A detail screen does not receive the row. Open on Milk (pid 9237) pushed `note` with an empty open line. The title stayed `Hello`, the value the bag already had. `Storage.Set` wrote `notes-open` and `notes-last` (`storage-set` in logcat). `StorageSeed.Refresh` copies `name` and `note` into settings, and `trip-id`, `trip-name`, and `trip-note` into trip. It does not copy an arbitrary key into a generated screen. Emulator-run. The lowerer also refuses `Storage.Set(..., item.Id)` from a row button, because a module argument is not an item field. That refusal was `cnative lower`, not a device overlay.
+
+3. `cnative new` screens and the notes list are the Debug listener, not the Release APK. `NativePoc.Android.csproj` references Core, Screen, Packing, and Library. The Release cold start above rendered `Counter 0`. `StateStore` is compiled only for Debug, and that file is what kept the Bread row across `am force-stop` (pid 9510, `state-loaded bytes=3427`, title `Night`). A Release process does not write it. Built for the project list. Emulator-run for the restore and for the Release title.
+
+4. A compiled method body is not swapped. On pid 6912 the call table ran `CounterService.Next` and `LibraryFormat.Label`, and saving the body left the previous body in that process. pid 7154 ran the body that was compiled in. `IsDynamicCodeSupported` stays false, so `await`, a new type, and a new generic stay refused. Evidence: [devx/evidence/call-table.txt](devx/evidence/call-table.txt). Emulator-run.
+
+5. Cold start on this emulator is the first frame's issue-draw-commands. On the binary above, counter draw p50 is 305.6 ms and the empty Java floor is 169.2 ms. UI p50 is 125.7 ms and 131.3 ms. Counter TotalTime is 28.5 ms over the floor at p50 on that pass, and 71.5 ms over it on the earlier pass of the same APK. This workspace has no Mac measurement of this binary. The older Mac draw p50 of 0.2 ms is a different APK. Emulator-run for these draw numbers. Unverified on a Mac GPU.

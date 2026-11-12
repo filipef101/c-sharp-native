@@ -1,0 +1,40 @@
+# Notes app, built through the listener
+
+Emulator-run on boot `56815464-4bc4-4f4c-a503-944cb91ab31f`. The command was `tools/devx/cnative run android --listener --restart-on-rude --device emulator-5554`. The listener `.so` is sha256 `d3596d59cd1f78fc63fe19e2aed91139f3a10b9851d50d6604a6632651bd208c` (9,902,672 bytes). `IsDynamicCodeSupported=False` on every pid below. Nothing was published.
+
+The app is `samples/notes/NotesScreen.cs` (list, add, delete, theme, push to a detail) and `samples/note/NoteScreen.cs` (title, body, validation, pop). Both started as `cnative new`. Later edits were saves while that command was watching.
+
+## Edits
+
+1. `cnative new notes` wrote `samples/notes/NotesScreen.cs`. Applied. pid 8914. `reloaded in 99.6 ms (apply 98.5 ms)`. Reply `Hello`.
+
+2. The template heading `Count ` was changed to `Notes `. Applied, same pid. `reloaded in 14.2 ms (apply 12.1 ms)`. Edit to reply 56 ms. The tree showed `Notes 0`.
+
+3. The file was replaced with the notes screen: `new List<NoteItem>()`, an Add handler that `return`s when the draft is empty, a theme switch, and a row that pushes `note`. Refused. `samples/notes/NotesScreen.cs:24:46: subset.unknown-expression`. The span is `new List<NoteItem>()`. `--restart-on-rude` relaunched and restored the previous Hello program. The same refusal relaunched again (pids 8983, 9051, 9114) because those processes were still running the lowerer from before the fix.
+
+4. `cnative new note` wrote `samples/note/NoteScreen.cs`. After the lowerer fix, the watcher was started again. pid 9237. The note template applied: `reloaded in 61.8 ms (apply 58.6 ms)`, reply `Hello`. The notes screen applied: `reloaded in 54.1 ms (apply 44.2 ms)`, reply `Day`. `cnative lower samples/notes/NotesScreen.cs --json` returned `{"ok":true,"bytes":627,"hash":"38a06b06bb1aa35801fdb487c16a07fa"}`. Tested, then emulator-run.
+
+5. `NoteScreen.cs` was replaced with the detail form (title, body `Lines = 3`, Save, Back). Applied, same pid 9237. `reloaded in 32.9 ms (apply 31.0 ms)`. Edit to reply 76 ms. The reply also said `state kept Title="Hello" (initializer "")` because the template value was already in the bag. The tree showed the form. Emulator-run.
+
+No later edit was refused. The two fixes below are what made edit 4 apply.
+
+## What was pressed
+
+pid 9237 unless noted. `cnative agent`, `--running --device emulator-5554`.
+
+- Add with an empty draft. The error text became `Title is required`. No row was added.
+- Draft `Milk`, then Add. A row `Milk` appeared (`open` / `Milk` / Open / Delete). Log `storage-set key=notes-last chars=4`.
+- The Dark switch. The mode text became `Night`. Log `theme mode=dark dark=1` and `storage-set key=theme chars=4`.
+- Open on the Milk row. The top screen became `note` (source `ec205f399abe4c7d049bc957d8265710`). The open line was empty. The title field was still `Hello` from the kept bag, not `Milk`.
+- The title was cleared and Save was pressed. The error text became `Title is required`. The screen stayed on `note`.
+- Back returned to `notes`. Delete on Milk removed the row. The mode text was `Night`.
+- `am force-stop` and `am start`. pid 9372. `state-loaded bytes=3402`. Title `Night`. The list was empty, which matches the delete. `IsDynamicCodeSupported=False`.
+- Draft `Bread`, then Add. The first press added the row. A second Add of the same key logged `InvalidOperationException: Duplicate child key` and `state-save-us=1807`. `am force-stop` and `am start`. pid 9510. `state-loaded bytes=3427`. Title `Night`. The tree showed the Bread row and the draft still `Bread`. `IsDynamicCodeSupported=False`.
+
+## The two fixes
+
+Empty `new List<T>()` was `subset.unknown-expression` because a list creation with no initializer was not an element list. It now lowers as an empty list. Tested: `An_empty_list_initializer_lowers`.
+
+A bare `return;` in an action was `subset.bad-lambda`. The action now lowers as one VM program, and that `return` jumps to the end, so the Add does not run. Tested: `A_button_can_return_early_when_a_field_is_empty` (the error is set and the list stays empty). The device check is the empty Add on pid 9237.
+
+Two other forms were not sent to the device. `Storage.Set(platform, "notes-open", item.Id)` does not lower, because a module argument is not an item field. The screen assigns `state.OpenId = item.Id` and stores `state.OpenId`. `state.Notes.Remove(item)` from the row button does not see the row binding, because each action starts with that binding cleared. The screen calls `state.Drop(item)`, and that delete ran on pid 9237.

@@ -13,7 +13,7 @@ cnative lower samples/NativePoc.Settings/SettingsScreen.cs --apply
 
 A file is one namespace. It holds records or classes of state, and one static class with `public static Element Render(State state, IPlatform platform)`. The state type may live in the same file or be inferred from the `Render` parameter. `public const string` and `public static readonly string` on the screen class are values.
 
-State properties are `string`, `bool`, `int`, or `List<T>` / `IReadOnlyList<T>` where `T` is a record whose fields are strings or bools. A get-only `int` is a flag count of the first bool field. A get-only `string` is the list text. Initializers are literals, or a list of object initializers. A reload keeps a value when the property name and type are still there. Methods on the state class are kept and are not seeded as properties.
+State properties are `string`, `bool`, `int`, or `List<T>` / `IReadOnlyList<T>` where `T` is a record whose fields are strings or bools. A get-only `int` is a flag count of the first bool field. A get-only `string` is the list text. Initializers are literals, a list of object initializers, or an empty `new List<T>()`. A reload keeps a value when the property name and type are still there. Methods on the state class are kept and are not seeded as properties.
 
 The render body is one of:
 
@@ -42,7 +42,7 @@ An action may:
 - use `+=`, `-=`, `*=`, `/=`, and `%=` on an int, and `+=` on a string
 - use `flag = !flag`, `flag = !other`, and `flag = other` on bools
 - concatenate strings with `+`, `+=`, and `$"..."`. A hole may be any expression the VM can evaluate, including arithmetic
-- use `value = condition ? a : b`, and `if` / `else`. An `if` that the older condition opcodes can name stays those opcodes and nests at most eight deep. Any other condition is a jump in the VM
+- use `value = condition ? a : b`, and `if` / `else`. An `if` that the older condition opcodes can name stays those opcodes and nests at most eight deep. Any other condition is a jump in the VM. A bare `return;` stops the rest of that action. Statements after it do not run. A `return` with a value uses the helper return path
 - use `for`, `while`, and `foreach` over a state list. `foreach` walks by index. The body may read `item.Field`. Removing or adding during the walk stops the action with `Collection was modified; enumeration operation may not execute.` The removal itself has already happened, as it does in C#
 - use `?.` and `??`. `?.` does not call when the receiver is null. `??` replaces that null
 - declare one local at a time, `var` or a typed name, of int, double, string, or bool. An action has eight slots. A local stays visible for the rest of that action. A second `var` of the same name is refused. `string label = null` stores null

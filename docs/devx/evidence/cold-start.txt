@@ -1,0 +1,39 @@
+# Release cold start, this binary
+
+Emulator-run. x86_64 API 34 emulator, boot `56815464-4bc4-4f4c-a503-944cb91ab31f`. `tools/bench/mac-bench.sh --n 20 --device emulator-5554`. One discarded warmup per series, then 20 rounds. Each round is counter, then the empty Java floor, then packing1000. Every sample is `am start -W -S` and LaunchState COLD. p50 and p90 are Hyndman-Fan type 7. The host has 4 cores. Load is the 1-minute average from `uptime` at the start of each round. No floor sample was above 1.5× its median, so the script printed no contended round. Both passes stay in the record.
+
+x64 Release APK sha256 `066e572bcdee253bd561f10c012fbd28ae94b6c9fe12850fc63b6bada2da3eec` (2,814,765 bytes). `.so` sha256 `48d2cc9b8a5bf9e956a66d1a71dc3db9feead0bf3255536f0ef15eeabdd7db25` (6,507,536 bytes), same bytes inside the APK. `classes.dex` contains `NativeAotRuntimeProvider`. Floor APK sha256 `6dae9d0c01f3bb8879c40881a95c7c5e3704699852d01413a97a232f1560b469` (12,649 bytes). Not published. Mac numbers for this binary are not measured in this workspace.
+
+Every counter log and every packing log in the second pass printed `IsDynamicCodeSupported=False`. The counter's first frame title is `Counter 0`. The notes screens are not in this APK.
+
+`startup direction` is logged after `startup mark=first-present` and before `Displayed`. On the second pass the probe measure is usually about 1 ms. It is not the draw gap below.
+
+## Second pass
+
+Taken after the publish load had fallen. Start load 1.33. The average then climbed to 5.96.
+
+| Series | n | total p50 | total p90 | present p50 | UI p50 | draw p50 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| counter | 20 | 778.5 | 876.7 | 138.5 | 125.7 | 305.6 |
+| floor | 20 | 750.0 | 836.3 | 169.0 | 131.3 | 169.2 |
+| packing1000 | 20 | 707.0 | 791.0 | 173.5 | 126.2 | 166.2 |
+
+Counter totals: 784 867 802 782 763 703 854 720 612 714 874 742 871 903 775 732 732 901 673 825.
+
+Floor totals: 746 830 700 761 692 681 684 670 716 695 811 777 974 893 651 754 736 783 758 767.
+
+packing1000 totals: 784 713 643 712 629 941 648 672 728 809 723 563 708 706 663 664 699 589 789 720.
+
+Round loads: 1.33 1.55 2.06 2.30 2.68 2.70 2.97 3.53 3.81 3.90 4.07 4.31 4.60 4.47 4.76 5.18 5.40 5.37 5.66 5.96.
+
+Counter minus floor at p50 is 28.5 ms. Draw p50 is 305.6 ms on the counter and 169.2 ms on the floor. UI p50 is 125.7 and 131.3. On this swiftshader emulator the counter's first-frame issue-draw-commands is the gap, the same shape as the older packing comparison in [release-notes.md](../../release-notes.md).
+
+## First pass, same binary, higher start load
+
+Start load 1.53, ending 5.13. Counter p50 819.0 p90 897.1, present 135.5, UI 127.9, draw 317.4. Floor p50 747.5 p90 796.3, present 151.0, UI 127.8, draw 176.1. packing1000 p50 693.0 p90 778.2, present 181.0, UI 117.8, draw 166.5. Counter minus floor at p50 is 71.5 ms. The two passes overlap. This page uses the second pass.
+
+Counter totals: 925 826 758 736 863 852 735 822 740 861 880 757 807 821 817 761 1268 894 704 761.
+
+Floor totals: 696 746 686 754 776 590 772 673 749 791 786 713 751 737 674 890 844 696 730 765.
+
+packing1000 totals: 680 655 748 691 621 914 707 683 798 680 695 587 776 715 744 691 657 683 724 720.

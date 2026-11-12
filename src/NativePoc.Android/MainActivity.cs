@@ -111,9 +111,14 @@ public sealed class MainActivity : Activity
 				var started = SystemClock.ElapsedRealtime();
 				NavCatalog.InstallRest();
 				StartupMarks.Note("catalog", SystemClock.ElapsedRealtime() - started);
+#if DEBUG
+				StateStore.Save(this);
+#endif
 			});
 		}
 		StartupMarks.Returned();
+		LocaleRuntime.WarmAfterFirstFrame(this, _reconciler?.Root);
+		LocaleRuntime.WhenWarmed(() => RequestRender());
 		ScheduleLoopBench();
 		ScheduleRenderBench();
 	}
@@ -123,7 +128,7 @@ public sealed class MainActivity : Activity
 		var bench = Intent?.GetStringExtra("nativepoc_bench");
 		if (string.Equals(bench, "tap10", StringComparison.Ordinal))
 		{
-			ScheduleTapBench();
+			LocaleRuntime.WhenWarmed(ScheduleTapBench);
 			return;
 		}
 

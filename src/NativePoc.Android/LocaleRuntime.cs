@@ -1,9 +1,16 @@
+using Android.OS;
 using Android.Views;
+using Android.Widget;
 
 namespace NativePoc;
 
 static class LocaleRuntime
 {
+	static int _applied = -1;
+	static bool _warmed;
+	static bool _arming;
+	static Action? _pending;
+
 	public static void Apply(Activity activity)
 	{
 		var extra = activity.Intent?.GetStringExtra("nativepoc_locale");
@@ -13,36 +20,121 @@ static class LocaleRuntime
 		ApplyDirection(activity);
 	}
 
-	static int _generation = -1;
-	static View? _appliedView;
-	static View? _appliedDecor;
-
 	public static void ApplyDirection(Activity activity)
 	{
-		if (activity.Window?.DecorView is not View decor)
+		var generation = Generation();
+		if (_applied == generation)
 			return;
-		var generation = StringTable.RightToLeft ? 1 : 0;
-		if (_generation == generation && ReferenceEquals(_appliedDecor, decor))
-			return;
-		ApplyView(decor, generation);
-		_appliedDecor = decor;
+		if (activity.Window?.DecorView is View decor)
+			Commit(decor, generation);
+		_applied = generation;
 	}
 
 	public static void ApplyDirection(View view)
 	{
-		var generation = StringTable.RightToLeft ? 1 : 0;
-		if (_generation == generation && ReferenceEquals(_appliedView, view))
+		var generation = Generation();
+		if (_applied == generation)
 			return;
-		ApplyView(view, generation);
-		_appliedView = view;
+		Commit(view, generation);
+		_applied = generation;
 	}
 
-	static void ApplyView(View view, int generation)
+	public static void WhenWarmed(Action next)
+	{
+		if (_warmed)
+			next();
+		else
+			_pending += next;
+	}
+
+	public static void WarmAfterFirstFrame(Activity activity, View? root)
+	{
+		if (_arming)
+			return;
+		_arming = true;
+		_ = Looper.MainLooper?.IsCurrentThread;
+		var choreographer = Choreographer.Instance;
+		if (root is null || choreographer is null)
+		{
+			Resolve(activity, root);
+			return;
+		}
+
+		choreographer.PostFrameCallback(new DirectionWarm(activity, root));
+	}
+
+	static void Resolve(Activity activity, View? root)
+	{
+		var clock = System.Diagnostics.Stopwatch.StartNew();
+		var generation = Generation();
+		if (activity.Window?.DecorView is View decor)
+			Commit(decor, generation);
+		var decorUs = TakeUs(clock);
+		if (root is not null)
+			Commit(root, generation);
+		var rootUs = TakeUs(clock);
+		var probe = new TextView(activity)
+		{
+			Text = "Warm",
+		};
+		Commit(probe, generation);
+		var width = View.MeasureSpec.MakeMeasureSpec(1080, MeasureSpecMode.AtMost);
+		var height = View.MeasureSpec.MakeMeasureSpec(200, MeasureSpecMode.AtMost);
+		probe.Measure(width, height);
+		var textUs = TakeUs(clock);
+		if (root is { Width: > 0, Height: > 0 })
+		{
+			root.Measure(
+				View.MeasureSpec.MakeMeasureSpec(root.Width, MeasureSpecMode.Exactly),
+				View.MeasureSpec.MakeMeasureSpec(root.Height, MeasureSpecMode.Exactly));
+			root.Layout(root.Left, root.Top, root.Left + root.Width, root.Top + root.Height);
+		}
+
+		var layoutUs = TakeUs(clock);
+		_applied = generation;
+		Android.Util.Log.Info(
+			MainActivity.Tag,
+			"startup direction decor=" + decorUs.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ " root=" + rootUs.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ " text=" + textUs.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ " layout=" + layoutUs.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		var choreographer = Choreographer.Instance;
+		if (root is null || choreographer is null)
+		{
+			Finish();
+			return;
+		}
+
+		choreographer.PostFrameCallback(new AfterDirection(root));
+	}
+
+	static void Finish()
+	{
+		if (_warmed)
+			return;
+		_warmed = true;
+		var pending = _pending;
+		_pending = null;
+		pending?.Invoke();
+	}
+
+	static void Commit(View view, int generation)
 	{
 		var next = generation == 1 ? LayoutDirection.Rtl : LayoutDirection.Ltr;
-		if (view.LayoutDirection != next)
-			view.LayoutDirection = next;
-		_generation = generation;
+		var text = generation == 1 ? TextDirection.Rtl : TextDirection.Ltr;
+		view.LayoutDirection = next;
+		_ = view.LayoutDirection;
+		view.TextDirection = text;
+		_ = view.TextDirection;
+	}
+
+	static int Generation() => StringTable.RightToLeft ? 1 : 0;
+
+	static long TakeUs(System.Diagnostics.Stopwatch clock)
+	{
+		var micros = clock.ElapsedTicks * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
+		clock.Restart();
+		return micros;
 	}
 
 	static string DeviceTag(Activity activity)
@@ -56,5 +148,34 @@ static class LocaleRuntime
 		}
 
 		return "en";
+	}
+
+	sealed class DirectionWarm : Java.Lang.Object, Choreographer.IFrameCallback
+	{
+		readonly Activity _activity;
+		readonly View _root;
+
+		public DirectionWarm(Activity activity, View root)
+		{
+			_activity = activity;
+			_root = root;
+		}
+
+		public void DoFrame(long frameTimeNanos)
+		{
+			_root.Post(() => Resolve(_activity, _root));
+		}
+	}
+
+	sealed class AfterDirection : Java.Lang.Object, Choreographer.IFrameCallback
+	{
+		readonly View _root;
+
+		public AfterDirection(View root) => _root = root;
+
+		public void DoFrame(long frameTimeNanos)
+		{
+			_root.Post(Finish);
+		}
 	}
 }

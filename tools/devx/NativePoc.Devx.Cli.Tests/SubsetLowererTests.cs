@@ -230,6 +230,91 @@ public sealed class SubsetLowererTests
 	}
 
 	[Fact]
+	public void A_button_can_return_early_when_a_field_is_empty()
+	{
+		const string source = """
+			namespace NativePoc.Notes;
+			public sealed record NoteItem
+			{
+				public string Id { get; set; } = "";
+				public string Title { get; set; } = "";
+			}
+			public sealed class NotesState
+			{
+				public string Draft { get; set; } = "";
+				public string Error { get; set; } = "";
+				public List<NoteItem> Notes { get; set; } = new List<NoteItem>();
+			}
+			public static class NotesScreen
+			{
+				public const string ScreenId = "notes";
+				public static Element Render(NotesState state, IPlatform platform)
+				{
+					return new Column(
+						new Text(state.Error) { Key = "error" },
+						new Button("Add", () =>
+						{
+							if (state.Draft.Length == 0)
+							{
+								state.Error = "Title is required";
+								platform.RequestRender();
+								return;
+							}
+
+							state.Error = "";
+							state.Notes.Add(new NoteItem { Id = state.Draft, Title = state.Draft });
+							platform.RequestRender();
+						}, "Add") { Key = "add" })
+					{ Key = "notes" };
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var bag = new RecordProgram.Bag();
+		var tree = RecordProgram.Bind(lowered.Program!, bag).Render(new Platform());
+		var column = Assert.IsType<Column>(tree);
+		var button = Assert.IsType<Button>(column.Children[1]);
+		button.OnPress();
+		Assert.Equal("Title is required", bag.ReadString("Error"));
+		Assert.Equal(0, bag.CountRows("Notes"));
+	}
+
+	[Fact]
+	public void An_empty_list_initializer_lowers()
+	{
+		const string source = """
+			namespace NativePoc.Notes;
+			public sealed record NoteItem
+			{
+				public string Id { get; set; } = "";
+				public string Title { get; set; } = "";
+			}
+			public sealed class NotesState
+			{
+				public List<NoteItem> Notes { get; set; } = new List<NoteItem>();
+			}
+			public static class NotesScreen
+			{
+				public const string ScreenId = "notes";
+				public static Element Render(NotesState state, IPlatform platform)
+				{
+					var rows = new List<Element>();
+					rows.Add(new Text("Notes") { Key = "title" });
+					foreach (var item in state.Notes)
+						rows.Add(new Text(item.Title) { Key = item.Id });
+					return new Column(rows) { Key = "notes" };
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source);
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var tree = RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag()).Render(new Platform());
+		var column = Assert.IsType<Column>(tree);
+		Assert.Single(column.Children);
+	}
+
+	[Fact]
 	public void A_recycled_list_keeps_a_row_key_without_mounting_every_row()
 	{
 		const string source = """

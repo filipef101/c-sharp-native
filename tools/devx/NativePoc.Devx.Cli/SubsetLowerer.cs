@@ -535,6 +535,8 @@ public static partial class SubsetLowerer
 
 				return elements;
 			}
+			case ObjectCreationExpressionSyntax creation when creation.Initializer is null && IsList(creation.Type, out _):
+				return Array.Empty<ExpressionSyntax>();
 			case ImplicitArrayCreationExpressionSyntax array when array.Initializer is not null:
 				return array.Initializer.Expressions;
 			default:
@@ -1993,6 +1995,45 @@ public static partial class SubsetLowerer
 			return Enum.TryParse(member.Name.Identifier.ValueText, out value);
 		}
 
+		static bool HasBareReturn(SyntaxNode node)
+		{
+			foreach (var child in node.DescendantNodesAndSelf())
+			{
+				if (child is ReturnStatementSyntax returned && returned.Expression is null)
+					return true;
+			}
+
+			return false;
+		}
+
+		bool EmitReturning(BlockSyntax block, string parameter, out byte[] script)
+		{
+			script = Array.Empty<byte>();
+			var saved = _returnPatches;
+			_returnPatches = new List<int>();
+			try
+			{
+				var buf = new VmBuf();
+				foreach (var statement in block.Statements)
+				{
+					if (!WriteVmStatement(statement, parameter, buf))
+						return false;
+				}
+
+				foreach (var patch in _returnPatches)
+					buf.Patch(patch);
+				var bytes = new List<byte>();
+				if (!EmitVm(bytes, buf))
+					return false;
+				script = bytes.ToArray();
+				return script.Length > 0;
+			}
+			finally
+			{
+				_returnPatches = saved;
+			}
+		}
+
 		bool Script(LambdaExpressionSyntax lambda, out byte[] script)
 		{
 			script = Array.Empty<byte>();
@@ -2013,25 +2054,31 @@ public static partial class SubsetLowerer
 			_boundRows = null;
 			try
 			{
-				var bytes = new List<byte>();
-				if (lambda.Body is ExpressionSyntax single)
+			var bytes = new List<byte>();
+			if (lambda.Body is ExpressionSyntax single)
+			{
+				if (!Action(single, parameter, bytes))
+					return false;
+			}
+			else if (lambda.Body is BlockSyntax block && HasBareReturn(block))
+			{
+				if (!EmitReturning(block, parameter, out script))
+					return false;
+				return true;
+			}
+			else if (lambda.Body is BlockSyntax statements)
+			{
+				foreach (var statement in statements.Statements)
 				{
-					if (!Action(single, parameter, bytes))
+					if (!Statement(statement, parameter, bytes))
 						return false;
 				}
-				else if (lambda.Body is BlockSyntax block)
-				{
-					foreach (var statement in block.Statements)
-					{
-						if (!Statement(statement, parameter, bytes))
-							return false;
-					}
-				}
-				else
-					return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", lambda);
+			}
+			else
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", lambda);
 
-				script = bytes.ToArray();
-				return true;
+			script = bytes.ToArray();
+			return true;
 			}
 			finally
 			{
