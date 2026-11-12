@@ -38,6 +38,9 @@ out=""
 extra=""
 dry_run=0
 self_test=0
+quiesce=0
+quiesce_mode="refuse"
+force_stop_others=0
 wait_seconds=45
 labels=()
 apks=()
@@ -62,6 +65,13 @@ tools/bench/scroll-bench.sh [options]
   --out <dir>       raw gfxinfo and the summary. Default: tools/bench/out/scroll-bench
   --wait <seconds>  how long to wait for list-first=. Default: 45.
   --dry-run         print the plan and do not call adb.
+  --quiesce [warn|refuse]
+                    before each series, list foreground and top-CPU
+                    third-party packages. refuse (the default) stops the
+                    series and names them. warn names them and starts.
+                    Nothing is force-stopped.
+  --force-stop-others
+                    with --quiesce, am force-stop those packages, then start.
   --self-test       check percentile, uptime parsing, and framestats.
 EOF
 }
@@ -101,6 +111,17 @@ while [[ $# -gt 0 ]]; do
 		--out) out="${2:?}"; shift 2 ;;
 		--wait) wait_seconds="${2:?}"; shift 2 ;;
 		--dry-run) dry_run=1; shift ;;
+		--quiesce)
+			quiesce=1
+			if [[ "${2:-}" == "warn" || "${2:-}" == "refuse" ]]; then
+				quiesce_mode="$2"
+				shift 2
+			else
+				quiesce_mode="refuse"
+				shift
+			fi
+			;;
+		--force-stop-others) force_stop_others=1; shift ;;
 		--self-test) self_test=1; shift ;;
 		--help|-h) usage; exit 0 ;;
 		*) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -117,6 +138,10 @@ if ! [[ "$rounds" =~ ^[1-9][0-9]*$ ]]; then
 fi
 if ! [[ "$wait_seconds" =~ ^[1-9][0-9]*$ ]]; then
 	echo "--wait must be a positive integer" >&2
+	exit 2
+fi
+if [[ "$force_stop_others" -eq 1 && "$quiesce" -eq 0 ]]; then
+	echo "--force-stop-others requires --quiesce" >&2
 	exit 2
 fi
 
@@ -415,6 +440,7 @@ while [[ "$index" -lt "${#labels[@]}" ]]; do
 	: >"$out/frames-${labels[$index]}.txt"
 	: >"$out/work-${labels[$index]}.txt"
 	: >"$out/vsync-${labels[$index]}.txt"
+	: >"$out/loads-${labels[$index]}.txt"
 	index=$((index + 1))
 done
 : >"$out/loads.txt"
@@ -429,6 +455,10 @@ one_round() {
 	local summary_frames summary_janky rows janky janky_pct
 	local p50 p90 p99 w50 w90 w99 v50 v90 v99 list_line
 	pkg="${component%%/*}"
+	guest_line="$(capture_guest "$out/$label-guest-$round.txt")"
+	printf '%s\n' "label=$label round=$round $guest_line" >>"$out/guest.txt"
+	guest_value="$(printf '%s\n' "$guest_line" | awk 'NR == 1 { for (i = 1; i <= NF; i++) if ($i ~ /^guest_load=/) { split($i, a, "="); print a[2]; exit } }')"
+	printf '%s\n' "$guest_value" >>"$out/loads-$label.txt"
 	adb_cmd shell am force-stop "$pkg" >/dev/null 2>&1 || true
 	adb_cmd logcat -c >/dev/null 2>&1 || true
 	load="$(host_load)"
@@ -530,10 +560,15 @@ one_round() {
 
 round=0
 : >"$out/guest.txt"
+if [[ "$quiesce" -eq 1 ]]; then
+	index=0
+	while [[ "$index" -lt "${#labels[@]}" ]]; do
+		quiesce_before "${components[$index]%%/*}"
+		index=$((index + 1))
+	done
+fi
 while [[ "$round" -lt "$rounds" ]]; do
-	guest_line="$(capture_guest "$out/round-$round-guest.txt")"
-	printf '%s\n' "round=$round $guest_line" >>"$out/guest.txt"
-	echo "round $round $guest_line" >&2
+	echo "round $round" >&2
 	index=0
 	while [[ "$index" -lt "${#labels[@]}" ]]; do
 		one_round "$round" "${labels[$index]}" "${apks[$index]}" "${components[$index]}" "${extras[$index]}"
@@ -547,12 +582,13 @@ done
 	index=0
 	while [[ "$index" -lt "${#labels[@]}" ]]; do
 		label="${labels[$index]}"
+		guest_p50="$(median_values <"$out/loads-$label.txt")"
 		if [[ -s "$out/frames-$label.txt" ]]; then
-			echo "label=$label pooled_frame_p50_ms=$(percentile 0.50 <"$out/frames-$label.txt") pooled_frame_p90_ms=$(percentile 0.90 <"$out/frames-$label.txt") pooled_frame_p99_ms=$(percentile 0.99 <"$out/frames-$label.txt")"
+			echo "label=$label pooled_frame_p50_ms=$(percentile 0.50 <"$out/frames-$label.txt") pooled_frame_p90_ms=$(percentile 0.90 <"$out/frames-$label.txt") pooled_frame_p99_ms=$(percentile 0.99 <"$out/frames-$label.txt") guest_load_p50=$guest_p50"
 			echo "label=$label pooled_work_p50_ms=$(percentile 0.50 <"$out/work-$label.txt") pooled_work_p90_ms=$(percentile 0.90 <"$out/work-$label.txt") pooled_work_p99_ms=$(percentile 0.99 <"$out/work-$label.txt")"
 			echo "label=$label pooled_vsync_p50_ms=$(percentile 0.50 <"$out/vsync-$label.txt") pooled_vsync_p90_ms=$(percentile 0.90 <"$out/vsync-$label.txt") pooled_vsync_p99_ms=$(percentile 0.99 <"$out/vsync-$label.txt")"
 		else
-			echo "label=$label pooled_frame_p50_ms=- pooled_work_p50_ms=- pooled_vsync_p50_ms=-"
+			echo "label=$label pooled_frame_p50_ms=- pooled_work_p50_ms=- pooled_vsync_p50_ms=- guest_load_p50=$guest_p50"
 		fi
 		index=$((index + 1))
 	done

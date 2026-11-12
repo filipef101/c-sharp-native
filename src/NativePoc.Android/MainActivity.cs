@@ -114,12 +114,16 @@ public sealed class MainActivity : Activity
 			requestedRoot = "home";
 #endif
 		var wantsRoot = !string.IsNullOrEmpty(requestedRoot) && !string.Equals(requestedRoot, "counter", StringComparison.Ordinal);
+		var compiledRoot = wantsRoot && CompiledScreens.Knows(requestedRoot!);
+		var navTicks = System.Diagnostics.Stopwatch.GetTimestamp();
 		var navStart = SystemClock.ElapsedRealtime();
 		CompiledScreens.Install(ScreenNav.Shared);
-		NavCatalog.InstallRoot();
-		if (Bench || wantsRoot)
+		if (!compiledRoot)
+			NavCatalog.InstallRoot();
+		if (Bench || (wantsRoot && !compiledRoot))
 			NavCatalog.InstallRest();
 		var stagedMs = SystemClock.ElapsedRealtime() - navStart;
+		var stagedUs = (System.Diagnostics.Stopwatch.GetTimestamp() - navTicks) * 1_000_000 / System.Diagnostics.Stopwatch.Frequency;
 		var decodeStart = SystemClock.ElapsedRealtime();
 		if (Bench)
 			ScreenNav.Shared.Push("packing");
@@ -129,6 +133,7 @@ public sealed class MainActivity : Activity
 		Log.Info(
 			Tag,
 			"startup phase=nav ms=" + stagedMs.ToString(CultureInfo.InvariantCulture)
+			+ " us=" + stagedUs.ToString(CultureInfo.InvariantCulture)
 			+ " decode-ms=" + decodeMs.ToString(CultureInfo.InvariantCulture)
 			+ " loaded=" + ScreenNav.Shared.Loaded.ToString(CultureInfo.InvariantCulture)
 			+ " staged=" + ScreenNav.Shared.Staged.ToString(CultureInfo.InvariantCulture));
@@ -146,6 +151,12 @@ public sealed class MainActivity : Activity
 		}
 
 		RenderNow();
+		if (string.Equals(Intent?.GetStringExtra("nativepoc_a11y"), "1", StringComparison.Ordinal))
+			_reconciler?.Root?.Post(() =>
+			{
+				if (Window?.DecorView is View decor)
+					A11yTree.Write(decor);
+			});
 #if NATIVEPOC_LOCATION
 		ScheduleLocation();
 #endif
@@ -158,13 +169,15 @@ public sealed class MainActivity : Activity
 		StateStore.Save(this);
 		HotReloadServer.Start(this);
 #endif
-		if (!Bench && !wantsRoot)
+		if (!Bench && (compiledRoot || !wantsRoot))
 		{
 			LocaleRuntime.WhenWarmed(() =>
 			{
 #if NATIVEPOC_STARTUP_MARKS
 				var started = SystemClock.ElapsedRealtime();
 #endif
+				if (compiledRoot)
+					NavCatalog.InstallRoot();
 				NavCatalog.InstallRest();
 #if NATIVEPOC_STARTUP_MARKS
 				StartupMarks.Note("catalog", SystemClock.ElapsedRealtime() - started);

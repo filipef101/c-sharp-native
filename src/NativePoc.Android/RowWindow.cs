@@ -264,7 +264,9 @@ sealed class RowWindow : AndroidScroll
 			Content = content;
 			Key = face.Key;
 			_title.Text = face.Title;
-			_title.ContentDescription = face.Title;
+			var description = face.Describe();
+			_title.ContentDescription = description;
+			ContentDescription = description;
 			if (face.Subtitle.Length == 0)
 			{
 				_subtitle.Text = "";

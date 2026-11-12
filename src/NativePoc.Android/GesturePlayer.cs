@@ -1,4 +1,5 @@
 using Android.Content;
+using Android.Graphics;
 using Android.Views;
 using AndroidWidget = Android.Widget.ScrollView;
 
@@ -171,6 +172,8 @@ sealed class RefreshScroll : AndroidWidget
 	bool _pulled;
 	readonly float _density;
 
+	bool _revealPosted;
+
 	public RefreshScroll(Context context)
 		: base(context)
 	{
@@ -178,6 +181,60 @@ sealed class RefreshScroll : AndroidWidget
 		if (_density <= 0)
 			_density = 1f;
 	}
+
+	protected override void OnLayout(bool changed, int left, int top, int right, int bottom)
+	{
+		base.OnLayout(changed, left, top, right, bottom);
+		if (_revealPosted)
+			return;
+		_revealPosted = true;
+		// The warmed render lands a couple of frames later and can put the
+		// scroll back at the top. Reveal after that, so a control sitting on
+		// the bottom edge is scrolled until 48 dp of it is on screen.
+		PostDelayed(RevealClippedTargets, 400);
+	}
+
+	void RevealClippedTargets()
+	{
+		if (Handle == IntPtr.Zero)
+			return;
+		var min = (int)Math.Ceiling(48 * _density);
+		var viewport = new Rect();
+		if (!GetGlobalVisibleRect(viewport) || viewport.Height() < min)
+			return;
+		var need = 0;
+		MeasureClip(this, min, ref need);
+		if (need > 0)
+			ScrollBy(0, need);
+		Android.Util.Log.Info(MainActivity.Tag, "a11y-reveal need=" + need.ToString(System.Globalization.CultureInfo.InvariantCulture));
+	}
+
+	void MeasureClip(View view, int min, ref int need)
+	{
+		if (!ReferenceEquals(view, this) && ClippedTarget(view))
+		{
+			var rect = new Rect();
+			if (view.GetGlobalVisibleRect(rect))
+			{
+				var shown = rect.Height();
+				var gap = min - shown;
+				if (shown > 0 && gap > 0 && view.Height >= min && gap > need)
+					need = gap;
+			}
+		}
+
+		if (view is not ViewGroup group)
+			return;
+		for (var index = 0; index < group.ChildCount; index++)
+		{
+			var child = group.GetChildAt(index);
+			if (child is not null)
+				MeasureClip(child, min, ref need);
+		}
+	}
+
+	static bool ClippedTarget(View view) =>
+		view is Android.Widget.ImageView || view is Android.Widget.Switch || view.Clickable || view.LongClickable;
 
 	public void Configure(bool enabled, Action? refresh)
 	{

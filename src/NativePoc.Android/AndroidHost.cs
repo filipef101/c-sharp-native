@@ -60,7 +60,7 @@ sealed class AndroidHost : IElementHost<View>
 			case ElementKind.Image:
 				return new ImageView(_activity)
 				{
-					LayoutParameters = new ViewGroup.LayoutParams(Dp(24), Dp(24)),
+					LayoutParameters = new ViewGroup.LayoutParams(Dp(48), Dp(48)),
 				};
 			case ElementKind.Host:
 				return new HostSlot(_activity);
@@ -262,7 +262,12 @@ sealed class AndroidHost : IElementHost<View>
 			if (style.FontSize > 0)
 				text.SetTextSize(ComplexUnitType.Sp, style.FontSize);
 			if (style.FontSize >= 20 && (int)Android.OS.Build.VERSION.SdkInt >= 28)
+			{
+#pragma warning disable CA1416
+				text.AccessibilityHeading = true;
+#pragma warning restore CA1416
 				text.SetAccessibilityDelegate(HeadingMark.Instance);
+			}
 			if (style.Weight == FontWeight.Bold)
 				text.SetTypeface(Typeface.DefaultBold, TypefaceStyle.Bold);
 			ThemeRuntime.NoteColor(view, style.Color);
@@ -321,10 +326,11 @@ sealed class AndroidHost : IElementHost<View>
 		}
 
 		PictureBinder.Show(image, source, _activity);
+		TouchTarget(image);
 		if (image.LayoutParameters is ViewGroup.LayoutParams layout)
 		{
-			layout.Width = Dp(24);
-			layout.Height = Dp(24);
+			layout.Width = Dp(48);
+			layout.Height = Dp(48);
 			image.LayoutParameters = layout;
 		}
 	}
@@ -477,6 +483,8 @@ sealed class AndroidHost : IElementHost<View>
 			text.LongClickable = (mask & Gestures.LongPress) != 0;
 			text.SetOnClickListener((mask & Gestures.Tap) == 0 ? null : new TapClick(() => Fire(path, Gestures.Tap)));
 			text.SetOnLongClickListener((mask & Gestures.LongPress) == 0 ? null : new LongClick(() => Fire(path, Gestures.LongPress)));
+			if ((mask & (Gestures.Tap | Gestures.LongPress)) != 0)
+				text.SetAccessibilityDelegate(ButtonRole.Instance);
 		}
 	}
 
@@ -986,5 +994,72 @@ sealed class HeadingMark : View.AccessibilityDelegate
 		info.Heading = true;
 #pragma warning restore CA1416
 		Log.Info(MainActivity.Tag, "a11y-heading");
+	}
+}
+
+sealed class ButtonRole : View.AccessibilityDelegate
+{
+	public static readonly ButtonRole Instance = new();
+
+	public override void OnInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info)
+	{
+		base.OnInitializeAccessibilityNodeInfo(host, info);
+		info.ClassName = "android.widget.Button";
+		if (info.ContentDescription is not { Length: > 0 } && host is TextView text && text.Text is { Length: > 0 } value)
+			info.ContentDescription = value;
+	}
+}
+
+static class A11yTree
+{
+	public static void Write(View root)
+	{
+		var count = 0;
+		Walk(root, ref count);
+		Log.Info(MainActivity.Tag, "a11y-nodes=" + count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+	}
+
+	static void Walk(View view, ref int count)
+	{
+		if (count >= 80)
+			return;
+		var info = view.CreateAccessibilityNodeInfo();
+		if (info is not null)
+		{
+			try
+			{
+#pragma warning disable CA1416
+				var interesting = info.Heading || view is Android.Widget.ImageView || view is AndroidSwitch || view is AndroidButton || view.Clickable || view.LongClickable;
+				if (interesting)
+				{
+					var bounds = new Rect();
+					info.GetBoundsInScreen(bounds);
+					var text = info.Text?.ToString() ?? "";
+					var desc = info.ContentDescription?.ToString() ?? "";
+					Log.Info(
+						MainActivity.Tag,
+						"a11y-node class=" + info.ClassName
+						+ " heading=" + (info.Heading ? "1" : "0")
+						+ " text=" + text
+						+ " desc=" + desc
+					+ " h=" + bounds.Height().ToString(System.Globalization.CultureInfo.InvariantCulture));
+#pragma warning restore CA1416
+				count++;
+			}
+			}
+			finally
+			{
+				info.Dispose();
+			}
+		}
+
+		if (view is not ViewGroup group)
+			return;
+		for (var index = 0; index < group.ChildCount; index++)
+		{
+			var child = group.GetChildAt(index);
+			if (child is not null)
+				Walk(child, ref count);
+		}
 	}
 }

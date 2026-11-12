@@ -383,3 +383,90 @@ tools/bench/cold-start.sh --device emulator-5554 --n 10 --name visit --out /tmp/
 ```
 
 Counter and feed in the Mac command are the feed APK, which has the phase logs. The smaller counter APK has the probes compiled out. Visit is a third APK, http and location on, probes off. Core tests: 75 passed. Packing tests: 14 passed. Devx tests: 142 passed. `guest-env.sh --self-test`, `symbolicate-stack.sh --self-test`, `mac-bench.sh --self-test`, `cold-start.sh --self-test`, and `scroll-bench.sh --self-test` passed.
+
+## 2026-11-12 accessibility, quiesce, visit reload, catalog deferral
+
+Maintainer, pixel_8 arm64, host GPU, same-run relatives only. Feed APK sha256 prefix f4112d9c, list floor 6f6e7ea0, n=20 interleaved: TotalTime p50/p90 counter 322.5/484.9, feed 386.0/499.4, floor 379.5/457.3 (feed minus floor +6.5 ms at p50). Guest load 8.9-11.3 on every round; top CPU was system_server and another developer's unrelated debug app. Scroll work p50/p90: feed 16.7/34.7, floor 16.7/28.7 ms. Visit cold-start, cold-start.sh, n=10, guest load 6.9: displayed p50/p90 450.0/701.2, phase-nav 0 on all ten samples. Same run, since-process p50: feed draw 218.5, floor draw 190.5, feed jni 73.5, floor onCreate 62.5.
+
+### Headings, row descriptions, 48 dp, button role (emulator-run)
+
+API 34 stock uiautomator.jar (414,918 bytes, pulled from the guest) contains no ASCII `heading`. `uiautomator dump` XML therefore has no heading attribute before or after. TalkBack was not used. The node tree that matters is `View.CreateAccessibilityNodeInfo()`, logged once when the activity is started with `--es nativepoc_a11y 1`. A heading sets both `AccessibilityNodeInfo.Heading` (API 28) and `View.AccessibilityHeading`.
+
+Before, progress32 feed and the faec205 counter and packing, font scale 1.0, density 420, 48 dp = 126 px:
+
+| screen | heading attr | row / name | short targets |
+| --- | --- | --- | --- |
+| counter | absent | Counter 0 described itself | none of the named controls |
+| feed | absent | title `• Row 0000`, content-desc empty | last image h=98 px |
+| packing | absent | names were clickable TextViews | images h=63 px; switch clipped at 87 px |
+
+After, same emulator, settled dumps in /tmp/a11y-after:
+
+| screen | node log | uiautomator | targets |
+| --- | --- | --- | --- |
+| counter | `heading=1 text=Counter 0` | heading-attribute=absent | unchanged |
+| feed | `heading=1 text=Feed`; catalog `since-process-ms=1263` after the draw | every visible image h=126; row content-desc `• Row 0000` | last row no longer clipped; the list pads so the visible height is a whole number of rows |
+| packing | `heading=1 text=Packing`; `a11y-reveal need=81` | Water bladder is `android.widget.Button` h=126; marker images h=126 | scrolled switch `Packed Water bladder` h=126 |
+
+`startup phase=nav` on these launches: counter `ms=0 us=29`, feed `ms=0 us=10`. The `us=` field is `Stopwatch` around the same catalog stage. `ElapsedRealtime` is whole milliseconds, so a stage under 1 ms logs `ms=0`.
+
+### Quiesce and per-series guest load (emulator-run)
+
+`--quiesce` runs before each series. It names the foreground package (`dumpsys window` mCurrentFocus) and third-party packages at or above 5% CPU (`top -n 1`). A package counts as third-party when it is not the series itself, not `android`, and not `com.android.*` or `com.google.android.*`. `system_server` has no dot and is never on the list and never force-stopped. Default is refuse, exit 3, no `am force-stop`. `--quiesce warn` prints the names and starts. `--force-stop-others` requires `--quiesce` and stops only the named third-party packages.
+
+With listfloor in front: `--quiesce` printed `warning: quiesce third-party com.scratch.listfloor. Refusing to start.` and exited 3, pid still alive. `--quiesce warn` printed the name, started, summary `guest_load_p50=1.0`, pid still alive. `--quiesce --force-stop-others` printed `quiesce: force-stop com.scratch.listfloor` and `pidof` was empty afterwards. `--force-stop-others` without `--quiesce` exits 2. Each summary line now carries that series' own `guest_load_p50`. `guest-env.sh --self-test` covers the median, the fixture that names only `com.other.debug`, and the four decide outcomes.
+
+### Visit reload and phase-nav 0 (emulator-run)
+
+Listener: `cnative run android --device emulator-5554 --listener --root visit --debounce 40`. Debug NativeAOT, `IsDynamicCodeSupported=False`, pid 16494 for the whole check. Typed Place `pier` and When `friday`, then edited the form validator. Log: `reload samples/visit/VisitScreen.cs`, `reloaded in 32.7 ms (apply 29.4 ms)`, `state kept Place="pier" When="friday"`, same pid, dump still showed both fields. Saved (the row appeared), opened the stop screen (it showed pier and friday), then edited the stop heading. Log: `reload samples/visit/StopScreen.cs`, `reloaded in 33.5 ms (apply 31.4 ms)`, `reply Halt`, `state kept Place="pier" When="friday"`, dump text `Halt / pier / friday`, pid still 16494. Both source edits were reverted; the shipped strings are `Place is required` and `Stop`.
+
+phase-nav 0 is not a missing mark and not a dropped sample. `cold-start.sh` reads `startup phase=nav ms=`. That line is logged on every launch, including the faec205 visit binary: `startup phase=nav ms=0 decode-ms=0 loaded=0 staged=7`. n=10 of zeros means the stage finished inside the same millisecond. The new `us=` field is the same interval on a stopwatch. The parser still reports phase-nav from `ms=`, so a sub-millisecond stage stays 0.
+
+### Catalog after first paint (emulator-run, guest load about 4)
+
+A compiled root (feed, visit, where) no longer calls `NavCatalog.InstallRoot` or `InstallRest` before the first `Push`. Those run from `LocaleRuntime.WhenWarmed`, after the activity has returned. Counter still installs its root immediately and still defers the rest. Compiled screen holders and reload-dispatch holders are created on first use, so opening one screen does not construct the others.
+
+Interleaved mac-bench.sh, emulator-5554, SwiftShader, n=8, one warmup dropped, Hyndman-Fan type 7. Host load 3.54-4.63. guest_load_p50 counter 4.2, feed 4.3, floor 4.3. This guest is not quiet enough for an absolute, and it does not reproduce the Mac draw gap.
+
+| series | TotalTime p50/p90 | since-process p50 | guest_load_p50 |
+| --- | --- | --- | --- |
+| counter | 828.0 / 901.0 | java_end 44.0, jni 57.0 | 4.2 |
+| feed | 695.0 / 765.4 | java_end 44.5, jni 59.5, draw 118.5 | 4.3 |
+| floor | 705.0 / 842.8 | onCreate 52.5, draw 127.5 | 4.3 |
+
+One feed sample in that run: `phase=jni-activity since-process-ms=73`, `phase=nav ms=0 us=11`, `phase=draw since-process-ms=127`, `phase=catalog since-process-ms=728`. The catalog mark is after TotalTime. The 15 ms from java_end to jni on the feed p50 is `Activity.OnCreate` through `JNIEnv.FindClass` of the peer, with no further app work found to remove. The Mac gaps (draw 218.5 vs 190.5, jni 73.5 vs onCreate 62.5) stay the maintainer's same-run numbers.
+
+### Sizes
+
+| build | APK | APK sha256 | .so | .so sha256 | dex |
+| --- | --- | --- | --- | --- | --- |
+| counter x64, emulator-run | 3,056,501 | `755bd062cff3c0ab89545edc604ac8d7056b8be84c94b44dc86b35ef34f78292` | 7,042,304 | `21ac6ef467e2dc8e631628440d5f1ca5486e20bf56ca2a2f8e3225d6340c26c9` | 49,920 |
+| counter arm64, built | 2,896,760 | `32e1ee764bafa0013cadacb91e626b368f9889ee55dcc3f3c5535b1f80d47a79` | 7,266,336 | `96bc462958c73574a73e811a8942ec9574cd5fcd754a74a3aa567db41dc51b94` | 49,920 |
+| feed x64, emulator-run, marks on | 3,284,716 | `334458199e1e14336a63eb9f40fd2ad50e38a287359152c0ebe7387c5b30ffd1` | 7,197,248 | `16b204042820ad6a5e538db5cca536e037b7353ded87c399d43a662279fd07ec` | 325,888 |
+| feed arm64, built, marks on | 3,120,879 | `00a63065aaadecb63e7dc0b583c572e5ddfe907a89fbb3e41bf01b36efa21502` | 7,429,760 | `9662312faedca4ce5c608bdf6d08834b620fa66a611831e3a68e6336341368dc` | 325,888 |
+| visit x64, built | 3,146,613 | `c6d9d07a6c9f169af6c289b38f63fb78a9a7bb37f954f4a34d16d4eda3f974b3` | 7,254,144 | `ed63ebb755e371dd141061f07082d85fc994ceb4837998fb1951dc11740c5327` | 52,276 |
+| visit arm64, built | 2,978,680 | `149802eb64206ccd1541d7494580df05ef245d655ea9c10b920cc4e6ea28fd31` | 7,489,288 | `8f01706b2500cd1dd56d4c22219f5bb2b01f4a8f8e0fd6f39c4b6a399a05bfec` | 52,276 |
+
+Dex sha256: counter `9267b0f166ebf71ec043bc7ec79eced7c9f698117489d37e3178c7c24596f771`, feed `c1443e12a570fe2f95b1955c4464bcf5eead68507c232e745a5e150e7680860d`, visit `0efeb5ae4570f976f8724c34da34ce3cbfefd7fd43387b9d934a14c7276d5bed`. The `.so` inside each APK matched the loose file. List floor is unchanged, both ABIs, 531,381 bytes, sha256 `6f6e7ea018f333f9c5ae4c979e3d21021825ceb37e55835f895f33dd71fa40e1`. Shipped `.so` files stay stripped with a `.gnu_debuglink`.
+
+```
+tools/bench/mac-bench.sh --device <pixel_8> --n 20 --out /tmp/feed-cold \
+  --run counter:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+```
+tools/bench/scroll-bench.sh --serial <pixel_8> --swipes 8 --rounds 5 \
+  --run feed:nativepoc-feed-android-arm64.apk:com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity:'--es nativepoc_root feed' \
+  --run floor:nativepoc-listfloor-android-arm64.apk:com.scratch.listfloor/.ListFloorActivity
+```
+
+```
+tools/bench/cold-start.sh --device <pixel_8> --n 10 --name visit --out /tmp/cold-visit \
+  --apk nativepoc-visit-android-arm64.apk \
+  --component com.scratch.nativepoc/crc64ee53024f7ed0aa60.MainActivity \
+  -- --es nativepoc_root visit
+```
+
+Add `--quiesce` to refuse when another third-party package is in front or above 5% CPU, `--quiesce warn` to print the names and continue, or `--quiesce --force-stop-others` to stop only those named packages. Core tests: 75 passed. Packing tests: 14 passed. Devx tests: 142 passed. `guest-env.sh --self-test`, `mac-bench.sh --self-test`, `cold-start.sh --self-test`, and `scroll-bench.sh --self-test` passed.

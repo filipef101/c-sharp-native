@@ -46,7 +46,10 @@ public sealed class CompiledScreenGenerator : IIncrementalGenerator
 		builder.AppendLine("static class CompiledScreens");
 		builder.AppendLine("{");
 		foreach (var screen in screens)
-			builder.Append("\tstatic readonly ").Append(screen.State).Append(' ').Append(screen.Holder).Append(" = new();\n");
+		{
+			builder.Append("\tstatic ").Append(screen.State).Append("? ").Append(screen.Holder).Append(";\n");
+			builder.Append("\tstatic ").Append(screen.State).Append(" Hold").Append(screen.Holder).Append("() => ").Append(screen.Holder).Append(" ??= new();\n");
+		}
 		foreach (var screen in screens)
 		{
 			foreach (var row in rows)
@@ -86,7 +89,7 @@ public sealed class CompiledScreenGenerator : IIncrementalGenerator
 		foreach (var screen in screens)
 		{
 			builder.Append("\t\t\tcase \"").Append(Escape(screen.Id)).Append("\":\n");
-			builder.Append("\t\t\t\telement = ").Append(screen.Type).Append(".Render(").Append(screen.Holder).Append(", platform);\n");
+			builder.Append("\t\t\t\telement = ").Append(screen.Type).Append(".Render(").Append(Hold(screen.Holder)).Append(", platform);\n");
 			builder.AppendLine("\t\t\t\treturn true;");
 		}
 
@@ -113,9 +116,9 @@ public sealed class CompiledScreenGenerator : IIncrementalGenerator
 				builder.Append("\t\tif (screen == \"").Append(Escape(screen.Id)).Append("\" && row is ").Append(row.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)).Append(' ').Append(local).Append(")\n");
 				builder.AppendLine("\t\t{");
 				foreach (var property in shared)
-					builder.Append("\t\t\t").Append(screen.Holder).Append('.').Append(property.Name).Append(" = ").Append(local).Append('.').Append(property.Name).Append(";\n");
+					builder.Append("\t\t\t").Append(Hold(screen.Holder)).Append('.').Append(property.Name).Append(" = ").Append(local).Append('.').Append(property.Name).Append(";\n");
 				if (screen.StateSymbol.GetMembers().OfType<IPropertySymbol>().Any(property => property.Name == "Error" && property.Type.SpecialType == SpecialType.System_String && property.SetMethod is not null))
-					builder.Append("\t\t\t").Append(screen.Holder).Append(".Error = \"\";\n");
+					builder.Append("\t\t\t").Append(Hold(screen.Holder)).Append(".Error = \"\";\n");
 				builder.Append("\t\t\t").Append(RowField(screen.Id, row)).Append(" = ").Append(local).Append(";\n");
 				builder.AppendLine("\t\t\treturn;");
 				builder.AppendLine("\t\t}");
@@ -144,7 +147,7 @@ public sealed class CompiledScreenGenerator : IIncrementalGenerator
 				builder.Append("\t\tif (screen == \"").Append(Escape(screen.Id)).Append("\" && ").Append(field).Append(" is { } ").Append(saved).Append(")\n");
 				builder.AppendLine("\t\t{");
 				foreach (var property in shared)
-					builder.Append("\t\t\t").Append(saved).Append('.').Append(property.Name).Append(" = ").Append(screen.Holder).Append('.').Append(property.Name).Append(";\n");
+					builder.Append("\t\t\t").Append(saved).Append('.').Append(property.Name).Append(" = ").Append(Hold(screen.Holder)).Append('.').Append(property.Name).Append(";\n");
 				builder.AppendLine("\t\t\treturn;");
 				builder.AppendLine("\t\t}");
 			}
@@ -260,6 +263,8 @@ public sealed class CompiledScreenGenerator : IIncrementalGenerator
 
 		return found;
 	}
+
+	static string Hold(string holder) => "Hold" + holder + "()";
 
 	static string HolderOf(string id)
 	{

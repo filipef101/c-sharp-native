@@ -139,7 +139,8 @@ public sealed class ReloadDispatchGenerator : IIncrementalGenerator
 		{
 			if (method.Static || !method.HasHolder || !holders.Add(method.FullType))
 				continue;
-			builder.Append("\t\tstatic readonly ").Append(method.FullType).Append(' ').Append(Holder(method.FullType)).Append(" = new ").Append(method.FullType).AppendLine("();");
+			builder.Append("\t\tstatic ").Append(method.FullType).Append("? ").Append(Holder(method.FullType)).AppendLine(";");
+			builder.Append("\t\tstatic ").Append(method.FullType).Append(' ').Append(HoldFn(method.FullType)).Append("() => ").Append(Holder(method.FullType)).Append(" ??= new ").Append(method.FullType).AppendLine("();");
 		}
 
 		builder.AppendLine("\t\t[global::System.Runtime.CompilerServices.ModuleInitializer]");
@@ -189,10 +190,12 @@ public sealed class ReloadDispatchGenerator : IIncrementalGenerator
 			return method.FullType + ".";
 		if (!method.HasHolder)
 			return method.FullType + ".";
-		return Holder(method.FullType) + ".";
+		return HoldFn(method.FullType) + "().";
 	}
 
 	static string Holder(string fullType) => "_hold_" + fullType.Replace('.', '_');
+
+	static string HoldFn(string fullType) => "Hold" + Holder(fullType);
 
 	static string Bind(Callable method)
 	{

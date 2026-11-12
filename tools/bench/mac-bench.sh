@@ -34,6 +34,9 @@ out=""
 device=""
 self_test=0
 dry_run=0
+quiesce=0
+quiesce_mode="refuse"
+force_stop_others=0
 labels=()
 apks=()
 components=()
@@ -49,6 +52,13 @@ tools/bench/mac-bench.sh [options] --run label:apk:component[:am extras]
   --run <spec>    repeat for each series. Spec is label:apk:component
                   or label:apk:component:am extras.
   --dry-run       print the interleaved plan and do not call adb.
+  --quiesce [warn|refuse]
+                  before each series, list foreground and top-CPU third-party
+                  packages. refuse (the default) stops the series and names
+                  them. warn names them and starts. Nothing is force-stopped.
+  --force-stop-others
+                  with --quiesce, am force-stop those packages, then start.
+                  system_server and the series package are never stopped.
   --self-test     check Hyndman-Fan type 7 against the interleaved Mac n=20
                   series, the round order, uptime load parsing, and the
                   floor contended-round flag.
@@ -82,6 +92,17 @@ while [[ $# -gt 0 ]]; do
 			shift 2
 			;;
 		--dry-run) dry_run=1; shift ;;
+		--quiesce)
+			quiesce=1
+			if [[ "${2:-}" == "warn" || "${2:-}" == "refuse" ]]; then
+				quiesce_mode="$2"
+				shift 2
+			else
+				quiesce_mode="refuse"
+				shift
+			fi
+			;;
+		--force-stop-others) force_stop_others=1; shift ;;
 		--self-test) self_test=1; shift ;;
 		--help|-h) usage; exit 0 ;;
 		*) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -221,6 +242,11 @@ if [[ "$self_test" -eq 1 ]]; then
 	exit 0
 fi
 
+if [[ "$force_stop_others" -eq 1 && "$quiesce" -eq 0 ]]; then
+	echo "--force-stop-others requires --quiesce" >&2
+	exit 2
+fi
+
 if [[ "${#labels[@]}" -lt 1 ]]; then
 	echo "Pass at least one --run" >&2
 	usage >&2
@@ -321,6 +347,9 @@ echo "device=$device n=$samples series=${labels[*]}" >&2
 uptime >&2 || true
 
 for ((s = 0; s < ${#labels[@]}; s++)); do
+	if [[ "$quiesce" -eq 1 ]]; then
+		quiesce_before "${components[$s]%%/*}"
+	fi
 	adb_cmd logcat -c >/dev/null || true
 	reset_frame "$s"
 	warmup="$(one_start "$s")"
@@ -336,17 +365,21 @@ for ((s = 0; s < ${#labels[@]}; s++)); do
 	: >"$out/${labels[$s]}-starts.txt"
 	: >"$out/${labels[$s]}-totals.txt"
 	: >"$out/${labels[$s]}-frames.txt"
+	: >"$out/${labels[$s]}-loads.txt"
 done
 
 : >"$out/round-load.txt"
+: >"$out/guest.txt"
 for ((round = 0; round < samples; round++)); do
 	load="$(host_load)"
 	printf '%s\n' "$load" >>"$out/round-load.txt"
-	guest_line="$(capture_guest "$out/round-$round-guest.txt")"
-	printf '%s\n' "$guest_line" >>"$out/guest.txt"
-	echo "round $round load=$load $guest_line" >&2
+	echo "round $round load=$load" >&2
 	for ((s = 0; s < ${#labels[@]}; s++)); do
 		label="${labels[$s]}"
+		guest_line="$(capture_guest "$out/$label-guest-$round.txt")"
+		printf '%s\n' "label=$label round=$round $guest_line" >>"$out/guest.txt"
+		guest_value="$(printf '%s\n' "$guest_line" | awk 'NR == 1 { for (i = 1; i <= NF; i++) if ($i ~ /^guest_load=/) { split($i, a, "="); print a[2]; exit } }')"
+		printf '%s\n' "$guest_value" >>"$out/$label-loads.txt"
 		adb_cmd logcat -c >/dev/null || true
 		reset_frame "$s"
 		text="$(one_start "$s")"
@@ -371,7 +404,7 @@ for ((round = 0; round < samples; round++)); do
 done
 
 {
-	printf '%-12s %4s %8s %8s %10s %10s %10s\n' series n total_p50 total_p90 present_p50 ui_p50 draw_p50
+	printf '%-12s %4s %8s %8s %10s %10s %10s %14s\n' series n total_p50 total_p90 present_p50 ui_p50 draw_p50 guest_load_p50
 	for ((s = 0; s < ${#labels[@]}; s++)); do
 		label="${labels[$s]}"
 		p50="$(percentile 0.50 <"$out/$label-totals.txt")"
@@ -416,7 +449,8 @@ done
 		if [[ "${#draws[@]}" -eq "$samples" ]]; then
 			draw_p50="$(printf '%s\n' "${draws[@]}" | percentile 0.50)"
 		fi
-		printf '%-12s %4s %8s %8s %10s %10s %10s\n' "$label" "$samples" "$p50" "$p90" "$present_p50" "$ui_p50" "$draw_p50"
+		guest_p50="$(median_values <"$out/$label-loads.txt")"
+		printf '%-12s %4s %8s %8s %10s %10s %10s %14s\n' "$label" "$samples" "$p50" "$p90" "$present_p50" "$ui_p50" "$draw_p50" "$guest_p50"
 		phase_p50() {
 			local pattern="$1"
 			local -a values=()
@@ -485,7 +519,7 @@ done
 			printf '%s\n' "${values[@]}" | percentile 0.50
 		}
 		{
-			echo "series=$label n=$samples"
+			echo "series=$label n=$samples guest_load_p50=$guest_p50"
 			echo "raw=$(tr '\n' ' ' <"$out/$label-totals.txt" | sed 's/ $//')"
 			echo "p50 $p50 p90 $p90"
 			echo "present_p50 $present_p50 ui_p50 $ui_p50 draw_p50 $draw_p50"

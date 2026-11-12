@@ -151,6 +151,13 @@ static class KeyedList
 				return;
 			mark = System.Diagnostics.Stopwatch.GetTimestamp();
 			RowText.Apply(titleView, face.Title);
+			var description = face.Describe();
+			if (description.Length > 0)
+			{
+				titleView.ContentDescription = description;
+				if (titleView.Parent is View rowView)
+					rowView.ContentDescription = description;
+			}
 			if (face.Subtitle.Length == 0)
 			{
 				if (subtitleView.Visibility != ViewStates.Gone)
@@ -435,7 +442,7 @@ static class KeyedList
 			if (Last.TryGetValue(view, out var previous) && string.Equals(previous, text, StringComparison.Ordinal))
 				return;
 			// One Java string for this text. A later bind of the same characters reuses it.
-			// The TextView's own text is the accessibility text, so this does not also set a content description.
+			// The row description is set by the caller. This only updates the visible text.
 			view.TextFormatted = Cached(text);
 			Last.AddOrUpdate(view, text);
 		}

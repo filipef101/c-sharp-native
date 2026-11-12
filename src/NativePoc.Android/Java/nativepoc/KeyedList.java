@@ -29,6 +29,7 @@ public final class KeyedList extends RecyclerView {
 	boolean loggedAgain;
 	boolean loggedLayout;
 	boolean loggedReady;
+	boolean rowFitPosted;
 	int measures;
 
 	public KeyedList(Context context) {
@@ -124,6 +125,23 @@ public final class KeyedList extends RecyclerView {
 			loggedReady = true;
 			nativeSignal(peer, OP_READY, first());
 		}
+		if (!rowFitPosted && getChildCount() > 0) {
+			rowFitPosted = true;
+			post(this::fitWholeRows);
+		}
+	}
+
+	void fitWholeRows() {
+		int height = getHeight() - getPaddingTop() - getPaddingBottom();
+		if (height <= 0 || getChildCount() == 0)
+			return;
+		int row = getChildAt(0).getHeight();
+		if (row <= 0)
+			return;
+		int slack = height % row;
+		if (slack == 0)
+			return;
+		setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(), getPaddingBottom() + slack);
 	}
 
 	@Override

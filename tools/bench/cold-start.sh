@@ -24,6 +24,9 @@ component=""
 floor=0
 apk=""
 self_test=0
+quiesce=0
+quiesce_mode="refuse"
+force_stop_others=0
 am_extra=()
 
 usage() {
@@ -37,6 +40,12 @@ tools/bench/cold-start.sh [options] [-- am-start extras]
   --component <name>  activity component. Default: resolve the launcher.
   --apk <path>        adb install -r before the series.
   --floor             build tools/bench/floor and measure com.scratch.floor.
+  --quiesce [warn|refuse]
+                      before the series, list foreground and top-CPU
+                      third-party packages. refuse (the default) stops the
+                      series and names them. warn names them and starts.
+                      Nothing is force-stopped.
+  --force-stop-others with --quiesce, am force-stop those packages, then start.
   --self-test         check Hyndman-Fan type 7 against the Mac n=20 series.
 EOF
 }
@@ -50,6 +59,17 @@ while [[ $# -gt 0 ]]; do
 		--component) component="${2:?}"; shift 2 ;;
 		--apk) apk="${2:?}"; shift 2 ;;
 		--floor) floor=1; shift ;;
+		--quiesce)
+			quiesce=1
+			if [[ "${2:-}" == "warn" || "${2:-}" == "refuse" ]]; then
+				quiesce_mode="$2"
+				shift 2
+			else
+				quiesce_mode="refuse"
+				shift
+			fi
+			;;
+		--force-stop-others) force_stop_others=1; shift ;;
 		--self-test) self_test=1; shift ;;
 		--help|-h) usage; exit 0 ;;
 		--) shift; am_extra+=("$@"); break ;;
@@ -134,6 +154,11 @@ if [[ "$self_test" -eq 1 ]]; then
 	exit 0
 fi
 
+if [[ "$force_stop_others" -eq 1 && "$quiesce" -eq 0 ]]; then
+	echo "--force-stop-others requires --quiesce" >&2
+	exit 2
+fi
+
 if [[ -n "${ANDROID_HOME:-}" && -x "$ANDROID_HOME/platform-tools/adb" ]]; then
 	adb_bin="$ANDROID_HOME/platform-tools/adb"
 else
@@ -202,6 +227,9 @@ one_start() {
 
 echo "series=$name device=$device component=$component n=$samples" >&2
 uptime >&2 || true
+if [[ "$quiesce" -eq 1 ]]; then
+	quiesce_before "${component%%/*}"
+fi
 adb_cmd logcat -c >/dev/null
 warmup="$(one_start)"
 if ! grep -q '^LaunchState: COLD$' <<<"$warmup"; then
@@ -244,9 +272,10 @@ adb_cmd logcat -d -v epoch >"$out/$name-logcat.txt"
 ordered="$(printf '%s\n' "${totals[@]}" | sorted_line)"
 p50="$(printf '%s\n' "${totals[@]}" | percentile 0.50)"
 p90="$(printf '%s\n' "${totals[@]}" | percentile 0.90)"
+guest_p50="$(median_values <"$out/guest.txt")"
 {
-	echo "$name n=$samples sorted=$ordered"
-	echo "p50 $p50 p90 $p90"
+	echo "$name n=$samples sorted=$ordered guest_load_p50=$guest_p50"
+	echo "p50 $p50 p90 $p90 guest_load_p50=$guest_p50"
 	echo "method=am start -W -S LaunchState=COLD warmup=1 discarded percentile=Hyndman-Fan-7"
 	echo "guest samples are in guest.txt. A guest_load at or above 2.0 is a warning. The sample stays."
 	if [[ -f "$out/guest.txt" ]]; then

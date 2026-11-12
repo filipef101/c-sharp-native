@@ -2,6 +2,15 @@ namespace NativePoc;
 
 public readonly record struct RowFace(string Key, string Title, string Subtitle, string Picture)
 {
+	public string Describe()
+	{
+		if (Title.Length == 0)
+			return Subtitle;
+		if (Subtitle.Length == 0)
+			return Title;
+		return Title + ", " + Subtitle;
+	}
+
 	public static RowFace Read(Element element)
 	{
 		ArgumentNullException.ThrowIfNull(element);
