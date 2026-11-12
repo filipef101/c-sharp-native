@@ -1,0 +1,44 @@
+List, text input, and the Debug listener. x86_64 API 34 emulator, qemu `-gpu swiftshader_indirect`. Not iOS. Not a physical device.
+
+Listener size, measured.
+
+Before this unit the Debug listener `.so` was 11072640 bytes, sha256 a2aad89405351449aa8c177897ca93ddbf9b7b7b493aa6b038750c76540599b7. Its ilc response rooted System.Text.Json. The app source does not reference that assembly. Debug sets AndroidLinkMode to None when the property is empty, and that value is what the listener publish recorded. NativeAOT still runs the trimmer. With link mode None the trimmer kept System.Text.Json.dll (216064 bytes in the linked folder) and System.Text.Encodings.Web.
+
+The listener publish now sets AndroidLinkMode=SdkOnly, TrimMode=full, PublishTrimmed=true, the Release feature switches, and _EnableSerializationDiscovery=false. It does not set JsonSerializerIsReflectionEnabledByDefault. That property is what previously left a root. The ILLink default, when the property is empty and the publish is trimmed, emits the runtime knob System.Text.Json.JsonSerializer.IsReflectionEnabledByDefault=false without referencing the assembly.
+
+After that trim, before RecyclerView: NativePoc.Android.so 9834848 bytes, sha256 57fd6fed43096566b4845a3429d774d71912c1cc4bfb3adbbbf6adf4b3226f2b. Signed APK 3695539 bytes, sha256 180c5260df44d5b0db3d678eb3e6be80a6973a0317525fb80da0f3b54fce2b8a. The linked folder has no System.Text.Json.dll and no System.Text.Encodings.Web.dll. The `.so` contains the knob string once and does not contain System.Text.Encodings.Web. System.Security.Cryptography stays because HotReloadServer calls RandomNumberGenerator.GetBytes. System.Threading.ThreadPool stays because StateStore.Save calls ThreadPool.QueueUserWorkItem.
+
+Counter edit on that pair, one sample each, not a percentile. The edit was TitlePrefix "Counter " to "Clicks " in src/NativePoc.Screen/Screen.cs, then reverted.
+
+Before, pid 22404, the 11072640-byte listener: reloaded in 94.1 ms (apply 40.8 ms), reply Clicks 1, edit-to-reply 136 ms.
+After the trim, pid 22652, the 9834848-byte listener: reloaded in 66.6 ms (apply 39.8 ms), reply Clicks 1, edit-to-reply 108 ms.
+
+RecyclerView is a separate opt-in. NativePocRecycler defaults false. The listener passes -p:NativePocRecycler=true, which references Xamarin.AndroidX.RecyclerView 1.4.0.6 and brings AndroidX.Core into the trim. The listener that ran the list, before the submit guard: .so 11441120 bytes, sha256 fa96319a6442a6c95da83b41a29920f779315af16b8ca58a335073d7e8756640. System.Text.Json is still only the knob string (one hit). System.Text.Encodings.Web is absent. HttpURLConnection is present.
+
+The submit guard is a later edit of AndroidHost. Final listener: .so 11442384 bytes, sha256 a5aab6d069f06215053d1bdcf32f6ae50d4821df4e56a9b738f7047f7e15e8f5. Signed APK 6205624 bytes, sha256 4c77a63cab599d9e375e37724095fcf3103325f6412bf7011cfa03608ff91b91. A cold start of that APK, pid 23544, logged runtime IsDynamicCodeSupported=False IsDynamicCodeCompiled=False.
+
+Feed list, emulator-run, pid 22796, the 11441120-byte listener. IsDynamicCodeSupported=False on that pid. FeedModule.Generate / OpSeedList wrote 1000 rows. The agent tree was one list node, count=1000.
+
+First bind: list-first=0 saved=0 restored=0 rows=1000 built=30 views=30. gfxinfo from process start, 24 frames still in the buffer: Janky frames 15 (62.50%), p50 69ms, p90 250ms, p95 700ms, p99 950ms. Missed vsync 10. Slow UI thread 11. Slow issue draw commands 13. Frame deadline missed 15. Framestats retained all 24 rows. DisplayPresentTime was 0. 15 of the 24 had FrameCompleted after FrameDeadline. Those frames include the screens shown before the feed. swiftshader_indirect.
+
+Scroll, eight `input swipe 540 1800 540 700 250` after gfxinfo reset. Summary for that window: 157 frames, janky 39 (24.84%), p50 32ms, p90 48ms, p95 53ms, p99 57ms. Missed vsync 3. Slow UI thread 12. Slow bitmap uploads 0. Slow issue draw commands 37. Frame deadline missed 39. Framestats kept 120 rows; 31 of those 120 had FrameCompleted after FrameDeadline. DisplayPresentTime was 0. The idle log after the swipes: list-first=187 saved=187 restored=0 rows=1000 built=218 views=30. Child count stayed 30 while built went from 30 to 218.
+
+Row template, same pid. The helper changed from `new Text(item.Title)` to `new Text("• " + item.Title)`. cnative: reload samples/feed/FeedScreen.cs, reloaded in 68.4 ms (apply 64.5 ms), edit-to-reply 108 ms. list-first=187 saved=187 restored=0 rows=1000 built=30 views=30. uiautomator text on screen started at "• Row 0187" and ran through "• Row 0216".
+
+Text input, same pid 22796, notes on top after `cnative agent press feed/back`. The draft tree line was keyboard=Text lines=1 submit=Send. field-mode logged keyboard=Text lines=1 submit=Send, and, on a later edit in that pid, keyboard=Number lines=1 submit=Send. The committed screen is Keyboard.Text. The Number value was the reload under test and was reverted.
+
+Caret. The draft was Milk. Two DPAD_LEFT moves and an inserted Q produced MiQlk, so the caret was at index 2. Deleting Q left Milk. The handler edit changed the empty-draft error to "Need a title". Same pid. reloaded in 19.5 ms (apply 13.8 ms), edit-to-reply 64 ms, state kept Draft="Milk". The next typed character was Z and the value became MiZlk. The caret had stayed at index 2.
+
+Enter on MiZlk ran OnSubmit twice on that pid (action-us steps=6, then steps=3) and the second pass set the error because the draft was already cleared. The note MiZlk was added. AndroidHost now ignores a second editor action within 250 ms and ignores a key-up. That guard is in the 11442384-byte listener. On pid 23382, Enter after typing Oats logged one storage-set and one action-us steps=6. The tree error was empty, the draft was empty, and Oats was a row. IsDynamicCodeSupported for pid 23382 was not still in the logcat buffer.
+
+Hello. `cnative new hello` wrote samples/hello/HelloScreen.cs. A second run exited 2 and printed that the file already exists. The running listener, pid 23382, reloaded the new file (reloaded in 32.2 ms, edit-to-reply 72 ms, reply Hello). Changing "Count " to "Taps " reloaded in 16.5 ms (apply 14.7 ms), edit-to-reply 56 ms. The tree value was Taps 0. `cnative agent press hello/add` made it Taps 1. The generated file was removed after that check, so the command still creates it.
+
+Release, built, not run. arm64 was not installed. The x64 APKs were not installed over the listener. Counter publish does not pass NativePocHttp or NativePocRecycler. Feed publish passes both.
+
+counter android-x64 NativePoc.Android.so 6739824 bytes, sha256 71916bfd21a109e095b496f128b16dcfaf9c406833b10b4da1a9b67d16a27409. Signed APK 2921261 bytes, sha256 efcd126fed24bdcd5e9897c5de1e42dd0383458038b2f2fb5437a35b537d68cf. The `.so` has no RecyclerView and no HttpURLConnection. System.Text.Json is the knob string, one hit.
+
+counter android-arm64 .so 6960616 bytes, sha256 1d40f9a6d347f4b9ef69a543cc182b2dd785549ab4d55797126448d437f0bfc5. Signed APK 2765616 bytes, sha256 3d5512d492e3bf293dee3da9c37a0538545839143e5b5e8d72acd67fbd5b1348. Same absences. Built, not run.
+
+feed android-x64 .so 8305456 bytes, sha256 a9ca4e500d9ce577f381eb3ba8281e3bee9ec5eacbf72fbed4b86d2d4eccaadc. Signed APK 5755886 bytes, sha256 280a02f0aa73591e9b0c9f49dbd1e611b5006c755a26306b9d63724ee6501069. RecyclerView and HttpURLConnection are present. Built, not run.
+
+feed android-arm64 .so 8632888 bytes, sha256 540207a7183fd4016d55c68c0cd83465e6e85534b3d1aabb856a5a5eb555ebbb. Signed APK 5551089 bytes, sha256 62e9719b0a3a2c598d9c776c5473c3ddded5f2aed8c2e27f9a4ee9646e202b79. Built, not run.

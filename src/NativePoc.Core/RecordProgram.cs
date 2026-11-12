@@ -47,6 +47,7 @@ public static partial class RecordProgram
 	public const byte OpMakeHost = 39;
 	public const byte OpCall = 40;
 	public const byte OpVmBool = 41;
+	public const byte OpSeedList = 42;
 
 	public const int EagerRowLimit = 24;
 
@@ -1075,6 +1076,35 @@ public static partial class RecordProgram
 				Push(stack, ref sp, Slot.Bool(value.Flag));
 				return ip;
 			}
+			case OpSeedList:
+			{
+				var list = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+				var count = TakeU16(code, ref ip, end);
+				var fields = TakeU16(code, ref ip, end);
+				var idField = TakeU16(code, ref ip, end);
+				var titleField = TakeU16(code, ref ip, end);
+				var prefix = strings[RequireString(TakeU16(code, ref ip, end), strings)];
+				if (bag.CountRows(list) == 0 && count > 0 && fields > 0)
+				{
+					var rows = new List<string[]>(count);
+					for (var n = 0; n < count; n++)
+					{
+						var id = n.ToString("0000", CultureInfo.InvariantCulture);
+						var cells = new string[fields];
+						for (var cell = 0; cell < fields; cell++)
+							cells[cell] = "";
+						if (idField < fields)
+							cells[idField] = id;
+						if (titleField < fields)
+							cells[titleField] = prefix + id;
+						rows.Add(cells);
+					}
+
+					bag.ReplaceRows(list, rows);
+				}
+
+				return ip;
+			}
 			default:
 				throw new InvalidOperationException("Rejected record program.");
 		}
@@ -1093,6 +1123,7 @@ public static partial class RecordProgram
 			Text text => text with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
 			Button button => button with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
 			TextField field => field with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
+			TextInput input => input with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
 			Switch toggle => toggle with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
 			ScrollView scroll => scroll with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
 			ListView list => list with { Gesture = mask, OnTap = tap, OnLongPress = longPress, OnSwipe = swipe, OnRefresh = refresh },
@@ -1109,6 +1140,7 @@ public static partial class RecordProgram
 			Text text => text with { Motion = motion },
 			Button button => button with { Motion = motion },
 			TextField field => field with { Motion = motion },
+			TextInput input => input with { Motion = motion },
 			Switch toggle => toggle with { Motion = motion },
 			ScrollView scroll => scroll with { Motion = motion },
 			ListView list => list with { Motion = motion },
@@ -1124,6 +1156,7 @@ public static partial class RecordProgram
 			Text text => text with { Style = style },
 			Button button => button with { Style = style },
 			TextField field => field with { Style = style },
+			TextInput input => input with { Style = style },
 			Switch toggle => toggle with { Style = style },
 			ScrollView scroll => scroll with { Style = style },
 			ListView list => list with { Style = style },
@@ -2092,6 +2125,16 @@ public static partial class RecordProgram
 		public int Count => _rows.Count;
 
 		public int Built { get; private set; }
+
+		public string Cell(int index, int field)
+		{
+			if ((uint)index >= (uint)_rows.Count)
+				throw new ArgumentOutOfRangeException(nameof(index));
+			var row = _rows[index];
+			if ((uint)field >= (uint)row.Length)
+				return "";
+			return row[field];
+		}
 
 		public Element this[int index]
 		{

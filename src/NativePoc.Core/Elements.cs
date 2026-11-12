@@ -315,6 +315,23 @@ public sealed record TextField(
 	public Action? OnSubmit { get; init; }
 }
 
+public sealed record TextInput(
+	string Value,
+	Action<string> OnChange,
+	string Placeholder,
+	string AccessibilityLabel,
+	[global::System.Runtime.CompilerServices.CallerFilePath] string SourceFile = "",
+	[global::System.Runtime.CompilerServices.CallerLineNumber] int SourceLine = 0) : Element
+{
+	public Keyboard Keyboard { get; init; }
+
+	public int Lines { get; init; }
+
+	public Submit Submit { get; init; }
+
+	public Action? OnSubmit { get; init; }
+}
+
 public sealed record Switch(
 	bool Value,
 	Action<bool> OnChange,

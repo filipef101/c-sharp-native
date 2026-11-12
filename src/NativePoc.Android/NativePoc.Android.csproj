@@ -14,10 +14,14 @@
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 		<NoWarn>$(NoWarn);IL3053</NoWarn>
 		<NativePocHttp Condition="'$(NativePocHttp)' == ''">false</NativePocHttp>
+		<NativePocRecycler Condition="'$(NativePocRecycler)' == ''">false</NativePocRecycler>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
 		<PublishAot>true</PublishAot>
+		<PublishTrimmed>true</PublishTrimmed>
+		<AndroidLinkMode>SdkOnly</AndroidLinkMode>
+		<TrimMode>full</TrimMode>
 		<EnablePreviewFeatures>true</EnablePreviewFeatures>
 		<NativePocProgramOnly>true</NativePocProgramOnly>
 		<AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
@@ -27,6 +31,14 @@
 		<IlcGenerateDebugInfo>false</IlcGenerateDebugInfo>
 		<DebuggerSupport>false</DebuggerSupport>
 		<InvariantGlobalization>true</InvariantGlobalization>
+		<UseSystemResourceKeys>true</UseSystemResourceKeys>
+		<EventSourceSupport>false</EventSourceSupport>
+		<HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+		<MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+		<StackTraceSupport>false</StackTraceSupport>
+		<MetricsSupport>false</MetricsSupport>
+		<StartupHookSupport>false</StartupHookSupport>
+		<_EnableSerializationDiscovery>false</_EnableSerializationDiscovery>
 	</PropertyGroup>
 	<ItemGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
 		<AndroidManifestOverlay Include="Properties/DevListenerDebuggable.xml" />
@@ -37,6 +49,12 @@
 	<PropertyGroup Condition="'$(NativePocHttp)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_HTTP</DefineConstants>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocRecycler)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_RECYCLER</DefineConstants>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(NativePocRecycler)' == 'true'">
+		<PackageReference Include="Xamarin.AndroidX.RecyclerView" Version="1.4.0.6" />
+	</ItemGroup>
 	<PropertyGroup Condition="'$(NativePocHttp)' != 'true'">
 		<NativePocSampleExclude>..\..\samples\feed\**</NativePocSampleExclude>
 	</PropertyGroup>

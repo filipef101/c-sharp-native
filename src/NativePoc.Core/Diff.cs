@@ -289,22 +289,10 @@ public static class TreeDiff
 				}
 				return;
 			case TextField field:
-				if (previous is not TextField previousField
-					|| previousField.Value != field.Value
-					|| previousField.Placeholder != field.Placeholder
-					|| previousField.AccessibilityLabel != field.AccessibilityLabel)
-				{
-					patches.Add(new SetTextField(path, field.Value, field.Placeholder, field.AccessibilityLabel));
-				}
-
-				if (previous is not TextField previousMode
-					|| previousMode.Keyboard != field.Keyboard
-					|| previousMode.Lines != field.Lines
-					|| previousMode.Submit != field.Submit)
-				{
-					if (field.Keyboard != Keyboard.Text || field.Lines > 1 || field.Submit != Submit.None)
-						patches.Add(new SetFieldMode(path, field.Keyboard, field.Lines, field.Submit));
-				}
+				PatchField(patches, path, previous, field.Value, field.Placeholder, field.AccessibilityLabel, field.Keyboard, field.Lines, field.Submit);
+				return;
+			case TextInput input:
+				PatchField(patches, path, previous, input.Value, input.Placeholder, input.AccessibilityLabel, input.Keyboard, input.Lines, input.Submit);
 				return;
 			case Switch toggle:
 				if (previous is not Switch previousToggle
@@ -329,6 +317,35 @@ public static class TreeDiff
 			default:
 				throw UnknownElement(next);
 		}
+	}
+
+	static void PatchField(
+		List<Patch> patches,
+		NodePath path,
+		Element? previous,
+		string value,
+		string placeholder,
+		string label,
+		Keyboard keyboard,
+		int lines,
+		Submit submit)
+	{
+		var sameText = previous switch
+		{
+			TextField field => field.Value == value && field.Placeholder == placeholder && field.AccessibilityLabel == label,
+			TextInput input => input.Value == value && input.Placeholder == placeholder && input.AccessibilityLabel == label,
+			_ => false,
+		};
+		if (!sameText)
+			patches.Add(new SetTextField(path, value, placeholder, label));
+		var sameMode = previous switch
+		{
+			TextField field => field.Keyboard == keyboard && field.Lines == lines && field.Submit == submit,
+			TextInput input => input.Keyboard == keyboard && input.Lines == lines && input.Submit == submit,
+			_ => false,
+		};
+		if (!sameMode && (keyboard != Keyboard.Text || lines > 1 || submit != Submit.None))
+			patches.Add(new SetFieldMode(path, keyboard, lines, submit));
 	}
 
 	public static byte MaskOf(Element? element)
@@ -359,6 +376,7 @@ public static class TreeDiff
 			case Text:
 			case Button:
 			case TextField:
+			case TextInput:
 			case Switch:
 			case Image:
 			case HostView:
@@ -379,6 +397,7 @@ public static class TreeDiff
 			case Button:
 				return ElementKind.Button;
 			case TextField:
+			case TextInput:
 				return ElementKind.TextField;
 			case Switch:
 				return ElementKind.Switch;

@@ -71,6 +71,19 @@ public sealed class AsyncHandlerTests
 		var source = File.ReadAllText(Path.Combine(Repo(), "samples", "feed", "FeedScreen.cs"));
 		var lowered = SubsetLowerer.TryLower(source, originFile: "samples/feed/FeedScreen.cs");
 		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var tree = RecordProgram.Bind(lowered.Program!, new RecordProgram.Bag()).Render(new AsyncPlatform());
+		var column = Assert.IsType<Column>(tree);
+		var list = Assert.IsType<ListView>(column.Children[^1]);
+		var window = Assert.IsType<RecordProgram.WindowList>(list.Rows);
+		Assert.Equal(1000, window.Count);
+		Assert.Equal(0, window.Built);
+		var row = Assert.IsType<Text>(window[0]);
+		Assert.Equal("• Row 0000", row.Value);
+		Assert.Equal("0000", row.Key);
+		Assert.Equal(1, window.Built);
+		Assert.Equal("0001", window.Cell(1, 0));
+		Assert.Equal("Row 0001", window.Cell(1, 1));
+		Assert.Equal(1, window.Built);
 	}
 
 	[Fact]

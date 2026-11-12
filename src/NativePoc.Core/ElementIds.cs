@@ -29,9 +29,16 @@ public static class ElementIds
 
 	public static string Submit(Element root, string id)
 	{
-		if (Require(root, id) is not TextField field || field.OnSubmit is null)
+		var element = Require(root, id);
+		Action? submit = element switch
+		{
+			TextField field => field.OnSubmit,
+			TextInput input => input.OnSubmit,
+			_ => null,
+		};
+		if (submit is null)
 			throw new InvalidOperationException("Element " + id + " has no submit.");
-		field.OnSubmit();
+		submit();
 		return "submitted " + id;
 	}
 
@@ -58,9 +65,13 @@ public static class ElementIds
 			case TextField field when text is not null:
 				field.OnChange(text);
 				return "entered " + id;
+			case TextInput input when text is not null:
+				input.OnChange(text);
+				return "entered " + id;
 			case Button:
 			case Switch:
 			case TextField:
+			case TextInput:
 				throw new InvalidOperationException("Element " + id + " does not take that input.");
 			case Column:
 			case ScrollView:
@@ -117,6 +128,7 @@ public static class ElementIds
 			case Text:
 			case Button:
 			case TextField:
+			case TextInput:
 			case Switch:
 			case Image:
 			case HostView:

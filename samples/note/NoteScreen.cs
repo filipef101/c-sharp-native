@@ -17,10 +17,27 @@ public static class NoteScreen
 
 	public static Element Render(NoteState state, IPlatform platform)
 	{
+		void Save()
+		{
+			if (state.Title.Length == 0)
+			{
+				state.Error = "Title is required";
+				platform.RequestRender();
+			}
+			else
+			{
+				state.Error = "";
+				platform.WriteBack();
+				Storage.Set(platform, "notes-last", state.Title);
+				platform.Pop();
+				platform.RequestRender();
+			}
+		}
+
 		return new Column(
 		[
 			new Text(state.Id) { Key = "open" },
-			new TextField(
+			new TextInput(
 				state.Title,
 				value =>
 				{
@@ -29,8 +46,13 @@ public static class NoteScreen
 				},
 				"Title",
 				"Title")
-			{ Key = "title" },
-			new TextField(
+			{
+				Key = "title",
+				Keyboard = Keyboard.Text,
+				Submit = Submit.Go,
+				OnSubmit = () => Save(),
+			},
+			new TextInput(
 				state.Body,
 				value =>
 				{
@@ -39,27 +61,14 @@ public static class NoteScreen
 				},
 				"Body",
 				"Body")
-			{ Key = "body", Lines = 3 },
+			{
+				Key = "body",
+				Keyboard = Keyboard.Text,
+				Lines = 4,
+				Submit = Submit.None,
+			},
 			new Text(state.Error) { Key = "error" },
-			new Button(
-				"Save",
-				() =>
-				{
-					if (state.Title.Length == 0)
-					{
-						state.Error = "Title is required";
-						platform.RequestRender();
-						return;
-					}
-
-					state.Error = "";
-					platform.WriteBack();
-					Storage.Set(platform, "notes-last", state.Title);
-					platform.Pop();
-					platform.RequestRender();
-				},
-				"Save")
-			{ Key = "save" },
+			new Button("Save", () => Save(), "Save") { Key = "save" },
 			new Button("Back", () => { platform.Pop(); platform.RequestRender(); }, "Back") { Key = "back" },
 		])
 		{ Key = "note" };

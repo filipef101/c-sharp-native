@@ -20,6 +20,8 @@ public sealed class FeedState
 	public bool Loading { get; set; }
 
 	public List<FeedItem> Items { get; set; } = new List<FeedItem>();
+
+	public List<FeedItem> Generated { get; set; } = new List<FeedItem>();
 }
 
 public static class FeedScreen
@@ -91,18 +93,17 @@ public static class FeedScreen
 			platform.RequestRender();
 		}
 
+		FeedModule.Generate(platform, state);
 		var rows = new List<Element>();
 		rows.Add(new Text(state.Loading ? "Loading feed" : state.Phase) { Key = "phase" });
 		rows.Add(new Text(state.Error) { Key = "error" });
 		rows.Add(new Button("Refresh", () => Load(), "Refresh") { Key = "refresh" });
 		rows.Add(new Button("Post", () => Post(), "Post") { Key = "post" });
 		rows.Add(new Button("Back", () => platform.Pop(), "Back") { Key = "back" });
-		foreach (var item in state.Items)
-			rows.Add(new Text(item.Title) { Key = item.Id });
-		return new ScrollView(new Column(rows) { Key = "column" })
-		{
-			Key = "scroll",
-			OnRefresh = () => Load(),
-		};
+		foreach (var item in state.Generated)
+			rows.Add(Row(item));
+		return new Column(rows) { Key = "feed" };
 	}
+
+	static Element Row(FeedItem item) => new Text("• " + item.Title) { Key = item.Id };
 }

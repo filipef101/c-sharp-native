@@ -51,7 +51,11 @@ sealed class AndroidHost : IElementHost<View>
 					FillViewport = true,
 				};
 			case ElementKind.List:
+#if NATIVEPOC_RECYCLER
+				return new KeyedRecycler(_activity);
+#else
 				return new RowWindow(_activity);
+#endif
 			case ElementKind.Image:
 				return new ImageView(_activity)
 				{
@@ -68,6 +72,14 @@ sealed class AndroidHost : IElementHost<View>
 	{
 		if (parent is not ViewGroup group)
 			throw new InvalidOperationException("Parent is not a view group.");
+#if NATIVEPOC_RECYCLER
+		if (child is KeyedRecycler && parent is LinearLayout)
+		{
+			child.LayoutParameters = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1f);
+			group.AddView(child, index);
+			return;
+		}
+#endif
 		child.LayoutParameters = parent is AndroidScroll
 			? new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)
 			: new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
@@ -331,6 +343,13 @@ sealed class AndroidHost : IElementHost<View>
 
 	public void SetList(View view, IReadOnlyList<Element> rows)
 	{
+#if NATIVEPOC_RECYCLER
+		if (view is KeyedRecycler recycler)
+		{
+			recycler.Bind(rows);
+			return;
+		}
+#endif
 		if (view is not RowWindow window)
 			throw new InvalidOperationException("List patch targeted a non-list view.");
 		window.Bind(rows);
@@ -584,6 +603,15 @@ sealed class AndroidHost : IElementHost<View>
 			};
 			if (args.ActionId != expected)
 				return;
+			if (args.Event is { Action: not KeyEventActions.Down })
+				return;
+			if (edit is AndroidField gate)
+			{
+				var now = Environment.TickCount64;
+				if (now - gate.LastSubmit < 250)
+					return;
+				gate.LastSubmit = now;
+			}
 #if DEBUG
 			Guard(current, current.OnSubmit);
 #else
@@ -709,6 +737,8 @@ sealed class AndroidField : EditText
 	static bool _loggedFocus;
 
 	public string? Key { get; set; }
+
+	public long LastSubmit { get; set; }
 
 	public AndroidField(Context context) : base(context)
 	{

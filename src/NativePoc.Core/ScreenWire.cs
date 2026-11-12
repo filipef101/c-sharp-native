@@ -114,18 +114,10 @@ public static class ScreenSnapshot
 				builder.Append(" label=").Append(Quote(button.AccessibilityLabel)).Append('\n');
 				return;
 			case TextField field:
-				Key(builder, field.Key);
-				builder.Append(" value=").Append(Quote(field.Value));
-				builder.Append(" placeholder=").Append(Quote(field.Placeholder));
-				builder.Append(" label=").Append(Quote(field.AccessibilityLabel));
-				if (field.Keyboard != Keyboard.Text || field.Lines > 1 || field.Submit != Submit.None)
-				{
-					builder.Append(" keyboard=").Append(field.Keyboard.ToString());
-					builder.Append(" lines=").Append(field.Lines.ToString(CultureInfo.InvariantCulture));
-					builder.Append(" submit=").Append(field.Submit.ToString());
-				}
-
-				builder.Append('\n');
+				WriteField(builder, field.Key, field.Value, field.Placeholder, field.AccessibilityLabel, field.Keyboard, field.Lines, field.Submit);
+				return;
+			case TextInput input:
+				WriteField(builder, input.Key, input.Value, input.Placeholder, input.AccessibilityLabel, input.Keyboard, input.Lines, input.Submit);
 				return;
 			case Switch toggle:
 				Key(builder, toggle.Key);
@@ -167,6 +159,7 @@ public static class ScreenSnapshot
 			case Button:
 				return "button";
 			case TextField:
+			case TextInput:
 				return "textfield";
 			case Switch:
 				return "switch";
@@ -189,7 +182,7 @@ public static class ScreenSnapshot
 			Column => "column",
 			Text => "text",
 			Button => "button",
-			TextField => "textfield",
+			TextField or TextInput => "textfield",
 			Switch => "switch",
 			ScrollView => "scroll",
 			ListView => "list",
@@ -197,6 +190,22 @@ public static class ScreenSnapshot
 			HostView => "host",
 			_ => throw Unknown(element),
 		};
+
+	static void WriteField(StringBuilder builder, string? key, string value, string placeholder, string label, Keyboard keyboard, int lines, Submit submit)
+	{
+		Key(builder, key);
+		builder.Append(" value=").Append(Quote(value));
+		builder.Append(" placeholder=").Append(Quote(placeholder));
+		builder.Append(" label=").Append(Quote(label));
+		if (keyboard != Keyboard.Text || lines > 1 || submit != Submit.None)
+		{
+			builder.Append(" keyboard=").Append(keyboard.ToString());
+			builder.Append(" lines=").Append(lines.ToString(CultureInfo.InvariantCulture));
+			builder.Append(" submit=").Append(submit.ToString());
+		}
+
+		builder.Append('\n');
+	}
 
 	static void Key(StringBuilder builder, string? key)
 	{

@@ -30,6 +30,23 @@ public static class NotesScreen
 
 	public static Element Render(NotesState state, IPlatform platform)
 	{
+		void Add()
+		{
+			if (state.Draft.Length == 0)
+			{
+				state.Error = "Need a title";
+				platform.RequestRender();
+			}
+			else
+			{
+				state.Error = "";
+				state.Notes.Add(new NoteItem { Id = state.Draft, Title = state.Draft, Body = "" });
+				Storage.Set(platform, "notes-last", state.Draft);
+				state.Draft = "";
+				platform.RequestRender();
+			}
+		}
+
 		var rows = new List<Element>();
 		rows.Add(new Text(state.Dark ? "Night" : "Day") { Key = "mode" });
 		rows.Add(new Switch(
@@ -42,7 +59,7 @@ public static class NotesScreen
 			},
 			"Dark")
 		{ Key = "dark" });
-		rows.Add(new TextField(
+		rows.Add(new TextInput(
 			state.Draft,
 			value =>
 			{
@@ -51,27 +68,15 @@ public static class NotesScreen
 			},
 			"New note",
 			"Title")
-		{ Key = "draft" });
+		{
+			Key = "draft",
+			Keyboard = Keyboard.Text,
+			Lines = 1,
+			Submit = Submit.Send,
+			OnSubmit = () => Add(),
+		});
 		rows.Add(new Text(state.Error) { Key = "error" });
-		rows.Add(new Button(
-			"Add",
-			() =>
-			{
-				if (state.Draft.Length == 0)
-				{
-					state.Error = "Title is required";
-					platform.RequestRender();
-					return;
-				}
-
-				state.Error = "";
-				state.Notes.Add(new NoteItem { Id = state.Draft, Title = state.Draft, Body = "" });
-				Storage.Set(platform, "notes-last", state.Draft);
-				state.Draft = "";
-				platform.RequestRender();
-			},
-			"Add")
-		{ Key = "add" });
+		rows.Add(new Button("Add", () => Add(), "Add") { Key = "add" });
 		foreach (var item in state.Notes)
 		{
 			rows.Add(new Column(

@@ -272,7 +272,7 @@ public static partial class SubsetLowerer
 		if (parent is ArgumentSyntax argument && argument.Parent is ArgumentListSyntax list && list.Parent is ObjectCreationExpressionSyntax creation)
 		{
 			var type = creation.Type.ToString();
-			if (list.Arguments.Count > 0 && list.Arguments[0] == argument && type == "TextField")
+			if (list.Arguments.Count > 0 && list.Arguments[0] == argument && type is "TextField" or "TextInput")
 				return ValueKind.Str;
 			if (list.Arguments.Count > 0 && list.Arguments[0] == argument && type == "Switch")
 				return ValueKind.Bool;
@@ -830,6 +830,8 @@ public static partial class SubsetLowerer
 			{
 				if (!TryEffect(statements[index], out var consumed))
 					return false;
+				if (!consumed && !TrySeed(statements[index], out consumed))
+					return false;
 				if (!consumed)
 					break;
 				index++;
@@ -912,6 +914,40 @@ public static partial class SubsetLowerer
 			_code.Op(RecordProgram.OpEffect);
 			_code.U16(_code.Intern(target));
 			_code.U16(_code.Intern(resourceLiteral.Token.ValueText));
+			return true;
+		}
+
+		bool TrySeed(StatementSyntax statement, out bool consumed)
+		{
+			consumed = false;
+			if (statement is not ExpressionStatementSyntax expr || expr.Expression is not InvocationExpressionSyntax invocation)
+				return true;
+			if (invocation.Expression is not MemberAccessExpressionSyntax member
+				|| member.Expression is not IdentifierNameSyntax owner
+				|| owner.Identifier.ValueText != "FeedModule"
+				|| member.Name.Identifier.ValueText != "Generate")
+				return true;
+			consumed = true;
+			if (invocation.ArgumentList.Arguments.Count != 2
+				|| invocation.ArgumentList.Arguments[0].Expression is not IdentifierNameSyntax platformName
+				|| platformName.Identifier.ValueText != _platform
+				|| invocation.ArgumentList.Arguments[1].Expression is not IdentifierNameSyntax stateName
+				|| stateName.Identifier.ValueText != _state)
+				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", invocation);
+			var list = _fields.FirstOrDefault(field => field.Name == "Generated" && field.Kind == ValueKind.List);
+			if (list is null || !_records.TryGetValue(list.Item, out var itemFields))
+				return Fail(UnknownMember, "The screen subset does not include Generated.", invocation);
+			var idField = itemFields.FindIndex(field => field.Name == "Id");
+			var titleField = itemFields.FindIndex(field => field.Name == "Title");
+			if (idField < 0 || titleField < 0)
+				return Fail(UnknownMember, "The screen subset does not include Generated.", invocation);
+			_code.Op(RecordProgram.OpSeedList);
+			_code.U16(_code.Intern(list.Name));
+			_code.U16(1000);
+			_code.U16(itemFields.Count);
+			_code.U16(idField);
+			_code.U16(titleField);
+			_code.U16(_code.Intern("Row "));
 			return true;
 		}
 
@@ -1128,6 +1164,7 @@ public static partial class SubsetLowerer
 				case "Button":
 					return Control(creation, set, RecordProgram.OpMakeButton, 3);
 				case "TextField":
+				case "TextInput":
 					return Control(creation, set, RecordProgram.OpMakeField, 4);
 				case "Switch":
 					return Control(creation, set, RecordProgram.OpMakeSwitch, 3);
@@ -1702,7 +1739,7 @@ public static partial class SubsetLowerer
 
 				if (name.Identifier.ValueText is "Keyboard" or "Lines" or "Submit" or "OnSubmit")
 				{
-					if (TypeName(creation) != "TextField")
+					if (TypeName(creation) is not ("TextField" or "TextInput"))
 						return Fail(UnknownMember, "The screen subset does not include an element initializer.", assignment);
 					if (!FieldMode(name.Identifier.ValueText, assignment.Right))
 						return false;

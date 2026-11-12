@@ -21,11 +21,11 @@ The render body is one of:
 - a chain of `if (condition) return element;` ending in `return element;`
 - `var rows = new List<Element>();` with `Add` calls before and after one `foreach`, then `return` of a `ScrollView`, `ListView`, or column of that list
 
-Elements are `Text`, `Button`, `TextField`, `Switch`, `Column`, `ScrollView`, `ListView`, and `Image`. A column's children are arguments or a collection expression. `Key` is a string literal, or an item string field (`Key = item.Id`). Keys in one parent are all set or all absent. `new ListView(rows) { Key = "..." }` is the recycled list. `new Image("marker")` names a drawable resource.
+Elements are `Text`, `Button`, `TextField`, `TextInput`, `Switch`, `Column`, `ScrollView`, `ListView`, and `Image`. A column's children are arguments or a collection expression. `Key` is a string literal, or an item string field (`Key = item.Id`). Keys in one parent are all set or all absent. `new ListView(rows) { Key = "..." }` is the recycled list. `new Image("marker")` names a drawable resource.
 
 An element may set `Style = new Style { ... }`. The fields are `Padding`, `Margin`, `Gap`, `Grow`, `Align` (`Align.Start`, `Align.Center`, `Align.End`, `Align.Stretch`), `FontSize`, `Weight` (`FontWeight.Regular`, `FontWeight.Bold`), `Radius`, `Color`, and `Background`. Numbers are dp except `FontSize`, which is sp. `Color` and `Background` are `0xAARRGGBB`. Zero means unset, so a styled child does not clear the root padding. A style-only edit is a `SetStyle` patch on the same view.
 
-A `TextField` may also set `Keyboard` (`Keyboard.Text`, `Keyboard.Email`, `Keyboard.Number`, `Keyboard.Phone`, `Keyboard.Password`), `Lines` (above 1 is a multiline field), `Submit` (`Submit.None`, `Submit.Next`, `Submit.Send`, `Submit.Go`, `Submit.Search`), and `OnSubmit`. `OnSubmit` is a lambda with the same actions as a button, plus `state.Name = state.Other.Length == 0 ? "missing" : ""`, `state.Flag = state.Other.Length != 0`, and the platform modules in [platform-modules.md](platform-modules.md). The host keeps the caret for a field whose key and text stay put across a reload. `cnative agent submit <id>` runs `OnSubmit`.
+A `TextField` or `TextInput` may also set `Keyboard` (`Keyboard.Text`, `Keyboard.Email`, `Keyboard.Number`, `Keyboard.Phone`, `Keyboard.Password`), `Lines` (above 1 is a multiline field), `Submit` (`Submit.None`, `Submit.Next`, `Submit.Send`, `Submit.Go`, `Submit.Search`), and `OnSubmit`. `OnSubmit` is a lambda with the same actions as a button, plus `state.Name = state.Other.Length == 0 ? "missing" : ""`, `state.Flag = state.Other.Length != 0`, and the platform modules in [platform-modules.md](platform-modules.md). `TextInput` lowers to the same field opcodes as `TextField`. The host keeps the caret for a field whose key and text stay put across a reload. `cnative agent submit <id>` runs `OnSubmit`. The notes draft is a `TextInput` with `Keyboard.Text`, `Submit.Send`, and `OnSubmit`. The note title uses `Submit.Go`. The note body uses `Lines` 4.
 
 The render body may start with `platform.Effect("Property", "resource")` and `platform.Every("Property")`. `Effect` names a string property and a local asset (`resource` + `.txt`). The host starts one task for that pair. A reload while the task is pending does not start a second task, and the task writes the property once. `Every` names an int property. It does not run a timer. `cnative agent clock` adds one to each armed property.
 
@@ -90,7 +90,7 @@ A running `cnative run android` prints `path:line:column: id: message` and `The 
 
 `ScrollView` is one keyed child. The Android host maps it to `android.widget.ScrollView` (`FillViewport`) and reconciles that child by key, the same way a column reuses a row. The packing list is a `ScrollView` of key `scroll` around the `list` column, in `PackingScreen.cs` and in the lowered program.
 
-`ListView` is a keyed list of rows. The Android host maps it to a `ScrollView` that keeps 20 slots and rebinds them as it scrolls. It is not `AndroidX.RecyclerView`. The agent tree is one list node. The rows are not id-tree children.
+`ListView` is a keyed list of rows. A build with `NativePocRecycler` (the listener, and a feed Release that passes `-p:NativePocRecycler=true`) maps it to `AndroidX.RecyclerView`. The adapter's stable id is a hash of the row key. For a window that key is the first non-empty cell, read without building the row. A view holder is created once and rebound. `SetList` calls `NotifyDataSetChanged` and does not scroll to row 0. If that notification leaves the first visible row at 0 after a list that was already scrolled, the host scrolls back to the saved index and logs `restored=1`. The log line is `list-first=`. A build without the flag, including the counter Release, still maps `ListView` to a `ScrollView` that keeps 20 slots. The agent tree is one list node. The rows are not id-tree children.
 
 A `foreach` of more than 24 rows does not build those rows during the first eval. It pushes one `ListView` whose rows are a window. Indexing a row runs that row's body, so a scroll that asks for the visible slots builds those slots and leaves the rest unbuilt. A list of 24 rows or fewer still expands, which is the packing screen's own four rows (the switch, the edit button, and the swipe stay on those rows). The 1000-row bench is the window. Headers and footers around the `foreach` stay in the column. A window slot shows the row's first text, a second text when that text is not empty, and an image when the source is not empty. Those three make different heights. The height of a row that has not been built yet is one text line, so the first frame does not evaluate every row. When the parent measures the window with an unbounded height, the window takes at most one screen and scrolls itself. The slot's key is the row key. Scrolling a slot onto a different row replaces that slot's title, subtitle, and image from the row it now shows. The switch and the button stay on the expanded list.
 
@@ -105,10 +105,10 @@ A `foreach` of more than 24 rows does not build those rows during the first eval
 | Column | column | `android.widget.LinearLayout` | none |
 | Text | text | `android.widget.TextView` | the text |
 | Button | button | `android.widget.Button` | the label |
-| TextField | textfield | `android.widget.EditText` | the label |
+| TextField, TextInput | textfield | `android.widget.EditText` | the label |
 | Switch | switch | `android.widget.Switch` | the label |
 | ScrollView | scroll | `android.widget.ScrollView` | none |
-| ListView | list | `android.widget.ScrollView` (20 slots) | none |
+| ListView | list | `RecyclerView` when `NativePocRecycler` is set, otherwise `ScrollView` (20 slots) | none |
 | Image | image | `android.widget.ImageView` | the drawable name |
 | HostView | host | the view named by `NativeViews` | the prop value |
 

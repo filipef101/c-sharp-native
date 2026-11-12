@@ -22,6 +22,7 @@ static class AndroidBuild
 		"-r", rid,
 		"-p:NativePocDevListener=true",
 		"-p:NativePocHttp=true",
+		"-p:NativePocRecycler=true",
 	];
 
 	public static string PublishDirectory(string repo, string configuration, string rid) =>

@@ -16,6 +16,8 @@ public readonly record struct RowFace(string Key, string Title, string Subtitle,
 				return new RowFace(key, button.Title, "", "");
 			case TextField field:
 				return new RowFace(key, field.Value, "", "");
+			case TextInput input:
+				return new RowFace(key, input.Value, "", "");
 			case Switch:
 			case ScrollView:
 			case ListView:

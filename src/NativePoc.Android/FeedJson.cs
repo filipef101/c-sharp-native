@@ -1,3 +1,4 @@
+using System.Globalization;
 using NativePoc.Feed;
 
 namespace NativePoc;
@@ -10,6 +11,19 @@ public static class FeedModule
 		ArgumentNullException.ThrowIfNull(state);
 		FeedJson.Fill(state.Items, json);
 		platform.Module("feed", "Apply", [json]);
+	}
+
+	public static void Generate(IPlatform platform, FeedState state)
+	{
+		ArgumentNullException.ThrowIfNull(platform);
+		ArgumentNullException.ThrowIfNull(state);
+		if (state.Generated.Count > 0)
+			return;
+		for (var n = 0; n < 1000; n++)
+		{
+			var id = n.ToString("0000", CultureInfo.InvariantCulture);
+			state.Generated.Add(new FeedItem { Id = id, Title = "Row " + id });
+		}
 	}
 }
 

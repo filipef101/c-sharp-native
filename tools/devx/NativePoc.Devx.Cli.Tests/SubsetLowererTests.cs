@@ -626,6 +626,10 @@ public sealed class SubsetLowererTests
 			nav.Bag("notes").AddRow("Notes", cells);
 			var platform = new Platform();
 			var list = (nav.Top() ?? throw new InvalidOperationException("missing")).Render(platform);
+			var draft = Assert.IsType<TextField>(ElementIds.Require(list, "scroll/list/draft"));
+			Assert.Equal(Keyboard.Text, draft.Keyboard);
+			Assert.Equal(Submit.Send, draft.Submit);
+			Assert.NotNull(draft.OnSubmit);
 			Assert.IsType<Button>(ElementIds.Require(list, "scroll/list/Milk/open")).OnPress();
 			Assert.Equal("note", nav.TopId());
 			Assert.Equal("Milk", nav.Bag("note").ReadString("Title"));
@@ -636,6 +640,10 @@ public sealed class SubsetLowererTests
 			nav.Bag("note").WriteString("Title", "Oat milk");
 			var detail = (nav.Top() ?? throw new InvalidOperationException("missing")).Render(platform);
 			Assert.Equal("Milk", TextValue(detail, "note/open"));
+			var title = Assert.IsType<TextField>(ElementIds.Require(detail, "note/title"));
+			Assert.Equal(Keyboard.Text, title.Keyboard);
+			Assert.Equal(Submit.Go, title.Submit);
+			Assert.Equal(4, Assert.IsType<TextField>(ElementIds.Require(detail, "note/body")).Lines);
 			Assert.IsType<Button>(ElementIds.Require(detail, "note/save")).OnPress();
 			Assert.Equal("Oat milk", nav.Bag("notes").Cell("Notes", "Milk", idAt, titleAt));
 		}
