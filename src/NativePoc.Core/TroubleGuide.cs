@@ -10,8 +10,8 @@ internal static class TroubleGuide
 
 	public static readonly Entry[] Entries =
 	[
-		new("Corrupt state", StartupGuard.StateLog("corrupt"), "Delete `files/nativepoc-state.bin` and start again. Those bytes are not a checkpoint. The app paints the counter."),
-		new("Old checkpoint", StartupGuard.StateLog("old-version"), "The file was written by an older build. Delete `files/nativepoc-state.bin` and start again. The app paints the counter."),
+		new("Corrupt state", StartupGuard.StateLog("corrupt"), "Those bytes are not a checkpoint. The app discards `files/nativepoc-state.bin` and paints the counter."),
+		new("Old checkpoint", StartupGuard.StateLog("old-version"), "The file was written by an older build. The app discards `files/nativepoc-state.bin` and paints the counter."),
 		new("Unknown root", "startup root unknown", "The `nativepoc_root` extra is not a staged screen. Omit it, or pass a catalog id. The app paints the counter."),
 		new("Stale token", "hotreload rejected reason=stale-token", "The process wrote a new `files/nativepoc-hotreload.token`. The watcher reads that file and retries. Save the screen again."),
 		new("Rejected program", "startup render rejected", "The baked program is older than this interpreter. The app paints the compiled counter. Rebuild so the catalog is regenerated."),

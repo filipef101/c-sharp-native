@@ -379,9 +379,45 @@ public static class StateCheckpoint
 			if (!NavCheckpoint.TryRead(payload, ref cursor, out var read) || cursor != payload.Length)
 				throw new InvalidOperationException("Rejected state checkpoint.");
 			nav = read;
+			// The STC1 header can still be current when a nav screen stores a
+			// record program from an older interpreter. Decode used to throw
+			// "Rejected record program version" from RecordSession.Prepare,
+			// after TryLoad had returned, so RenderNow's fallback never ran.
+			// Reject the file here, before any bag is replaced.
+			RejectPrograms(read);
 		}
 
 		return (count, (flags & 1) != 0, (flags & 2) != 0, name);
+	}
+
+	static void RejectPrograms(NavCheckpoint nav)
+	{
+		foreach (var screen in nav.Screens)
+		{
+			var program = screen.Program;
+			if (program is not { Length: > 0 })
+				continue;
+			if (!RecordProgram.CurrentStamp(program))
+			{
+				// A record header with a different format or opcode stamp was
+				// written by an older interpreter. Anything else is corrupt.
+				throw new InvalidOperationException(
+					ScreenProgram.IsRecord(program) && program.Length >= 10
+						? "Rejected state checkpoint version."
+						: "Rejected state checkpoint.");
+			}
+			try
+			{
+				_ = RecordProgram.ScreenId(program);
+			}
+			catch (InvalidOperationException ex) when (ex.Message.StartsWith("Rejected ", StringComparison.Ordinal))
+			{
+				throw new InvalidOperationException(
+					ex.Message.Contains("version", StringComparison.Ordinal)
+						? "Rejected state checkpoint version."
+						: "Rejected state checkpoint.");
+			}
+		}
 	}
 }
 

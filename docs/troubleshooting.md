@@ -6,13 +6,13 @@ The listener logs these lines and still paints a screen.
 
 `state-load rejected reason=corrupt`
 
-Delete `files/nativepoc-state.bin` and start again. Those bytes are not a checkpoint. The app paints the counter.
+Those bytes are not a checkpoint. The app discards `files/nativepoc-state.bin` and paints the counter.
 
 ## Old checkpoint
 
 `state-load rejected reason=old-version`
 
-The file was written by an older build. Delete `files/nativepoc-state.bin` and start again. The app paints the counter.
+The file was written by an older build. The app discards `files/nativepoc-state.bin` and paints the counter.
 
 ## Unknown root
 

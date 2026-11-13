@@ -181,7 +181,13 @@ static class StateStore
 		{
 			return false;
 		}
-		catch (Exception ex) when (ex is IOException or InvalidOperationException or Java.IO.IOException)
+		catch (InvalidOperationException ex)
+		{
+			Log.Warn(MainActivity.Tag, StartupGuard.StateLog(StartupGuard.StateReason(ex.Message)));
+			Delete(context);
+			return false;
+		}
+		catch (Exception ex) when (ex is IOException or Java.IO.IOException)
 		{
 			Log.Warn(MainActivity.Tag, StartupGuard.StateLog(StartupGuard.StateReason(ex.Message)));
 			return false;

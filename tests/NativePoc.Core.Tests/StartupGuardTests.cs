@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace NativePoc.Tests;
@@ -102,6 +104,93 @@ public sealed class StartupGuardTests
 	}
 
 	[Fact]
+	public void An_older_program_inside_a_checkpoint_is_discarded()
+	{
+		var program = Catalog("Counter");
+		Assert.True(RecordProgram.CurrentStamp(program));
+		var oldProgram = program.ToArray();
+		var stamp = PreviousStamp();
+		Assert.NotEqual(RecordProgram.OpcodeVersion, stamp);
+		oldProgram[6] = (byte)stamp;
+		oldProgram[7] = (byte)(stamp >> 8);
+		oldProgram[8] = (byte)(stamp >> 16);
+		oldProgram[9] = (byte)(stamp >> 24);
+		var nav = new NavCheckpoint
+		{
+			Stack = ["counter"],
+			Screens = [new NavScreen { Id = "counter", Program = oldProgram }],
+		};
+		var checkpoint = StateCheckpoint.Write(new AppState { Count = 4, Name = "Ada" }, null, nav);
+		var state = new AppState { Count = 1, Name = "kept" };
+		var thrown = Assert.Throws<InvalidOperationException>(() => StateCheckpoint.ReadInto(checkpoint, state));
+		Assert.Equal("Rejected state checkpoint version.", thrown.Message);
+		Assert.Equal("old-version", StartupGuard.StateReason(thrown.Message));
+		Assert.Equal("state-load rejected reason=old-version", StartupGuard.StateLog("old-version"));
+		Assert.Equal(1, state.Count);
+		Assert.Equal("kept", state.Name);
+		var tree = Screen.Render(new AppState(), new HeadlessHost());
+		Assert.Contains(ElementIds.Flatten(tree), node => node.Id == "title");
+
+		var current = StateCheckpoint.Write(
+			new AppState { Count = 4, Name = "Ada" },
+			null,
+			new NavCheckpoint
+			{
+				Stack = ["counter"],
+				Screens = [new NavScreen { Id = "counter", Program = program }],
+			});
+		var loaded = new AppState();
+		StateCheckpoint.ReadInto(current, loaded);
+		Assert.Equal(4, loaded.Count);
+		Assert.Equal("Ada", loaded.Name);
+		Assert.True(StateCheckpoint.TryReadNav(current, out var restored));
+		Assert.Equal("counter", Assert.Single(restored.Stack));
+		Assert.Equal(program, Assert.Single(restored.Screens).Program);
+	}
+
+	[Fact]
+	public void A_checkpoint_pulled_from_36cad64_is_discarded()
+	{
+		var hex = File.ReadAllText(Path.Combine(Repo(), "tests", "NativePoc.Core.Tests", "Fixtures", "state-36cad64.hex"));
+		var compact = new char[hex.Length];
+		var used = 0;
+		foreach (var character in hex)
+		{
+			if (char.IsWhiteSpace(character))
+				continue;
+			compact[used++] = character;
+		}
+
+		var bytes = Convert.FromHexString(compact.AsSpan(0, used));
+		Assert.Equal(1390, bytes.Length);
+		Assert.Equal("d89cef2d77774dcd9eb21fe9c9ae1d823b20e541cfec10bec0af41eb31f1ac66", Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant());
+		Assert.Equal((byte)'S', bytes[0]);
+		Assert.Equal((byte)'T', bytes[1]);
+		Assert.Equal((byte)'C', bytes[2]);
+		Assert.Equal((byte)'1', bytes[3]);
+		Assert.Equal(1, bytes[5] | (bytes[6] << 8) | (bytes[7] << 16) | (bytes[8] << 24));
+		Assert.Equal("Ada", Encoding.UTF8.GetString(bytes.AsSpan(12, 3)));
+		var programAt = bytes.AsSpan().IndexOf("NPC1"u8);
+		Assert.True(programAt >= 10);
+		var program = bytes.AsSpan(programAt);
+		Assert.False(RecordProgram.CurrentStamp(program));
+		var stamp = bytes[programAt + 6]
+			| ((uint)bytes[programAt + 7] << 8)
+			| ((uint)bytes[programAt + 8] << 16)
+			| ((uint)bytes[programAt + 9] << 24);
+		Assert.NotEqual(RecordProgram.OpcodeVersion, stamp);
+		Assert.Equal(203426465u, stamp);
+		var state = new AppState { Count = 7, Name = "kept" };
+		var thrown = Assert.Throws<InvalidOperationException>(() => StateCheckpoint.ReadInto(bytes, state));
+		Assert.Equal("Rejected state checkpoint version.", thrown.Message);
+		Assert.Equal("old-version", StartupGuard.StateReason(thrown.Message));
+		Assert.Equal(7, state.Count);
+		Assert.Equal("kept", state.Name);
+		var tree = Screen.Render(new AppState(), new HeadlessHost());
+		Assert.Contains(ElementIds.Flatten(tree), node => node.Id == "title");
+	}
+
+	[Fact]
 	public void An_unknown_root_names_the_counter_fallback()
 	{
 		Assert.Equal("startup root unknown id=missing fallback=counter", StartupGuard.RootLog("missing"));
@@ -112,6 +201,19 @@ public sealed class StartupGuardTests
 	{
 		var thrown = Assert.Throws<InvalidOperationException>(() => JniRegistry.Call("DeviceMissing.Nope", []));
 		Assert.Equal("jni-bind miss DeviceMissing.Nope", thrown.Message);
+	}
+
+	static uint PreviousStamp()
+	{
+		var rows = new List<OpcodeTable.Row>();
+		foreach (var row in OpcodeTable.Rows)
+		{
+			if (row.Code == RecordProgram.OpMakeTextInput)
+				continue;
+			rows.Add(row);
+		}
+
+		return OpcodeTable.Stamp(rows.ToArray());
 	}
 
 	static string StampText(uint stamp) =>

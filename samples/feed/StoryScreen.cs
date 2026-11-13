@@ -107,6 +107,6 @@ public static class StoryScreen
 			if (state.Query.Length == 0 || item.Title.Contains(state.Query, StringComparison.OrdinalIgnoreCase))
 				rows.Add(Row(item));
 		}
-		return FeedRows.Window(rows, 4, () => Load());
+		return FeedRows.Window(rows, 4, () => Load(), source: state.Items.Count);
 	}
 }

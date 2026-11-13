@@ -56,6 +56,7 @@ internal static class OpcodeTable
 		new(nameof(RecordProgram.OpOnPause), RecordProgram.OpOnPause, 2),
 		new(nameof(RecordProgram.OpOnResume), RecordProgram.OpOnResume, 2),
 		new(nameof(RecordProgram.OpOnLeave), RecordProgram.OpOnLeave, 2),
+		new(nameof(RecordProgram.OpMakeTextInput), RecordProgram.OpMakeTextInput, 4),
 	];
 
 	internal static uint Version => Stamp(Rows);

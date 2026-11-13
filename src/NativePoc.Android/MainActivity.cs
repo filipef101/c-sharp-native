@@ -216,7 +216,20 @@ public sealed class MainActivity : Activity
 				"startup root explicit id=" + requestedRoot
 				+ " claimed=0 top=" + ScreenNav.Shared.TopId());
 		}
-		ScreenNav.Shared.Prepare((program, bag) => RecordSession.Prepare(program, bag));
+		try
+		{
+			ScreenNav.Shared.Prepare((program, bag) => RecordSession.Prepare(program, bag));
+		}
+		catch (Exception ex) when (StartupGuard.Rejected(ex))
+		{
+			var screen = ScreenNav.Shared.TopId();
+			Log.Info(Tag, StartupGuard.RenderLog(screen.Length == 0 ? StartupGuard.DefaultId : screen, ex.Message));
+			while (ScreenNav.Shared.DropTop())
+			{
+			}
+
+			NavCatalog.InstallRoot();
+		}
 #else
 		// Release cold start does not open nativepoc-state.bin or replay a nav checkpoint.
 		StartupMarks.Note("state-load", 0);

@@ -1615,7 +1615,7 @@ public static partial class SubsetLowerer
 				return true;
 			if (window.ArgumentList.Arguments.Count == 2)
 				return true;
-			if (window.ArgumentList.Arguments.Count != 3
+			if (window.ArgumentList.Arguments.Count is not (3 or 4)
 				|| window.ArgumentList.Arguments[2].Expression is not LambdaExpressionSyntax lambda)
 				return Fail(BadLambda, "A screen action can update state, branch, loop, or call a method compiled into the binary.", window);
 			if (!Script(lambda, out var body) || body.Length == 0)
@@ -1631,7 +1631,7 @@ public static partial class SubsetLowerer
 				&& windowCall.Name.Identifier.ValueText == "Window"
 				&& windowCall.Expression is IdentifierNameSyntax windowType
 				&& windowType.Identifier.ValueText == "FeedRows"
-				&& window.ArgumentList.Arguments.Count is 2 or 3
+				&& window.ArgumentList.Arguments.Count is 2 or 3 or 4
 				&& window.ArgumentList.Arguments[0].Expression is IdentifierNameSyntax windowRows
 				&& windowRows.Identifier.ValueText == _rows
 				&& window.ArgumentList.Arguments[1].Expression is LiteralExpressionSyntax windowCount
@@ -1776,8 +1776,9 @@ public static partial class SubsetLowerer
 				case "Button":
 					return Control(creation, set, RecordProgram.OpMakeButton, 3);
 				case "TextField":
-				case "TextInput":
 					return Control(creation, set, RecordProgram.OpMakeField, 4);
+				case "TextInput":
+					return Control(creation, set, RecordProgram.OpMakeTextInput, 4);
 				case "Switch":
 					return Control(creation, set, RecordProgram.OpMakeSwitch, 3);
 				case "Column":
@@ -1883,7 +1884,7 @@ public static partial class SubsetLowerer
 				return Fail(UnknownElement, "The screen subset does not include " + TypeName(creation) + ".", creation);
 			var args = creation.ArgumentList.Arguments;
 			byte[] script;
-			if (op == RecordProgram.OpMakeField)
+			if (op is RecordProgram.OpMakeField or RecordProgram.OpMakeTextInput)
 			{
 				if (!TextValue(args[0].Expression))
 					return false;

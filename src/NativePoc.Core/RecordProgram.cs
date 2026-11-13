@@ -53,6 +53,9 @@ internal static partial class RecordProgram
 	public const byte OpOnPause = 45;
 	public const byte OpOnResume = 46;
 	public const byte OpOnLeave = 47;
+	public const byte OpMakeTextInput = 48;
+
+	public const string EmptyFilterText = "No matches";
 
 	// The catalog stores these four bytes. They are the FNV-1a of the opcode
 	// table, so an opcode added there fails catalog-check until the programs
@@ -546,6 +549,12 @@ internal static partial class RecordProgram
 		| ((uint)payload[8] << 16)
 		| ((uint)payload[9] << 24);
 
+	internal static bool CurrentStamp(ReadOnlySpan<byte> payload) =>
+		ScreenProgram.IsRecord(payload)
+		&& payload.Length >= 10
+		&& payload[4] == RecordFormat
+		&& ReadStamp(payload) == OpcodeVersion;
+
 	static int WriteU16(byte[] payload, int cursor, int value)
 	{
 		payload[cursor] = (byte)value;
@@ -875,6 +884,7 @@ internal static partial class RecordProgram
 				return ip;
 			}
 			case OpMakeField:
+			case OpMakeTextInput:
 			case OpMakeSwitch:
 			case OpMakeButton:
 				return MakeControl(op, code, strings, bag, platform, stack, ref sp, row, ip, end);
@@ -1312,16 +1322,16 @@ internal static partial class RecordProgram
 		switch (op)
 		{
 			case OpMakeField:
+			case OpMakeTextInput:
 			{
 				var label = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
 				var placeholder = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
 				var value = Pop(stack, ref sp, SlotKind.Str).Text ?? "";
-				Push(stack, ref sp, Slot.Elem(new TextField(
-					value,
-					text => RunScript(script, strings, bag, platform, text, false, rowId),
-					placeholder,
-					label)
-				{ Key = key }));
+				Action<string> change = text => RunScript(script, strings, bag, platform, text, false, rowId);
+				Element field = op == OpMakeTextInput
+					? new TextInput(value, change, placeholder, label) { Key = key }
+					: new TextField(value, change, placeholder, label) { Key = key };
+				Push(stack, ref sp, Slot.Elem(field));
 				return ip;
 			}
 			case OpMakeSwitch:
@@ -2359,6 +2369,8 @@ internal static partial class RecordProgram
 		readonly Element?[] _cache;
 
 		readonly int[] _match;
+		readonly bool _filtered;
+		Element? _empty;
 
 		internal WindowList(byte[] code, string[] strings, Bag bag, IPlatform platform, IReadOnlyList<string[]> rows, int start, int end)
 		{
@@ -2369,16 +2381,26 @@ internal static partial class RecordProgram
 			_rows = rows;
 			_start = start;
 			_end = end;
+			_filtered = BodyFilters();
 			_match = Index();
 			_cache = new Element[_match.Length];
 		}
 
-		public int Count => _match.Length;
+		bool ShowsEmpty => _filtered && _rows.Count > 0 && _match.Length == 0;
+
+		public int Count => ShowsEmpty ? 1 : _match.Length;
 
 		public int Built { get; private set; }
 
 		public string Cell(int index, int field)
 		{
+			if (ShowsEmpty)
+			{
+				if (index != 0)
+					throw new ArgumentOutOfRangeException(nameof(index));
+				return field == 0 ? "empty" : "";
+			}
+
 			if ((uint)index >= (uint)_match.Length)
 				throw new ArgumentOutOfRangeException(nameof(index));
 			var row = _rows[_match[index]];
@@ -2391,6 +2413,13 @@ internal static partial class RecordProgram
 		{
 			get
 			{
+				if (ShowsEmpty)
+				{
+					if (index != 0)
+						throw new ArgumentOutOfRangeException(nameof(index));
+					return _empty ??= new Text(EmptyFilterText) { Key = "empty" };
+				}
+
 				if ((uint)index >= (uint)_cache.Length)
 					throw new ArgumentOutOfRangeException(nameof(index));
 				var cached = _cache[index];
@@ -2423,6 +2452,36 @@ internal static partial class RecordProgram
 			return matches.ToArray();
 		}
 
+		bool BodyFilters()
+		{
+			var cursor = _start;
+			while (cursor < _end)
+			{
+				var op = _code[cursor];
+				if (op is OpJumpIfFalse or OpVmBool)
+					return true;
+				if (BuildsElement(op))
+					return false;
+				var width = Immediate(op);
+				if (width < 0 || cursor + 1 + width > _end)
+					return false;
+				cursor += 1 + width;
+			}
+
+			return false;
+		}
+
+		static int Immediate(byte op)
+		{
+			foreach (var row in OpcodeTable.Rows)
+			{
+				if (row.Code == op)
+					return row.Arity;
+			}
+
+			return -1;
+		}
+
 		bool Keeps(string[] source)
 		{
 			if (_start >= _end)
@@ -2445,7 +2504,7 @@ internal static partial class RecordProgram
 			return false;
 		}
 
-		static bool BuildsElement(byte op) => op is OpMakeText or OpMakeTextKey or OpMakeField or OpMakeSwitch or OpMakeButton or OpMakeColumn or OpMakeColumnKey or OpMakeScroll or OpMakeList or OpMakeImage or OpMakeHost or OpCall or OpGather;
+		static bool BuildsElement(byte op) => op is OpMakeText or OpMakeTextKey or OpMakeField or OpMakeTextInput or OpMakeSwitch or OpMakeButton or OpMakeColumn or OpMakeColumnKey or OpMakeScroll or OpMakeList or OpMakeImage or OpMakeHost or OpCall or OpGather;
 
 		public IEnumerator<Element> GetEnumerator()
 		{

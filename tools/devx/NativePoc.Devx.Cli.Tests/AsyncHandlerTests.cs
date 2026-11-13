@@ -267,7 +267,7 @@ public sealed class AsyncHandlerTests
 		var bag = new RecordProgram.Bag();
 		var bound = RecordProgram.Bind(lowered.Program!, bag);
 		var tree = bound.Render(new AsyncPlatform());
-		var search = Assert.IsType<TextField>(ElementIds.Require(tree, "feed/search"));
+		var search = Assert.IsType<TextInput>(ElementIds.Require(tree, "feed/search"));
 		Assert.Equal("Search the feed", search.Placeholder);
 		Assert.Equal("Search the feed", search.AccessibilityLabel);
 		Assert.Equal(Keyboard.Text, search.Keyboard);
@@ -318,7 +318,7 @@ public sealed class AsyncHandlerTests
 		bag.ReplaceRows("Items", rows);
 		bag.WriteString("Query", "0001");
 		var tree = RecordProgram.Bind(lowered.Program!, bag).Render(new AsyncPlatform());
-		Assert.IsType<TextField>(ElementIds.Require(tree, "feed/search"));
+		Assert.IsType<TextInput>(ElementIds.Require(tree, "feed/search"));
 		var window = Window(tree);
 		Assert.Equal(0, window.Built);
 		Assert.Equal("Kiln 0001", TitleOf(Assert.Single(window)));
@@ -333,7 +333,9 @@ public sealed class AsyncHandlerTests
 		Assert.Contains("Query=\"0001\"", RecordProgram.KeptNote(reloaded.Program!, bag), StringComparison.Ordinal);
 		var next = RecordProgram.Bind(reloaded.Program!, bag).Render(new AsyncPlatform());
 		Assert.Equal("0001", bag.ReadString("Query"));
-		Assert.Empty(Window(next));
+		var missed = Assert.Single(Window(next));
+		Assert.Equal("empty", missed.Key);
+		Assert.Equal(RecordProgram.EmptyFilterText, Assert.IsType<Text>(missed).Value);
 		bag.WriteString("Query", "kiln");
 		var prefixed = RecordProgram.Bind(reloaded.Program!, bag).Render(new AsyncPlatform());
 		Assert.Equal(29, Window(prefixed).Count);

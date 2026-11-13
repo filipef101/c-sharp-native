@@ -70,6 +70,28 @@ public sealed class FeedRowsTests
 	}
 
 	[Fact]
+	public void A_filter_under_the_window_threshold_stays_a_list()
+	{
+		var rows = new List<Element>();
+		for (var index = 0; index < 4; index++)
+			rows.Add(new Text("h" + index) { Key = "h" + index });
+		rows.Add(new Text("Kiln 0001") { Key = "0001" });
+		var column = Assert.IsType<Column>(FeedRows.Window(rows, 4, source: 29));
+		var list = Assert.IsType<ListView>(column.Children[4]);
+		Assert.Equal("window", list.Key);
+		Assert.Equal("0001", Assert.Single(list.Rows).Key);
+
+		var none = new List<Element>();
+		for (var index = 0; index < 4; index++)
+			none.Add(new Text("h" + index) { Key = "h" + index });
+		var empty = Assert.IsType<Column>(FeedRows.Window(none, 4, source: 29));
+		var emptyList = Assert.IsType<ListView>(empty.Children[4]);
+		var row = Assert.IsType<Text>(Assert.Single(emptyList.Rows));
+		Assert.Equal("empty", row.Key);
+		Assert.Equal(RecordProgram.EmptyFilterText, row.Value);
+	}
+
+	[Fact]
 	public void A_short_feed_stays_one_column()
 	{
 		var rows = new List<Element> { new Text("h") { Key = "heading" }, new Text("r") { Key = "0000" } };

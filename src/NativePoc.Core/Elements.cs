@@ -607,14 +607,16 @@ internal static class ListRows
 
 public static class FeedRows
 {
-	public static Element Window(List<Element> rows, int headers, Action? onRefresh = null, Action? onUndo = null)
+	public static Element Window(List<Element> rows, int headers, Action? onRefresh = null, Action? onUndo = null, int source = -1)
 	{
 		ArgumentNullException.ThrowIfNull(rows);
 		if (headers < 0)
 			headers = 0;
 		if (headers > rows.Count)
 			headers = rows.Count;
-		if (rows.Count - headers <= 24)
+		var bodyCount = rows.Count - headers;
+		var listed = source < 0 ? bodyCount : source;
+		if (listed <= RecordProgram.EagerRowLimit)
 			return new Column(rows) { Key = "feed", OnRefresh = onRefresh, OnUndo = onUndo };
 		var head = new List<Element>(headers + 1);
 		for (var index = 0; index < headers; index++)
@@ -622,6 +624,8 @@ public static class FeedRows
 		var body = new List<Element>(rows.Count - headers);
 		for (var index = headers; index < rows.Count; index++)
 			body.Add(rows[index]);
+		if (body.Count == 0)
+			body.Add(new Text(RecordProgram.EmptyFilterText) { Key = "empty" });
 		head.Add(new ListView(body) { Key = "window", OnRefresh = onRefresh, OnUndo = onUndo });
 		return new Column(head) { Key = "feed" };
 	}

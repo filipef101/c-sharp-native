@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Http;
+
 namespace NativePoc.Tests;
 
 public sealed class HttpFlightTests
@@ -67,5 +70,91 @@ public sealed class HttpFlightTests
 		Assert.True(HttpFlight.WasCancelled(id, generation));
 		Assert.False(HttpFlight.BindAbort(id, generation, () => ran++));
 		Assert.Equal(1, ran);
+	}
+
+	[Fact]
+	public void Cancel_aborts_a_blocked_managed_read()
+	{
+		var id = "managed-socket-" + Guid.NewGuid().ToString("N");
+		var generation = HttpFlight.Join(id);
+		var gate = new BlockedRead();
+		var cancel = new CancellationTokenSource();
+		var response = new NotedResponse();
+		Assert.True(HttpFlight.BindAbort(id, generation, () => ResponseAbort.Stop(cancel, gate, response)));
+		var read = Task.Run(() => gate.Read(new byte[8], 0, 8));
+		Assert.True(gate.Entered.Wait(TimeSpan.FromSeconds(1)));
+		Assert.True(HttpFlight.Cancel(id));
+		var error = Assert.Throws<AggregateException>(() => read.Wait(TimeSpan.FromSeconds(1)));
+		Assert.IsType<IOException>(error.InnerException);
+		Assert.True(gate.WasDisposed);
+		Assert.True(cancel.IsCancellationRequested);
+		Assert.True(response.Disposed);
+	}
+
+	sealed class NotedResponse : HttpResponseMessage
+	{
+		public NotedResponse()
+			: base(HttpStatusCode.OK)
+		{
+		}
+
+		public bool Disposed { get; private set; }
+
+		protected override void Dispose(bool disposing)
+		{
+			Disposed = true;
+			base.Dispose(disposing);
+		}
+	}
+
+	sealed class BlockedRead : Stream
+	{
+		readonly ManualResetEventSlim _entered = new(false);
+		readonly ManualResetEventSlim _release = new(false);
+		int _disposed;
+
+		public ManualResetEventSlim Entered => _entered;
+
+		public bool WasDisposed => Volatile.Read(ref _disposed) == 1;
+
+		public override bool CanRead => true;
+
+		public override bool CanSeek => false;
+
+		public override bool CanWrite => false;
+
+		public override long Length => throw new NotSupportedException();
+
+		public override long Position
+		{
+			get => throw new NotSupportedException();
+			set => throw new NotSupportedException();
+		}
+
+		public override void Flush()
+		{
+		}
+
+		public override int Read(byte[] buffer, int offset, int count)
+		{
+			_entered.Set();
+			_release.Wait();
+			if (Volatile.Read(ref _disposed) == 1)
+				throw new IOException("The read was aborted.");
+			return 0;
+		}
+
+		public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+		public override void SetLength(long value) => throw new NotSupportedException();
+
+		public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+		protected override void Dispose(bool disposing)
+		{
+			Volatile.Write(ref _disposed, 1);
+			_release.Set();
+			base.Dispose(disposing);
+		}
 	}
 }
