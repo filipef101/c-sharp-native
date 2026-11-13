@@ -43,6 +43,10 @@ internal static class TroubleGuide
 			builder.Append(index + 1 == Entries.Length ? "\n" : "\n\n");
 		}
 
+		builder.Append("\n## HTTP error\n\n`http-error:`\n\n");
+		builder.Append("The body is `cancelled`, `timeout`, a status code, or an exception name. `client=jni` is `HttpURLConnection`. `client=1` is the managed `HttpClient`, which is compiled only when `NativePocHttpManaged` is true. `Pop` cancels only that screen. A cancelled `Exchange` returns `http-error: cancelled` and logs one `http-cancel module=http.` line. It does not log `http-error` first. Another screen's request keeps running. `NativePocVisit` defaults to false. Setting it true compiles `samples/visit` into the showcase and turns on HTTP, location, nav, and persist. `tools/check.sh` does not set it. The Visit and Feed fixtures use `http://127.0.0.1:8094` through `adb reverse`. `10.0.2.2` does not reach a server bound to `127.0.0.1`. `Trim=true` on `System.Net.SocketsHttpHandler.Http3Support` does not remove the UTF-16 switch name from a `.so` that still contains `SocketsHttpHandler`. The default JNI `.so` has no UTF-16 `Http3`. The one ASCII `System.Net.SocketsHttpHandler.Http3Support` is the NativeAOT runtime feature-switch name table, beside `System.Net.Http.UseNativeHttpHandler` and `System.Reflection.Metadata.MetadataUpdater.IsSupported`. The JNI publish does not emit a `RuntimeHostConfigurationOption` for it. That option is compiled only when `NativePocHttpManaged` is true.\n");
+		builder.Append("\n## Missing runtime provider\n\n`ClassNotFoundException: net.dot.jni.nativeaot.NativeAotRuntimeProvider`\n\n");
+		builder.Append("The dex was packaged without that class. `tools/dex-has-provider.py` fails the build from `_CompileDex`, including when `_CompileToDalvik` was up to date and skipped, and `tools/check.sh` fails the signed apk. Delete `obj` and publish again if the java file was never copied. A no-change android-x64 republish on this tree logged `Skipping target \"_CompileToDalvik\"` and the gate still printed `NativeAotRuntimeProvider is in classes.dex`.\n");
 		return builder.ToString();
 	}
 }

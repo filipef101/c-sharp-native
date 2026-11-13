@@ -20,10 +20,13 @@ static class HttpTransport
 		Timeout = TimeSpan.FromSeconds(8),
 	};
 
-	public static async Task<string> SendAsync(string method, string url, string? json, CancellationToken cancel)
+	public static async Task<string> SendAsync(string method, string url, string? json, CancellationToken cancel, string screen)
 	{
+		var ticket = screen.Length == 0 ? "http" : screen;
 		if (cancel.IsCancellationRequested)
 			return "http-error: cancelled";
+		var generation = HttpFlight.Open(ticket);
+		using var registration = cancel.Register(() => HttpFlight.Cancel(ticket));
 		try
 		{
 			using var request = new HttpRequestMessage(new HttpMethod(method), url);
@@ -31,8 +34,11 @@ static class HttpTransport
 				request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 			using var response = await Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancel).ConfigureAwait(false);
 			var body = await response.Content.ReadAsStringAsync(cancel).ConfigureAwait(false);
-			if (cancel.IsCancellationRequested)
+			if (cancel.IsCancellationRequested || HttpFlight.WasCancelled(ticket, generation))
+			{
+				Android.Util.Log.Info(MainActivity.Tag, "http-cancel module=http." + method);
 				return "http-error: cancelled";
+			}
 			if (!response.IsSuccessStatusCode)
 			{
 				var code = ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture);
@@ -45,7 +51,7 @@ static class HttpTransport
 				"http-" + method.ToLowerInvariant() + " chars=" + body.Length.ToString(CultureInfo.InvariantCulture) + " client=1");
 			return body;
 		}
-		catch (OperationCanceledException) when (cancel.IsCancellationRequested)
+		catch (OperationCanceledException) when (cancel.IsCancellationRequested || HttpFlight.WasCancelled(ticket, generation))
 		{
 			Android.Util.Log.Info(MainActivity.Tag, "http-cancel module=http." + method);
 			return "http-error: cancelled";
@@ -54,6 +60,11 @@ static class HttpTransport
 		{
 			Android.Util.Log.Info(MainActivity.Tag, "http-timeout module=http." + method);
 			return "http-error: timeout";
+		}
+		catch (Exception) when (cancel.IsCancellationRequested || HttpFlight.WasCancelled(ticket, generation))
+		{
+			Android.Util.Log.Info(MainActivity.Tag, "http-cancel module=http." + method);
+			return "http-error: cancelled";
 		}
 		catch (Exception ex)
 		{
@@ -98,34 +109,53 @@ namespace NativePoc;
 
 static class HttpTransport
 {
-	public static Task<string> SendAsync(string method, string url, string? json, CancellationToken cancel)
+	public static Task<string> SendAsync(string method, string url, string? json, CancellationToken cancel, string screen)
 	{
+		var ticket = screen.Length == 0 ? "http" : screen;
+		var generation = HttpFlight.Open(ticket);
+		var logged = false;
+		string Cancelled()
+		{
+			if (!logged)
+			{
+				logged = true;
+				Android.Util.Log.Info(MainActivity.Tag, "http-cancel module=http." + method);
+			}
+
+			return "http-error: cancelled";
+		}
+
 		if (cancel.IsCancellationRequested)
-			return Task.FromResult("http-error: cancelled");
+			return Task.FromResult(Cancelled());
 		return Task.Run(() =>
 		{
 			var off = Android.OS.Looper.MyLooper() != Android.OS.Looper.MainLooper;
 			Android.Util.Log.Info(MainActivity.Tag, "http-off-ui=" + (off ? "1" : "0"));
-			using var registration = cancel.Register(static () => JniRegistry.Call("PlatformHttp.Disconnect", []));
+			using var registration = cancel.Register(() =>
+			{
+				try
+				{
+					HttpFlight.Cancel(ticket);
+					JniRegistry.Call("PlatformHttp.Disconnect", [ticket]);
+				}
+				catch (Exception)
+				{
+				}
+			});
 			try
 			{
-				if (cancel.IsCancellationRequested)
-					return "http-error: cancelled";
-				var body = JniRegistry.Call("PlatformHttp.Exchange", [method, url, json ?? ""]);
-				if (cancel.IsCancellationRequested)
-				{
-					Android.Util.Log.Info(MainActivity.Tag, "http-cancel module=http." + method);
-					return "http-error: cancelled";
-				}
-
+				if (cancel.IsCancellationRequested || HttpFlight.WasCancelled(ticket, generation))
+					return Cancelled();
+				var body = JniRegistry.Call("PlatformHttp.Exchange", [method, url, json ?? "", ticket, generation.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+				if (cancel.IsCancellationRequested || HttpFlight.WasCancelled(ticket, generation) || body == "http-error: cancelled")
+					return Cancelled();
 				return body;
 			}
-			catch (Exception ex) when (cancel.IsCancellationRequested)
+			catch (Exception) when (cancel.IsCancellationRequested || HttpFlight.WasCancelled(ticket, generation))
 			{
-				Android.Util.Log.Info(MainActivity.Tag, "http-cancel module=http." + method + " " + ex.GetType().Name);
-				return "http-error: cancelled";
+				return Cancelled();
 			}
-		}, cancel);
+		});
 	}
 
 	public static byte[]? GetBytes(string url)

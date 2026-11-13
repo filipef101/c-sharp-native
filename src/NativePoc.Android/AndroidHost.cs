@@ -1489,7 +1489,6 @@ sealed class PlatformBridge : IPlatform
 	public PlatformBridge(MainActivity activity)
 	{
 		_activity = activity;
-		_live = _calls;
 	}
 
 	public void CopyNonce(string nonce)
@@ -1533,13 +1532,24 @@ sealed class PlatformBridge : IPlatform
 
 	public void WriteBack() => CompiledScreens.WriteBack(ScreenNav.Shared.TopId());
 
-	readonly CancellationTokenSource _calls = new();
+	readonly Dictionary<string, CancellationTokenSource> _screenCalls = new(StringComparer.Ordinal);
 
 	string? _lastOpen;
 
 	string? _reopen;
 
-	CancellationTokenSource _live;
+	CancellationTokenSource CallsFor(string screen)
+	{
+		if (screen.Length == 0)
+			screen = "http";
+		if (!_screenCalls.TryGetValue(screen, out var calls))
+		{
+			calls = new CancellationTokenSource();
+			_screenCalls[screen] = calls;
+		}
+
+		return calls;
+	}
 
 	public void RefreshTop(string screen)
 	{
@@ -1562,9 +1572,8 @@ sealed class PlatformBridge : IPlatform
 #if NATIVEPOC_NAV
 		NavFocus.Arm();
 #endif
-		_live.Cancel();
-		_live = new CancellationTokenSource();
-		Log.Info(MainActivity.Tag, "http-cancel screen=" + leaving);
+		if (leaving.Length > 0 && _screenCalls.Remove(leaving, out var calls))
+			calls.Cancel();
 		RequestRender();
 	}
 
@@ -1596,18 +1605,21 @@ sealed class PlatformBridge : IPlatform
 	public void Module(string module, string method, string[] args) =>
 		PlatformModules.Dispatch(_activity, module, method, args);
 
-	public Task<string> ModuleAsync(string module, string method, string[] args) =>
-		PlatformModules.DispatchAsync(_activity, module, method, args, _live.Token);
+	public Task<string> ModuleAsync(string module, string method, string[] args)
+	{
+		var screen = ScreenNav.Shared.TopId();
+		return PlatformModules.DispatchAsync(_activity, module, method, args, CallsFor(screen).Token, screen);
+	}
 
 	public void Continue(Task<string> task, Action<string> resume)
 	{
-		var generation = _live;
+		var generation = CallsFor(ScreenNav.Shared.TopId());
 		task.ContinueWith(done =>
 		{
 			var text = done.IsCompletedSuccessfully ? done.Result ?? "" : "http-error: " + (done.Exception?.GetBaseException().Message ?? "failed");
 			_activity.RunOnUiThread(() =>
 			{
-				if (!ReferenceEquals(generation, _live))
+				if (generation.IsCancellationRequested)
 					return;
 				resume(text);
 			});

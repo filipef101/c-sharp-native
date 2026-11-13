@@ -41,6 +41,32 @@ public sealed class StartupGuardTests
 	}
 
 	[Fact]
+	public void A_mismatched_stamp_renders_the_counter_fallback()
+	{
+		var source = File.ReadAllText(Path.Combine(Repo(), "src", "NativePoc.Android", "NavCatalog.cs"));
+		var current = RecordProgram.OpcodeVersion;
+		var plantedStamp = current ^ 0x01000000;
+		Assert.Equal((byte)current, (byte)plantedStamp);
+		Assert.NotEqual(current, plantedStamp);
+		var baked = Catalog("Counter");
+		Assert.True(baked.Length > 9);
+		var stored = baked[6] | ((uint)baked[7] << 8) | ((uint)baked[8] << 16) | ((uint)baked[9] << 24);
+		Assert.Equal(current, stored);
+		var header = "78,80,67,49," + RecordProgram.RecordFormat.ToString(CultureInfo.InvariantCulture) + ",2," + StampText(current) + ",";
+		var older = "78,80,67,49," + RecordProgram.RecordFormat.ToString(CultureInfo.InvariantCulture) + ",2," + StampText(plantedStamp) + ",";
+		var index = source.IndexOf(header, StringComparison.Ordinal);
+		Assert.True(index >= 0, header);
+		var planted = source.Remove(index, header.Length).Insert(index, older);
+		var bytes = CatalogVersion.Read(planted, "Counter");
+		Assert.NotNull(bytes);
+		var thrown = Assert.Throws<InvalidOperationException>(() => new HeadlessHost().Apply(bytes, new RecordProgram.Bag()));
+		Assert.Equal("Rejected record program version.", thrown.Message);
+		Assert.True(StartupGuard.Rejected(thrown));
+		var tree = Screen.Render(new AppState(), new HeadlessHost());
+		Assert.Contains(ElementIds.Flatten(tree), node => node.Id == "title");
+	}
+
+	[Fact]
 	public void A_rejected_program_falls_back_to_the_compiled_counter()
 	{
 		var host = new HeadlessHost();

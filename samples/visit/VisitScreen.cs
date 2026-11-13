@@ -106,6 +106,7 @@ public static class VisitScreen
 			OnSubmit = () => Save(),
 		});
 		rows.Add(new Text(state.Error) { Key = "error" });
+		rows.Add(new Text(state.Body) { Key = "body" });
 		rows.Add(new Text(state.Fix) { Key = "fix" });
 		rows.Add(new Button("Locate", () => Locate(), "Locate") { Key = "locate" });
 		rows.Add(new Button("Save", () => Save(), "Save") { Key = "save" });

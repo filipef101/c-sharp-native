@@ -84,7 +84,7 @@ static class PlatformModules
 		AnimatedPlayer.Play(activity, args[0], from, to, duration, spring);
 	}
 
-	public static async Task<string> DispatchAsync(Activity activity, string module, string method, string[] args, CancellationToken cancel)
+	public static async Task<string> DispatchAsync(Activity activity, string module, string method, string[] args, CancellationToken cancel, string screen)
 	{
 		try
 		{
@@ -94,9 +94,9 @@ static class PlatformModules
 					return await Task.Run(() => JniRegistry.Call(method, args), cancel);
 #if NATIVEPOC_HTTP
 				case ("http", "GetJson", 1):
-					return await HttpTransport.SendAsync("GET", args[0], null, cancel);
+					return await HttpTransport.SendAsync("GET", args[0], null, cancel, screen);
 				case ("http", "PostJson", 2):
-					return await HttpTransport.SendAsync("POST", args[0], args[1], cancel);
+					return await HttpTransport.SendAsync("POST", args[0], args[1], cancel, screen);
 #endif
 				case ("storage", "Get", 1):
 					return AppStorage.Get(activity, args[0]) ?? "";

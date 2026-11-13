@@ -458,7 +458,11 @@ public sealed class LoopRuleTests
 		Assert.Contains("<NativePocHttpManaged Condition=\"'$(NativePocHttpManaged)' == ''\">false</NativePocHttpManaged>", project, StringComparison.Ordinal);
 		Assert.Contains("AfterTargets=\"_CompileDex\"", project, StringComparison.Ordinal);
 		Assert.DoesNotContain("AfterTargets=\"_CompileToDalvik\"", project, StringComparison.Ordinal);
+		Assert.Contains("<NativePocVisit Condition=\"'$(NativePocVisit)' == ''\">false</NativePocVisit>", project, StringComparison.Ordinal);
+		Assert.Contains("Condition=\"'$(NativePocVisit)' != 'true'\"", project, StringComparison.Ordinal);
 		Assert.Contains("JniRegistry.Call(\"PlatformHttp.Exchange\"", transport, StringComparison.Ordinal);
+		Assert.Contains("JniRegistry.Call(\"PlatformHttp.Disconnect\", [ticket])", transport, StringComparison.Ordinal);
+		Assert.DoesNotContain("PlatformHttp.Disconnect\", []", transport, StringComparison.Ordinal);
 		Assert.Contains("JniRegistry.Call(\"PlatformHttp.Read\"", transport, StringComparison.Ordinal);
 		Assert.Contains("[JniType(\"java/net/HttpURLConnection\")]", platform, StringComparison.Ordinal);
 		Assert.Contains("HttpURLConnection", platform, StringComparison.Ordinal);

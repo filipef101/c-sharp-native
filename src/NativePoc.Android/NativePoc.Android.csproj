@@ -15,6 +15,7 @@
 		<NoWarn>$(NoWarn);IL3053</NoWarn>
 		<NativePocHttp Condition="'$(NativePocHttp)' == ''">false</NativePocHttp>
 		<NativePocHttpManaged Condition="'$(NativePocHttpManaged)' == ''">false</NativePocHttpManaged>
+		<NativePocVisit Condition="'$(NativePocVisit)' == ''">false</NativePocVisit>
 		<NativePocRecycler Condition="'$(NativePocRecycler)' == ''">false</NativePocRecycler>
 		<NativePocLocation Condition="'$(NativePocLocation)' == ''">false</NativePocLocation>
 		<NativePocPersist Condition="'$(NativePocPersist)' == ''">false</NativePocPersist>
@@ -31,6 +32,12 @@
 		<NativePocFastNatives Condition="'$(NativePocFastNatives)' == ''">false</NativePocFastNatives>
 		<AndroidManifestPlaceholders>nativepocMarks=$(NativePocStartupMarks)</AndroidManifestPlaceholders>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocVisit)' == 'true'">
+		<NativePocHttp>true</NativePocHttp>
+		<NativePocLocation>true</NativePocLocation>
+		<NativePocNav>true</NativePocNav>
+		<NativePocPersist>true</NativePocPersist>
 	</PropertyGroup>
 	<ItemGroup Condition="'$(NativePocHttp)' == 'true' And '$(NativePocHttpManaged)' == 'true'">
 		<RuntimeHostConfigurationOption Include="System.Net.Http.UseSocketsHttpHandler" Value="true" Trim="true" />
@@ -177,7 +184,7 @@
 	<PropertyGroup Condition="'$(NativePocLocation)' != 'true'">
 		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\where\**</NativePocSampleExclude>
 	</PropertyGroup>
-	<PropertyGroup Condition="'$(NativePocHttp)' != 'true' Or '$(NativePocLocation)' != 'true'">
+	<PropertyGroup Condition="'$(NativePocVisit)' != 'true'">
 		<NativePocSampleExclude>$(NativePocSampleExclude);..\..\samples\visit\**</NativePocSampleExclude>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocPersist)' != 'true' Or '$(NativePocNav)' != 'true'">

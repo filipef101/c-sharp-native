@@ -16,15 +16,19 @@ static partial class PlatformHttp
 
 	const int ByteCap = 4_000_000;
 
-	[JniMethod("getResponseCode", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;", Blocking = true)]
-	public static string Exchange(string method, string url, string json)
+	[JniMethod("getResponseCode", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/String;", Blocking = true)]
+	public static string Exchange(string method, string url, string json, string ticket, int generation)
 	{
 		HttpURLConnection? connection = null;
 		try
 		{
+			if (HttpFlight.WasCancelled(ticket, generation))
+				return "http-error: cancelled";
 			if (string.IsNullOrEmpty(url))
 				return "http-error: url";
-			connection = Open(url);
+			connection = Track(ticket, generation, url);
+			if (connection is null)
+				return "http-error: cancelled";
 			connection.RequestMethod = method.Length == 0 ? "GET" : method;
 			if (json.Length > 0)
 			{
@@ -60,6 +64,8 @@ static partial class PlatformHttp
 		}
 		catch (Exception ex)
 		{
+			if (HttpFlight.WasCancelled(ticket, generation))
+				return "http-error: cancelled";
 			var name = ex.GetType().Name;
 			var reason = name.Contains("Timeout", StringComparison.Ordinal) ? "timeout" : name;
 			Log.Info(MainActivity.Tag, "http-error module=http." + method + " " + name);
@@ -68,7 +74,7 @@ static partial class PlatformHttp
 		}
 		finally
 		{
-			Disconnect(connection);
+			Release(connection);
 		}
 	}
 
@@ -78,7 +84,7 @@ static partial class PlatformHttp
 		HttpURLConnection? connection = null;
 		try
 		{
-			connection = Open(url);
+			connection = Connect(url);
 			connection.RequestMethod = "GET";
 			var code = (int)connection.ResponseCode;
 			if (code is < 200 or > 299)
@@ -98,21 +104,89 @@ static partial class PlatformHttp
 		}
 		finally
 		{
-			Disconnect(connection);
+			Release(connection);
 		}
 	}
 
-	[JniMethod("disconnect", "()V")]
-	public static void Disconnect()
+	[JniMethod("disconnect", "(Ljava/lang/String;)V")]
+	public static void Disconnect(string ticket)
 	{
 		HttpURLConnection[] live;
-		lock (Gate)
+		lock (HttpFlight.Gate)
 		{
-			live = new HttpURLConnection[Live.Count];
-			Live.CopyTo(live);
-			Live.Clear();
+			HttpFlight.CancelCore(ticket);
+			if (!Live.Remove(ticket, out var set) || set.Count == 0)
+				return;
+			live = new HttpURLConnection[set.Count];
+			set.CopyTo(live);
 		}
 
+		Abort(live);
+	}
+
+	static readonly Dictionary<string, HashSet<HttpURLConnection>> Live = new(StringComparer.Ordinal);
+
+	static HttpURLConnection Connect(string url)
+	{
+		var connection = (HttpURLConnection)new URL(url).OpenConnection()!;
+		connection.ConnectTimeout = 8000;
+		connection.ReadTimeout = 8000;
+		connection.InstanceFollowRedirects = true;
+		return connection;
+	}
+
+	static HttpURLConnection? Track(string ticket, int generation, string url)
+	{
+		var connection = Connect(url);
+		lock (HttpFlight.Gate)
+		{
+			if (HttpFlight.CancelledCore(ticket, generation))
+			{
+				try
+				{
+					connection.Disconnect();
+				}
+				catch (Exception)
+				{
+				}
+
+				return null;
+			}
+
+			if (!Live.TryGetValue(ticket, out var set))
+			{
+				set = new HashSet<HttpURLConnection>();
+				Live[ticket] = set;
+			}
+
+			set.Add(connection);
+			HttpFlight.AttachCore(ticket, generation);
+		}
+
+		return connection;
+	}
+
+	static void Release(HttpURLConnection? connection)
+	{
+		if (connection is null)
+			return;
+		lock (HttpFlight.Gate)
+		{
+			foreach (var set in Live.Values)
+				set.Remove(connection);
+		}
+
+		try
+		{
+			connection.Disconnect();
+		}
+		catch (Exception)
+		{
+		}
+	}
+
+	static void Abort(HttpURLConnection[] live)
+	{
 		foreach (var connection in live)
 		{
 			try
@@ -122,36 +196,6 @@ static partial class PlatformHttp
 			catch (Exception)
 			{
 			}
-		}
-	}
-
-	static readonly object Gate = new();
-
-	static readonly HashSet<HttpURLConnection> Live = new();
-
-	static HttpURLConnection Open(string url)
-	{
-		var connection = (HttpURLConnection)new URL(url).OpenConnection()!;
-		connection.ConnectTimeout = 8000;
-		connection.ReadTimeout = 8000;
-		connection.InstanceFollowRedirects = true;
-		lock (Gate)
-			Live.Add(connection);
-		return connection;
-	}
-
-	static void Disconnect(HttpURLConnection? connection)
-	{
-		if (connection is null)
-			return;
-		lock (Gate)
-			Live.Remove(connection);
-		try
-		{
-			connection.Disconnect();
-		}
-		catch (Exception)
-		{
 		}
 	}
 
