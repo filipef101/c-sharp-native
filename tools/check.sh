@@ -66,6 +66,7 @@ publish_showcase() {
 	dotnet publish src/NativePoc.Android/NativePoc.Android.csproj -c Release -f net10.0-android -r "$rid" \
 		-p:NativePocShowcase=true -p:NativePocNav=true -p:NativePocPersist=true \
 		-p:NativePocTransition=true -p:NativePocStartupMarks=true \
+		-p:NativePocHttp=true \
 		--nologo -nodeReuse:false
 	apk="src/NativePoc.Android/bin/Release/net10.0-android/$rid/publish/com.scratch.nativepoc.showcase-Signed.apk"
 	if [ ! -f "$apk" ]; then
@@ -78,6 +79,7 @@ publish_showcase() {
 		echo "showcase apk is too small" >&2
 		return 1
 	fi
+	python3 tools/dex-has-provider.py "$apk"
 }
 
 run showcase-x64 publish_showcase android-x64

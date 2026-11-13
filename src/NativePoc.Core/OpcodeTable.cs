@@ -58,9 +58,9 @@ internal static class OpcodeTable
 		new(nameof(RecordProgram.OpOnLeave), RecordProgram.OpOnLeave, 2),
 	];
 
-	internal static byte Version => Stamp(Rows);
+	internal static uint Version => Stamp(Rows);
 
-	internal static byte Stamp(ReadOnlySpan<Row> rows)
+	internal static uint Stamp(ReadOnlySpan<Row> rows)
 	{
 		const uint offset = 2166136261;
 		const uint prime = 16777619;
@@ -72,7 +72,7 @@ internal static class OpcodeTable
 			hash = Mix(hash, row.Arity, prime);
 		}
 
-		return (byte)(hash ^ (hash >> 8) ^ (hash >> 16) ^ (hash >> 24));
+		return hash;
 	}
 
 	static uint Mix(uint hash, string text, uint prime)

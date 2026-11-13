@@ -15,23 +15,33 @@ internal static class CatalogVersion
 		&& payload[3] == (byte)'1'
 		&& payload[4] == RecordProgram.RecordFormat
 		&& payload[5] == 2
-		&& payload[6] == RecordProgram.OpcodeVersion;
+		&& payload.Length > 9
+		&& ReadStamp(payload) == RecordProgram.OpcodeVersion;
 
 	public static string? Problem(string source) => Problem(source, RecordProgram.OpcodeVersion);
 
-	public static string? Problem(string source, byte expected)
+	public static string? Problem(string source, uint expected)
 	{
 		foreach (var name in Names)
 		{
 			var bytes = Read(source, name);
 			if (bytes is null)
 				return name + " missing";
-			if (bytes.Length <= 6 || bytes[6] != expected)
-				return name + " opcode " + (bytes.Length > 6 ? bytes[6].ToString(CultureInfo.InvariantCulture) : "short");
+			if (bytes.Length <= 9)
+				return name + " opcode short";
+			var stamp = ReadStamp(bytes);
+			if (stamp != expected)
+				return name + " opcode " + stamp.ToString(CultureInfo.InvariantCulture);
 		}
 
 		return null;
 	}
+
+	static uint ReadStamp(ReadOnlySpan<byte> payload) =>
+		payload[6]
+		| ((uint)payload[7] << 8)
+		| ((uint)payload[8] << 16)
+		| ((uint)payload[9] << 24);
 
 	public static byte[]? Read(string source, string name)
 	{

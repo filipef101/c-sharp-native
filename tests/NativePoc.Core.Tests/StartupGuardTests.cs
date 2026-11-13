@@ -25,14 +25,14 @@ public sealed class StartupGuardTests
 	{
 		var source = File.ReadAllText(Path.Combine(Repo(), "src", "NativePoc.Android", "NavCatalog.cs"));
 		var current = RecordProgram.OpcodeVersion;
-		var plantedByte = current == 0 ? (byte)1 : (byte)(current - 1);
-		var header = "78,80,67,49," + RecordProgram.RecordFormat.ToString(CultureInfo.InvariantCulture) + ",2," + current.ToString(CultureInfo.InvariantCulture) + ",";
-		var older = "78,80,67,49," + RecordProgram.RecordFormat.ToString(CultureInfo.InvariantCulture) + ",2," + plantedByte.ToString(CultureInfo.InvariantCulture) + ",";
+		var plantedStamp = current == 0 ? 1u : current - 1;
+		var header = "78,80,67,49," + RecordProgram.RecordFormat.ToString(CultureInfo.InvariantCulture) + ",2," + StampText(current) + ",";
+		var older = "78,80,67,49," + RecordProgram.RecordFormat.ToString(CultureInfo.InvariantCulture) + ",2," + StampText(plantedStamp) + ",";
 		var index = source.IndexOf(header, StringComparison.Ordinal);
 		Assert.True(index >= 0, header);
 		var planted = source.Remove(index, header.Length).Insert(index, older);
 		var problem = CatalogVersion.Problem(planted);
-		Assert.Equal("Counter opcode " + plantedByte.ToString(CultureInfo.InvariantCulture), problem);
+		Assert.Equal("Counter opcode " + plantedStamp.ToString(CultureInfo.InvariantCulture), problem);
 		var bytes = CatalogVersion.Read(planted, "Counter");
 		Assert.NotNull(bytes);
 		var thrown = Assert.Throws<InvalidOperationException>(() => new HeadlessHost().Apply(bytes, new RecordProgram.Bag()));
@@ -87,6 +87,14 @@ public sealed class StartupGuardTests
 		var thrown = Assert.Throws<InvalidOperationException>(() => JniRegistry.Call("DeviceMissing.Nope", []));
 		Assert.Equal("jni-bind miss DeviceMissing.Nope", thrown.Message);
 	}
+
+	static string StampText(uint stamp) =>
+		string.Join(
+			',',
+			((byte)stamp).ToString(CultureInfo.InvariantCulture),
+			((byte)(stamp >> 8)).ToString(CultureInfo.InvariantCulture),
+			((byte)(stamp >> 16)).ToString(CultureInfo.InvariantCulture),
+			((byte)(stamp >> 24)).ToString(CultureInfo.InvariantCulture));
 
 	static byte[] Catalog(string name)
 	{

@@ -31,9 +31,12 @@
 		<AndroidManifestPlaceholders>nativepocMarks=$(NativePocStartupMarks)</AndroidManifestPlaceholders>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
 	</PropertyGroup>
-	<PropertyGroup Condition="'$(NativePocShowcase)' == 'true' And '$(NativePocWidgetFloor)' != 'true'">
-		<NativePocHttp>true</NativePocHttp>
-	</PropertyGroup>
+	<ItemGroup Condition="'$(NativePocHttp)' == 'true'">
+		<RuntimeHostConfigurationOption Include="System.Net.Http.UseSocketsHttpHandler" Value="true" />
+		<RuntimeHostConfigurationOption Include="System.Net.SocketsHttpHandler.Http3Support" Value="false" />
+		<RuntimeHostConfigurationOption Include="System.Resources.UseSystemResourceKeys" Value="true" />
+		<RuntimeHostConfigurationOption Include="System.Text.Json.JsonSerializer.IsReflectionEnabledByDefault" Value="false" />
+	</ItemGroup>
 	<PropertyGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
 		<PublishAot>true</PublishAot>
 		<PublishTrimmed>true</PublishTrimmed>
@@ -438,6 +441,33 @@
 		</PropertyGroup>
 		<Exec Command="dotnet build &quot;$(MSBuildThisFileDirectory)..\..\tools\devx\NativePoc.Devx.Cli\NativePoc.Devx.Cli.csproj&quot; -c Release --nologo -v q" Condition="!Exists('$(_Cnative)')" WorkingDirectory="$(MSBuildThisFileDirectory)..\.." />
 		<Exec Command="dotnet exec &quot;$(_Cnative)&quot; catalog-sync" WorkingDirectory="$(MSBuildThisFileDirectory)..\.." />
+	</Target>
+	<!-- _FindJavaStubFiles snapshots android/src before _AddStaticResources copies
+	     NativeAotRuntimeProvider.java, and this project removes obj/**/*.java from
+	     AndroidJavaSource. _AddStaticResources is incremental on the platform jar,
+	     so a later stub rewrite can leave the copy skipped. javac then stamps
+	     classes.zip without the class, R8 writes a dex the manifest still names,
+	     and the process dies with ClassNotFoundException. A clean obj is what
+	     made the republish launch. -->
+	<Target Name="RestoreNativeAotProvider" BeforeTargets="_FindJavaStubFiles" Condition="'$(PublishAot)' == 'true'">
+		<PropertyGroup>
+			<_NativeAotProviderJava>$(IntermediateOutputPath)android/src/net/dot/jni/nativeaot/NativeAotRuntimeProvider.java</_NativeAotProviderJava>
+		</PropertyGroup>
+		<Delete Files="$(IntermediateOutputPath)static.flag" Condition="!Exists('$(_NativeAotProviderJava)')" />
+	</Target>
+	<Target Name="CompileNativeAotProvider" BeforeTargets="_CompileJava" Condition="'$(PublishAot)' == 'true'">
+		<PropertyGroup>
+			<_NativeAotProviderJava>$(IntermediateOutputPath)android/src/net/dot/jni/nativeaot/NativeAotRuntimeProvider.java</_NativeAotProviderJava>
+			<_NativeAotProviderClass>$(IntermediateOutputPath)android/bin/classes/net/dot/jni/nativeaot/NativeAotRuntimeProvider.class</_NativeAotProviderClass>
+		</PropertyGroup>
+		<Error Condition="!Exists('$(_NativeAotProviderJava)')" Text="NativeAotRuntimeProvider.java was not copied. Delete $(IntermediateOutputPath) and publish again." />
+		<ItemGroup>
+			<_JavaStubFiles Include="$(_NativeAotProviderJava)" />
+		</ItemGroup>
+		<Delete Files="$(_AndroidCompileJavaStampFile)" Condition="!Exists('$(_NativeAotProviderClass)')" />
+	</Target>
+	<Target Name="RequireNativeAotProviderDex" AfterTargets="_CompileToDalvik" Condition="'$(PublishAot)' == 'true'">
+		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)..\..\tools\dex-has-provider.py&quot; &quot;$(_AndroidIntermediateDexOutputDirectory)&quot;" />
 	</Target>
 	<Target Name="DropPdbFromPackage" AfterTargets="ILLink" Condition="'$(Configuration)' == 'Release'">
 		<ItemGroup>

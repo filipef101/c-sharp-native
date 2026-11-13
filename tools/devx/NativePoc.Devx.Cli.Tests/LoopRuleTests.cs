@@ -341,6 +341,45 @@ public sealed class LoopRuleTests
 	}
 
 	[Fact]
+	public void A_planted_apk_without_the_provider_fails_the_gate()
+	{
+		var root = Directory.CreateTempSubdirectory("cnative-dex-gate");
+		try
+		{
+			var script = Path.Combine(FindRepo(), "tools", "dex-has-provider.py");
+			var bad = Path.Combine(root.FullName, "bad-Signed.apk");
+			var good = Path.Combine(root.FullName, "good-Signed.apk");
+			WriteDex(bad, "other");
+			WriteDex(good, "NativeAotRuntimeProvider");
+			var missing = RunProviderGate(script, bad);
+			Assert.Equal(1, missing.Code);
+			Assert.Contains("classes.dex has no NativeAotRuntimeProvider", missing.Error, StringComparison.Ordinal);
+			var present = RunProviderGate(script, good);
+			Assert.Equal(0, present.Code);
+			Assert.Contains("NativeAotRuntimeProvider is in classes.dex", present.Output, StringComparison.Ordinal);
+		}
+		finally
+		{
+			root.Delete(true);
+		}
+	}
+
+	static (int Code, string Output, string Error) RunProviderGate(string script, string apk)
+	{
+		using var process = new System.Diagnostics.Process();
+		process.StartInfo.FileName = "python3";
+		process.StartInfo.ArgumentList.Add(script);
+		process.StartInfo.ArgumentList.Add(apk);
+		process.StartInfo.RedirectStandardOutput = true;
+		process.StartInfo.RedirectStandardError = true;
+		process.Start();
+		var output = process.StandardOutput.ReadToEnd();
+		var error = process.StandardError.ReadToEnd();
+		process.WaitForExit();
+		return (process.ExitCode, output, error);
+	}
+
+	[Fact]
 	public void A_dex_without_the_runtime_provider_is_rejected()
 	{
 		var root = Directory.CreateTempSubdirectory("cnative-dex");
@@ -412,9 +451,22 @@ public sealed class LoopRuleTests
 
 	static string Boom() => throw new InvalidOperationException("readLine should not be called.");
 
-	static string RepoFile(params string[] parts)
+	static string FindRepo()
 	{
 		var dir = new DirectoryInfo(AppContext.BaseDirectory);
+		while (dir is not null)
+		{
+			if (File.Exists(Path.Combine(dir.FullName, "NativePoc.slnx")))
+				return dir.FullName;
+			dir = dir.Parent;
+		}
+
+		throw new InvalidOperationException("Repository root was not found.");
+	}
+
+	static string RepoFile(params string[] parts)
+	{
+		var dir = new DirectoryInfo(FindRepo());
 		while (dir is not null)
 		{
 			if (File.Exists(Path.Combine(dir.FullName, "NativePoc.slnx")))

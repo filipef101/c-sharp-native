@@ -89,6 +89,7 @@ public static class HomeScreen
 				Key = "room",
 				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
 			},
+#if NATIVEPOC_HTTP
 			new Button(
 				"The feed  ›",
 				() =>
@@ -101,6 +102,7 @@ public static class HomeScreen
 				Key = "feed",
 				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
 			},
+#endif
 		])
 		{
 			Key = "page",

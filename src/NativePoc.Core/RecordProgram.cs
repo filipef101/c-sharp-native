@@ -54,9 +54,10 @@ internal static partial class RecordProgram
 	public const byte OpOnResume = 46;
 	public const byte OpOnLeave = 47;
 
-	// The catalog stores this byte. It is a fold of the opcode table, so an
-	// opcode added there fails catalog-check until the programs are regenerated.
-	public static byte OpcodeVersion => OpcodeTable.Version;
+	// The catalog stores these four bytes. They are the FNV-1a of the opcode
+	// table, so an opcode added there fails catalog-check until the programs
+	// are regenerated. A one-byte fold of that hash collided too easily.
+	public static uint OpcodeVersion => OpcodeTable.Version;
 
 	public const byte RecordFormat = 2;
 
@@ -425,7 +426,7 @@ internal static partial class RecordProgram
 		var hash = new byte[16];
 		if (source is not null)
 			SHA256.HashData(Encoding.UTF8.GetBytes(source)).AsSpan(0, 16).CopyTo(hash);
-		var size = 9 + 16;
+		var size = 12 + 16;
 		foreach (var text in strings)
 			size += 2 + Encoding.UTF8.GetByteCount(text);
 		size += 2;
@@ -439,8 +440,8 @@ internal static partial class RecordProgram
 		payload[3] = (byte)'1';
 		payload[4] = RecordFormat;
 		payload[5] = 2;
-		payload[6] = OpcodeVersion;
-		var cursor = 7;
+		WriteStamp(payload, OpcodeVersion);
+		var cursor = 10;
 		cursor = WriteU16(payload, cursor, strings.Count);
 		foreach (var text in strings)
 		{
@@ -531,6 +532,20 @@ internal static partial class RecordProgram
 		}
 	}
 
+	static void WriteStamp(byte[] payload, uint stamp)
+	{
+		payload[6] = (byte)stamp;
+		payload[7] = (byte)(stamp >> 8);
+		payload[8] = (byte)(stamp >> 16);
+		payload[9] = (byte)(stamp >> 24);
+	}
+
+	static uint ReadStamp(ReadOnlySpan<byte> payload) =>
+		payload[6]
+		| ((uint)payload[7] << 8)
+		| ((uint)payload[8] << 16)
+		| ((uint)payload[9] << 24);
+
 	static int WriteU16(byte[] payload, int cursor, int value)
 	{
 		payload[cursor] = (byte)value;
@@ -542,11 +557,11 @@ internal static partial class RecordProgram
 
 	static Decoded Decode(ReadOnlySpan<byte> payload)
 	{
-		if (!ScreenProgram.IsRecord(payload) || payload.Length < 9 + 16)
+		if (!ScreenProgram.IsRecord(payload) || payload.Length < 12 + 16)
 			throw new InvalidOperationException("Rejected record program.");
-		if (payload[4] != RecordFormat || payload[6] != OpcodeVersion)
+		if (payload[4] != RecordFormat || ReadStamp(payload) != OpcodeVersion)
 			throw new InvalidOperationException("Rejected record program version.");
-		var cursor = 7;
+		var cursor = 10;
 		var stringCount = ReadU16(payload, ref cursor);
 		if (stringCount > ScreenProgram.MaxStrings)
 			throw new InvalidOperationException("Rejected record program.");

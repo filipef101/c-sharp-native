@@ -35,7 +35,7 @@ public sealed class AsyncHandlerTests
 					state.Error = "";
 					platform.RequestRender();
 					state.Mark = await Timer.After(platform, 1);
-					state.Json = await Http.GetJson(platform, "http://10.0.2.2:8094/feed");
+					state.Json = await Http.GetJson(platform, "http://127.0.0.1:8094/feed");
 					if (state.Json.StartsWith("http-error:"))
 					{
 						state.Error = state.Json;
@@ -93,7 +93,7 @@ public sealed class AsyncHandlerTests
 		Assert.Equal("Row 0001", window.Cell(1, 1));
 		Assert.Equal(1, window.Built);
 		var next = Assert.IsType<Column>(window[1]);
-		Assert.Equal("http://10.0.2.2:8094/img/0001", Assert.IsType<Image>(next.Children[1]).Source);
+		Assert.Equal("http://127.0.0.1:8094/img/0001", Assert.IsType<Image>(next.Children[1]).Source);
 		Assert.Equal(2, window.Built);
 	}
 
@@ -168,7 +168,7 @@ public sealed class AsyncHandlerTests
 							state.Error = "";
 							platform.RequestRender();
 							state.Mark = await Timer.After(platform, 1);
-							state.Json = await Http.GetJson(platform, "http://10.0.2.2:8094/feed");
+							state.Json = await Http.GetJson(platform, "http://127.0.0.1:8094/feed");
 							if (state.Json.StartsWith("http-error:"))
 								throw new InvalidOperationException("down");
 							state.Phase = "ready";

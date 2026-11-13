@@ -15,7 +15,7 @@ public sealed class ImageCacheTests
 	[Fact]
 	public void Remote_sources_are_http_urls()
 	{
-		Assert.True(ImageSource.IsRemote("http://10.0.2.2:8094/img/0001"));
+		Assert.True(ImageSource.IsRemote("http://127.0.0.1:8094/img/0001"));
 		Assert.True(ImageSource.IsRemote("https://example.test/a.png"));
 		Assert.False(ImageSource.IsRemote("feed_mark"));
 		Assert.False(ImageSource.IsRemote(""));

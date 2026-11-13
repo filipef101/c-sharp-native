@@ -24,12 +24,12 @@ static class ImageModule
 	{
 		var slot = Slots.GetValue(image, static _ => new ImageSlot());
 		var token = slot.Begin();
-		var target = TargetPx(image, context);
 		image.Visibility = ViewStates.Visible;
 		image.SetScaleType(radiusDp > 0 ? ImageView.ScaleType.FitXy : ImageView.ScaleType.CenterCrop);
 		PictureBinder.Describe(image, source, description, decorative);
 		var generated = source.StartsWith("gen:", StringComparison.Ordinal);
-		var key = generated ? source : source + "@" + target.ToString(System.Globalization.CultureInfo.InvariantCulture);
+		var bucket = TargetBucket(image, context);
+		var key = generated ? source : source + "@" + bucket.ToString(System.Globalization.CultureInfo.InvariantCulture);
 		Bitmap? cached = null;
 		lock (Gate)
 		{
@@ -40,7 +40,7 @@ static class ImageModule
 		if (cached is not null)
 		{
 			Android.Util.Log.Info(MainActivity.Tag, "image-cache hit source=" + source);
-			Place(image, slot, token, cached, source, description, decorative, radiusDp, target);
+			Place(image, slot, token, cached, source, description, decorative, radiusDp, bucket);
 			return;
 		}
 
@@ -58,7 +58,7 @@ static class ImageModule
 				}
 			}
 
-			Place(image, slot, token, made, source, description, decorative, radiusDp, target);
+			Place(image, slot, token, made, source, description, decorative, radiusDp, bucket);
 			return;
 		}
 
@@ -72,7 +72,7 @@ static class ImageModule
 			Bitmap? bitmap = null;
 			try
 			{
-				bitmap = Load(app, source, target);
+				bitmap = Load(app, source, bucket);
 			}
 			catch (Exception ex)
 			{
@@ -85,7 +85,7 @@ static class ImageModule
 					Cache.Add(key, bitmap);
 			}
 
-			Place(image, slot, token, bitmap, source, description, decorative, radiusDp, target);
+			Place(image, slot, token, bitmap, source, description, decorative, radiusDp, bucket);
 		});
 	}
 
@@ -294,19 +294,28 @@ static class ImageModule
 		return Bitmap.CreateScaledBitmap(bitmap, width, height, true) ?? bitmap;
 	}
 
-	static int TargetPx(ImageView image, Context context)
+	// The cache key is the source plus a 64px bucket of the layout slot.
+	// The measured width is not part of the key: a recycled row is often
+	// unmeasured (the 48dp floor) and then laid out at the row width, and
+	// those two sides missed.
+	static int TargetBucket(ImageView image, Context context)
 	{
-		var laid = Math.Max(image.Width, image.Height);
-		if (laid <= 0)
-			laid = Math.Max(image.MinimumWidth, image.MinimumHeight);
-		if (laid <= 0 && image.LayoutParameters is { Width: > 0 } layout)
-			laid = Math.Max(layout.Width, layout.Height);
-		if (laid > 0)
-			return laid;
-		var density = context.Resources?.DisplayMetrics?.Density ?? 1f;
-		if (density <= 0)
-			density = 1f;
-		return Math.Max(1, (int)(HostPolicy.TouchFloorDp * density));
+		var slot = 0;
+		if (image.LayoutParameters is { Height: > 0 } layout)
+			slot = layout.Height;
+		else if (image.MinimumHeight > 0)
+			slot = image.MinimumHeight;
+		else if (image.MinimumWidth > 0)
+			slot = image.MinimumWidth;
+		if (slot <= 0)
+		{
+			var density = context.Resources?.DisplayMetrics?.Density ?? 1f;
+			if (density <= 0)
+				density = 1f;
+			slot = Math.Max(1, (int)(HostPolicy.TouchFloorDp * density));
+		}
+
+		return ((Math.Max(1, slot) + 63) / 64) * 64;
 	}
 
 	static Bitmap? Load(Context context, string source, int target)

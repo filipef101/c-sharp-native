@@ -113,6 +113,7 @@ static class RemoteImages
 
 		if (cached is not null)
 		{
+			Android.Util.Log.Info(MainActivity.Tag, "image-cache hit source=" + source);
 			image.SetImageBitmap(cached);
 			image.ContentDescription = source;
 			NoteApply(source);

@@ -15,7 +15,7 @@ public static class FeedScreen
 				state.Error = "";
 				platform.RequestRender();
 				state.Mark = await Timer.After(platform, 1);
-				state.Json = await Http.GetJson(platform, "http://10.0.2.2:8094/feed");
+				state.Json = await Http.GetJson(platform, "http://127.0.0.1:8094/feed");
 				if (state.Json.StartsWith("http-error:"))
 					throw new InvalidOperationException("down");
 				Storage.Set(platform, "feed-json", state.Json);
@@ -50,7 +50,7 @@ public static class FeedScreen
 			return new Column(
 			[
 				new Text("• " + item.Title),
-				new Image(item.Id == "0000" ? "feed_mark" : "http://10.0.2.2:8094/img/" + item.Id) { Description = item.Title },
+				new Image(item.Id == "0000" ? "feed_mark" : "http://127.0.0.1:8094/img/" + item.Id) { Description = item.Title },
 			])
 			{
 				Key = item.Id,
@@ -68,7 +68,7 @@ public static class FeedScreen
 			state.Phase = "loading";
 			state.Error = "";
 			platform.RequestRender();
-			state.Json = await Http.PostJson(platform, "http://10.0.2.2:8094/feed", "{\"items\":[{\"id\":\"c\",\"title\":\"Cara\"}]}");
+			state.Json = await Http.PostJson(platform, "http://127.0.0.1:8094/feed", "{\"items\":[{\"id\":\"c\",\"title\":\"Cara\"}]}");
 			if (state.Json.StartsWith("http-error:"))
 			{
 				state.Error = state.Json;
