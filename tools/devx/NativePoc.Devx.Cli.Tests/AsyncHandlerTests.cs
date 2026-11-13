@@ -286,6 +286,139 @@ public sealed class AsyncHandlerTests
 	}
 
 	[Fact]
+	public void The_feed_filter_reloads_and_keeps_the_query()
+	{
+		var feedDir = Path.Combine(Repo(), "samples", "feed");
+		var source = File.ReadAllText(Path.Combine(feedDir, "StoryScreen.cs"));
+		var companions = Directory.EnumerateFiles(feedDir, "*.cs")
+			.Where(file => !file.EndsWith("StoryScreen.cs", StringComparison.Ordinal))
+			.Select(File.ReadAllText)
+			.ToArray();
+		var lowered = SubsetLowerer.TryLower(source, companions, originFile: "samples/feed/StoryScreen.cs");
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var bag = new RecordProgram.Bag();
+		var few = new List<string[]>
+		{
+			new[] { "mark", "Harbor glaze" },
+			new[] { "0001", "Kiln 0001" },
+		};
+		bag.ReplaceRows("Items", few);
+		bag.WriteString("Query", "GLAZE");
+		var titles = Titles(RecordProgram.Bind(lowered.Program!, bag).Render(new AsyncPlatform()));
+		Assert.Contains("Harbor glaze", titles);
+		Assert.DoesNotContain("Kiln 0001", titles);
+
+		var rows = new List<string[]> { new[] { "mark", "Harbor glaze" } };
+		for (var n = 1; n <= 29; n++)
+		{
+			var id = n.ToString("0000", System.Globalization.CultureInfo.InvariantCulture);
+			rows.Add(new[] { id, "Kiln " + id });
+		}
+
+		bag.ReplaceRows("Items", rows);
+		bag.WriteString("Query", "0001");
+		var tree = RecordProgram.Bind(lowered.Program!, bag).Render(new AsyncPlatform());
+		Assert.IsType<TextField>(ElementIds.Require(tree, "feed/search"));
+		var window = Window(tree);
+		Assert.Equal(0, window.Built);
+		Assert.Equal("Kiln 0001", TitleOf(Assert.Single(window)));
+		Assert.Equal(1, window.Built);
+
+		var edited = source.Replace(
+			"item.Title.Contains(state.Query, StringComparison.OrdinalIgnoreCase)",
+			"item.Title.StartsWith(state.Query, StringComparison.OrdinalIgnoreCase)",
+			StringComparison.Ordinal);
+		var reloaded = SubsetLowerer.TryLower(edited, companions, originFile: "samples/feed/StoryScreen.cs");
+		Assert.True(reloaded.Ok, reloaded.Diagnostics.Count == 0 ? "" : reloaded.Diagnostics[0].Message);
+		Assert.Contains("Query=\"0001\"", RecordProgram.KeptNote(reloaded.Program!, bag), StringComparison.Ordinal);
+		var next = RecordProgram.Bind(reloaded.Program!, bag).Render(new AsyncPlatform());
+		Assert.Equal("0001", bag.ReadString("Query"));
+		Assert.Empty(Window(next));
+		bag.WriteString("Query", "kiln");
+		var prefixed = RecordProgram.Bind(reloaded.Program!, bag).Render(new AsyncPlatform());
+		Assert.Equal(29, Window(prefixed).Count);
+		Assert.Equal("kiln", bag.ReadString("Query"));
+	}
+
+	[Fact]
+	public void A_filter_the_vm_cannot_lower_says_to_restart()
+	{
+		const string source = """
+			namespace NativePoc.Feed;
+			public sealed class FeedItem
+			{
+				public string Id { get; set; } = "";
+				public string Title { get; set; } = "";
+			}
+			public sealed class FeedState
+			{
+				public string Query { get; set; } = "";
+				public List<FeedItem> Items { get; set; } = new List<FeedItem>();
+			}
+			public static class FeedScreen
+			{
+				public const string ScreenId = "feed";
+				public static Element Render(FeedState state, IPlatform platform)
+				{
+					var rows = new List<Element>();
+					foreach (var item in state.Items)
+					{
+						if (item.Title.GetHashCode() == 0)
+							rows.Add(new Text(item.Title) { Key = item.Id });
+					}
+					return new Column(rows) { Key = "feed" };
+				}
+			}
+			""";
+		var lowered = SubsetLowerer.TryLower(source, originFile: "samples/feed/StoryScreen.cs");
+		Assert.False(lowered.Ok);
+		Assert.Contains("Restart the app to compile it.", lowered.Diagnostics[0].Message, StringComparison.Ordinal);
+	}
+
+	static RecordProgram.WindowList Window(Element tree)
+	{
+		var column = Assert.IsType<Column>(tree);
+		var list = Assert.IsType<ListView>(column.Children[^1]);
+		return Assert.IsType<RecordProgram.WindowList>(list.Rows);
+	}
+
+	static string TitleOf(Element row)
+	{
+		var column = Assert.IsType<Column>(row);
+		foreach (var child in column.Children)
+		{
+			if (child is Text text && text.Key == "title")
+				return text.Value;
+		}
+
+		throw new InvalidOperationException("missing title");
+	}
+
+	static List<string> Titles(Element tree)
+	{
+		var found = new List<string>();
+		Walk(tree, found);
+		return found;
+	}
+
+	static void Walk(Element node, List<string> found)
+	{
+		if (node is Text text)
+			found.Add(text.Value);
+		if (node is Column column)
+		{
+			foreach (var child in column.Children)
+				Walk(child, found);
+		}
+
+		if (node is ListView list)
+		{
+			foreach (var child in list.Rows)
+				Walk(child, found);
+		}
+	}
+
+	[Fact]
 	public void The_visit_form_lowers_and_the_stop_screen_fetches()
 	{
 		var root = Repo();

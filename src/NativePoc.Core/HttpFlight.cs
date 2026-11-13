@@ -13,6 +13,8 @@ internal static class HttpFlight
 		public int CancelledThrough;
 
 		public int Connections;
+
+		public List<Action>? Aborts;
 	}
 
 	static readonly Dictionary<string, Slot> Slots = new(StringComparer.Ordinal);
@@ -48,8 +50,41 @@ internal static class HttpFlight
 
 	public static bool Cancel(string id)
 	{
+		Action[] pending;
+		bool cancelled;
 		lock (Gate)
-			return CancelCore(id);
+		{
+			cancelled = CancelCore(id);
+			pending = cancelled && Slots.TryGetValue(id, out var slot) ? TakeAborts(slot) : Array.Empty<Action>();
+		}
+
+		RunAborts(pending);
+		return cancelled;
+	}
+
+	// The managed image read registers the dispose of its response. Cancel
+	// runs that dispose off the lock so the socket unblocks. False means the
+	// generation is already cancelled and the caller disposes immediately.
+	public static bool BindAbort(string id, int generation, Action abort)
+	{
+		lock (Gate)
+		{
+			if (CancelledCore(id, generation))
+				return false;
+			var slot = SlotFor(id);
+			slot.Aborts ??= new List<Action>();
+			slot.Aborts.Add(abort);
+			return true;
+		}
+	}
+
+	public static void ClearAbort(string id, Action abort)
+	{
+		lock (Gate)
+		{
+			if (Slots.TryGetValue(id, out var slot) && slot.Aborts is not null)
+				slot.Aborts.Remove(abort);
+		}
 	}
 
 	public static bool Live(string id)
@@ -86,6 +121,29 @@ internal static class HttpFlight
 
 	internal static bool CancelledCore(string id, int generation) =>
 		Slots.TryGetValue(id, out var slot) && generation > 0 && generation <= slot.CancelledThrough;
+
+	static Action[] TakeAborts(Slot slot)
+	{
+		if (slot.Aborts is null || slot.Aborts.Count == 0)
+			return Array.Empty<Action>();
+		var copy = slot.Aborts.ToArray();
+		slot.Aborts.Clear();
+		return copy;
+	}
+
+	static void RunAborts(Action[] pending)
+	{
+		foreach (var abort in pending)
+		{
+			try
+			{
+				abort();
+			}
+			catch (Exception)
+			{
+			}
+		}
+	}
 
 	static Slot SlotFor(string id)
 	{

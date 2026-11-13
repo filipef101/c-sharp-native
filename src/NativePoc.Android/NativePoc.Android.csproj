@@ -519,6 +519,11 @@
 			Condition="'%(_ModuleToStabilize.Identity)' != ''"
 			Command="python3 &quot;$(MSBuildThisFileDirectory)..\..\tools\stabilize-module-id.py&quot; &quot;%(_ModuleToStabilize.Identity)&quot;" />
 	</Target>
+	<!-- An incremental base.zip drops jar META-INF. Put those files back
+	     into the bundle before the universal apk is built from it. -->
+	<Target Name="RestoreIncrementalMetaInf" BeforeTargets="_CreateUniversalApkFromBundle" Condition="'$(AndroidPackageFormat)' == 'aab' And '$(DesignTimeBuild)' != 'true'">
+		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)..\..\tools\restore-metainf.py&quot; &quot;$(_AppBundleIntermediate)&quot; &quot;$(IntermediateOutputPath)android/bin/META-INF&quot; &quot;$(IntermediateOutputPath)lp&quot;" />
+	</Target>
 	<Target Name="DropPdbFromPackage" AfterTargets="ILLink" Condition="'$(Configuration)' == 'Release'">
 		<ItemGroup>
 			<ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />

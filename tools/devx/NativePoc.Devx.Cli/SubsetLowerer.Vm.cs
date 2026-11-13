@@ -830,13 +830,20 @@ public static partial class SubsetLowerer
 			};
 			if (id == 0)
 				return Fail(BadLambda, ActionLimit, arguments);
+			var argc = 1;
 			foreach (var argument in arguments.Arguments)
 			{
-				if (!WriteExpr(argument.Expression, buf, out _))
+				if (ComparisonArg(argument.Expression, out var ignoreCase))
+				{
+					if (name is not ("Contains" or "StartsWith"))
+						return Fail(BadLambda, ActionLimit, argument);
+					buf.Op(RecordProgram.VmLitB);
+					buf.Raw(ignoreCase ? (byte)1 : (byte)0);
+				}
+				else if (!WriteExpr(argument.Expression, buf, out _))
 					return false;
+				argc++;
 			}
-
-			var argc = arguments.Arguments.Count + 1;
 			if (argc > 255)
 				return Fail(BadLambda, ActionLimit, arguments);
 			buf.Op(RecordProgram.VmCall);
@@ -974,9 +981,49 @@ public static partial class SubsetLowerer
 			return Fail(BadLambda, ActionLimit, name);
 		}
 
+		static bool ComparisonArg(ExpressionSyntax expression, out bool ignoreCase)
+		{
+			ignoreCase = false;
+			if (expression is not MemberAccessExpressionSyntax member
+				|| member.Expression is not IdentifierNameSyntax type
+				|| type.Identifier.ValueText != "StringComparison")
+				return false;
+			var name = member.Name.Identifier.ValueText;
+			if (name == "OrdinalIgnoreCase")
+			{
+				ignoreCase = true;
+				return true;
+			}
+
+			return name == "Ordinal";
+		}
+
 		bool WriteMember(MemberAccessExpressionSyntax member, VmBuf buf, out byte kind)
 		{
 			kind = 0;
+			if (member.Expression is IdentifierNameSyntax renderItem
+				&& _item.Length > 0
+				&& renderItem.Identifier.ValueText == _item
+				&& _itemFields is not null)
+			{
+				var cell = _itemFields.FindIndex(item => item.Name == member.Name.Identifier.ValueText);
+				if (cell < 0)
+					return Fail(BadLambda, ActionLimit, member);
+				buf.Op(RecordProgram.VmLoadRow);
+				buf.U16(cell);
+				if (_itemFields[cell].Kind == ValueKind.Bool)
+				{
+					buf.Op(RecordProgram.VmLitS);
+					buf.U16(_code.Intern("true"));
+					buf.Op(RecordProgram.VmEq);
+					kind = RecordProgram.VmKindBool;
+					return true;
+				}
+
+				kind = RecordProgram.VmKindStr;
+				return true;
+			}
+
 			if (member.Expression is IdentifierNameSyntax row && _boundRows is not null && _boundRows.TryGetValue(row.Identifier.ValueText, out var bind))
 			{
 				var index = bind.Fields.FindIndex(field => field.Name == member.Name.Identifier.ValueText);

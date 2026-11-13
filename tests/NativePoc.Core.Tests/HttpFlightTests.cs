@@ -54,4 +54,18 @@ public sealed class HttpFlightTests
 		Assert.True(HttpFlight.WasCancelled("stories-image", image));
 		Assert.False(HttpFlight.WasCancelled("visit-image", visit));
 	}
+
+	[Fact]
+	public void Cancel_disposes_the_managed_image_read()
+	{
+		var id = "managed-abort";
+		var generation = HttpFlight.Join(id);
+		var ran = 0;
+		Assert.True(HttpFlight.BindAbort(id, generation, () => ran++));
+		Assert.True(HttpFlight.Cancel(id));
+		Assert.Equal(1, ran);
+		Assert.True(HttpFlight.WasCancelled(id, generation));
+		Assert.False(HttpFlight.BindAbort(id, generation, () => ran++));
+		Assert.Equal(1, ran);
+	}
 }

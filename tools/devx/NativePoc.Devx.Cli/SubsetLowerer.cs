@@ -1543,7 +1543,18 @@ public static partial class SubsetLowerer
 			if (list is null || !_records.TryGetValue(list.Item, out var itemFields))
 				return Fail(BadForeach, "A foreach walks a list property and adds one element.", member);
 			var statement = loop.Statement is BlockSyntax body && body.Statements.Count == 1 ? body.Statements[0] : loop.Statement;
-			if (!Added(statement, out var added))
+			ExpressionSyntax? gate = null;
+			ExpressionSyntax added;
+			if (statement is IfStatementSyntax branch)
+			{
+				if (branch.Else is not null)
+					return Fail(BadForeach, "This filter did not lower. Restart the app to compile it.", branch);
+				var inner = branch.Statement is BlockSyntax innerBody && innerBody.Statements.Count == 1 ? innerBody.Statements[0] : branch.Statement;
+				if (!Added(inner, out added))
+					return false;
+				gate = branch.Condition;
+			}
+			else if (!Added(statement, out added))
 				return false;
 			var keys = new KeySet();
 			_code.Op(RecordProgram.OpMark);
@@ -1561,8 +1572,13 @@ public static partial class SubsetLowerer
 			_item = loop.Identifier.ValueText;
 			_itemFields = itemFields;
 			_listName = list.Name;
+			if (gate is not null && !FilterCondition(gate))
+				return false;
+			var skip = gate is null ? -1 : _code.EmitJump(RecordProgram.OpJumpIfFalse);
 			if (!Element(added, keys))
 				return false;
+			if (skip >= 0)
+				_code.Patch(skip);
 			_item = "";
 			_itemFields = null;
 			_listName = "";
@@ -2166,6 +2182,18 @@ public static partial class SubsetLowerer
 			_code.Op(RecordProgram.OpItemBool);
 			_code.U16(index);
 			return true;
+		}
+
+		bool FilterCondition(ExpressionSyntax expression)
+		{
+			var errors = Errors.Count;
+			var at = _code.Here;
+			if (Condition(expression))
+				return true;
+			_code.Truncate(at);
+			if (Errors.Count > errors)
+				Errors.RemoveRange(errors, Errors.Count - errors);
+			return Fail(BadForeach, "This filter did not lower. Restart the app to compile it.", expression);
 		}
 
 		bool Condition(ExpressionSyntax expression)

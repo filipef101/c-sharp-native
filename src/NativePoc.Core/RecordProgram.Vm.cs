@@ -61,6 +61,7 @@ internal static partial class RecordProgram
 	public const byte VmSnap = 53;
 	public const byte VmSnapCount = 54;
 	public const byte VmSnapEnd = 55;
+	public const byte VmLoadRow = 56;
 
 	public const string CollectionModified = "Collection was modified; enumeration operation may not execute.";
 
@@ -456,6 +457,15 @@ internal static partial class RecordProgram
 					frame.SnapList = null;
 					frame.SnapRows = null;
 					break;
+				case VmLoadRow:
+				{
+					var field = TakeU16(code, ref ip, end);
+					var cells = frame.Row;
+					if (cells is null || (uint)field >= (uint)cells.Length)
+						throw new InvalidOperationException("Rejected record program.");
+					Push(stack, ref sp, Val.FromStr(cells[field]));
+					break;
+				}
 				case VmWatch:
 				{
 					var watched = strings[RequireString(TakeU16(code, ref ip, end), strings)];
@@ -637,9 +647,28 @@ internal static partial class RecordProgram
 			case VmLower:
 				return Val.FromStr(RequireText(args, 1).ToLowerInvariant());
 			case VmContains:
-				return Val.FromBool(RequireText(args, 2).Contains(AsText(args[1]), StringComparison.Ordinal));
 			case VmStarts:
-				return Val.FromBool(RequireText(args, 2).StartsWith(AsText(args[1]), StringComparison.Ordinal));
+			{
+				if (args.Length is < 2 or > 3)
+					throw new InvalidOperationException("Rejected record program.");
+				if (IsNull(args[0]))
+					throw new ActionStoppedException(NullMessage);
+				var comparison = StringComparison.Ordinal;
+				if (args.Length == 3)
+				{
+					if (args[2].Kind != ValBool)
+						throw new InvalidOperationException("Rejected record program.");
+					if (args[2].Flag)
+						comparison = StringComparison.OrdinalIgnoreCase;
+				}
+
+				var text = AsText(args[0]);
+				var part = AsText(args[1]);
+				var hit = id == VmContains
+					? text.Contains(part, comparison)
+					: text.StartsWith(part, comparison);
+				return Val.FromBool(hit);
+			}
 			case VmSubstring:
 			{
 				var source = RequireText(args, args.Length);

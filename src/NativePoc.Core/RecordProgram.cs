@@ -1152,7 +1152,7 @@ internal static partial class RecordProgram
 				var length = TakeU16(code, ref ip, end);
 				if (ip + length > end)
 					throw new InvalidOperationException("Rejected record program.");
-				var value = RunVm(code, ip, length, strings, bag, platform, null, false, null, new HandlerFrame(), 0);
+				var value = RunVm(code, ip, length, strings, bag, platform, null, false, null, new HandlerFrame { Row = row }, 0);
 				ip += length;
 				Push(stack, ref sp, Slot.Bool(value.Flag));
 				return ip;
@@ -1944,6 +1944,7 @@ internal static partial class RecordProgram
 		public int WatchStamp;
 		public string? SnapList;
 		public List<string[]>? SnapRows;
+		public string[]? Row;
 		int _calls;
 		readonly int[][] _savedInts = new int[64][];
 		readonly double[][] _savedDoubles = new double[64][];
@@ -2357,6 +2358,8 @@ internal static partial class RecordProgram
 		readonly int _end;
 		readonly Element?[] _cache;
 
+		readonly int[] _match;
+
 		internal WindowList(byte[] code, string[] strings, Bag bag, IPlatform platform, IReadOnlyList<string[]> rows, int start, int end)
 		{
 			_code = code;
@@ -2366,18 +2369,19 @@ internal static partial class RecordProgram
 			_rows = rows;
 			_start = start;
 			_end = end;
-			_cache = new Element[rows.Count];
+			_match = Index();
+			_cache = new Element[_match.Length];
 		}
 
-		public int Count => _rows.Count;
+		public int Count => _match.Length;
 
 		public int Built { get; private set; }
 
 		public string Cell(int index, int field)
 		{
-			if ((uint)index >= (uint)_rows.Count)
+			if ((uint)index >= (uint)_match.Length)
 				throw new ArgumentOutOfRangeException(nameof(index));
-			var row = _rows[index];
+			var row = _rows[_match[index]];
 			if ((uint)field >= (uint)row.Length)
 				return "";
 			return row[field];
@@ -2392,7 +2396,7 @@ internal static partial class RecordProgram
 				var cached = _cache[index];
 				if (cached is not null)
 					return cached;
-				var row = _rows[index];
+				var row = _rows[_match[index]];
 				var stack = new Slot[256];
 				var sp = 0;
 				Element? returned = null;
@@ -2406,6 +2410,42 @@ internal static partial class RecordProgram
 				return built;
 			}
 		}
+
+		int[] Index()
+		{
+			var matches = new List<int>(_rows.Count);
+			for (var index = 0; index < _rows.Count; index++)
+			{
+				if (Keeps(_rows[index]))
+					matches.Add(index);
+			}
+
+			return matches.ToArray();
+		}
+
+		bool Keeps(string[] source)
+		{
+			if (_start >= _end)
+				return false;
+			var stack = new Slot[256];
+			var sp = 0;
+			string[]? row = source;
+			Element? returned = null;
+			var cursor = _start;
+			while (cursor < _end)
+			{
+				if (BuildsElement(_code[cursor]))
+					return true;
+				var next = Step(_code, _strings, _bag, _platform, stack, ref sp, ref row, cursor, _end, ref returned);
+				if (next <= cursor)
+					throw new InvalidOperationException("Rejected record program.");
+				cursor = next;
+			}
+
+			return false;
+		}
+
+		static bool BuildsElement(byte op) => op is OpMakeText or OpMakeTextKey or OpMakeField or OpMakeSwitch or OpMakeButton or OpMakeColumn or OpMakeColumnKey or OpMakeScroll or OpMakeList or OpMakeImage or OpMakeHost or OpCall or OpGather;
 
 		public IEnumerator<Element> GetEnumerator()
 		{

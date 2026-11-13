@@ -95,10 +95,22 @@ static class HttpTransport
 			return null;
 		}
 
+		var cancel = new CancellationTokenSource();
+		var live = new LiveRead();
+		void Abort() => ResponseAbort.Stop(cancel, live.Stream, live.Response);
+		if (!HttpFlight.BindAbort(ticket, generation, Abort))
+		{
+			Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + url);
+			cancel.Dispose();
+			return null;
+		}
+
+		HttpRequestMessage? request = null;
 		try
 		{
-			using var request = new HttpRequestMessage(HttpMethod.Get, url);
-			using var response = Client.Send(request, HttpCompletionOption.ResponseHeadersRead);
+			request = new HttpRequestMessage(HttpMethod.Get, url);
+			var response = Client.Send(request, HttpCompletionOption.ResponseHeadersRead, cancel.Token);
+			live.Response = response;
 			if (HttpFlight.WasCancelled(ticket, generation))
 			{
 				Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + url);
@@ -107,7 +119,8 @@ static class HttpTransport
 
 			if (!response.IsSuccessStatusCode)
 				return null;
-			using var input = response.Content.ReadAsStream();
+			var input = response.Content.ReadAsStream();
+			live.Stream = input;
 			using var buffer = new MemoryStream();
 			var chunk = new byte[8192];
 			int read;
@@ -135,7 +148,7 @@ static class HttpTransport
 		}
 		catch (Exception ex)
 		{
-			if (HttpFlight.WasCancelled(ticket, generation))
+			if (HttpFlight.WasCancelled(ticket, generation) || cancel.IsCancellationRequested)
 			{
 				Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + url);
 				return null;
@@ -144,6 +157,20 @@ static class HttpTransport
 			Android.Util.Log.Info(MainActivity.Tag, "image-error " + ex.GetType().Name);
 			return null;
 		}
+		finally
+		{
+			HttpFlight.ClearAbort(ticket, Abort);
+			ResponseAbort.Stop(cancel, live.Stream, live.Response);
+			request?.Dispose();
+			cancel.Dispose();
+		}
+	}
+
+	sealed class LiveRead
+	{
+		public volatile Stream? Stream;
+
+		public volatile HttpResponseMessage? Response;
 	}
 }
 #else

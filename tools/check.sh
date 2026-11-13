@@ -82,7 +82,31 @@ publish_showcase() {
 	python3 tools/dex-has-provider.py "$apk"
 }
 
-run showcase-x64 publish_showcase android-x64
+publish_showcase_x64() {
+	rid="android-x64"
+	obj="src/NativePoc.Android/obj/Release/net10.0-android/$rid"
+	publish_dir="src/NativePoc.Android/bin/Release/net10.0-android/$rid/publish"
+	apk="$publish_dir/com.scratch.nativepoc.showcase-Signed.apk"
+	clean="$obj/clean-meta.apk"
+	manifest="$obj/android/AndroidManifest.xml"
+	rm -rf "$obj/android/bin"
+	rm -f "$publish_dir"/*.apk "$publish_dir"/*.aab "$publish_dir"/*.apks
+	if ! publish_showcase "$rid"; then
+		return 1
+	fi
+	cp "$apk" "$clean"
+	if [ ! -f "$manifest" ]; then
+		echo "missing $manifest" >&2
+		return 1
+	fi
+	touch "$manifest"
+	if ! publish_showcase "$rid"; then
+		return 1
+	fi
+	python3 tools/meta-inf-same.py "$clean" "$apk"
+}
+
+run showcase-x64 publish_showcase_x64
 run showcase-arm64 publish_showcase android-arm64
 
 echo

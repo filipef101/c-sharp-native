@@ -102,16 +102,11 @@ public static class StoryScreen
 			Submit = Submit.Search,
 			OnSubmit = () => platform.RequestRender(),
 		});
-#if NATIVEPOC_HTTP
 		foreach (var item in state.Items)
 		{
 			if (state.Query.Length == 0 || item.Title.Contains(state.Query, StringComparison.OrdinalIgnoreCase))
 				rows.Add(Row(item));
 		}
-#else
-		foreach (var item in state.Items)
-			rows.Add(Row(item));
-#endif
 		return FeedRows.Window(rows, 4, () => Load());
 	}
 }
