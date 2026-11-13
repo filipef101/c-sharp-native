@@ -216,25 +216,20 @@ public sealed class MainActivity : Activity
 				"startup root explicit id=" + requestedRoot
 				+ " claimed=0 top=" + ScreenNav.Shared.TopId());
 		}
-		try
-		{
-			ScreenNav.Shared.Prepare((program, bag) => RecordSession.Prepare(program, bag));
-		}
-		catch (Exception ex) when (StartupGuard.Rejected(ex))
-		{
-			var screen = ScreenNav.Shared.TopId();
-			Log.Info(Tag, StartupGuard.RenderLog(screen.Length == 0 ? StartupGuard.DefaultId : screen, ex.Message));
-			while (ScreenNav.Shared.DropTop())
-			{
-			}
-
-			NavCatalog.InstallRoot();
-		}
 #else
-		// Release cold start does not open nativepoc-state.bin or replay a nav checkpoint.
+		// Release does not open nativepoc-state.bin and does not replay a nav checkpoint.
 		StartupMarks.Note("state-load", 0);
 		StartupMarks.Note("nav-restore", 0);
 #endif
+		var preparePrograms = RestoreInstance(savedInstanceState);
+#if DEBUG
+		preparePrograms = true;
+#endif
+		if (preparePrograms && !StartupGuard.Prepare(ScreenNav.Shared, (program, bag) => RecordSession.Prepare(program, bag), out var rejectedScreen, out var rejectedReason))
+		{
+			Log.Info(Tag, StartupGuard.RenderLog(rejectedScreen, rejectedReason));
+			NavCatalog.InstallRoot();
+		}
 		// Notes render does not call Persist.Get. A read happens when a screen awaits one.
 		StartupMarks.Note("persist-read", 0);
 		if (string.Equals(Intent?.GetStringExtra("nativepoc_bench"), "tap10", StringComparison.Ordinal))
@@ -472,8 +467,39 @@ public sealed class MainActivity : Activity
 		ScheduleRenderBench();
 	}
 
+	protected override void OnSaveInstanceState(Bundle outState)
+	{
+		base.OnSaveInstanceState(outState);
+		var state = AppSession.Shared.State;
+		outState.PutInt(InstanceUi.CountKey, state.Count);
+		outState.PutString(InstanceUi.NameKey, state.Name ?? "");
+		outState.PutInt(InstanceUi.FlagsKey, InstanceUi.Flags(state));
+		Log.Info(
+			Tag,
+			"state-save instance count=" + state.Count.ToString(CultureInfo.InvariantCulture)
+			+ " name-length=" + (state.Name?.Length ?? 0).ToString(CultureInfo.InvariantCulture));
+	}
+
+	bool RestoreInstance(Bundle? saved)
+	{
+		if (saved is null || !saved.ContainsKey(InstanceUi.CountKey))
+		{
+			Log.Info(Tag, "state-restore instance=0");
+			return false;
+		}
+
+		var state = AppSession.Shared.State;
+		InstanceUi.Apply(state, saved.GetInt(InstanceUi.CountKey), saved.GetString(InstanceUi.NameKey), saved.GetInt(InstanceUi.FlagsKey));
+		Log.Info(
+			Tag,
+			"state-restore instance=1 count=" + state.Count.ToString(CultureInfo.InvariantCulture)
+			+ " name-length=" + state.Name.Length.ToString(CultureInfo.InvariantCulture));
+		return true;
+	}
+
 	protected override void OnPause()
 	{
+		FieldIme.Hide(this);
 		Log.Info(Tag, "lifecycle pause delivered=" + (ScreenSignals.Pause is null ? "0" : "1"));
 		ScreenSignals.FirePause();
 		base.OnPause();
@@ -739,7 +765,12 @@ public sealed class MainActivity : Activity
 		PackingView.ResetToSeed();
 		StateStore.Delete(this);
 		ScreenNav.Shared.ResetBags();
-		ScreenNav.Shared.Prepare((program, bag) => RecordSession.Prepare(program, bag));
+		if (!StartupGuard.Prepare(ScreenNav.Shared, (program, bag) => RecordSession.Prepare(program, bag), out var rejectedScreen, out var rejectedReason))
+		{
+			Log.Info(Tag, StartupGuard.RenderLog(rejectedScreen, rejectedReason));
+			NavCatalog.InstallRoot();
+		}
+
 		var top = ScreenNav.Shared.Top();
 		if (top is null)
 			return "state reset";

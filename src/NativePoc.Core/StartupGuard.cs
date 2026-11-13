@@ -18,4 +18,57 @@ internal static class StartupGuard
 
 	public static string StateLog(string reason) =>
 		"state-load rejected reason=" + reason;
+
+	public static bool Prepare(ScreenNav nav, Action<byte[], RecordProgram.Bag> prepare, out string screen, out string reason)
+	{
+		ArgumentNullException.ThrowIfNull(nav);
+		ArgumentNullException.ThrowIfNull(prepare);
+		try
+		{
+			nav.Prepare(prepare);
+			screen = "";
+			reason = "";
+			return true;
+		}
+		catch (Exception ex) when (Rejected(ex))
+		{
+			screen = nav.TopId();
+			if (screen.Length == 0)
+				screen = DefaultId;
+			reason = ex.Message;
+			while (nav.DropTop())
+			{
+			}
+
+			return false;
+		}
+	}
+}
+
+internal static class InstanceUi
+{
+	public const string CountKey = "nativepoc.count";
+
+	public const string NameKey = "nativepoc.name";
+
+	public const string FlagsKey = "nativepoc.flags";
+
+	public const int Greeting = 1;
+
+	public const int Plain = 2;
+
+	public static int Flags(AppState state)
+	{
+		ArgumentNullException.ThrowIfNull(state);
+		return (state.GreetingFirst ? Greeting : 0) | (state.PlainRoot ? Plain : 0);
+	}
+
+	public static void Apply(AppState state, int count, string? name, int flags)
+	{
+		ArgumentNullException.ThrowIfNull(state);
+		state.Count = count;
+		state.Name = name ?? "";
+		state.GreetingFirst = (flags & Greeting) != 0;
+		state.PlainRoot = (flags & Plain) != 0;
+	}
 }

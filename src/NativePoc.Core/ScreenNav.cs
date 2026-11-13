@@ -635,6 +635,8 @@ public sealed class ScreenNav
 		List<(byte[] Program, RecordProgram.Bag Bag)> pairs;
 		lock (_gate)
 		{
+			foreach (var id in _stack)
+				Ensure(id);
 			pairs = new List<(byte[], RecordProgram.Bag)>(_programs.Count);
 			foreach (var pair in _programs)
 				pairs.Add((pair.Value, BagLocked(pair.Key)));

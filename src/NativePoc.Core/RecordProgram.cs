@@ -279,13 +279,13 @@ internal static partial class RecordProgram
 		var names = Names(payload);
 		if (!ContainsName(names, "Count"))
 			return;
-		bag.SeedInt("Count", count);
+		bag.WriteInt("Count", count);
 		if (ContainsName(names, "Name"))
-			bag.SeedString("Name", name ?? "");
+			bag.WriteString("Name", name ?? "");
 		if (ContainsName(names, "GreetingFirst"))
-			bag.SeedBool("GreetingFirst", greetingFirst);
+			bag.WriteBool("GreetingFirst", greetingFirst);
 		if (ContainsName(names, "PlainRoot"))
-			bag.SeedBool("PlainRoot", plainRoot);
+			bag.WriteBool("PlainRoot", plainRoot);
 	}
 
 	public static bool PublishAppCounter(Bound program, int count, string name, bool greetingFirst, bool plainRoot, out int nextCount, out string nextName, out bool nextGreeting, out bool nextPlain)

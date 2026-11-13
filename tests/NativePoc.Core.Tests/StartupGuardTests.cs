@@ -191,6 +191,119 @@ public sealed class StartupGuardTests
 	}
 
 	[Fact]
+	public void A_reset_with_a_bad_program_still_renders()
+	{
+		var program = Catalog("Counter");
+		var oldProgram = program.ToArray();
+		var stamp = PreviousStamp();
+		oldProgram[6] = (byte)stamp;
+		oldProgram[7] = (byte)(stamp >> 8);
+		oldProgram[8] = (byte)(stamp >> 16);
+		oldProgram[9] = (byte)(stamp >> 24);
+		var nav = new ScreenNav();
+		nav.Restore(new NavCheckpoint
+		{
+			Stack = ["counter"],
+			Screens = [new NavScreen { Id = "counter", Program = oldProgram }],
+		});
+		Assert.Equal(1, nav.Depth);
+		var seeded = false;
+		var prepared = StartupGuard.Prepare(
+			nav,
+			(bytes, bag) =>
+			{
+				RecordProgram.SeedAppCounter(bytes, bag, 7, "Ada", false, false);
+				seeded = true;
+			},
+			out var screen,
+			out var reason);
+		Assert.False(prepared);
+		Assert.False(seeded);
+		Assert.Equal(0, nav.Depth);
+		Assert.Null(nav.Top());
+		Assert.Equal("counter", screen);
+		Assert.Equal("Rejected record program version.", reason);
+		Assert.Equal(
+			"startup render rejected screen=counter reason=Rejected record program version. fallback=counter",
+			StartupGuard.RenderLog(screen, reason));
+		var tree = Screen.Render(new AppState(), new HeadlessHost());
+		var title = Assert.IsType<Text>(ElementIds.Require(tree, "title"));
+		Assert.Equal(Screen.TitlePrefix + "0", title.Value);
+	}
+
+	[Fact]
+	public void A_staged_counter_keeps_a_restored_count()
+	{
+		var nav = new ScreenNav();
+		nav.Stage("counter", Catalog("Counter"));
+		nav.ShowRoot("counter");
+		Assert.Equal(0, nav.Loaded);
+		Assert.Equal(1, nav.Staged);
+		var prepared = StartupGuard.Prepare(
+			nav,
+			(bytes, bag) => RecordProgram.SeedAppCounter(bytes, bag, 4, "Ada", false, false),
+			out var screen,
+			out var reason);
+		Assert.True(prepared);
+		Assert.Equal("", screen);
+		Assert.Equal("", reason);
+		var top = nav.Top();
+		Assert.NotNull(top);
+		Assert.Equal(4, top.Value.State.ReadInt("Count"));
+		Assert.Equal("Ada", top.Value.State.ReadString("Name"));
+		var tree = top.Value.Render(new HeadlessHost());
+		Assert.Equal(Screen.TitlePrefix + "4", Assert.IsType<Text>(ElementIds.Require(tree, "title")).Value);
+		Assert.Equal("Hello Ada", Assert.IsType<Text>(ElementIds.Require(tree, "greeting")).Value);
+	}
+
+	[Fact]
+	public void A_ui_snapshot_restores_count_and_name_without_a_program()
+	{
+		var saved = new AppState { Count = 4, Name = "Ada", GreetingFirst = true };
+		var flags = InstanceUi.Flags(saved);
+		var fresh = new AppState { Count = 1, Name = "kept" };
+		var nav = new ScreenNav();
+		nav.Restore(new NavCheckpoint
+		{
+			Stack = ["stories"],
+			Screens = [new NavScreen { Id = "stories", Program = [(byte)'N', (byte)'P', (byte)'C', (byte)'1'] }],
+		});
+		Assert.Equal(1, nav.Depth);
+		InstanceUi.Apply(fresh, saved.Count, saved.Name, flags);
+		Assert.Equal(4, fresh.Count);
+		Assert.Equal("Ada", fresh.Name);
+		Assert.True(fresh.GreetingFirst);
+		Assert.False(fresh.PlainRoot);
+		Assert.Equal(1, nav.Depth);
+		Assert.Equal("stories", nav.TopId());
+		var tree = Screen.Render(fresh, new HeadlessHost());
+		Assert.Equal(Screen.TitlePrefix + "4", Assert.IsType<Text>(ElementIds.Require(tree, "title")).Value);
+		Assert.Equal("Hello Ada", Assert.IsType<Text>(ElementIds.Require(tree, "greeting")).Value);
+	}
+
+	[Fact]
+	public void A_replaced_submit_runs_the_new_handler()
+	{
+		var seen = "";
+		Element tree = new TextInput("", _ => { }, "Search", "Search")
+		{
+			Key = "search",
+			Submit = Submit.Search,
+			OnSubmit = () => seen = "first",
+		};
+		Assert.Equal("submitted search", ElementIds.Submit(tree, "search"));
+		Assert.Equal("first", seen);
+		tree = new TextInput("", _ => { }, "Search", "Search")
+		{
+			Key = "search",
+			Submit = Submit.Search,
+			OnSubmit = () => seen = "second",
+		};
+		Assert.Equal("submitted search", ElementIds.Submit(tree, "search"));
+		Assert.Equal("second", seen);
+	}
+
+	[Fact]
 	public void An_unknown_root_names_the_counter_fallback()
 	{
 		Assert.Equal("startup root unknown id=missing fallback=counter", StartupGuard.RootLog("missing"));

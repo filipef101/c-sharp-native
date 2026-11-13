@@ -209,6 +209,8 @@ sealed class AndroidHost : IElementHost<View>
 			Submit.None => ImeAction.Done,
 			_ => throw new InvalidOperationException("Unknown submit action."),
 		};
+		if (edit is AndroidField typed)
+			typed.SubmitOnEnter = !multiline;
 		var key = edit is AndroidField marked ? marked.Key ?? "" : "";
 		Log.Info(MainActivity.Tag, "field-mode key=" + key + " keyboard=" + keyboard + " lines=" + lines + " submit=" + submit);
 	}
@@ -1099,68 +1101,78 @@ sealed class AndroidHost : IElementHost<View>
 		edit.TextChanged += handler;
 		EventHandler<TextView.EditorActionEventArgs> editor = (_, args) =>
 		{
-			var current = CurrentElement(path);
-			var submit = current switch
-			{
-				TextField field => field.OnSubmit,
-				TextInput input => input.OnSubmit,
-				_ => null,
-			};
-			var kind = current switch
-			{
-				TextField field => field.Submit,
-				TextInput input => input.Submit,
-				_ => Submit.None,
-			};
-			if (current is not (TextField or TextInput))
-				return;
-			if (args.Event is { Action: not KeyEventActions.Down })
-				return;
-			var expected = kind switch
-			{
-				Submit.Next => ImeAction.Next,
-				Submit.Send => ImeAction.Send,
-				Submit.Go => ImeAction.Go,
-				Submit.Search => ImeAction.Search,
-				Submit.None => ImeAction.Done,
-				_ => throw new InvalidOperationException("Unknown submit action."),
-			};
-			if (args.ActionId != expected && args.ActionId != ImeAction.ImeNull)
-				return;
-			var key = edit is AndroidField marked ? marked.Key ?? "" : "";
-			Log.Info(MainActivity.Tag, "field-action key=" + key + " action=" + args.ActionId);
-			if (kind == Submit.Next && edit is EditText nextFrom && FieldIme.FocusNext(nextFrom))
+			if (RunSubmit(path, edit, args.ActionId, args.Event, "ime"))
 				args.Handled = true;
-			if (submit is null)
-				return;
-			if (edit is AndroidField gate)
-			{
-				var now = Environment.TickCount64;
-				if (now - gate.LastSubmit < 250)
-					return;
-				gate.LastSubmit = now;
-			}
-#if DEBUG
-			Guard(current, submit);
-#else
-			submit();
-#endif
-			Log.Info(MainActivity.Tag, "field-submit key=" + key);
-			args.Handled = true;
 		};
 		edit.EditorAction += editor;
 		_listeners[view] = new Listener { TextChanged = handler, Editor = editor };
 		if (edit is AndroidField field)
 		{
 			field.Key = CurrentElement(path)?.Key;
+			field.OnEnter = ev => RunSubmit(path, edit, ImeAction.ImeNull, ev, "key");
 			field.FocusChange += (_, args) =>
 			{
 				if (!args.HasFocus || field.Key is null || FieldFocus.Frozen)
 					return;
 				FieldFocus.Note(field.Key, field.SelectionStart, field.SelectionEnd);
+				if (!field.UserTouch)
+					return;
+				field.UserTouch = false;
 				FieldIme.Show(field);
 			};
 		}
+	}
+
+	bool RunSubmit(NodePath path, EditText edit, ImeAction actionId, KeyEvent? ev, string via)
+	{
+		var current = CurrentElement(path);
+		if (current is not (TextField or TextInput))
+			return false;
+		if (ev is { Action: not KeyEventActions.Down })
+			return false;
+		var submit = current switch
+		{
+			TextField field => field.OnSubmit,
+			TextInput input => input.OnSubmit,
+			_ => null,
+		};
+		var kind = current switch
+		{
+			TextField field => field.Submit,
+			TextInput input => input.Submit,
+			_ => Submit.None,
+		};
+		var expected = kind switch
+		{
+			Submit.Next => ImeAction.Next,
+			Submit.Send => ImeAction.Send,
+			Submit.Go => ImeAction.Go,
+			Submit.Search => ImeAction.Search,
+			Submit.None => ImeAction.Done,
+			_ => throw new InvalidOperationException("Unknown submit action."),
+		};
+		if (actionId != expected && actionId != ImeAction.ImeNull)
+			return false;
+		var key = edit is AndroidField marked ? marked.Key ?? "" : "";
+		Log.Info(MainActivity.Tag, "field-action key=" + key + " action=" + actionId + " via=" + via);
+		if (kind == Submit.Next && FieldIme.FocusNext(edit))
+			return true;
+		if (submit is null)
+			return false;
+		if (edit is AndroidField gate)
+		{
+			var now = Environment.TickCount64;
+			if (now - gate.LastSubmit < 250)
+				return true;
+			gate.LastSubmit = now;
+		}
+#if DEBUG
+		Guard(current, submit);
+#else
+		submit();
+#endif
+		Log.Info(MainActivity.Tag, "field-submit key=" + key + " via=" + via);
+		return true;
 	}
 
 	void AttachSwitch(NodePath path, View view, bool logMount)
@@ -1265,15 +1277,19 @@ sealed class AndroidHost : IElementHost<View>
 static class FieldIme
 {
 	static bool _watching;
+	static int _generation;
 
 	public static void Show(AndroidField field)
 	{
-		if (field.Context is Activity activity)
-			activity.Window?.SetSoftInputMode(SoftInput.AdjustResize | SoftInput.StateVisible);
-		var imm = (InputMethodManager?)field.Context?.GetSystemService(Context.InputMethodService);
-		imm?.ShowSoftInput(field, ShowFlags.Implicit);
+		var generation = _generation;
 		field.Post(() =>
 		{
+			if (generation != _generation || !field.IsFocused)
+				return;
+			if (field.Context is Activity activity)
+				activity.Window?.SetSoftInputMode(SoftInput.AdjustResize | SoftInput.StateVisible);
+			var imm = (InputMethodManager?)field.Context?.GetSystemService(Context.InputMethodService);
+			imm?.ShowSoftInput(field, ShowFlags.Implicit);
 			var rect = new Rect(0, 0, Math.Max(field.Width, 1), Math.Max(field.Height, 1));
 			field.RequestRectangleOnScreen(rect, true);
 			LogScroll(field);
@@ -1285,6 +1301,67 @@ static class FieldIme
 			return;
 		_watching = true;
 		decor.ViewTreeObserver.AddOnGlobalLayoutListener(new KeyboardLayout(decor));
+	}
+
+	public static void Hide(Activity activity)
+	{
+		var generation = ++_generation;
+		var decor = activity.Window?.DecorView;
+		var token = activity.CurrentFocus?.WindowToken ?? decor?.WindowToken;
+		var cleared = decor is null ? 0 : ClearFields(decor);
+		var imm = (InputMethodManager?)activity.GetSystemService(Context.InputMethodService);
+		var hidden = Dismiss(activity, decor, token, imm);
+		decor?.RequestFocus();
+		activity.Window?.SetSoftInputMode(SoftInput.AdjustResize | SoftInput.StateHidden);
+		Log.Info(
+			MainActivity.Tag,
+			"field-hide focused=" + (cleared > 0 ? "1" : "0")
+			+ " cleared=" + cleared.ToString(CultureInfo.InvariantCulture)
+			+ " hidden=" + (hidden ? "1" : "0"));
+		decor?.Post(() =>
+		{
+			if (generation != _generation)
+				return;
+			if (decor is not null)
+				ClearFields(decor);
+			Dismiss(activity, decor, token, imm);
+		});
+	}
+
+	static bool Dismiss(Activity activity, View? decor, Android.OS.IBinder? token, InputMethodManager? imm)
+	{
+		var hidden = token is not null && imm?.HideSoftInputFromWindow(token, HideSoftInputFlags.None) == true;
+		if (OperatingSystem.IsAndroidVersionAtLeast(30) && decor?.WindowInsetsController is { } insets)
+		{
+#pragma warning disable CA1416
+			insets.Hide(WindowInsets.Type.Ime());
+#pragma warning restore CA1416
+		}
+
+		return hidden;
+	}
+
+	static int ClearFields(View view)
+	{
+		var count = 0;
+		if (view is AndroidField marked)
+			marked.UserTouch = false;
+		if (view is EditText edit && edit.IsFocused)
+		{
+			edit.ClearFocus();
+			count = 1;
+		}
+
+		if (view is not ViewGroup group)
+			return count;
+		for (var index = 0; index < group.ChildCount; index++)
+		{
+			var child = group.GetChildAt(index);
+			if (child is not null)
+				count += ClearFields(child);
+		}
+
+		return count;
 	}
 
 	public static bool FocusNext(EditText edit)
@@ -1360,6 +1437,26 @@ sealed class AndroidField : EditText
 
 	public bool AllowAutofill { get; set; }
 
+	public bool SubmitOnEnter { get; set; }
+
+	public bool UserTouch { get; set; }
+
+	public Func<KeyEvent?, bool>? OnEnter { get; set; }
+
+	public override bool OnKeyDown(Keycode keyCode, KeyEvent? e)
+	{
+		if (keyCode == Keycode.Enter && SubmitOnEnter && OnEnter?.Invoke(e) == true)
+			return true;
+		return base.OnKeyDown(keyCode, e);
+	}
+
+	public override bool OnTouchEvent(MotionEvent? e)
+	{
+		if (e?.Action == MotionEventActions.Down)
+			UserTouch = true;
+		return base.OnTouchEvent(e);
+	}
+
 	public AndroidField(Context context) : base(context)
 	{
 		FocusableInTouchMode = false;
@@ -1419,6 +1516,16 @@ static class FieldFocus
 		_start = start;
 		_end = end;
 		Log.Info(MainActivity.Tag, "field-note key=" + key + " start=" + start + " end=" + end);
+	}
+
+	public static void Clear()
+	{
+		if (_key is null)
+			return;
+		Log.Info(MainActivity.Tag, "field-blur key=" + _key);
+		_key = null;
+		_start = 0;
+		_end = 0;
 	}
 
 	public static bool TryRead(string key, out int start, out int end)
@@ -1506,6 +1613,8 @@ sealed class PlatformBridge : IPlatform
 			Log.Info(MainActivity.Tag, "nav-miss " + screen);
 		else if (ScreenNav.Shared.TopId() != before || ScreenNav.Shared.Depth != depth)
 		{
+			FieldIme.Hide(_activity);
+			FieldFocus.Clear();
 			NavMotion.Arm(NavMotion.Dir.Push);
 #if NATIVEPOC_NAV
 			NavFocus.Arm();
@@ -1516,6 +1625,8 @@ sealed class PlatformBridge : IPlatform
 			/* DeliverRow pushes before this call, so the stack is already
 			   there. The screen the user is about to see still needs the
 			   heading focus. */
+			FieldIme.Hide(_activity);
+			FieldFocus.Clear();
 #if NATIVEPOC_NAV
 			NavFocus.Arm();
 #endif
@@ -1560,6 +1671,8 @@ sealed class PlatformBridge : IPlatform
 
 	public void Pop()
 	{
+		FieldIme.Hide(_activity);
+		FieldFocus.Clear();
 		var leaving = ScreenNav.Shared.TopId();
 		var nested = ScreenNav.Shared.Depth > 1;
 		if (nested)
