@@ -42,12 +42,19 @@ static class FeedJson
 	{
 		var bag = EffectContext.Bag;
 		if (bag is null)
-			return;
+		{
+			var id = ScreenNav.Shared.TopId();
+			if (id.Length == 0)
+				return;
+			bag = ScreenNav.Shared.Bag(id);
+		}
+
 		bag.ClearList("Items");
 		if (!TryRead(json, out var rows))
 			return;
 		foreach (var row in rows)
 			bag.AddRow("Items", [row.Id, row.Title]);
+		Android.Util.Log.Info(MainActivity.Tag, "json-bag screen=" + ScreenNav.Shared.TopId() + " items=" + rows.Count.ToString(CultureInfo.InvariantCulture));
 	}
 
 	static bool TryRead(string json, out List<Row> rows)
@@ -55,6 +62,14 @@ static class FeedJson
 		rows = [];
 		if (json.Length == 0 || json.StartsWith("http-error:", StringComparison.Ordinal))
 			return false;
+		if (FeedWire.TryRead(json, out var typed))
+		{
+			foreach (var row in typed)
+				rows.Add(new Row(row.Id, row.Title));
+			Android.Util.Log.Info(MainActivity.Tag, "json-source items=" + rows.Count.ToString(CultureInfo.InvariantCulture));
+			return true;
+		}
+
 		var scan = new Scan(json);
 		return scan.TryDocument(rows);
 	}

@@ -31,6 +31,9 @@
 		<AndroidManifestPlaceholders>nativepocMarks=$(NativePocStartupMarks)</AndroidManifestPlaceholders>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocShowcase)' == 'true' And '$(NativePocWidgetFloor)' != 'true'">
+		<NativePocHttp>true</NativePocHttp>
+	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
 		<PublishAot>true</PublishAot>
 		<PublishTrimmed>true</PublishTrimmed>

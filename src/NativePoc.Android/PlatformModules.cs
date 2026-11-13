@@ -94,9 +94,9 @@ static class PlatformModules
 					return await Task.Run(() => JniRegistry.Call(method, args), cancel);
 #if NATIVEPOC_HTTP
 				case ("http", "GetJson", 1):
-					return await Task.Run(() => HttpTransport.Send("GET", args[0], null, cancel), cancel);
+					return await HttpTransport.SendAsync("GET", args[0], null, cancel);
 				case ("http", "PostJson", 2):
-					return await Task.Run(() => HttpTransport.Send("POST", args[0], args[1], cancel), cancel);
+					return await HttpTransport.SendAsync("POST", args[0], args[1], cancel);
 #endif
 				case ("storage", "Get", 1):
 					return AppStorage.Get(activity, args[0]) ?? "";

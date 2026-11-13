@@ -67,6 +67,8 @@ static class ImageModule
 		var app = context.ApplicationContext ?? context;
 		ThreadPool.QueueUserWorkItem(_ =>
 		{
+			var offUi = Android.OS.Looper.MyLooper() != Android.OS.Looper.MainLooper;
+			Android.Util.Log.Info(MainActivity.Tag, "image-decode off-ui=" + (offUi ? "1" : "0") + " source=" + source);
 			Bitmap? bitmap = null;
 			try
 			{
@@ -384,6 +386,9 @@ static class ImageModule
 
 	static byte[]? Download(string url)
 	{
+#if NATIVEPOC_HTTP
+		return HttpTransport.GetBytes(url);
+#else
 		Java.Net.HttpURLConnection? connection = null;
 		try
 		{
@@ -424,6 +429,7 @@ static class ImageModule
 			{
 			}
 		}
+#endif
 	}
 
 }

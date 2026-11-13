@@ -54,9 +54,9 @@ internal static partial class RecordProgram
 	public const byte OpOnResume = 46;
 	public const byte OpOnLeave = 47;
 
-	// Bump this when the opcode set changes. Baked catalog programs store it,
-	// and the catalog check fails until those bytes are regenerated.
-	public const byte OpcodeVersion = 1;
+	// The catalog stores this byte. It is a fold of the opcode table, so an
+	// opcode added there fails catalog-check until the programs are regenerated.
+	public static byte OpcodeVersion => OpcodeTable.Version;
 
 	public const byte RecordFormat = 2;
 

@@ -37,4 +37,3 @@ The baked program is older than this interpreter. The app paints the compiled co
 `a new binding needs a republish`
 
 A new `[JniMethod]` is not in this binary. Publish the listener again. A literal or a method that is already registered hot-reloads.
-

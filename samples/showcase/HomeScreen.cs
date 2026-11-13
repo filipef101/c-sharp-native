@@ -89,6 +89,18 @@ public static class HomeScreen
 				Key = "room",
 				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
 			},
+			new Button(
+				"The feed  ›",
+				() =>
+				{
+					platform.Push("stories");
+					platform.RequestRender();
+				},
+				"The feed")
+			{
+				Key = "feed",
+				Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
+			},
 		])
 		{
 			Key = "page",

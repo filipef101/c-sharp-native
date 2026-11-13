@@ -34,11 +34,13 @@ internal static class TroubleGuide
 		var builder = new StringBuilder();
 		builder.Append("# Troubleshooting\n\n");
 		builder.Append("The listener logs these lines and still paints a screen.\n\n");
-		foreach (var entry in Entries)
+		for (var index = 0; index < Entries.Length; index++)
 		{
+			var entry = Entries[index];
 			builder.Append("## ").Append(entry.Title).Append("\n\n");
 			builder.Append('`').Append(entry.Log).Append("`\n\n");
-			builder.Append(entry.Do).Append("\n\n");
+			builder.Append(entry.Do);
+			builder.Append(index + 1 == Entries.Length ? "\n" : "\n\n");
 		}
 
 		return builder.ToString();

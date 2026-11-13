@@ -24,13 +24,15 @@ public sealed class StartupGuardTests
 	public void A_planted_old_catalog_program_fails_the_check()
 	{
 		var source = File.ReadAllText(Path.Combine(Repo(), "src", "NativePoc.Android", "NavCatalog.cs"));
-		var header = "78,80,67,49," + RecordProgram.RecordFormat.ToString(CultureInfo.InvariantCulture) + ",2," + RecordProgram.OpcodeVersion.ToString(CultureInfo.InvariantCulture) + ",";
-		var older = "78,80,67,49," + RecordProgram.RecordFormat.ToString(CultureInfo.InvariantCulture) + ",2," + (RecordProgram.OpcodeVersion - 1).ToString(CultureInfo.InvariantCulture) + ",";
+		var current = RecordProgram.OpcodeVersion;
+		var plantedByte = current == 0 ? (byte)1 : (byte)(current - 1);
+		var header = "78,80,67,49," + RecordProgram.RecordFormat.ToString(CultureInfo.InvariantCulture) + ",2," + current.ToString(CultureInfo.InvariantCulture) + ",";
+		var older = "78,80,67,49," + RecordProgram.RecordFormat.ToString(CultureInfo.InvariantCulture) + ",2," + plantedByte.ToString(CultureInfo.InvariantCulture) + ",";
 		var index = source.IndexOf(header, StringComparison.Ordinal);
 		Assert.True(index >= 0, header);
 		var planted = source.Remove(index, header.Length).Insert(index, older);
 		var problem = CatalogVersion.Problem(planted);
-		Assert.Equal("Counter opcode " + (RecordProgram.OpcodeVersion - 1).ToString(CultureInfo.InvariantCulture), problem);
+		Assert.Equal("Counter opcode " + plantedByte.ToString(CultureInfo.InvariantCulture), problem);
 		var bytes = CatalogVersion.Read(planted, "Counter");
 		Assert.NotNull(bytes);
 		var thrown = Assert.Throws<InvalidOperationException>(() => new HeadlessHost().Apply(bytes, new RecordProgram.Bag()));

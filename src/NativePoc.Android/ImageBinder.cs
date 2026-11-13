@@ -125,6 +125,8 @@ static class RemoteImages
 		var app = context.ApplicationContext ?? context;
 		ThreadPool.QueueUserWorkItem(_ =>
 		{
+			var offUi = Android.OS.Looper.MyLooper() != Android.OS.Looper.MainLooper;
+			Android.Util.Log.Info(MainActivity.Tag, "image-decode off-ui=" + (offUi ? "1" : "0") + " source=" + source);
 			Bitmap? bitmap = null;
 			try
 			{
@@ -189,48 +191,6 @@ static class RemoteImages
 		return BitmapFactory.DecodeResource(context.Resources, id);
 	}
 
-	static byte[]? Download(string url)
-	{
-		Java.Net.HttpURLConnection? connection = null;
-		try
-		{
-			connection = (Java.Net.HttpURLConnection)new Java.Net.URL(url).OpenConnection()!;
-			connection.RequestMethod = "GET";
-			connection.ConnectTimeout = 8000;
-			connection.ReadTimeout = 8000;
-			var code = (int)connection.ResponseCode;
-			if (code is < 200 or > 299)
-				return null;
-			using var input = connection.InputStream;
-			if (input is null)
-				return null;
-			using var buffer = new MemoryStream();
-			var chunk = new byte[4096];
-			int read;
-			while ((read = input.Read(chunk, 0, chunk.Length)) > 0)
-			{
-				buffer.Write(chunk, 0, read);
-				if (buffer.Length > 1_000_000)
-					return null;
-			}
-
-			return buffer.Length == 0 ? null : buffer.ToArray();
-		}
-		catch (Exception ex)
-		{
-			Android.Util.Log.Info(MainActivity.Tag, "image-error " + ex.GetType().Name);
-			return null;
-		}
-		finally
-		{
-			try
-			{
-				connection?.Disconnect();
-			}
-			catch (Exception)
-			{
-			}
-		}
-	}
+	static byte[]? Download(string url) => HttpTransport.GetBytes(url);
 }
 #endif

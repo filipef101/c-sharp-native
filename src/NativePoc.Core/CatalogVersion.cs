@@ -17,14 +17,16 @@ internal static class CatalogVersion
 		&& payload[5] == 2
 		&& payload[6] == RecordProgram.OpcodeVersion;
 
-	public static string? Problem(string source)
+	public static string? Problem(string source) => Problem(source, RecordProgram.OpcodeVersion);
+
+	public static string? Problem(string source, byte expected)
 	{
 		foreach (var name in Names)
 		{
 			var bytes = Read(source, name);
 			if (bytes is null)
 				return name + " missing";
-			if (!Current(bytes))
+			if (bytes.Length <= 6 || bytes[6] != expected)
 				return name + " opcode " + (bytes.Length > 6 ? bytes[6].ToString(CultureInfo.InvariantCulture) : "short");
 		}
 
