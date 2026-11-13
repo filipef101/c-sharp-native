@@ -19,7 +19,7 @@ public static class StopScreen
 	{
 		async void Lookup()
 		{
-			state.Body = await Http.GetJson(platform, "http://10.0.2.2:8094/visit");
+			state.Body = await Http.GetJson(platform, "http://127.0.0.1:8094/visit");
 			if (state.Body.StartsWith("http-error:"))
 				state.Error = state.Body;
 			else

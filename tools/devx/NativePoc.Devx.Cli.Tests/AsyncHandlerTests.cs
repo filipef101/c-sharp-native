@@ -258,11 +258,14 @@ public sealed class AsyncHandlerTests
 	{
 		var root = Repo();
 		var visitSource = File.ReadAllText(Path.Combine(root, "samples", "visit", "VisitScreen.cs"));
+		var stopSource = File.ReadAllText(Path.Combine(root, "samples", "visit", "StopScreen.cs"));
+		Assert.Contains("http://127.0.0.1:8094/visit", visitSource, StringComparison.Ordinal);
+		Assert.Contains("http://127.0.0.1:8094/visit", stopSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("10.0.2.2", visitSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("10.0.2.2", stopSource, StringComparison.Ordinal);
 		var visit = SubsetLowerer.TryLower(visitSource, originFile: "samples/visit/VisitScreen.cs");
 		Assert.True(visit.Ok, visit.Diagnostics.Count == 0 ? "" : visit.Diagnostics[0].Message);
-		var stop = SubsetLowerer.TryLower(
-			File.ReadAllText(Path.Combine(root, "samples", "visit", "StopScreen.cs")),
-			originFile: "samples/visit/StopScreen.cs");
+		var stop = SubsetLowerer.TryLower(stopSource, originFile: "samples/visit/StopScreen.cs");
 		Assert.True(stop.Ok, stop.Diagnostics.Count == 0 ? "" : stop.Diagnostics[0].Message);
 		var bag = new RecordProgram.Bag();
 		var bound = RecordProgram.Bind(visit.Program!, bag);

@@ -14,6 +14,7 @@
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 		<NoWarn>$(NoWarn);IL3053</NoWarn>
 		<NativePocHttp Condition="'$(NativePocHttp)' == ''">false</NativePocHttp>
+		<NativePocHttpManaged Condition="'$(NativePocHttpManaged)' == ''">false</NativePocHttpManaged>
 		<NativePocRecycler Condition="'$(NativePocRecycler)' == ''">false</NativePocRecycler>
 		<NativePocLocation Condition="'$(NativePocLocation)' == ''">false</NativePocLocation>
 		<NativePocPersist Condition="'$(NativePocPersist)' == ''">false</NativePocPersist>
@@ -31,11 +32,13 @@
 		<AndroidManifestPlaceholders>nativepocMarks=$(NativePocStartupMarks)</AndroidManifestPlaceholders>
 		<WarningsNotAsErrors>XA1040</WarningsNotAsErrors>
 	</PropertyGroup>
+	<ItemGroup Condition="'$(NativePocHttp)' == 'true' And '$(NativePocHttpManaged)' == 'true'">
+		<RuntimeHostConfigurationOption Include="System.Net.Http.UseSocketsHttpHandler" Value="true" Trim="true" />
+		<RuntimeHostConfigurationOption Include="System.Net.SocketsHttpHandler.Http3Support" Value="false" Trim="true" />
+		<RuntimeHostConfigurationOption Include="System.Resources.UseSystemResourceKeys" Value="true" Trim="true" />
+	</ItemGroup>
 	<ItemGroup Condition="'$(NativePocHttp)' == 'true'">
-		<RuntimeHostConfigurationOption Include="System.Net.Http.UseSocketsHttpHandler" Value="true" />
-		<RuntimeHostConfigurationOption Include="System.Net.SocketsHttpHandler.Http3Support" Value="false" />
-		<RuntimeHostConfigurationOption Include="System.Resources.UseSystemResourceKeys" Value="true" />
-		<RuntimeHostConfigurationOption Include="System.Text.Json.JsonSerializer.IsReflectionEnabledByDefault" Value="false" />
+		<RuntimeHostConfigurationOption Include="System.Text.Json.JsonSerializer.IsReflectionEnabledByDefault" Value="false" Trim="true" />
 	</ItemGroup>
 	<PropertyGroup Condition="'$(NativePocDevListener)' == 'true' And '$(Configuration)' != 'Release'">
 		<PublishAot>true</PublishAot>
@@ -68,6 +71,9 @@
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocHttp)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_HTTP;NATIVEPOC_LAZY_FEED</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocHttpManaged)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_HTTP_MANAGED</DefineConstants>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(NativePocRecycler)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_RECYCLER</DefineConstants>
@@ -300,6 +306,8 @@
 		<Compile Include="..\..\samples\*\*.cs" Exclude="..\..\samples\NativePoc.*\**;**\bin\**;**\obj\**;$(NativePocSampleExclude)" />
 		<Compile Remove="..\..\samples\showcase\StressScreen.cs" Condition="'$(NativePocStress)' != 'true'" />
 		<Compile Remove="FeedJson.cs" Condition="'$(NativePocHttp)' != 'true'" />
+		<Compile Remove="PlatformHttp.cs" Condition="'$(NativePocHttp)' != 'true' Or '$(NativePocHttpManaged)' == 'true'" />
+		<Compile Remove="HttpTransport.cs" Condition="'$(NativePocHttp)' != 'true'" />
 		<Compile Remove="PersistStore.cs" Condition="'$(NativePocPersist)' != 'true'" />
 		<Compile Remove="NavFocus.cs" Condition="'$(NativePocNav)' != 'true'" />
 		<Compile Remove="NavTransition.cs" Condition="'$(NativePocTransition)' != 'true'" />
@@ -466,7 +474,10 @@
 		</ItemGroup>
 		<Delete Files="$(_AndroidCompileJavaStampFile)" Condition="!Exists('$(_NativeAotProviderClass)')" />
 	</Target>
-	<Target Name="RequireNativeAotProviderDex" AfterTargets="_CompileToDalvik" Condition="'$(PublishAot)' == 'true'">
+	<!-- AfterTargets of _CompileToDalvik does not run when that target is
+	     up to date. _CompileDex has no inputs, so it still runs and this gate
+	     inspects the dex that the skipped compile left in place. -->
+	<Target Name="RequireNativeAotProviderDex" AfterTargets="_CompileDex" Condition="'$(PublishAot)' == 'true'">
 		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)..\..\tools\dex-has-provider.py&quot; &quot;$(_AndroidIntermediateDexOutputDirectory)&quot;" />
 	</Target>
 	<Target Name="DropPdbFromPackage" AfterTargets="ILLink" Condition="'$(Configuration)' == 'Release'">

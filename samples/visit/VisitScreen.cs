@@ -44,7 +44,7 @@ public static class VisitScreen
 			else
 			{
 				state.Error = "";
-				state.Body = await Http.GetJson(platform, "http://10.0.2.2:8094/visit");
+				state.Body = await Http.GetJson(platform, "http://127.0.0.1:8094/visit");
 				state.Stops.Add(new VisitItem { Id = state.Place, Place = state.Place, When = state.When });
 				platform.RequestRender();
 			}

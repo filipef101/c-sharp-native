@@ -70,6 +70,10 @@ One `setPrimaryClip` on that image fires the listener twice, about 30ms apart, w
 DeviceClipboard.Listen("bind", "Note");
 ```
 
+## HTTP
+
+`Http.GetJson` and `Http.PostJson` are the screen calls. The host dispatches them to `PlatformHttp`, a `[JniType("java/net/HttpURLConnection")]` binding. `Exchange` and `Read` are `[JniMethod]` entries on the JNI registry, marked blocking, and `HttpTransport` runs them on a worker. `Pop` cancels the token, and the cancel calls `PlatformHttp.Disconnect`, which is `HttpURLConnection.disconnect`. The log is `jni-bind class=java/net/HttpURLConnection method=getInputStream` and `http-get chars=` `client=jni`. JSON still uses the source-generated converter. `NativePocHttpManaged=true` keeps the managed `HttpClient` on `SocketsHttpHandler` and logs `client=1`. That flag defaults to false. An iOS host would map the same screen call to `NSURLSession`. That host was not built. On emulator-5554 the JNI showcase logged `http-off-ui=1` and `jni-bind class=java/net/HttpURLConnection method=getInputStream chars=1154`. Leaving mid-request logged `http-cancel module=http.GET`. The signed sizes are in the progress79 paragraph of the README.
+
 ## Permission helper
 
 `PermissionRules` is the decision a screen uses after `RequestPermissions`. It does not call Android. The activity passes the grant, `ShouldShowRequestPermissionRationale`, whether the denial is already fixed, and how many denials are stored. `BlocksWithoutAsking` is true once two denials are stored, so the next tap skips `RequestPermissions`. `Text` is the word posted into the screen field.

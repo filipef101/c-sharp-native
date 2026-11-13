@@ -30,7 +30,7 @@ The gesture mask uses `UITapGestureRecognizer`, `UILongPressGestureRecognizer`, 
 
 ## Never compiled
 
-`spikes/ios/NativePoc.iOS/NativePoc.iOS.csproj` (`net10.0-ios`) has not been compiled on this machine. There is no iOS workload here, no Mac, and no simulator. `dotnet build NativePoc.slnx` does not build it. No binary, no simulator log, and no device log exists for it.
+`spikes/ios/NativePoc.iOS/NativePoc.iOS.csproj` (`net10.0-ios`) has not been compiled on this machine. There is no iOS workload here, no Mac, and no simulator. `dotnet build NativePoc.slnx` does not build it. No binary, no simulator log, and no device log exists for it. The Android HTTP backend is `java.net.HttpURLConnection`. The same `Http.GetJson` call would map to `NSURLSession` on this host. That mapping was not written and this project was not built.
 
 Do not read the authored UIKit files as a successful iOS build. The recognizer constructors, `UIImage.FromBundle`, and the app entry point are written to the current contract and have not been type-checked by the iOS SDK.
 

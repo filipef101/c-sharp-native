@@ -1,4 +1,5 @@
 #if NATIVEPOC_HTTP
+#if NATIVEPOC_HTTP_MANAGED
 using System.Globalization;
 using System.Net.Http;
 using System.Text;
@@ -92,4 +93,56 @@ static class HttpTransport
 		}
 	}
 }
+#else
+namespace NativePoc;
+
+static class HttpTransport
+{
+	public static Task<string> SendAsync(string method, string url, string? json, CancellationToken cancel)
+	{
+		if (cancel.IsCancellationRequested)
+			return Task.FromResult("http-error: cancelled");
+		return Task.Run(() =>
+		{
+			var off = Android.OS.Looper.MyLooper() != Android.OS.Looper.MainLooper;
+			Android.Util.Log.Info(MainActivity.Tag, "http-off-ui=" + (off ? "1" : "0"));
+			using var registration = cancel.Register(static () => JniRegistry.Call("PlatformHttp.Disconnect", []));
+			try
+			{
+				if (cancel.IsCancellationRequested)
+					return "http-error: cancelled";
+				var body = JniRegistry.Call("PlatformHttp.Exchange", [method, url, json ?? ""]);
+				if (cancel.IsCancellationRequested)
+				{
+					Android.Util.Log.Info(MainActivity.Tag, "http-cancel module=http." + method);
+					return "http-error: cancelled";
+				}
+
+				return body;
+			}
+			catch (Exception ex) when (cancel.IsCancellationRequested)
+			{
+				Android.Util.Log.Info(MainActivity.Tag, "http-cancel module=http." + method + " " + ex.GetType().Name);
+				return "http-error: cancelled";
+			}
+		}, cancel);
+	}
+
+	public static byte[]? GetBytes(string url)
+	{
+		var encoded = JniRegistry.Call("PlatformHttp.Read", [url]);
+		if (encoded.Length == 0 || encoded.StartsWith("http-error:", StringComparison.Ordinal))
+			return null;
+		try
+		{
+			var bytes = Convert.FromBase64String(encoded);
+			return bytes.Length == 0 ? null : bytes;
+		}
+		catch (FormatException)
+		{
+			return null;
+		}
+	}
+}
+#endif
 #endif

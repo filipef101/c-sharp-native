@@ -449,6 +449,23 @@ public sealed class LoopRuleTests
 		stream.Write(bytes, 0, bytes.Length);
 	}
 
+	[Fact]
+	public void The_default_http_backend_is_the_platform_registry()
+	{
+		var project = RepoFile("src", "NativePoc.Android", "NativePoc.Android.csproj");
+		var transport = RepoFile("src", "NativePoc.Android", "HttpTransport.cs");
+		var platform = RepoFile("src", "NativePoc.Android", "PlatformHttp.cs");
+		Assert.Contains("<NativePocHttpManaged Condition=\"'$(NativePocHttpManaged)' == ''\">false</NativePocHttpManaged>", project, StringComparison.Ordinal);
+		Assert.Contains("AfterTargets=\"_CompileDex\"", project, StringComparison.Ordinal);
+		Assert.DoesNotContain("AfterTargets=\"_CompileToDalvik\"", project, StringComparison.Ordinal);
+		Assert.Contains("JniRegistry.Call(\"PlatformHttp.Exchange\"", transport, StringComparison.Ordinal);
+		Assert.Contains("JniRegistry.Call(\"PlatformHttp.Read\"", transport, StringComparison.Ordinal);
+		Assert.Contains("[JniType(\"java/net/HttpURLConnection\")]", platform, StringComparison.Ordinal);
+		Assert.Contains("HttpURLConnection", platform, StringComparison.Ordinal);
+		Assert.Contains("NSURLSession", platform, StringComparison.Ordinal);
+		Assert.DoesNotContain("System.Net.Http", platform, StringComparison.Ordinal);
+	}
+
 	static string Boom() => throw new InvalidOperationException("readLine should not be called.");
 
 	static string FindRepo()

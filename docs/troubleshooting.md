@@ -37,3 +37,15 @@ The baked program is older than this interpreter. The app paints the compiled co
 `a new binding needs a republish`
 
 A new `[JniMethod]` is not in this binary. Publish the listener again. A literal or a method that is already registered hot-reloads.
+
+## HTTP error
+
+`http-error:`
+
+The body is `cancelled`, `timeout`, a status code, or an exception name. `client=jni` is `HttpURLConnection`. `client=1` is the managed `HttpClient`, which is compiled only when `NativePocHttpManaged` is true. `Pop` during the fetch logs `http-cancel`. The Visit and Feed fixtures use `http://127.0.0.1:8094` through `adb reverse`. `10.0.2.2` does not reach a server bound to `127.0.0.1`. `Trim=true` on `System.Net.SocketsHttpHandler.Http3Support` does not remove the UTF-16 switch name from a `.so` that still contains `SocketsHttpHandler`. The default JNI `.so` has no UTF-16 `Http3`.
+
+## Missing runtime provider
+
+`ClassNotFoundException: net.dot.jni.nativeaot.NativeAotRuntimeProvider`
+
+The dex was packaged without that class. `tools/dex-has-provider.py` fails the build from `_CompileDex`, including when `_CompileToDalvik` was up to date and skipped, and `tools/check.sh` fails the signed apk. Delete `obj` and publish again if the java file was never copied. A no-change android-x64 republish on this tree logged `Skipping target "_CompileToDalvik"` and the gate still printed `NativeAotRuntimeProvider is in classes.dex`.
