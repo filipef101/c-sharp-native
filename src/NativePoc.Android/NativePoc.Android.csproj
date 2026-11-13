@@ -81,6 +81,9 @@
 	<PropertyGroup Condition="'$(NativePocJni)' == 'true'">
 		<DefineConstants>$(DefineConstants);NATIVEPOC_JNI</DefineConstants>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(NativePocStaleCatalog)' == 'true'">
+		<DefineConstants>$(DefineConstants);NATIVEPOC_STALE_CATALOG</DefineConstants>
+	</PropertyGroup>
 	<!-- The manifest merger reruns when build.props changes. An overlay is not
 	     one of its inputs, so the placeholder has to be present either way. -->
 	<PropertyGroup>
@@ -425,6 +428,13 @@
 	     publish would keep the previous extractNativeLibs value. -->
 	<Target Name="RefreshEmbedManifest" BeforeTargets="_ManifestMerger">
 		<Delete Files="$(IntermediateOutputPath)android/AndroidManifest.xml" Condition="Exists('$(IntermediateOutputPath)android/AndroidManifest.xml')" />
+	</Target>
+	<Target Name="SyncCatalog" BeforeTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' And '$(NativePocSyncCatalog)' != 'false'">
+		<PropertyGroup>
+			<_Cnative>$(MSBuildThisFileDirectory)..\..\tools\devx\NativePoc.Devx.Cli\bin\Release\net10.0\cnative.dll</_Cnative>
+		</PropertyGroup>
+		<Exec Command="dotnet build &quot;$(MSBuildThisFileDirectory)..\..\tools\devx\NativePoc.Devx.Cli\NativePoc.Devx.Cli.csproj&quot; -c Release --nologo -v q" Condition="!Exists('$(_Cnative)')" WorkingDirectory="$(MSBuildThisFileDirectory)..\.." />
+		<Exec Command="dotnet exec &quot;$(_Cnative)&quot; catalog-sync" WorkingDirectory="$(MSBuildThisFileDirectory)..\.." />
 	</Target>
 	<Target Name="DropPdbFromPackage" AfterTargets="ILLink" Condition="'$(Configuration)' == 'Release'">
 		<ItemGroup>

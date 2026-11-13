@@ -16,6 +16,18 @@ static class AppStorage
 		Android.Util.Log.Info(MainActivity.Tag, "storage-set key=" + key + " chars=" + value.Length);
 	}
 
+	public static int GetInt(Context context, string key) =>
+		context.GetSharedPreferences(File, FileCreationMode.Private)?.GetInt(key, 0) ?? 0;
+
+	public static void SetInt(Context context, string key, int value)
+	{
+		var editor = context.GetSharedPreferences(File, FileCreationMode.Private)?.Edit()
+			?? throw new InvalidOperationException("Settings storage is not open.");
+		editor.PutInt(key, value);
+		if (!editor.Commit())
+			throw new InvalidOperationException("Settings storage did not commit.");
+	}
+
 	public static string? Get(Context context, string key)
 	{
 		var value = context.GetSharedPreferences(File, FileCreationMode.Private)?.GetString(key, null);

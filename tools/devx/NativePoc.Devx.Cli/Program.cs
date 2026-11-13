@@ -10,6 +10,10 @@ try
 		return LowerLoop.Run(args);
 	if (args.Length > 0 && args[0] == "inspect")
 		return InspectLoop.Run(args);
+	if (args.Length > 0 && args[0] == "catalog-check")
+		return CatalogBake.Check();
+	if (args.Length > 0 && args[0] == "catalog-sync")
+		return CatalogBake.Sync();
 	if (args.Length > 0 && args[0] == "measure")
 		return MeasureLoop.Run(args);
 	if (args.Length > 0 && args[0] == "test")

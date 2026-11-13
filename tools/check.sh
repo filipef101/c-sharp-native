@@ -34,6 +34,7 @@ run ios dotnet test spikes/ios/NativePoc.iOS.Tests/NativePoc.iOS.Tests.csproj -c
 cli="tools/devx/NativePoc.Devx.Cli/NativePoc.Devx.Cli.csproj"
 dll="tools/devx/NativePoc.Devx.Cli/bin/Release/net10.0/cnative.dll"
 run cli-build dotnet build "$cli" -c Release --nologo -v q
+run catalog-check dotnet exec "$dll" catalog-check
 
 inspect_samples() {
 	local file status=0

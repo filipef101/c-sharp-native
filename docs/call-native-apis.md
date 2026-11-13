@@ -72,7 +72,7 @@ DeviceClipboard.Listen("bind", "Note");
 
 ## Permission helper
 
-`PermissionRules` is the decision a screen uses after `RequestPermissions`. It does not call Android. The activity passes the grant, `ShouldShowRequestPermissionRationale`, whether `FLAG_PERMISSION_USER_FIXED` is set, and how many denials this process has seen. `Text` is the word posted into the screen field.
+`PermissionRules` is the decision a screen uses after `RequestPermissions`. It does not call Android. The activity passes the grant, `ShouldShowRequestPermissionRationale`, whether the denial is already fixed, and how many denials are stored. `BlocksWithoutAsking` is true once two denials are stored, so the next tap skips `RequestPermissions`. `Text` is the word posted into the screen field.
 
 | granted | rationale | user fixed | denials | result |
 | --- | --- | --- | --- | --- |
@@ -82,7 +82,7 @@ DeviceClipboard.Listen("bind", "Note");
 | no | yes | yes | 1 | blocked |
 | no | yes | no | 2 | blocked |
 
-`denied` means the system can still show the dialog. `blocked` means another request will not, and the way out is the app details screen. A flag read that throws is `flags=-1` and does not change the result: one denial with a rationale is still `denied`, and a second denial, a missing rationale, or `USER_FIXED` is `blocked`. `DeviceNotify.OpenSettings` starts `ACTION_APPLICATION_DETAILS_SETTINGS` for this package. A fresh install, or `pm clear`, is the first request. `pm revoke` drops a grant but can leave `USER_FIXED`, so it is not the first-deny path. The log line carries `text=`, `rationale=`, `fixed=`, `flags=`, and `denials=`.
+`denied` means the system can still show the dialog. `blocked` means another request will not, and the way out is the app details screen. Two stored denials skip the dialog on the next tap. A missing rationale or a second denial is `blocked`. `DeviceNotify.OpenSettings` starts `ACTION_APPLICATION_DETAILS_SETTINGS` for this package. A fresh install, or `pm clear`, clears the stored count and is the first request. The log line carries `text=`, `rationale=`, `stored=`, and `denials=`.
 
 ```csharp
 var result = PermissionRules.Classify(granted, shouldShowRationale, userFixed, denials);
@@ -91,13 +91,13 @@ PermissionRules.Text(result);
 
 ## Notification permission
 
-`samples/bind/DeviceNotify.cs` asks for `POST_NOTIFICATIONS` on API 33 and above, then posts `granted`, `denied`, or `blocked` into the named field. The manifest overlay is `Properties/NotifyPermission.xml`, included when `NativePocJni` is set. Below API 33, and when the permission is already granted, `Ask` shows the notification and posts `granted` without a dialog. Otherwise `RequestPermissions` runs, and `OnRequestPermissionsResult` completes the same post. `PermissionRules` maps a grant to `granted`, a denial that can still show a rationale to `denied`, and `FLAG_PERMISSION_USER_FIXED`, `shouldShowRequestPermissionRationale` false, or a second denial to `blocked`. The log line is `method=requestPermission text=granted`, `text=denied`, or `text=blocked`, with `rationale=`, `fixed=`, `flags=`, and `denials=`. A grant also logs `method=notify text=pier`. `OpenSettings` starts `ACTION_APPLICATION_DETAILS_SETTINGS` for this package and logs `method=ACTION_APPLICATION_DETAILS_SETTINGS`. There is no reflection: the activity calls `DeviceNotify.OnResult`, and the screen calls `Ask` and `OpenSettings`.
+`samples/bind/DeviceNotify.cs` asks for `POST_NOTIFICATIONS` on API 33 and above, then posts `granted`, `denied`, or `blocked` into the named field. The manifest overlay is `Properties/NotifyPermission.xml`, included when `NativePocJni` is set. Below API 33, and when the permission is already granted, `Ask` stores zero denials, shows the notification, and posts `granted` without a dialog. `Ask` reads `notify-denials` from `nativepoc-settings`. Two stored denials finish `blocked` and do not call `RequestPermissions`. Otherwise `RequestPermissions` runs, and `OnRequestPermissionsResult` stores the new count and completes the same post. `PermissionRules` maps a grant to `granted`, a denial that can still show a rationale to `denied`, and a missing rationale or a second denial to `blocked`. The log line is `method=requestPermission text=granted`, `text=denied`, or `text=blocked`, with `rationale=`, `stored=`, and `denials=`. A grant also logs `method=notify text=pier`. `OpenSettings` starts `ACTION_APPLICATION_DETAILS_SETTINGS` for this package and logs `method=ACTION_APPLICATION_DETAILS_SETTINGS`. There is no reflection: the activity calls `DeviceNotify.OnResult`, and the screen calls `Ask` and `OpenSettings`.
 
 ```csharp
 DeviceNotify.Ask("bind", "Note");
 ```
 
-`pm revoke` then the Notify button is the denied path while the system still offers a rationale. A second denial, or a result with `shouldShowRequestPermissionRationale` false or `USER_FIXED`, posts `blocked`. The Settings button then opens the app details screen. `pm grant` then the Notify button is the granted path, and the shade shows the Bind notification.
+After `pm clear`, the first Notify is the denied path while the system still offers a rationale. A second denial posts `blocked` and stores `2`. The next Notify posts `blocked` and does not call `RequestPermissions`. The Settings button then opens the app details screen. `pm grant` then the Notify button is the granted path, and the shade shows the Bind notification.
 
 ## Pause and resume
 

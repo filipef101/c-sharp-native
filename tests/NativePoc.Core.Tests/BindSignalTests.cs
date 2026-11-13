@@ -49,6 +49,8 @@ public sealed class BindSignalTests
 		Assert.Equal(PermissionResult.Blocked, PermissionRules.Classify(false, false, false, 1));
 		Assert.Equal(PermissionResult.Blocked, PermissionRules.Classify(false, true, true, 1));
 		Assert.Equal(PermissionResult.Blocked, PermissionRules.Classify(false, true, false, 2));
+		Assert.False(PermissionRules.BlocksWithoutAsking(1));
+		Assert.True(PermissionRules.BlocksWithoutAsking(2));
 		Assert.Equal("blocked", PermissionRules.Text(PermissionResult.Blocked));
 		Assert.Equal("denied", PermissionRules.Text(PermissionResult.Denied));
 		Assert.Equal("granted", PermissionRules.Text(PermissionResult.Granted));

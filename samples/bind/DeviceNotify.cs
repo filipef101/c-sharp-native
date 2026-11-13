@@ -1,8 +1,6 @@
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
-using Android.OS;
-using Android.Runtime;
 using Android.Util;
 
 namespace NativePoc;
@@ -16,9 +14,7 @@ static partial class DeviceNotify
 
 	const string Channel = "bind";
 
-	const int UserFixedFlag = 2;
-
-	static IntPtr _flagsMethod;
+	const string Denials = "notify-denials";
 
 	static string? _screen;
 
@@ -32,15 +28,17 @@ static partial class DeviceNotify
 		var activity = MainActivity.Current ?? throw new InvalidOperationException("jni-bind no-context");
 		_screen = screen;
 		_field = field;
+		_denials = AppStorage.GetInt(activity, Denials);
 		if (!OperatingSystem.IsAndroidVersionAtLeast(33) || activity.CheckSelfPermission(PermissionName) == Permission.Granted)
 		{
 			_denials = 0;
+			AppStorage.SetInt(activity, Denials, 0);
 			Show(activity);
 			Finish(activity, PermissionResult.Granted);
 			return;
 		}
 
-		if (UserFixed(activity))
+		if (PermissionRules.BlocksWithoutAsking(_denials))
 		{
 			Finish(activity, PermissionResult.Blocked);
 			return;
@@ -70,7 +68,8 @@ static partial class DeviceNotify
 			_denials = 0;
 		else
 			_denials++;
-		var result = PermissionRules.Classify(granted, Rationale(activity), UserFixed(activity), _denials);
+		AppStorage.SetInt(activity, Denials, _denials);
+		var result = PermissionRules.Classify(granted, Rationale(activity), false, _denials);
 		if (result == PermissionResult.Granted)
 			Show(activity);
 		Finish(activity, result);
@@ -80,14 +79,11 @@ static partial class DeviceNotify
 	{
 		var text = PermissionRules.Text(result);
 		var rationale = Rationale(activity) ? "1" : "0";
-		var flags = Flags(activity);
-		var fixedBit = flags > 0 && (flags & UserFixedFlag) != 0 ? "1" : "0";
 		Log.Info(
 			"NativePoc",
 			"jni-bind class=android/app/NotificationManager method=requestPermission text=" + text
 			+ " rationale=" + rationale
-			+ " fixed=" + fixedBit
-			+ " flags=" + flags.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ " stored=" + _denials.ToString(System.Globalization.CultureInfo.InvariantCulture)
 			+ " denials=" + _denials.ToString(System.Globalization.CultureInfo.InvariantCulture));
 		if (_screen is { } screen && _field is { } field)
 			JniSink.Post(screen, field, text);
@@ -95,46 +91,6 @@ static partial class DeviceNotify
 
 	static bool Rationale(Activity activity) =>
 		OperatingSystem.IsAndroidVersionAtLeast(23) && activity.ShouldShowRequestPermissionRationale(PermissionName);
-
-	static bool UserFixed(Activity activity)
-	{
-		var flags = Flags(activity);
-		return flags > 0 && (flags & UserFixedFlag) != 0;
-	}
-
-	static int Flags(Activity activity)
-	{
-		if (!OperatingSystem.IsAndroidVersionAtLeast(23) || activity.PackageManager is not { } manager || activity.PackageName is not { Length: > 0 } packageName)
-			return 0;
-		var user = Process.MyUserHandle();
-		if (user is null)
-			return 0;
-		var klass = IntPtr.Zero;
-		try
-		{
-			if (_flagsMethod == IntPtr.Zero)
-			{
-				klass = JNIEnv.GetObjectClass(manager.Handle);
-				_flagsMethod = JNIEnv.GetMethodID(klass, "getPermissionFlags", "(Ljava/lang/String;Ljava/lang/String;Landroid/os/UserHandle;)I");
-			}
-
-			if (_flagsMethod == IntPtr.Zero)
-				return -1;
-			using var permission = new Java.Lang.String(PermissionName);
-			using var package = new Java.Lang.String(packageName);
-			return JNIEnv.CallIntMethod(manager.Handle, _flagsMethod, new JValue(permission), new JValue(package), new JValue(user));
-		}
-		catch (Exception ex)
-		{
-			Log.Info("NativePoc", "jni-bind class=android/content/pm/PackageManager method=getPermissionFlags error=" + ex.GetType().Name);
-			return -1;
-		}
-		finally
-		{
-			if (klass != IntPtr.Zero)
-				JNIEnv.DeleteLocalRef(klass);
-		}
-	}
 
 	static void Show(Activity activity)
 	{

@@ -54,6 +54,12 @@ internal static partial class RecordProgram
 	public const byte OpOnResume = 46;
 	public const byte OpOnLeave = 47;
 
+	// Bump this when the opcode set changes. Baked catalog programs store it,
+	// and the catalog check fails until those bytes are regenerated.
+	public const byte OpcodeVersion = 1;
+
+	public const byte RecordFormat = 2;
+
 	public const int EagerRowLimit = 24;
 
 	public const byte ActRender = 1;
@@ -419,7 +425,7 @@ internal static partial class RecordProgram
 		var hash = new byte[16];
 		if (source is not null)
 			SHA256.HashData(Encoding.UTF8.GetBytes(source)).AsSpan(0, 16).CopyTo(hash);
-		var size = 8 + 16;
+		var size = 9 + 16;
 		foreach (var text in strings)
 			size += 2 + Encoding.UTF8.GetByteCount(text);
 		size += 2;
@@ -431,9 +437,10 @@ internal static partial class RecordProgram
 		payload[1] = (byte)'P';
 		payload[2] = (byte)'C';
 		payload[3] = (byte)'1';
-		payload[4] = ScreenProgram.Version;
+		payload[4] = RecordFormat;
 		payload[5] = 2;
-		var cursor = 6;
+		payload[6] = OpcodeVersion;
+		var cursor = 7;
 		cursor = WriteU16(payload, cursor, strings.Count);
 		foreach (var text in strings)
 		{
@@ -535,9 +542,11 @@ internal static partial class RecordProgram
 
 	static Decoded Decode(ReadOnlySpan<byte> payload)
 	{
-		if (!ScreenProgram.IsRecord(payload) || payload.Length < 8 + 16 || payload[4] != ScreenProgram.Version)
+		if (!ScreenProgram.IsRecord(payload) || payload.Length < 9 + 16)
 			throw new InvalidOperationException("Rejected record program.");
-		var cursor = 6;
+		if (payload[4] != RecordFormat || payload[6] != OpcodeVersion)
+			throw new InvalidOperationException("Rejected record program version.");
+		var cursor = 7;
 		var stringCount = ReadU16(payload, ref cursor);
 		if (stringCount > ScreenProgram.MaxStrings)
 			throw new InvalidOperationException("Rejected record program.");

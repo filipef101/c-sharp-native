@@ -18,6 +18,8 @@ internal static class PermissionRules
 		return PermissionResult.Denied;
 	}
 
+	public static bool BlocksWithoutAsking(int storedDenials) => storedDenials >= 2;
+
 	public static string Text(PermissionResult result) => result switch
 	{
 		PermissionResult.Granted => "granted",

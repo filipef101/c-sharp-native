@@ -8,12 +8,34 @@ public sealed class StartupGuardTests
 	[Fact]
 	public void The_baked_catalog_programs_render()
 	{
-		foreach (var name in new[] { "Counter", "Packing", "Settings", "Trips", "Trip", "Kit", "Web" })
+		var source = File.ReadAllText(Path.Combine(Repo(), "src", "NativePoc.Android", "NavCatalog.cs"));
+		Assert.Null(CatalogVersion.Problem(source));
+		foreach (var name in CatalogVersion.Names)
 		{
+			var bytes = Catalog(name);
+			Assert.True(CatalogVersion.Current(bytes), name);
 			var host = new HeadlessHost();
-			host.Apply(Catalog(name), new RecordProgram.Bag());
+			host.Apply(bytes, new RecordProgram.Bag());
 			Assert.True(host.Accessibility.Length > 0, name);
 		}
+	}
+
+	[Fact]
+	public void A_planted_old_catalog_program_fails_the_check()
+	{
+		var source = File.ReadAllText(Path.Combine(Repo(), "src", "NativePoc.Android", "NavCatalog.cs"));
+		var header = "78,80,67,49," + RecordProgram.RecordFormat.ToString(CultureInfo.InvariantCulture) + ",2," + RecordProgram.OpcodeVersion.ToString(CultureInfo.InvariantCulture) + ",";
+		var older = "78,80,67,49," + RecordProgram.RecordFormat.ToString(CultureInfo.InvariantCulture) + ",2," + (RecordProgram.OpcodeVersion - 1).ToString(CultureInfo.InvariantCulture) + ",";
+		var index = source.IndexOf(header, StringComparison.Ordinal);
+		Assert.True(index >= 0, header);
+		var planted = source.Remove(index, header.Length).Insert(index, older);
+		var problem = CatalogVersion.Problem(planted);
+		Assert.Equal("Counter opcode " + (RecordProgram.OpcodeVersion - 1).ToString(CultureInfo.InvariantCulture), problem);
+		var bytes = CatalogVersion.Read(planted, "Counter");
+		Assert.NotNull(bytes);
+		var thrown = Assert.Throws<InvalidOperationException>(() => new HeadlessHost().Apply(bytes, new RecordProgram.Bag()));
+		Assert.Equal("Rejected record program version.", thrown.Message);
+		Assert.True(StartupGuard.Rejected(thrown));
 	}
 
 	[Fact]
