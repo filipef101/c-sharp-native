@@ -183,7 +183,7 @@ static class StateStore
 		}
 		catch (Exception ex) when (ex is IOException or InvalidOperationException or Java.IO.IOException)
 		{
-			Log.Warn(MainActivity.Tag, "state-load " + ex.GetType().Name);
+			Log.Warn(MainActivity.Tag, StartupGuard.StateLog(StartupGuard.StateReason(ex.Message)));
 			return false;
 		}
 	}

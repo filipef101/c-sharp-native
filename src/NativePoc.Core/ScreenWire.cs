@@ -359,10 +359,10 @@ public static class StateCheckpoint
 		if (payload.Length < 12
 			|| payload[0] != (byte)'S'
 			|| payload[1] != (byte)'T'
-			|| payload[2] != (byte)'C'
-			|| payload[3] != (byte)'1'
-			|| payload[4] is not (1 or 2))
+			|| payload[2] != (byte)'C')
 			throw new InvalidOperationException("Rejected state checkpoint.");
+		if (payload[3] != (byte)'1' || payload[4] is not (1 or 2))
+			throw new InvalidOperationException("Rejected state checkpoint version.");
 		var count = payload[5] | (payload[6] << 8) | (payload[7] << 16) | (payload[8] << 24);
 		var flags = payload[9];
 		if ((flags & ~3) != 0)

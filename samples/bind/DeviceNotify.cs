@@ -80,12 +80,14 @@ static partial class DeviceNotify
 	{
 		var text = PermissionRules.Text(result);
 		var rationale = Rationale(activity) ? "1" : "0";
-		var fixedBit = UserFixed(activity) ? "1" : "0";
+		var flags = Flags(activity);
+		var fixedBit = flags > 0 && (flags & UserFixedFlag) != 0 ? "1" : "0";
 		Log.Info(
 			"NativePoc",
 			"jni-bind class=android/app/NotificationManager method=requestPermission text=" + text
 			+ " rationale=" + rationale
 			+ " fixed=" + fixedBit
+			+ " flags=" + flags.ToString(System.Globalization.CultureInfo.InvariantCulture)
 			+ " denials=" + _denials.ToString(System.Globalization.CultureInfo.InvariantCulture));
 		if (_screen is { } screen && _field is { } field)
 			JniSink.Post(screen, field, text);
@@ -96,11 +98,17 @@ static partial class DeviceNotify
 
 	static bool UserFixed(Activity activity)
 	{
+		var flags = Flags(activity);
+		return flags > 0 && (flags & UserFixedFlag) != 0;
+	}
+
+	static int Flags(Activity activity)
+	{
 		if (!OperatingSystem.IsAndroidVersionAtLeast(23) || activity.PackageManager is not { } manager || activity.PackageName is not { Length: > 0 } packageName)
-			return false;
+			return 0;
 		var user = Process.MyUserHandle();
 		if (user is null)
-			return false;
+			return 0;
 		var klass = IntPtr.Zero;
 		try
 		{
@@ -110,15 +118,16 @@ static partial class DeviceNotify
 				_flagsMethod = JNIEnv.GetMethodID(klass, "getPermissionFlags", "(Ljava/lang/String;Ljava/lang/String;Landroid/os/UserHandle;)I");
 			}
 
+			if (_flagsMethod == IntPtr.Zero)
+				return -1;
 			using var permission = new Java.Lang.String(PermissionName);
 			using var package = new Java.Lang.String(packageName);
-			var flags = JNIEnv.CallIntMethod(manager.Handle, _flagsMethod, new JValue(permission), new JValue(package), new JValue(user));
-			return (flags & UserFixedFlag) != 0;
+			return JNIEnv.CallIntMethod(manager.Handle, _flagsMethod, new JValue(permission), new JValue(package), new JValue(user));
 		}
 		catch (Exception ex)
 		{
 			Log.Info("NativePoc", "jni-bind class=android/content/pm/PackageManager method=getPermissionFlags error=" + ex.GetType().Name);
-			return false;
+			return -1;
 		}
 		finally
 		{

@@ -552,6 +552,19 @@ public sealed class ScreenNav
 		}
 	}
 
+	internal bool DropTop()
+	{
+		lock (_gate)
+		{
+			if (_stack.Count == 0)
+				return false;
+			_stack.RemoveAt(_stack.Count - 1);
+			DropCache();
+			StateEpoch.Bump();
+			return true;
+		}
+	}
+
 	internal RecordProgram.Bound? Top()
 	{
 		lock (_gate)

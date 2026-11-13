@@ -118,6 +118,7 @@ internal static class HotReloadCatalog
 		}
 
 		builder.Append("\nA force-stop starts a new process and a new token file. The watcher reads that file after a rejected token or a dead socket and applies the next edit on the new process. The watch loop stays up.\n");
+		builder.Append("\nA newly added `[JniMethod]` is not callable without a republish. The listener is NativeAOT and logs `IsDynamicCodeSupported=False`, so the process cannot compile the new method. `JniRegistry` is the list `RegisterJni` built at publish, and a reload program names only `Type.Method` through the `jni` module. An unknown name throws `jni-bind miss`. The generated trampoline only emits `J`, `I`, and `Z` arguments and a `V`, `Z`, `J`, or `I` return, and only for a method compiled into that binary. The program does not carry a class or a JNI signature, so a reflection-free dispatcher cannot run a new body such as `DeviceNotify.OpenSettings`. `cnative` keeps the republish line.\n");
 		builder.Append("\n## Loaded-host relatives\n\n");
 		builder.Append("These numbers are relatives. The host was already loaded. They are not a cold start and they are not a SwiftShader run.\n\n");
 		builder.Append("| | |\n");

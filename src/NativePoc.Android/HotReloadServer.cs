@@ -142,7 +142,10 @@ static class HotReloadServer
 		lock (Gate)
 			expected = _token ?? throw new InvalidOperationException("The hot reload listener has no token.");
 		if (!CryptographicOperations.FixedTimeEquals(presented, expected))
+		{
+			Android.Util.Log.Info(MainActivity.Tag, "hotreload rejected reason=stale-token");
 			throw new UnauthorizedAccessException("Rejected hot reload token.");
+		}
 
 		var length = ReadInt(input);
 		if (length <= 0 || length > 8 * 1024 * 1024)

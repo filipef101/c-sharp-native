@@ -166,7 +166,14 @@ public sealed class MainActivity : Activity
 		else if (!wantsRoot)
 			NavCatalog.InstallRoot();
 		else if (!ScreenNav.Shared.ReplaceRoot(launchRoot))
-			Log.Info(Tag, "startup root waiting id=" + launchRoot);
+		{
+			Log.Info(Tag, StartupGuard.RootLog(launchRoot));
+			launchRoot = StartupGuard.DefaultId;
+			ScreenNav.Shared.LaunchRoot = launchRoot;
+			wantsRoot = false;
+			compiledRoot = false;
+			NavCatalog.InstallRoot();
+		}
 		var decodeMs = SystemClock.ElapsedRealtime() - decodeStart;
 		Log.Info(
 			Tag,
@@ -185,7 +192,7 @@ public sealed class MainActivity : Activity
 		var stateMs = SystemClock.ElapsedRealtime() - stateStarted;
 		StartupMarks.Note("state-load", stateMs);
 		StartupMarks.Note("nav-restore", loadedState ? stateMs : 0);
-		if (!string.IsNullOrEmpty(requestedRoot))
+		if (!string.IsNullOrEmpty(requestedRoot) && string.Equals(requestedRoot, launchRoot, StringComparison.Ordinal))
 		{
 			var claimed = ScreenNav.Shared.ClaimRoot(requestedRoot);
 			Log.Info(
@@ -196,6 +203,18 @@ public sealed class MainActivity : Activity
 				+ " note=" + ScreenNav.Shared.Bag(requestedRoot).ReadString("Note")
 				+ " draft=" + ScreenNav.Shared.Bag(requestedRoot).ReadString("Draft")
 				+ " saved=" + ScreenNav.Shared.Bag(requestedRoot).ReadString("Saved"));
+		}
+		else if (!string.IsNullOrEmpty(requestedRoot))
+		{
+			while (ScreenNav.Shared.DropTop())
+			{
+			}
+
+			NavCatalog.InstallRoot();
+			Log.Info(
+				Tag,
+				"startup root explicit id=" + requestedRoot
+				+ " claimed=0 top=" + ScreenNav.Shared.TopId());
 		}
 		ScreenNav.Shared.Prepare((program, bag) => RecordSession.Prepare(program, bag));
 #else
@@ -841,7 +860,23 @@ public sealed class MainActivity : Activity
 		var previousRoot = _reconciler.Root;
 		var state = AppSession.Shared.State;
 		var topId = ScreenNav.Shared.TopId();
-		if (ScreenNav.Shared.Top() is { } top)
+		RecordProgram.Bound? opened = null;
+		var fellBack = false;
+		try
+		{
+			opened = ScreenNav.Shared.Top();
+		}
+		catch (Exception ex) when (StartupGuard.Rejected(ex) && _good is null)
+		{
+			Log.Info(Tag, StartupGuard.RenderLog(topId.Length == 0 ? StartupGuard.DefaultId : topId, ex.Message));
+			ScreenNav.Shared.DropTop();
+			_record = null;
+			opened = null;
+			topId = "";
+			fellBack = true;
+		}
+
+		if (opened is { } top)
 		{
 			_record = top;
 			_programSource = top.SourceHash;
@@ -864,7 +899,7 @@ public sealed class MainActivity : Activity
 		TapTrace.PrepDone();
 		// A program-only launch can be waiting on its root. The warm tree is already
 		// mounted. Leave it until that root program arrives.
-		if (_record is null && topId.Length == 0 && previousRoot is not null && ScreenNav.Shared.LaunchRoot.Length > 0)
+		if (!fellBack && _record is null && topId.Length == 0 && previousRoot is not null && ScreenNav.Shared.LaunchRoot.Length > 0)
 			return;
 		ScreenSignals.Pause = null;
 		ScreenSignals.Resume = null;
@@ -880,12 +915,21 @@ public sealed class MainActivity : Activity
 		}
 		catch (Exception ex)
 		{
+			if (StartupGuard.Rejected(ex) && _good is null)
+			{
+				Log.Info(Tag, StartupGuard.RenderLog(topId.Length == 0 ? StartupGuard.DefaultId : topId, ex.Message));
+				ScreenNav.Shared.DropTop();
+				_record = null;
+				topId = "";
+				tree = _render(state, _platform);
+			}
+			else
+			{
 #if DEBUG
-			DevOverlay.Show(this, "render", ex.Message, "render");
-#else
-			_ = ex;
+				DevOverlay.Show(this, "render", ex.Message, "render");
 #endif
-			throw;
+				throw;
+			}
 		}
 
 		var evalUs = TakeUs(clock);
