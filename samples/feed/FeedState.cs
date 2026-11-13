@@ -17,6 +17,8 @@ public sealed class FeedState
 
 	public string Mark { get; set; } = "";
 
+	public string Query { get; set; } = "";
+
 	public bool Loading { get; set; }
 
 	public List<FeedItem> Items { get; set; } = new List<FeedItem>();

@@ -78,19 +78,27 @@ static partial class PlatformHttp
 		}
 	}
 
-	[JniMethod("getInputStream", "(Ljava/lang/String;)Ljava/lang/String;", Blocking = true)]
-	public static string Read(string url)
+	[JniMethod("getInputStream", "(Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/String;", Blocking = true)]
+	public static string Read(string url, string ticket, int generation)
 	{
 		HttpURLConnection? connection = null;
 		try
 		{
-			connection = Connect(url);
+			if (HttpFlight.WasCancelled(ticket, generation))
+				return "http-error: cancelled";
+			connection = Track(ticket, generation, url);
+			if (connection is null)
+				return "http-error: cancelled";
 			connection.RequestMethod = "GET";
 			var code = (int)connection.ResponseCode;
+			if (HttpFlight.WasCancelled(ticket, generation))
+				return "http-error: cancelled";
 			if (code is < 200 or > 299)
 				return "http-error: " + code.ToString(CultureInfo.InvariantCulture);
 			using var input = connection.InputStream;
 			var bytes = ReadBytes(input, ByteCap);
+			if (HttpFlight.WasCancelled(ticket, generation))
+				return "http-error: cancelled";
 			if (bytes is null)
 				return "http-error: large";
 			Log.Info(MainActivity.Tag, "jni-bind class=java/net/HttpURLConnection method=getInputStream bytes=" + bytes.Length.ToString(CultureInfo.InvariantCulture));
@@ -99,6 +107,8 @@ static partial class PlatformHttp
 		}
 		catch (Exception ex)
 		{
+			if (HttpFlight.WasCancelled(ticket, generation))
+				return "http-error: cancelled";
 			Log.Info(MainActivity.Tag, "image-error " + ex.GetType().Name);
 			return "http-error: " + ex.GetType().Name;
 		}

@@ -123,20 +123,39 @@ static class RemoteImages
 		if (image.Background is null)
 			image.SetImageDrawable(new ColorDrawable(new Color(unchecked((int)0xFFE6E6E6))));
 		image.ContentDescription = "Loading image";
+		var ticket = ScreenNav.Shared.TopId();
+		if (ticket.Length == 0)
+			ticket = "image";
+		var generation = HttpFlight.Join(ticket);
 		var app = context.ApplicationContext ?? context;
 		ThreadPool.QueueUserWorkItem(_ =>
 		{
 			var offUi = Android.OS.Looper.MyLooper() != Android.OS.Looper.MainLooper;
 			Android.Util.Log.Info(MainActivity.Tag, "image-decode off-ui=" + (offUi ? "1" : "0") + " source=" + source);
+			if (HttpFlight.WasCancelled(ticket, generation))
+			{
+				Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + source);
+				return;
+			}
+
 			Bitmap? bitmap = null;
 			try
 			{
-				bitmap = Load(app, source);
+				bitmap = Load(app, source, ticket, generation);
 			}
 			catch (Exception ex)
 			{
+				if (HttpFlight.WasCancelled(ticket, generation))
+				{
+					Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + source);
+					return;
+				}
+
 				Android.Util.Log.Info(MainActivity.Tag, "image-error " + ex.GetType().Name);
 			}
+
+			if (HttpFlight.WasCancelled(ticket, generation))
+				return;
 
 			if (bitmap is not null)
 			{
@@ -176,12 +195,12 @@ static class RemoteImages
 			Android.Util.Log.Info(MainActivity.Tag, "image-apply source=" + source);
 	}
 
-	static Bitmap? Load(Context context, string source)
+	static Bitmap? Load(Context context, string source, string ticket, int generation)
 	{
 		if (ImageSource.IsRemote(source))
 		{
-			var bytes = Download(source);
-			if (bytes is null)
+			var bytes = Download(source, ticket, generation);
+			if (bytes is null || HttpFlight.WasCancelled(ticket, generation))
 				return null;
 			return BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length);
 		}
@@ -192,6 +211,6 @@ static class RemoteImages
 		return BitmapFactory.DecodeResource(context.Resources, id);
 	}
 
-	static byte[]? Download(string url) => HttpTransport.GetBytes(url);
+	static byte[]? Download(string url, string ticket, int generation) => HttpTransport.GetBytes(url, ticket, generation);
 }
 #endif

@@ -87,8 +87,31 @@ public static class StoryScreen
 			Key = "back",
 			Style = new Style { Background = 0xFFFFFFFF, Color = 0xFF1C1917, Radius = 16, Padding = 16, FontSize = 16, Align = Align.Start },
 		});
+		rows.Add(new TextInput(
+			state.Query,
+			value =>
+			{
+				state.Query = value;
+				platform.RequestRender();
+			},
+			"Search the feed",
+			"Search the feed")
+		{
+			Key = "search",
+			Keyboard = Keyboard.Text,
+			Submit = Submit.Search,
+			OnSubmit = () => platform.RequestRender(),
+		});
+#if NATIVEPOC_HTTP
+		foreach (var item in state.Items)
+		{
+			if (state.Query.Length == 0 || item.Title.Contains(state.Query, StringComparison.OrdinalIgnoreCase))
+				rows.Add(Row(item));
+		}
+#else
 		foreach (var item in state.Items)
 			rows.Add(Row(item));
-		return FeedRows.Window(rows, 3, () => Load());
+#endif
+		return FeedRows.Window(rows, 4, () => Load());
 	}
 }

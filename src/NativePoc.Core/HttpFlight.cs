@@ -27,6 +27,19 @@ internal static class HttpFlight
 		}
 	}
 
+	// The image read shares the screen's current generation. Open would start
+	// a generation Pop had not cancelled yet.
+	public static int Join(string id)
+	{
+		lock (Gate)
+		{
+			var slot = SlotFor(id);
+			if (slot.Generation == 0)
+				slot.Generation = 1;
+			return slot.Generation;
+		}
+	}
+
 	public static void Attach(string id, int generation)
 	{
 		lock (Gate)

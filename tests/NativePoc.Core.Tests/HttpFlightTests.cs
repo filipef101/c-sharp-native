@@ -31,4 +31,27 @@ public sealed class HttpFlightTests
 		Assert.False(HttpFlight.Live("visit"));
 		Assert.True(HttpFlight.Live("stories"));
 	}
+
+	[Fact]
+	public void An_image_join_dies_with_its_screen()
+	{
+		var stories = HttpFlight.Open("stories-image");
+		var image = HttpFlight.Join("stories-image");
+		Assert.Equal(stories, image);
+		var visit = HttpFlight.Join("visit-image");
+		Assert.False(HttpFlight.WasCancelled("stories-image", image));
+		Assert.False(HttpFlight.WasCancelled("visit-image", visit));
+
+		Assert.True(HttpFlight.Cancel("stories-image"));
+		Assert.True(HttpFlight.WasCancelled("stories-image", image));
+		Assert.False(HttpFlight.WasCancelled("visit-image", visit));
+		var late = HttpFlight.Join("stories-image");
+		Assert.Equal(image, late);
+		Assert.True(HttpFlight.WasCancelled("stories-image", late));
+
+		var again = HttpFlight.Open("stories-image");
+		Assert.False(HttpFlight.WasCancelled("stories-image", again));
+		Assert.True(HttpFlight.WasCancelled("stories-image", image));
+		Assert.False(HttpFlight.WasCancelled("visit-image", visit));
+	}
 }

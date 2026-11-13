@@ -77,10 +77,34 @@ static class HttpTransport
 
 	public static byte[]? GetBytes(string url)
 	{
+		var ticket = ScreenNav.Shared.TopId();
+		if (ticket.Length == 0)
+			ticket = "image";
+		return GetBytes(url, ticket, HttpFlight.Join(ticket));
+	}
+
+	public static byte[]? GetBytes(string url, string ticket, int generation)
+	{
+		if (ticket.Length == 0)
+			ticket = "image";
+		if (generation <= 0)
+			generation = HttpFlight.Join(ticket);
+		if (HttpFlight.WasCancelled(ticket, generation))
+		{
+			Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + url);
+			return null;
+		}
+
 		try
 		{
 			using var request = new HttpRequestMessage(HttpMethod.Get, url);
 			using var response = Client.Send(request, HttpCompletionOption.ResponseHeadersRead);
+			if (HttpFlight.WasCancelled(ticket, generation))
+			{
+				Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + url);
+				return null;
+			}
+
 			if (!response.IsSuccessStatusCode)
 				return null;
 			using var input = response.Content.ReadAsStream();
@@ -89,9 +113,21 @@ static class HttpTransport
 			int read;
 			while ((read = input.Read(chunk, 0, chunk.Length)) > 0)
 			{
+				if (HttpFlight.WasCancelled(ticket, generation))
+				{
+					Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + url);
+					return null;
+				}
+
 				buffer.Write(chunk, 0, read);
 				if (buffer.Length > 4_000_000)
 					return null;
+			}
+
+			if (HttpFlight.WasCancelled(ticket, generation))
+			{
+				Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + url);
+				return null;
 			}
 
 			Android.Util.Log.Info(MainActivity.Tag, "image-http client=1 bytes=" + buffer.Length.ToString(CultureInfo.InvariantCulture));
@@ -99,6 +135,12 @@ static class HttpTransport
 		}
 		catch (Exception ex)
 		{
+			if (HttpFlight.WasCancelled(ticket, generation))
+			{
+				Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + url);
+				return null;
+			}
+
 			Android.Util.Log.Info(MainActivity.Tag, "image-error " + ex.GetType().Name);
 			return null;
 		}
@@ -160,7 +202,31 @@ static class HttpTransport
 
 	public static byte[]? GetBytes(string url)
 	{
-		var encoded = JniRegistry.Call("PlatformHttp.Read", [url]);
+		var ticket = ScreenNav.Shared.TopId();
+		if (ticket.Length == 0)
+			ticket = "image";
+		return GetBytes(url, ticket, HttpFlight.Join(ticket));
+	}
+
+	public static byte[]? GetBytes(string url, string ticket, int generation)
+	{
+		if (ticket.Length == 0)
+			ticket = "image";
+		if (generation <= 0)
+			generation = HttpFlight.Join(ticket);
+		if (HttpFlight.WasCancelled(ticket, generation))
+		{
+			Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + url);
+			return null;
+		}
+
+		var encoded = JniRegistry.Call("PlatformHttp.Read", [url, ticket, generation.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+		if (HttpFlight.WasCancelled(ticket, generation) || encoded == "http-error: cancelled")
+		{
+			Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + url);
+			return null;
+		}
+
 		if (encoded.Length == 0 || encoded.StartsWith("http-error:", StringComparison.Ordinal))
 			return null;
 		try

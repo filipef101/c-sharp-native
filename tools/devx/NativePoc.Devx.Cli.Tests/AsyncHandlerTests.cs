@@ -254,6 +254,38 @@ public sealed class AsyncHandlerTests
 	}
 
 	[Fact]
+	public void The_feed_search_keeps_its_query_across_reload()
+	{
+		var feedDir = Path.Combine(Repo(), "samples", "feed");
+		var source = File.ReadAllText(Path.Combine(feedDir, "StoryScreen.cs"));
+		var companions = Directory.EnumerateFiles(feedDir, "*.cs")
+			.Where(file => !file.EndsWith("StoryScreen.cs", StringComparison.Ordinal))
+			.Select(File.ReadAllText)
+			.ToArray();
+		var lowered = SubsetLowerer.TryLower(source, companions, originFile: "samples/feed/StoryScreen.cs");
+		Assert.True(lowered.Ok, lowered.Diagnostics.Count == 0 ? "" : lowered.Diagnostics[0].Message);
+		var bag = new RecordProgram.Bag();
+		var bound = RecordProgram.Bind(lowered.Program!, bag);
+		var tree = bound.Render(new AsyncPlatform());
+		var search = Assert.IsType<TextField>(ElementIds.Require(tree, "feed/search"));
+		Assert.Equal("Search the feed", search.Placeholder);
+		Assert.Equal("Search the feed", search.AccessibilityLabel);
+		Assert.Equal(Keyboard.Text, search.Keyboard);
+		Assert.Equal(Submit.Search, search.Submit);
+		Assert.NotNull(search.OnSubmit);
+		ElementIds.Invoke(tree, "feed/search", "Kiln");
+		Assert.Equal("Kiln", bag.ReadString("Query"));
+		var edited = source.Replace("new Text(\"Feed\")", "new Text(\"Stories\")", StringComparison.Ordinal);
+		var reloaded = SubsetLowerer.TryLower(edited, companions, originFile: "samples/feed/StoryScreen.cs");
+		Assert.True(reloaded.Ok, reloaded.Diagnostics.Count == 0 ? "" : reloaded.Diagnostics[0].Message);
+		Assert.Contains("Query=\"Kiln\"", RecordProgram.KeptNote(reloaded.Program!, bag), StringComparison.Ordinal);
+		Assert.Contains("initializer \"\"", RecordProgram.KeptNote(reloaded.Program!, bag), StringComparison.Ordinal);
+		var again = RecordProgram.Bind(reloaded.Program!, bag).Render(new AsyncPlatform());
+		Assert.Equal("Stories", Assert.IsType<Text>(ElementIds.Require(again, "feed/hero/heading")).Value);
+		Assert.Equal("Kiln", bag.ReadString("Query"));
+	}
+
+	[Fact]
 	public void The_visit_form_lowers_and_the_stop_screen_fetches()
 	{
 		var root = Repo();

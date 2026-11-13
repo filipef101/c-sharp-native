@@ -300,6 +300,17 @@
 		<AndroidLinkTool>r8</AndroidLinkTool>
 		<IlcDehydrate>true</IlcDehydrate>
 		<IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
+		<!-- Zip entry dates are already 1981-01-01. ilc 10.0.14 has no
+		     deterministic switch: it treats that token as an input file.
+		     The resource designer assembly carries a wall-clock PE timestamp
+		     and an empty strong-name slot. StabilizeDesignerAssembly pins
+		     that file before the compiler hashes it. StabilizeLinkedModuleIds
+		     then pins the linked NativePoc assemblies. The GNU build-id and
+		     the .gnu_debuglink CRC are hashes of that native image, not a
+		     separate clock. -->
+		<Deterministic>true</Deterministic>
+		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+		<DeterministicSourcePaths>true</DeterministicSourcePaths>
 		<MetricsSupport>false</MetricsSupport>
 		<StartupHookSupport>false</StartupHookSupport>
 	</PropertyGroup>
@@ -486,6 +497,27 @@
 	     inspects the dex that the skipped compile left in place. -->
 	<Target Name="RequireNativeAotProviderDex" AfterTargets="_CompileDex" Condition="'$(PublishAot)' == 'true'">
 		<Exec Command="python3 &quot;$(MSBuildThisFileDirectory)..\..\tools\dex-has-provider.py&quot; &quot;$(_AndroidIntermediateDexOutputDirectory)&quot;" />
+	</Target>
+	<!-- The designer is written with the current time. Pin it before the
+	     compiler hashes the reference into this assembly's module id. -->
+	<Target Name="StabilizeDesignerAssembly" AfterTargets="_UpdateAndroidResgen" Condition="'$(Configuration)' == 'Release' And '$(DesignTimeBuild)' != 'true'">
+		<PropertyGroup>
+			<_DesignerDll>$(_GenerateResourceDesignerAssemblyOutput)</_DesignerDll>
+			<_DesignerDll Condition="'$(_DesignerDll)' == ''">$(IntermediateOutputPath)_Microsoft.Android.Resource.Designer.dll</_DesignerDll>
+		</PropertyGroup>
+		<Exec Condition="Exists('$(_DesignerDll)')" Command="python3 &quot;$(MSBuildThisFileDirectory)..\..\tools\stabilize-module-id.py&quot; &quot;$(_DesignerDll)&quot;" />
+	</Target>
+	<!-- ILLink gives each NativePoc assembly a fresh module id. The bytes
+	     outside that id, the PE timestamp, the CodeView GUID, and the PDB
+	     checksum are stable once the designer is, so rewriting the stamps
+	     makes ILC's input match across two clean publishes. -->
+	<Target Name="StabilizeLinkedModuleIds" AfterTargets="ILLink" Condition="'$(Configuration)' == 'Release' And '$(DesignTimeBuild)' != 'true'">
+		<ItemGroup>
+			<_ModuleToStabilize Include="$(IntermediateLinkDir)NativePoc.*.dll" />
+		</ItemGroup>
+		<Exec
+			Condition="'%(_ModuleToStabilize.Identity)' != ''"
+			Command="python3 &quot;$(MSBuildThisFileDirectory)..\..\tools\stabilize-module-id.py&quot; &quot;%(_ModuleToStabilize.Identity)&quot;" />
 	</Target>
 	<Target Name="DropPdbFromPackage" AfterTargets="ILLink" Condition="'$(Configuration)' == 'Release'">
 		<ItemGroup>

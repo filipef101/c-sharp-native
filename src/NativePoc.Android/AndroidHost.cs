@@ -1572,6 +1572,21 @@ sealed class PlatformBridge : IPlatform
 #if NATIVEPOC_NAV
 		NavFocus.Arm();
 #endif
+#if NATIVEPOC_HTTP
+		if (leaving.Length > 0)
+		{
+			HttpFlight.Cancel(leaving);
+#if !NATIVEPOC_HTTP_MANAGED
+			try
+			{
+				JniRegistry.Call("PlatformHttp.Disconnect", [leaving]);
+			}
+			catch (Exception)
+			{
+			}
+#endif
+		}
+#endif
 		if (leaving.Length > 0 && _screenCalls.Remove(leaving, out var calls))
 			calls.Cancel();
 		RequestRender();

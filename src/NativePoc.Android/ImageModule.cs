@@ -64,20 +64,39 @@ static class ImageModule
 
 		image.SetImageDrawable(new ColorDrawable(new Color(unchecked((int)0xFFE6E6E6))));
 		Android.Util.Log.Info(MainActivity.Tag, "image-placeholder source=" + source);
+		var ticket = ScreenNav.Shared.TopId();
+		if (ticket.Length == 0)
+			ticket = "image";
+		var generation = HttpFlight.Join(ticket);
 		var app = context.ApplicationContext ?? context;
 		ThreadPool.QueueUserWorkItem(_ =>
 		{
 			var offUi = Android.OS.Looper.MyLooper() != Android.OS.Looper.MainLooper;
 			Android.Util.Log.Info(MainActivity.Tag, "image-decode off-ui=" + (offUi ? "1" : "0") + " source=" + source);
+			if (HttpFlight.WasCancelled(ticket, generation))
+			{
+				Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + source);
+				return;
+			}
+
 			Bitmap? bitmap = null;
 			try
 			{
-				bitmap = Load(app, source, bucket);
+				bitmap = Load(app, source, bucket, ticket, generation);
 			}
 			catch (Exception ex)
 			{
+				if (HttpFlight.WasCancelled(ticket, generation))
+				{
+					Android.Util.Log.Info(MainActivity.Tag, "image-abort source=" + source);
+					return;
+				}
+
 				Android.Util.Log.Info(MainActivity.Tag, "image-error " + ex.GetType().Name);
 			}
+
+			if (HttpFlight.WasCancelled(ticket, generation))
+				return;
 
 			if (bitmap is not null)
 			{
@@ -318,14 +337,14 @@ static class ImageModule
 		return ((Math.Max(1, slot) + 63) / 64) * 64;
 	}
 
-	static Bitmap? Load(Context context, string source, int target)
+	static Bitmap? Load(Context context, string source, int target, string ticket, int generation)
 	{
 		if (source.StartsWith("gen:", StringComparison.Ordinal))
 			return Swatch(source);
 		if (ImageSource.IsRemote(source))
 		{
-			var bytes = Download(source);
-			if (bytes is null)
+			var bytes = Download(source, ticket, generation);
+			if (bytes is null || HttpFlight.WasCancelled(ticket, generation))
 				return null;
 			return Decode(bytes, target);
 		}
@@ -393,10 +412,10 @@ static class ImageModule
 		return bitmap;
 	}
 
-	static byte[]? Download(string url)
+	static byte[]? Download(string url, string ticket, int generation)
 	{
 #if NATIVEPOC_HTTP
-		return HttpTransport.GetBytes(url);
+		return HttpTransport.GetBytes(url, ticket, generation);
 #else
 		Java.Net.HttpURLConnection? connection = null;
 		try
