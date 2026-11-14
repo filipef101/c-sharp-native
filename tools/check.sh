@@ -59,6 +59,7 @@ run scroll-bench bash tools/bench/scroll-bench.sh --self-test
 run cold-start bash tools/bench/cold-start.sh --self-test
 run guest-env bash tools/bench/guest-env.sh --self-test
 run portable bash tools/bench/portable.sh --self-test
+run first-frame python3 tools/bench/first-frame.py
 
 publish_showcase() {
 	rid="$1"

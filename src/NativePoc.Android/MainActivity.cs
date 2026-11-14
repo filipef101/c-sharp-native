@@ -631,7 +631,6 @@ public sealed class MainActivity : Activity
 		else if (!CompiledScreens.TryRender(id, _platform, out tree))
 			return null;
 		var host = new AndroidHost(this, () => tree);
-		host.PaintReady();
 		var reconciler = new ViewReconciler<View>(host);
 		reconciler.Render(tree);
 		return reconciler.Root;

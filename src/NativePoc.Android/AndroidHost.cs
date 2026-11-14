@@ -23,21 +23,13 @@ sealed class AndroidHost : IElementHost<View>
 	readonly HashSet<View> _gone = new();
 	bool _applyingText;
 	bool _applyingSwitch;
-#if NATIVEPOC_IMMEDIATE_CHROME
-	bool _chromeReady = true;
-#else
-	bool _chromeReady;
-#endif
-	bool _chromeArmed;
-	readonly List<(View View, Style Style)> _deferredChrome = new();
+	bool _loggedChrome;
 
 	public AndroidHost(Activity activity, Func<Element?> current)
 	{
 		_activity = activity;
 		_current = current;
 	}
-
-	internal void PaintReady() => _chromeReady = true;
 
 	public View Create(ElementKind kind)
 	{
@@ -418,12 +410,7 @@ sealed class AndroidHost : IElementHost<View>
 		}
 
 		if (style.Background != 0 || style.Wash != 0 || style.Radius > 0 || style.Stroke != 0)
-		{
-			if (_chromeReady)
-				ApplyChrome(view, style);
-			else
-				DeferChrome(view, style);
-		}
+			ApplyChrome(view, style);
 #if NATIVEPOC_RECYCLER
 		if (KeyedList.Is(view) && style.Across >= 2)
 			KeyedList.Columns(view, style.Across);
@@ -496,65 +483,14 @@ sealed class AndroidHost : IElementHost<View>
 		(System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
 #endif
 
-	void DeferChrome(View view, Style style)
-	{
-#if NATIVEPOC_BLANK_CHROME
-		view.Background = null;
-		view.Elevation = 0;
-		view.OutlineProvider = null;
-		view.ClipToOutline = false;
-		if (view is AndroidButton plain)
-			plain.BackgroundTintList = null;
-#else
-		ApplySolid(view, style);
-#endif
-		_deferredChrome.Add((view, style));
-		ArmChrome();
-	}
-
-	void ApplySolid(View view, Style style)
-	{
-		var ink = new List<ChromeInk>();
-		if (_paths.TryGetValue(view, out var path) && CurrentElement(path) is { } element)
-			ChromeFill.Collect(element, ThemeRuntime.IsDark(_activity), ink);
-		var fill = ChromeFill.FirstFrame(style, ink);
-		view.Background = new ColorDrawable(new Android.Graphics.Color(unchecked((int)fill)));
-		view.Elevation = 0;
-		view.OutlineProvider = null;
-		view.ClipToOutline = false;
-		if (view is AndroidButton tinted)
-			tinted.BackgroundTintList = null;
-		StartupMarks.Phase("fill");
-	}
-
-	void ArmChrome()
-	{
-		if (_chromeArmed)
-			return;
-		_chromeArmed = true;
-		StartupMarks.NoteChromeDeferred();
-		StartupMarks.AfterPresent(FlushChrome);
-	}
-
-	void FlushChrome()
-	{
-		_chromeReady = true;
-		var pending = _deferredChrome.ToArray();
-		_deferredChrome.Clear();
-		foreach (var (view, style) in pending)
-		{
-			if (view.Handle == IntPtr.Zero)
-				continue;
-			ApplyChrome(view, style);
-		}
-
-		var decor = _activity.Window?.DecorView;
-		decor?.Invalidate();
-		StartupMarks.ChromeApplied(decor);
-	}
-
 	void ApplyChrome(View view, Style style)
 	{
+		if (!_loggedChrome)
+		{
+			_loggedChrome = true;
+			Android.Util.Log.Info(MainActivity.Tag, "startup chrome=direct shadow=0 clip=0");
+		}
+
 		if (view is ImageView && style.Radius > 0)
 		{
 			view.Background = null;
@@ -570,6 +506,8 @@ sealed class AndroidHost : IElementHost<View>
 #if NATIVEPOC_STARTUP_MARKS
 		var drawableStarted = System.Diagnostics.Stopwatch.GetTimestamp();
 #endif
+		// Rounded fill, gradient, and stroke are this drawable. An outline clip
+		// and an elevation shadow are extra shaders on the first frame.
 		var drawable = new GradientDrawable();
 		drawable.SetCornerRadius(Dp(style.Radius));
 		if (style.Background != 0 && style.Wash != 0)
@@ -584,42 +522,21 @@ sealed class AndroidHost : IElementHost<View>
 				: new Android.Graphics.Color(unchecked((int)style.Background)));
 		}
 
-#if NATIVEPOC_STARTUP_MARKS
-		var outlineStarted = System.Diagnostics.Stopwatch.GetTimestamp();
-#endif
 		if (style.Stroke != 0)
 			drawable.SetStroke(Math.Max(1, Dp(2)), new Android.Graphics.Color(unchecked((int)style.Stroke)));
 		view.Background = drawable;
+		view.OutlineProvider = null;
+		view.ClipToOutline = false;
+		view.Elevation = 0;
 		if (view is AndroidButton tinted)
 		{
 			tinted.BackgroundTintList = style.Background == 0 && style.Wash == 0
 				? Android.Content.Res.ColorStateList.ValueOf(Android.Graphics.Color.Transparent)
 				: null;
 		}
-		if (style.Radius > 0)
-		{
-			view.OutlineProvider = new CardOutline(Dp(style.Radius));
-			view.ClipToOutline = true;
-		}
-
-		var shadow = style.Background != 0 && style.Radius > 0;
-		view.Elevation = shadow ? Dp(3) : 0;
-#if NATIVEPOC_STARTUP_MARKS
-		if (style.Stroke != 0 || style.Radius > 0)
-			StartupMarks.AddSpan("outline", SpanUs(outlineStarted));
-#endif
-		if (shadow)
-		{
-			StartupMarks.Phase("shadow");
-			view.Post(() =>
-			{
-				for (var parent = view.Parent; parent is ViewGroup group; parent = group.Parent)
-					group.SetClipChildren(false);
-			});
-		}
 #if NATIVEPOC_STARTUP_MARKS
 		var drawableUs = (System.Diagnostics.Stopwatch.GetTimestamp() - drawableStarted) * 1_000_000L / System.Diagnostics.Stopwatch.Frequency;
-		StartupMarks.AddDrawable(gradient, shadow, drawableUs);
+		StartupMarks.AddDrawable(gradient, false, drawableUs);
 #endif
 	}
 
@@ -1882,19 +1799,5 @@ static class A11yTree
 			if (child is not null)
 				Walk(child, ref count);
 		}
-	}
-}
-
-sealed class CardOutline : ViewOutlineProvider
-{
-	readonly float _radius;
-
-	public CardOutline(float radius) => _radius = radius;
-
-	public override void GetOutline(View? view, Outline? outline)
-	{
-		if (view is null || outline is null)
-			return;
-		outline.SetRoundRect(0, 0, Math.Max(view.Width, 1), Math.Max(view.Height, 1), _radius);
 	}
 }

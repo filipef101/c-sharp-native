@@ -242,15 +242,11 @@
 		<NativePocImage>false</NativePocImage>
 		<DefineConstants>$(DefineConstants);NATIVEPOC_WIDGET_FLOOR</DefineConstants>
 	</PropertyGroup>
-	<!-- Same Northroom screens with chrome on the first frame, and a third
-	     package so the bench can install it beside the deferred showcase. -->
+	<!-- Distinct package id. The define no longer changes the draw: every
+	     styled surface already paints on the first frame. -->
 	<PropertyGroup Condition="'$(NativePocImmediateChrome)' == 'true' And '$(NativePocWidgetFloor)' != 'true'">
 		<ApplicationId>com.scratch.nativepoc.immediate</ApplicationId>
 		<DefineConstants>$(DefineConstants);NATIVEPOC_IMMEDIATE_CHROME</DefineConstants>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(NativePocBlankChrome)' == 'true' And '$(NativePocWidgetFloor)' != 'true' And '$(NativePocImmediateChrome)' != 'true'">
-		<ApplicationId>com.scratch.nativepoc.blank</ApplicationId>
-		<DefineConstants>$(DefineConstants);NATIVEPOC_BLANK_CHROME</DefineConstants>
 	</PropertyGroup>
 	<!-- Generated outputs for another mode live under obj/. The SDK glob drops only
 	     the current BaseIntermediateOutputPath, so a listener tree would otherwise
