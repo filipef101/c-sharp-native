@@ -149,11 +149,11 @@ sealed class AndroidHost : IElementHost<View>
 		{
 			void ClearChrome()
 			{
-				if (button is StartupButton startup)
-					startup.DropFrameworkChrome();
 				button.SetBackgroundResource(0);
 				button.BackgroundTintList = null;
 				button.Foreground = null;
+				button.StateListAnimator = null;
+				button.Elevation = 0;
 			}
 
 			ClearChrome();
@@ -1429,13 +1429,37 @@ static class FieldIme
 	}
 }
 
+sealed class FieldRule : Drawable
+{
+	readonly Paint _paint;
+	readonly int _height;
+
+	public FieldRule(int color, int heightPx)
+	{
+		_height = heightPx;
+		_paint = new Paint();
+		_paint.Color = new Color(color);
+	}
+
+	public override void Draw(Canvas canvas)
+	{
+		var bounds = Bounds;
+		var top = bounds.Bottom - _height;
+		if (top < bounds.Top)
+			top = bounds.Top;
+		canvas.DrawRect(bounds.Left, top, bounds.Right, bounds.Bottom, _paint);
+	}
+
+	public override void SetAlpha(int alpha) => _paint.Alpha = alpha;
+
+	public override void SetColorFilter(ColorFilter? colorFilter) => _paint.SetColorFilter(colorFilter);
+
+	public override int Opacity => (int)Format.Translucent;
+}
+
 sealed class AndroidField : EditText
 {
 	static bool _loggedFocus;
-	readonly ColorDrawable _plain;
-	Drawable? _frameworkBackground;
-	bool _keepFramework = true;
-
 	public string? Key { get; set; }
 
 	public long LastSubmit { get; set; }
@@ -1464,37 +1488,20 @@ sealed class AndroidField : EditText
 
 	public AndroidField(Context context) : base(context)
 	{
-		// edit_text_material is a nine-patch. Compiling it on the first frame
-		// sits inside the cold-start window. The same drawable returns after
-		// the reported frame unless a style replaced this placeholder.
-		_plain = new ColorDrawable(Color.Transparent);
-		_frameworkBackground = Background;
+		// edit_text_material is a nine-patch. A transparent stand-in that
+		// came back after the reported frame made fully drawn an unfinished
+		// field. The steady state is a 2dp rule in the theme accent.
+		var color = FlatChrome.Color(context, Android.Resource.Attribute.ColorAccent, ThemeTokens.Accent(false));
+		var density = context.Resources?.DisplayMetrics?.Density ?? 1f;
+		var height = Math.Max(1, (int)(2f * density));
 		SetBackgroundResource(0);
-		Background = _plain;
 		BackgroundTintList = null;
-		if (StartupMarks.Presented)
-			RestoreFrameworkChrome();
-		else
-			StartupMarks.AfterPresent(RestoreFrameworkChrome);
+		Background = new FieldRule(color, height);
+		FlatChrome.LogField(color);
 		FocusableInTouchMode = false;
 		if (OperatingSystem.IsAndroidVersionAtLeast(26))
 			ImportantForAutofill = ImportantForAutofill.No;
 		ViewTreeObserver?.AddOnPreDrawListener(new TouchFocus(this));
-	}
-
-	void RestoreFrameworkChrome()
-	{
-		if (!_keepFramework || Handle == IntPtr.Zero || !StillPlain())
-			return;
-		_keepFramework = false;
-		if (_frameworkBackground is not null)
-			Background = _frameworkBackground;
-	}
-
-	bool StillPlain()
-	{
-		var background = Background;
-		return background is not null && _plain.Handle != IntPtr.Zero && background.Handle == _plain.Handle;
 	}
 
 	sealed class TouchFocus : Java.Lang.Object, ViewTreeObserver.IOnPreDrawListener

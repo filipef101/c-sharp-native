@@ -1,3 +1,4 @@
+using System.Globalization;
 using Android.Animation;
 using Android.Content;
 using Android.Graphics;
@@ -461,67 +462,73 @@ static class StartupPhase
 	}
 }
 
+static class FlatChrome
+{
+	static bool _button;
+	static bool _field;
+
+	internal static int Color(Context context, int attr, uint fallback)
+	{
+		var fallbackColor = unchecked((int)fallback);
+		var theme = context.Theme;
+		if (theme is null)
+			return fallbackColor;
+		var values = theme.ObtainStyledAttributes(new[] { attr });
+		try
+		{
+			return values.GetColor(0, fallbackColor);
+		}
+		finally
+		{
+			values.Recycle();
+		}
+	}
+
+	internal static void LogButton(int color)
+	{
+		if (_button)
+			return;
+		_button = true;
+		Android.Util.Log.Info(MainActivity.Tag, "startup chrome=button color=" + color.ToString("x8", CultureInfo.InvariantCulture));
+	}
+
+	internal static void LogField(int color)
+	{
+		if (_field)
+			return;
+		_field = true;
+		Android.Util.Log.Info(MainActivity.Tag, "startup chrome=field color=" + color.ToString("x8", CultureInfo.InvariantCulture));
+	}
+}
+
 sealed class StartupButton : Android.Widget.Button
 {
-	readonly ColorDrawable _plain;
-	Drawable? _frameworkBackground;
-	Drawable? _frameworkForeground;
-	StateListAnimator? _frameworkAnimator;
-	float _frameworkElevation;
-	bool _keepFramework = true;
-
 	public StartupButton(Context context)
 		: base(context)
 	{
-		// Theme.Material's button is a rounded nine-patch plus a raised shadow.
-		// Those shaders compile inside the first frame. Keep the drawables and
-		// put them back after the reported frame. A replacement background wins.
-		_plain = new ColorDrawable(Color.Transparent);
-		_frameworkBackground = Background;
-		_frameworkForeground = Foreground;
-		_frameworkAnimator = StateListAnimator;
-		_frameworkElevation = Elevation;
+		// The Material button is a rounded nine-patch plus a raised shadow.
+		// Compiling those shaders made the first frame the cold-start window,
+		// and hiding them until after that frame made TotalTime a frame the
+		// user does not keep. This fill is the steady state: theme
+		// colorButtonNormal, a 2dp corner, no elevation.
+		var left = PaddingLeft;
+		var top = PaddingTop;
+		var right = PaddingRight;
+		var bottom = PaddingBottom;
+		var color = FlatChrome.Color(context, Android.Resource.Attribute.ColorButtonNormal, ThemeTokens.Card(false));
 		SetBackgroundResource(0);
-		Background = _plain;
 		BackgroundTintList = null;
 		Foreground = null;
 		StateListAnimator = null;
 		Elevation = 0;
-		if (StartupMarks.Presented)
-			RestoreFrameworkChrome();
-		else
-			StartupMarks.AfterPresent(RestoreFrameworkChrome);
-	}
-
-	internal void DropFrameworkChrome()
-	{
-		_keepFramework = false;
-		_frameworkBackground = null;
-		_frameworkForeground = null;
-		_frameworkAnimator = null;
-	}
-
-	void RestoreFrameworkChrome()
-	{
-		if (!_keepFramework || Handle == IntPtr.Zero || !StillPlain())
-			return;
-		_keepFramework = false;
-		if (_frameworkBackground is not null)
-			Background = _frameworkBackground;
-		if (Foreground is null && _frameworkForeground is not null)
-			Foreground = _frameworkForeground;
-		if (StateListAnimator is null && _frameworkAnimator is not null)
-			StateListAnimator = _frameworkAnimator;
-		Elevation = _frameworkElevation;
-		_frameworkBackground = null;
-		_frameworkForeground = null;
-		_frameworkAnimator = null;
-	}
-
-	bool StillPlain()
-	{
-		var background = Background;
-		return background is not null && _plain.Handle != IntPtr.Zero && background.Handle == _plain.Handle;
+		var fill = new GradientDrawable();
+		fill.SetShape(ShapeType.Rectangle);
+		fill.SetColor(new Color(color));
+		var density = context.Resources?.DisplayMetrics?.Density ?? 1f;
+		fill.SetCornerRadius(2f * density);
+		Background = fill;
+		SetPadding(left, top, right, bottom);
+		FlatChrome.LogButton(color);
 	}
 
 #if NATIVEPOC_STARTUP_MARKS
