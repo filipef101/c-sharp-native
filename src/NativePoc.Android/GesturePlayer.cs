@@ -1,6 +1,8 @@
 using System.Globalization;
 using Android.Animation;
+using Android.App;
 using Android.Content;
+using Android.Content.Res;
 using Android.Graphics;
 using Android.Graphics.Drawables;
 using Android.Views;
@@ -467,29 +469,94 @@ static class FlatChrome
 	static bool _button;
 	static bool _field;
 
-	internal static int Color(Context context, int attr, uint fallback)
+	// Pressed and disabled fills are not theme tokens. Light pressed is a warm
+	// step under white. Night pressed lifts the card. Disabled sinks toward the page.
+	const int PressedLight = unchecked((int)0xFFE6E1D8);
+	const int PressedNight = unchecked((int)0xFF3C3835);
+	const int DisabledLight = unchecked((int)0xFFEFEBE3);
+	const int DisabledNight = unchecked((int)0xFF1F1C1A);
+	const int RippleLight = unchecked((int)0x558A5A2B);
+	const int RippleNight = unchecked((int)0x55E7C27D);
+
+	internal readonly struct ButtonPaint
 	{
-		var fallbackColor = unchecked((int)fallback);
-		var theme = context.Theme;
-		if (theme is null)
-			return fallbackColor;
-		var values = theme.ObtainStyledAttributes(new[] { attr });
-		try
-		{
-			return values.GetColor(0, fallbackColor);
-		}
-		finally
-		{
-			values.Recycle();
-		}
+		public int Fill { get; init; }
+		public int Pressed { get; init; }
+		public int Disabled { get; init; }
+		public int Ink { get; init; }
+		public int Muted { get; init; }
+		public int Hairline { get; init; }
+		public int Accent { get; init; }
+		public int Ripple { get; init; }
 	}
 
-	internal static void LogButton(int color)
+	internal static bool Dark(Context context)
+	{
+		if (context is Activity activity)
+			return ThemeRuntime.IsDark(activity);
+		var mask = context.Resources?.Configuration?.UiMode ?? 0;
+		return (mask & UiMode.NightMask) == UiMode.NightYes;
+	}
+
+	internal static ButtonPaint Palette(bool dark) => dark
+		? new ButtonPaint
+		{
+			Fill = unchecked((int)ThemeTokens.CardDark),
+			Pressed = PressedNight,
+			Disabled = DisabledNight,
+			Ink = unchecked((int)ThemeTokens.TextDark),
+			Muted = unchecked((int)ThemeTokens.MutedDark),
+			Hairline = unchecked((int)ThemeTokens.MutedDark),
+			Accent = unchecked((int)ThemeTokens.AccentDark),
+			Ripple = RippleNight,
+		}
+		: new ButtonPaint
+		{
+			Fill = unchecked((int)ThemeTokens.CardLight),
+			Pressed = PressedLight,
+			Disabled = DisabledLight,
+			Ink = unchecked((int)ThemeTokens.TextLight),
+			Muted = unchecked((int)ThemeTokens.MutedLight),
+			Hairline = unchecked((int)ThemeTokens.MutedLight),
+			Accent = unchecked((int)ThemeTokens.AccentLight),
+			Ripple = RippleLight,
+		};
+
+	internal static ColorStateList FillList(ButtonPaint paint) => new(
+		new[]
+		{
+			new[] { -Android.Resource.Attribute.StateEnabled },
+			new[] { Android.Resource.Attribute.StatePressed },
+			Array.Empty<int>(),
+		},
+		new[] { paint.Disabled, paint.Pressed, paint.Fill });
+
+	internal static ColorStateList StrokeList(ButtonPaint paint) => new(
+		new[]
+		{
+			new[] { Android.Resource.Attribute.StateFocused },
+			Array.Empty<int>(),
+		},
+		new[] { paint.Accent, paint.Hairline });
+
+	internal static ColorStateList TextList(int ink, int muted) => new(
+		new[]
+		{
+			new[] { -Android.Resource.Attribute.StateEnabled },
+			Array.Empty<int>(),
+		},
+		new[] { muted, ink });
+
+	internal static void LogButton(ButtonPaint paint)
 	{
 		if (_button)
 			return;
 		_button = true;
-		Android.Util.Log.Info(MainActivity.Tag, "startup chrome=button color=" + color.ToString("x8", CultureInfo.InvariantCulture));
+		Android.Util.Log.Info(
+			MainActivity.Tag,
+			"startup chrome=button fill=" + paint.Fill.ToString("x8", CultureInfo.InvariantCulture)
+			+ " ink=" + paint.Ink.ToString("x8", CultureInfo.InvariantCulture)
+			+ " hairline=" + paint.Hairline.ToString("x8", CultureInfo.InvariantCulture));
 	}
 
 	internal static void LogField(int color)
@@ -508,27 +575,35 @@ sealed class StartupButton : Android.Widget.Button
 	{
 		// The Material button is a rounded nine-patch plus a raised shadow.
 		// Compiling those shaders made the first frame the cold-start window,
-		// and hiding them until after that frame made TotalTime a frame the
-		// user does not keep. This fill is the steady state: theme
-		// colorButtonNormal, a 2dp corner, no elevation.
+		// and a transparent stand-in made that frame a flash. This drawable is
+		// the steady state: the card fill, a 1dp hairline so the control meets
+		// the page, a 4dp corner, no elevation. Pressed, disabled, and focused
+		// are color states. The ripple wraps that fill and draws only while pressed.
 		var left = PaddingLeft;
 		var top = PaddingTop;
 		var right = PaddingRight;
 		var bottom = PaddingBottom;
-		var color = FlatChrome.Color(context, Android.Resource.Attribute.ColorButtonNormal, ThemeTokens.Card(false));
+		var paint = FlatChrome.Palette(FlatChrome.Dark(context));
+		var density = context.Resources?.DisplayMetrics?.Density ?? 1f;
+		var radius = 4f * density;
+		var fill = new GradientDrawable();
+		fill.SetShape(ShapeType.Rectangle);
+		fill.SetCornerRadius(radius);
+		fill.SetColor(FlatChrome.FillList(paint));
+		fill.SetStroke(Math.Max(1, (int)Math.Round(density)), FlatChrome.StrokeList(paint));
+		var mask = new GradientDrawable();
+		mask.SetShape(ShapeType.Rectangle);
+		mask.SetCornerRadius(radius);
+		mask.SetColor(Color.White);
 		SetBackgroundResource(0);
 		BackgroundTintList = null;
 		Foreground = null;
 		StateListAnimator = null;
 		Elevation = 0;
-		var fill = new GradientDrawable();
-		fill.SetShape(ShapeType.Rectangle);
-		fill.SetColor(new Color(color));
-		var density = context.Resources?.DisplayMetrics?.Density ?? 1f;
-		fill.SetCornerRadius(2f * density);
-		Background = fill;
+		Background = new RippleDrawable(ColorStateList.ValueOf(new Color(paint.Ripple)), fill, mask);
 		SetPadding(left, top, right, bottom);
-		FlatChrome.LogButton(color);
+		SetTextColor(FlatChrome.TextList(paint.Ink, paint.Muted));
+		FlatChrome.LogButton(paint);
 	}
 
 #if NATIVEPOC_STARTUP_MARKS

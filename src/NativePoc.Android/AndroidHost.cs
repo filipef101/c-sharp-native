@@ -402,9 +402,17 @@ sealed class AndroidHost : IElementHost<View>
 #endif
 			}
 			ThemeRuntime.NoteColor(view, style.Color);
-			text.SetTextColor(style.Color == 0
-				? new Android.Graphics.Color(unchecked((int)ThemeTokens.Text(ThemeRuntime.IsDark(_activity))))
-				: new Android.Graphics.Color(unchecked((int)style.Color)));
+			if (text is AndroidButton inked)
+			{
+				var ink = style.Color == 0 ? ThemeTokens.Text(dark) : style.Color;
+				inked.SetTextColor(FlatChrome.TextList(unchecked((int)ink), unchecked((int)ThemeTokens.Muted(dark))));
+			}
+			else
+			{
+				text.SetTextColor(style.Color == 0
+					? new Android.Graphics.Color(unchecked((int)ThemeTokens.Text(dark)))
+					: new Android.Graphics.Color(unchecked((int)style.Color)));
+			}
 			if (text is AndroidButton fitted)
 				FitButton(fitted, style);
 		}
@@ -1490,8 +1498,8 @@ sealed class AndroidField : EditText
 	{
 		// edit_text_material is a nine-patch. A transparent stand-in that
 		// came back after the reported frame made fully drawn an unfinished
-		// field. The steady state is a 2dp rule in the theme accent.
-		var color = FlatChrome.Color(context, Android.Resource.Attribute.ColorAccent, ThemeTokens.Accent(false));
+		// field. The steady state is a 2dp rule in the app accent.
+		var color = unchecked((int)ThemeTokens.Accent(FlatChrome.Dark(context)));
 		var density = context.Resources?.DisplayMetrics?.Density ?? 1f;
 		var height = Math.Max(1, (int)(2f * density));
 		SetBackgroundResource(0);
