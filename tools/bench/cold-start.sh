@@ -7,6 +7,9 @@
 #   n=20 p50 is the mean of the 10th and 11th sorted samples
 #   n=20 p90 is the 18th plus 0.1 times the gap to the 19th
 # Logcat startup marks are parsed after the samples.
+# The capture after each sample stays in the sample log as post_guest_load.
+# A post-sample load above 2.0 sets flagged=1. p50_all keeps those samples.
+# p50_unflagged drops them. A load of exactly 2.0 stays in both.
 #
 #   tools/bench/cold-start.sh --self-test
 #   tools/bench/cold-start.sh --device emulator-5554 --name packing --out /tmp/bench -- --es nativepoc_bench packing1000
@@ -90,6 +93,10 @@ if ! [[ "$samples" =~ ^[1-9][0-9]*$ ]]; then
 	exit 2
 fi
 
+post_load_flagged() {
+	awk -v v="$1" 'BEGIN { exit !((v + 0) > 2.0) }'
+}
+
 percentile() {
 	# args: p sample...
 	local p="$1"
@@ -154,6 +161,15 @@ if [[ "$self_test" -eq 1 ]]; then
 	[[ "$c90" == "844.9" ]] || { echo "counter p90 $c90" >&2; fail=1; }
 	[[ "$p50" == "457.0" ]] || { echo "packing p50 $p50" >&2; fail=1; }
 	[[ "$p90" == "619.2" ]] || { echo "packing p90 $p90" >&2; fail=1; }
+	post_load_flagged 2.0 && { echo "load 2.0 should stay" >&2; fail=1; }
+	post_load_flagged 1.99 && { echo "load 1.99 should stay" >&2; fail=1; }
+	post_load_flagged 2.01 || { echo "load 2.01 should flag" >&2; fail=1; }
+	kept=(100 200 300)
+	all=(100 200 300 900)
+	kept50="$(printf '%s\n' "${kept[@]}" | percentile 0.50)"
+	all50="$(printf '%s\n' "${all[@]}" | percentile 0.50)"
+	[[ "$kept50" == "200.0" ]] || { echo "unflagged p50 $kept50" >&2; fail=1; }
+	[[ "$all50" == "250.0" ]] || { echo "all p50 $all50" >&2; fail=1; }
 	bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/guest-env.sh" --self-test >/dev/null
 	bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/wait-guest.sh" --self-test >/dev/null
 	if [[ "$fail" -ne 0 ]]; then
@@ -276,6 +292,8 @@ raw="$out/$name-starts.txt"
 
 totals=()
 gates=()
+post_flags=()
+post_loads=()
 for ((i = 0; i < samples; i++)); do
 	gate=""
 	if [[ "$wait_guest" -eq 1 ]]; then
@@ -293,12 +311,22 @@ for ((i = 0; i < samples; i++)); do
 	totals+=("$total")
 	guest_line="$(capture_guest "$out/$name-guest-$i.txt")"
 	printf '%s\n' "$guest_line" >>"$out/guest.txt"
+	guest_first="${guest_line%%$'\n'*}"
+	post="${guest_first#guest_load=}"
+	post="${post%% *}"
+	flag=0
+	if [[ -n "$post" && "$post" != "$guest_first" ]] && post_load_flagged "$post"; then
+		flag=1
+	fi
+	post_flags+=("$flag")
+	post_loads+=("${post:-none}")
 	{
 		echo "SAMPLE $i"
 		if [[ -n "$gate" ]]; then
 			printf '%s\n' "$gate"
 		fi
 		printf '%s\n' "$guest_line"
+		echo "post_guest_load=${post:-none} flagged=$flag"
 		printf '%s\n' "$text"
 	} >>"$raw"
 	echo "$name $i $total $gate $guest_line" >&2
@@ -309,11 +337,28 @@ ordered="$(printf '%s\n' "${totals[@]}" | sorted_line)"
 p50="$(printf '%s\n' "${totals[@]}" | percentile 0.50)"
 p90="$(printf '%s\n' "${totals[@]}" | percentile 0.90)"
 guest_p50="$(median_values <"$out/guest.txt")"
+kept=()
+flagged_n=0
+for ((i = 0; i < samples; i++)); do
+	if [[ "${post_flags[$i]:-0}" == "1" ]]; then
+		flagged_n=$((flagged_n + 1))
+	else
+		kept+=("${totals[$i]}")
+	fi
+done
+if [[ ${#kept[@]} -gt 0 ]]; then
+	p50_kept="$(printf '%s\n' "${kept[@]}" | percentile 0.50)"
+else
+	p50_kept="na"
+fi
 {
 	echo "$name n=$samples sorted=$ordered guest_load_p50=$guest_p50"
 	echo "p50 $p50 p90 $p90 guest_load_p50=$guest_p50"
 	echo "method=am start -W -S LaunchState=COLD warmup=1 discarded percentile=Hyndman-Fan-7"
 	echo "guest samples are in guest.txt. A guest_load at or above 2.0 is a warning. The sample stays."
+	echo "post_guest_load is the capture after the sample. flagged=1 when that load exceeds 2.0."
+	echo "p50_all $p50 n=$samples flagged=$flagged_n"
+	echo "p50_unflagged $p50_kept n=${#kept[@]} flagged=$flagged_n threshold=2.0"
 	if [[ -f "$out/guest.txt" ]]; then
 		cat "$out/guest.txt"
 	fi

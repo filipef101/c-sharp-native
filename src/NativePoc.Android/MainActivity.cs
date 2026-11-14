@@ -181,9 +181,7 @@ public sealed class MainActivity : Activity
 			+ " us=" + stagedUs.ToString(CultureInfo.InvariantCulture)
 			+ " decode-ms=" + decodeMs.ToString(CultureInfo.InvariantCulture)
 			+ " loaded=" + ScreenNav.Shared.Loaded.ToString(CultureInfo.InvariantCulture)
-			+ " staged=" + ScreenNav.Shared.Staged.ToString(CultureInfo.InvariantCulture)
-			+ " depth=" + ScreenNav.Shared.Depth.ToString(CultureInfo.InvariantCulture)
-			+ " top=" + ScreenNav.Shared.TopId());
+			+ " staged=" + ScreenNav.Shared.Staged.ToString(CultureInfo.InvariantCulture));
 		StartupMarks.Phase("nav");
 		StorageSeed.Apply(this);
 #if DEBUG
@@ -234,6 +232,11 @@ public sealed class MainActivity : Activity
 			Log.Info(Tag, StartupGuard.RenderLog(rejectedScreen, rejectedReason));
 			NavCatalog.InstallRoot();
 		}
+
+		Log.Info(
+			Tag,
+			"startup nav depth=" + ScreenNav.Shared.Depth.ToString(CultureInfo.InvariantCulture)
+			+ " top=" + ScreenNav.Shared.TopId());
 		// Notes render does not call Persist.Get. A read happens when a screen awaits one.
 		StartupMarks.Note("persist-read", 0);
 		if (string.Equals(Intent?.GetStringExtra("nativepoc_bench"), "tap10", StringComparison.Ordinal))
@@ -484,13 +487,22 @@ public sealed class MainActivity : Activity
 			+ " name-length=" + (state.Name?.Length ?? 0).ToString(CultureInfo.InvariantCulture));
 		CompiledScreens.Store();
 		var nav = ScreenNav.Shared.Checkpoint();
-		var kept = InstanceUi.FitNav(nav, out var navBytes);
+		var limit = DebugNavLimit.OrDefault(InstanceUi.NavLimit);
+		if (limit != InstanceUi.NavLimit)
+		{
+			Log.Info(
+				Tag,
+				"state-save nav limit=" + limit.ToString(CultureInfo.InvariantCulture)
+				+ " source=debug");
+		}
+
+		var kept = InstanceUi.FitNav(nav, limit, out var navBytes);
 		if (kept is null)
 		{
 			Log.Info(
 				Tag,
 				"state-save nav dropped bytes=" + navBytes.ToString(CultureInfo.InvariantCulture)
-				+ " limit=" + InstanceUi.NavLimit.ToString(CultureInfo.InvariantCulture));
+				+ " limit=" + limit.ToString(CultureInfo.InvariantCulture));
 			return;
 		}
 

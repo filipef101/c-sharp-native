@@ -279,6 +279,23 @@ public sealed class NavRestoreTests
 	}
 
 	[Fact]
+	public void A_nav_snapshot_above_a_forced_small_limit_is_omitted()
+	{
+		var nav = new ScreenNav();
+		nav.Allow("counter");
+		Assert.True(nav.ReplaceRoot("counter"));
+		var checkpoint = nav.Checkpoint();
+		var kept = NavCheckpoint.WriteKept(checkpoint);
+		Assert.True(kept.Length > 8);
+		Assert.Null(InstanceUi.FitNav(checkpoint, 8, out var size));
+		Assert.Equal(kept.Length, size);
+		var fitted = InstanceUi.FitNav(checkpoint, out var full);
+		Assert.NotNull(fitted);
+		Assert.Equal(kept.Length, full);
+		Assert.Equal(65536, InstanceUi.NavLimit);
+	}
+
+	[Fact]
 	public void A_compiled_screen_with_no_program_can_be_pushed()
 	{
 		var nav = new ScreenNav();

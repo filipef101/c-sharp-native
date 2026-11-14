@@ -81,9 +81,14 @@ internal static class InstanceUi
 		state.PlainRoot = (flags & Plain) != 0;
 	}
 
-	public static byte[]? FitNav(NavCheckpoint nav, out int bytes)
+	public static byte[]? FitNav(NavCheckpoint nav, out int bytes) =>
+		FitNav(nav, NavLimit, out bytes);
+
+	public static byte[]? FitNav(NavCheckpoint nav, int limit, out int bytes)
 	{
 		ArgumentNullException.ThrowIfNull(nav);
+		if (limit < 1)
+			throw new ArgumentOutOfRangeException(nameof(limit));
 		byte[] raw;
 		try
 		{
@@ -96,6 +101,6 @@ internal static class InstanceUi
 		}
 
 		bytes = raw.Length;
-		return raw.Length <= NavLimit ? raw : null;
+		return raw.Length <= limit ? raw : null;
 	}
 }
