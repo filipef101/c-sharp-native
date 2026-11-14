@@ -1,5 +1,7 @@
+using Android.Animation;
 using Android.Content;
 using Android.Graphics;
+using Android.Graphics.Drawables;
 using Android.Views;
 using AndroidWidget = Android.Widget.ScrollView;
 
@@ -461,9 +463,65 @@ static class StartupPhase
 
 sealed class StartupButton : Android.Widget.Button
 {
+	readonly ColorDrawable _plain;
+	Drawable? _frameworkBackground;
+	Drawable? _frameworkForeground;
+	StateListAnimator? _frameworkAnimator;
+	float _frameworkElevation;
+	bool _keepFramework = true;
+
 	public StartupButton(Context context)
 		: base(context)
 	{
+		// Theme.Material's button is a rounded nine-patch plus a raised shadow.
+		// Those shaders compile inside the first frame. Keep the drawables and
+		// put them back after the reported frame. A replacement background wins.
+		_plain = new ColorDrawable(Color.Transparent);
+		_frameworkBackground = Background;
+		_frameworkForeground = Foreground;
+		_frameworkAnimator = StateListAnimator;
+		_frameworkElevation = Elevation;
+		SetBackgroundResource(0);
+		Background = _plain;
+		BackgroundTintList = null;
+		Foreground = null;
+		StateListAnimator = null;
+		Elevation = 0;
+		if (StartupMarks.Presented)
+			RestoreFrameworkChrome();
+		else
+			StartupMarks.AfterPresent(RestoreFrameworkChrome);
+	}
+
+	internal void DropFrameworkChrome()
+	{
+		_keepFramework = false;
+		_frameworkBackground = null;
+		_frameworkForeground = null;
+		_frameworkAnimator = null;
+	}
+
+	void RestoreFrameworkChrome()
+	{
+		if (!_keepFramework || Handle == IntPtr.Zero || !StillPlain())
+			return;
+		_keepFramework = false;
+		if (_frameworkBackground is not null)
+			Background = _frameworkBackground;
+		if (Foreground is null && _frameworkForeground is not null)
+			Foreground = _frameworkForeground;
+		if (StateListAnimator is null && _frameworkAnimator is not null)
+			StateListAnimator = _frameworkAnimator;
+		Elevation = _frameworkElevation;
+		_frameworkBackground = null;
+		_frameworkForeground = null;
+		_frameworkAnimator = null;
+	}
+
+	bool StillPlain()
+	{
+		var background = Background;
+		return background is not null && _plain.Handle != IntPtr.Zero && background.Handle == _plain.Handle;
 	}
 
 #if NATIVEPOC_STARTUP_MARKS

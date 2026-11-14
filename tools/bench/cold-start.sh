@@ -172,6 +172,7 @@ if [[ "$self_test" -eq 1 ]]; then
 	[[ "$all50" == "250.0" ]] || { echo "all p50 $all50" >&2; fail=1; }
 	bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/guest-env.sh" --self-test >/dev/null
 	bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/wait-guest.sh" --self-test >/dev/null
+	bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/interleave-cold.sh" --self-test >/dev/null || fail=1
 	if [[ "$fail" -ne 0 ]]; then
 		exit 1
 	fi

@@ -149,6 +149,8 @@ sealed class AndroidHost : IElementHost<View>
 		{
 			void ClearChrome()
 			{
+				if (button is StartupButton startup)
+					startup.DropFrameworkChrome();
 				button.SetBackgroundResource(0);
 				button.BackgroundTintList = null;
 				button.Foreground = null;
@@ -1430,6 +1432,9 @@ static class FieldIme
 sealed class AndroidField : EditText
 {
 	static bool _loggedFocus;
+	readonly ColorDrawable _plain;
+	Drawable? _frameworkBackground;
+	bool _keepFramework = true;
 
 	public string? Key { get; set; }
 
@@ -1459,10 +1464,37 @@ sealed class AndroidField : EditText
 
 	public AndroidField(Context context) : base(context)
 	{
+		// edit_text_material is a nine-patch. Compiling it on the first frame
+		// sits inside the cold-start window. The same drawable returns after
+		// the reported frame unless a style replaced this placeholder.
+		_plain = new ColorDrawable(Color.Transparent);
+		_frameworkBackground = Background;
+		SetBackgroundResource(0);
+		Background = _plain;
+		BackgroundTintList = null;
+		if (StartupMarks.Presented)
+			RestoreFrameworkChrome();
+		else
+			StartupMarks.AfterPresent(RestoreFrameworkChrome);
 		FocusableInTouchMode = false;
 		if (OperatingSystem.IsAndroidVersionAtLeast(26))
 			ImportantForAutofill = ImportantForAutofill.No;
 		ViewTreeObserver?.AddOnPreDrawListener(new TouchFocus(this));
+	}
+
+	void RestoreFrameworkChrome()
+	{
+		if (!_keepFramework || Handle == IntPtr.Zero || !StillPlain())
+			return;
+		_keepFramework = false;
+		if (_frameworkBackground is not null)
+			Background = _frameworkBackground;
+	}
+
+	bool StillPlain()
+	{
+		var background = Background;
+		return background is not null && _plain.Handle != IntPtr.Zero && background.Handle == _plain.Handle;
 	}
 
 	sealed class TouchFocus : Java.Lang.Object, ViewTreeObserver.IOnPreDrawListener
