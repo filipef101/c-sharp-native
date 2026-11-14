@@ -62,6 +62,10 @@ public sealed class MotionThemeTests
 		Assert.NotEqual(ThemeTokens.Page(false), ThemeTokens.Page(true));
 		Assert.NotEqual(ThemeTokens.Text(false), ThemeTokens.Text(true));
 		Assert.NotEqual(ThemeTokens.Accent(false), ThemeTokens.Accent(true));
+		Assert.True(ChromeFill.Ratio(ThemeTokens.Text(false), ThemeTokens.Page(false)) >= 4.5);
+		Assert.True(ChromeFill.Ratio(ThemeTokens.Text(true), ThemeTokens.Page(true)) >= 4.5);
+		Assert.True(ChromeFill.Ratio(ThemeTokens.Hint(false), ThemeTokens.Page(false)) >= 3.0);
+		Assert.True(ChromeFill.Ratio(ThemeTokens.Hint(true), ThemeTokens.Page(true)) >= 3.0);
 	}
 
 	[Fact]

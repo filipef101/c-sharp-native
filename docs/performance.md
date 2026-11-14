@@ -2,7 +2,7 @@
 
 Cold-start numbers for the default counter (`com.scratch.nativepoc`) and the showcase (`com.scratch.nativepoc.showcase`). Every row names the method. Percentiles are Hyndman-Fan type 7. A bootstrap interval is B=1000, Python `random.Random` seed 8946, and is the 2.5 and 97.5 percentiles of the resampled p50. `am start -W -S` TotalTime, LaunchState COLD, one discarded warmup. A sample is flagged when the post-sample guest load is above 2.0. A load of exactly 2.0 stays. The device is emulator-5554, API 34, x86_64, SwiftShader, unless a row says otherwise. `simpleperf` is on the image and was not recorded.
 
-TotalTime is the first drawn window. Visually complete is the first frame that already has the chrome the user keeps. On this tree, fully drawn is that frame: the counter's hairline button and field rule, and the showcase's rounded gradient. That drawable has the corner radius, the fill, and the stroke, and it has no elevation. A MacBook AVD named `pixel_fold_mc` is described in [../tools/bench/mac-pixel-fold.md](../tools/bench/mac-pixel-fold.md). That bench was not run.
+TotalTime is the first drawn window. Visually complete is the first frame that already has the chrome the user keeps. On this tree, fully drawn is that frame: the counter's hairline button and field rule, and the showcase's rounded gradient. That drawable has the corner radius, the fill, and the stroke, and it has no elevation. A MacBook AVD named `pixel_fold_mc` is described in [../tools/bench/mac-pixel-fold.md](../tools/bench/mac-pixel-fold.md). Its cold-start row is below, separate from the SwiftShader table.
 
 ## Startup
 
@@ -26,6 +26,15 @@ TotalTime is the first drawn window. Visually complete is the first frame that a
 The flat-chrome counter's visually complete p50 is 794.0 on emulator-5554, SwiftShader. That row is the gray `colorButtonNormal` fill. The same-method Material pair was 879.0. Those intervals do not overlap. The quiet Material rows, 651.5 and 671.5, are n=10 and not interleaved. The placeholder's 710.0 is an unfinished frame and is not a visually complete time.
 
 On one later boot the c93013d showcase fully drawn p50 is 819.0 (737.0–935.5) and the 3656892 showcase is 859.5 (790.8–937.0). The intervals overlap, so the earlier 998.5 against 846.0 was that boot, not the flat-chrome patch. TotalTime on this pair is 599.0 and 585.0, both the flat first frame. Fully drawn sits later because `StartupMarks` waits for idle, skips a frame, then applies the gradient, the elevation shadow, and the stroke. One apk's fully drawn samples run from 570 to 1331. An earlier n=48 on this emulator put immediate chrome, shadow included, at fully-styled 1048.5 against deferred 930.0. The fresh boot in the table draws the rounded gradient and the stroke on the first frame and leaves the elevation off. The abrupt rebuild's fully drawn p50 is 1045.0 (1022.0–1123.0). The direct build is 1099.0 (1026.0–1194.0). The intervals overlap, so the direct frame stays. Unflagged, both n=14, the figures are 1026.0 (982.0–1078.5) and 1045.0 (999.0–1123.0), and those overlap too. TotalTime is 886.0 and 1081.0. Direct fully drawn tracks TotalTime: that first frame is the chrome the user keeps. A `screenrecord` of the direct apk, 1080x2400, 24 frames in 2.09 s (11.47 fps), goes from the cream window to the rounded green hero. There is no flat square hero in between. `dumpsys gfxinfo framestats` on that start has a first frame, flags 1, that spends 281.5 ms from issue to swap. This commit does not remeasure the counter's 794.0. The default button here is the card fill and a 1dp hairline, and that look is the screenshots, not a new n=20.
+
+## pixel_fold_mc
+
+MacBook M5 host, API 36 arm64 emulator with hardware GL (`sdk_gphone64_arm64`, AVD `pixel_fold_mc`, `arm64-v8a`). This is not a SwiftShader x86_64 row. Dexopt `verify` / `install`, guest load gated, every sample LaunchState COLD. `tools/bench/pixel-fold.sh cold --n 20` on the progress91 arm64 apks ran about 120 pairs on each side, because `wait_guest` reset the loop index, and the results file recorded the requested n. Screenshots after a cold start showed both apps fully rendered: the showcase had the Northroom gradient hero, three stat cards, and three rows, and the counter had Counter 0, the name field, Save, and Packing.
+
+| Series | TotalTime | Fully drawn | Apk |
+| --- | --- | --- | --- |
+| Counter | p50 89.5, p90 105.0 | p50 90.0, p90 105.1 | progress91 counter-arm64, 2,995,064 bytes, sha256 `1defe4e0e4e66da9084722fe0c4c07de84e9b52d086c4528eb1b65d74ca92151` |
+| Showcase | p50 90.5, p90 105.0 | p50 91.0, p90 105.0 | progress91 showcase-arm64, 3,670,333 bytes, sha256 `c28291474c6f787d3a3d8548ccf03da9e2c20955e280f26a60f1395fe02a920f` |
 
 ## First frame
 

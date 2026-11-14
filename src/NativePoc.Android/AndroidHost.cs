@@ -405,6 +405,8 @@ sealed class AndroidHost : IElementHost<View>
 					? new Android.Graphics.Color(unchecked((int)ThemeTokens.Text(dark)))
 					: new Android.Graphics.Color(unchecked((int)style.Color)));
 			}
+			if (text is EditText hinted)
+				hinted.SetHintTextColor(new Android.Graphics.Color(unchecked((int)ThemeTokens.Hint(dark))));
 			if (text is AndroidButton fitted)
 				FitButton(fitted, style);
 		}
@@ -1416,9 +1418,12 @@ sealed class AndroidField : EditText
 		// edit_text_material is a nine-patch. A transparent stand-in that
 		// came back after the reported frame made fully drawn an unfinished
 		// field. The steady state is a 2dp rule in the app accent.
-		var color = unchecked((int)ThemeTokens.Accent(FlatChrome.Dark(context)));
+		var dark = FlatChrome.Dark(context);
+		var color = unchecked((int)ThemeTokens.Accent(dark));
 		var density = context.Resources?.DisplayMetrics?.Density ?? 1f;
 		var height = Math.Max(1, (int)(2f * density));
+		SetTextColor(new Color(unchecked((int)ThemeTokens.Text(dark))));
+		SetHintTextColor(new Color(unchecked((int)ThemeTokens.Hint(dark))));
 		SetBackgroundResource(0);
 		BackgroundTintList = null;
 		Background = new FieldRule(color, height);

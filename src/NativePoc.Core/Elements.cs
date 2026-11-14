@@ -316,6 +316,10 @@ internal static class ThemeTokens
 
 	public static uint Muted(bool dark) => dark ? MutedDark : MutedLight;
 
+	// Placeholder ink. The Material theme's hint is near white, which
+	// disappears on the cream page. Muted clears 3:1 on both pages.
+	public static uint Hint(bool dark) => Muted(dark);
+
 	public static bool TryNamed(string name, out uint value)
 	{
 		switch (name)
