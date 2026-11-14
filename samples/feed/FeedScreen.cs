@@ -47,19 +47,46 @@ public static class FeedScreen
 
 		Element Row(FeedItem item)
 		{
-			return new Column(
-			[
-				new Text("• " + item.Title),
-				new Image(item.Id == "0000" ? "feed_mark" : "http://127.0.0.1:8094/img/" + item.Id) { Description = item.Title },
-			])
-			{
-				Key = item.Id,
-				OnSwipe = () =>
+			// Query holds the pressed row id. It is already on the listener
+			// binary, so this press paints on reload without a new field.
+			return state.Query == item.Id
+				? new Column(
+				[
+					new Text("Held " + item.Title) { Style = new Style { Color = 0xFF8A5A2B, FontSize = 18 } },
+					new Image(item.Id == "0000" ? "feed_mark" : "http://127.0.0.1:8094/img/" + item.Id) { Description = item.Title },
+				])
 				{
-					state.Drop(item);
-					platform.RequestRender();
-				},
-			};
+					Key = item.Id,
+					Style = new Style { Background = 0xFFE6E1D8, Radius = 12, Padding = 12, Gap = 8 },
+					OnTap = () =>
+					{
+						state.Query = item.Id;
+						platform.RequestRender();
+					},
+					OnSwipe = () =>
+					{
+						state.Drop(item);
+						platform.RequestRender();
+					},
+				}
+				: new Column(
+				[
+					new Text("• " + item.Title),
+					new Image(item.Id == "0000" ? "feed_mark" : "http://127.0.0.1:8094/img/" + item.Id) { Description = item.Title },
+				])
+				{
+					Key = item.Id,
+					OnTap = () =>
+					{
+						state.Query = item.Id;
+						platform.RequestRender();
+					},
+					OnSwipe = () =>
+					{
+						state.Drop(item);
+						platform.RequestRender();
+					},
+				};
 		}
 
 		async void Post()
@@ -97,7 +124,7 @@ public static class FeedScreen
 			: null;
 		var head = new List<Element>();
 		head.Add(new Text("Feed") { Key = "heading", Style = new Style { FontSize = 22 } });
-		head.Add(new Text(state.Loading ? "Loading feed" : state.Phase) { Key = "phase" });
+		head.Add(new Text(state.Query.Length == 0 ? (state.Loading ? "Loading feed" : state.Phase) : "Held " + state.Query) { Key = "phase" });
 		head.Add(new Text(state.Error) { Key = "error" });
 		head.Add(new Button("Refresh", () => Load(), "Refresh") { Key = "refresh" });
 		head.Add(new Button("Post", () => Post(), "Post") { Key = "post" });
@@ -109,7 +136,7 @@ public static class FeedScreen
 		// symbol and builds each row on bind instead.
 		var rows = new List<Element>();
 		rows.Add(new Text("Feed") { Key = "heading", Style = new Style { FontSize = 22 } });
-		rows.Add(new Text(state.Loading ? "Loading feed" : state.Phase) { Key = "phase" });
+		rows.Add(new Text(state.Query.Length == 0 ? (state.Loading ? "Loading feed" : state.Phase) : "Held " + state.Query) { Key = "phase" });
 		rows.Add(new Text(state.Error) { Key = "error" });
 		rows.Add(new Button("Refresh", () => Load(), "Refresh") { Key = "refresh" });
 		rows.Add(new Button("Post", () => Post(), "Post") { Key = "post" });

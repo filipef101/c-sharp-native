@@ -36,6 +36,12 @@ MacBook M5 host, API 36 arm64 emulator with hardware GL (`sdk_gphone64_arm64`, A
 | Counter | p50 89.5, p90 105.0 | p50 90.0, p90 105.1 | progress91 counter-arm64, 2,995,064 bytes, sha256 `1defe4e0e4e66da9084722fe0c4c07de84e9b52d086c4528eb1b65d74ca92151` |
 | Showcase | p50 90.5, p90 105.0 | p50 91.0, p90 105.0 | progress91 showcase-arm64, 3,670,333 bytes, sha256 `c28291474c6f787d3a3d8548ccf03da9e2c20955e280f26a60f1395fe02a920f` |
 
+A later single cold start of the progress92 counter-arm64 apk on that same MacBook arm64 emulator was TotalTime 93 ms. That is one sample, not a p50. The Name hint on that boot was the muted token and was readable in light mode.
+
+Feed scroll on that emulator, progress92 showcase-arm64, `tools/bench/pixel-fold.sh scroll` with 8 swipes and 5 rounds (the easy gesture, 80 ms, one direction): frames=583, janky=4 (0.7%), frame time p50 2.1 ms, p90 3.1 ms, p99 4.3 ms. These Mac numbers are arm64 emulator measurements with hardware GL. They are not a device, and they are not the SwiftShader rows above.
+
+The easy 0.7% case does not decode row images. `--scenario hard` flings both directions in 30 ms over the 1000-row feed while a 640x240 PNG is served on `127.0.0.1:8094`. That command was not run on `pixel_fold_mc`. On emulator-5554 (API 34, x86_64, SwiftShader, 1080x2400), the progress92 marks-on x64 showcase (3,875,130 bytes, sha256 `2fb00a0e7a532ec6a126ed59594c9b20e5165a4f0f787f58d290e03955cc5923`) ran the same 8 by 5 hard gesture: frames=289, janky=189 (65.4%), frame time p50 73.8 ms, p90 112.4 ms, p99 151.4 ms. The host served 355 image responses. The app logged 339 `image-bitmap` lines and no `image-fail`. The end frame shows the striped PNGs on rows around 0335, and the phase is ready. Profile rows longer than 2000 ms are skipped; this run skipped 0.
+
 ## First frame
 
 One `atrace` pair, before the placeholder, marks off, both packages `verify`. Counter TotalTime 891. Showcase TotalTime 547.

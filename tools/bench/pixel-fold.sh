@@ -3,7 +3,7 @@
 # pixel_fold_mc. Boot that AVD yourself, then pass the serial from
 # `adb devices`. This file does not start the emulator, does not build,
 # and does not call another script. adb, awk, grep, tail, and sort are enough.
-# bash 3.2 is enough.
+# --scenario hard also uses python3 to serve the row PNG. bash 3.2 is enough.
 #
 #   tools/bench/pixel-fold.sh --self-test
 #   tools/bench/pixel-fold.sh cold --device <serial> --out ~/pixel-fold-cold --n 20 \
@@ -14,6 +14,11 @@
 #       --activity com.scratch.nativepoc.showcase/crc64ee53024f7ed0aa60.MainActivity \
 #       --swipes 8 --rounds 5 \
 #       --extra "--es nativepoc_root feed"
+#   tools/bench/pixel-fold.sh scroll --device <serial> --out ~/pixel-fold-hard \
+#       --apk showcase-arm64.apk \
+#       --activity com.scratch.nativepoc.showcase/crc64ee53024f7ed0aa60.MainActivity \
+#       --swipes 8 --rounds 5 --scenario hard \
+#       --extra "--es nativepoc_root feed"
 #   tools/bench/pixel-fold.sh shot --device <serial> --out shot.png [--display 0]
 set -euo pipefail
 
@@ -23,14 +28,17 @@ tools/bench/pixel-fold.sh cold --device SERIAL --out DIR --n 20 \
     --left-apk APK --left-pkg PKG --left-name NAME \
     --right-apk APK --right-pkg PKG --right-name NAME
 tools/bench/pixel-fold.sh scroll --device SERIAL --out DIR --apk APK \
-    --activity COMPONENT [--swipes 8] [--rounds 5] [--extra "..."]
+    --activity COMPONENT [--swipes 8] [--rounds 5] [--extra "..."] \
+    [--scenario easy|hard]
 tools/bench/pixel-fold.sh shot --device SERIAL --out FILE.png [--display ID]
 tools/bench/pixel-fold.sh --self-test
 
-adb only. No repo build. Cold start installs each apk once and writes
+adb, plus python3 for the hard-scenario image. No repo build. Cold start installs each apk once and writes
 DIR/results.txt, including the n that actually ran. Scroll writes a
-framestats summary (janky percent, p50/p90/p99) and keeps the raw dump
-beside it. A screenshot passes -d and drops a leading display warning.
+framestats summary (janky percent, p50/p90/p99), DIR/summary.json, and
+DIR/end.png. A screenshot passes -d, drops a leading display warning,
+and tries the next display when the file is not a PNG. --scenario hard
+flings faster over the 1000-row feed and serves /img/ on port 8094.
 EOF
 }
 
@@ -156,6 +164,192 @@ strip_png_warning() {
 	tail -c "+$((offset + 1))" "$src" >"$dest"
 }
 
+# A foldable `screencap -p -d 0` can write a few dozen bytes that are not
+# a PNG. Magic plus a minimum size rejects that file.
+png_ok() {
+	local file="$1"
+	local size magic
+	size="$(wc -c <"$file" | tr -d ' ')"
+	[ "$size" -ge 128 ] || return 1
+	magic="$(od -An -t x1 -N 8 "$file" | tr -d ' \n')"
+	[ "$magic" = "89504e470d0a1a0a" ]
+}
+
+display_ids() {
+	local ids
+	ids="$(adb_cmd shell dumpsys display | tr -d '\r' | awk '
+		/mDisplayId=/ {
+			line = $0
+			sub(/.*mDisplayId=/, "", line)
+			sub(/[^0-9].*/, "", line)
+			if (line != "" && !seen[line]++)
+				print line
+		}
+	')"
+	if [ -z "$ids" ]; then
+		printf '0\n'
+		return
+	fi
+	printf '%s\n' "$ids"
+}
+
+try_capture() {
+	local dest="$1"
+	local display="$2"
+	local raw
+	raw="$(mktemp)"
+	if [ -n "$display" ]; then
+		adb_cmd exec-out screencap -p -d "$display" >"$raw" || true
+	else
+		adb_cmd exec-out screencap -p >"$raw" || true
+	fi
+	if ! strip_png_warning "$raw" "$dest"; then
+		rm -f "$raw"
+		return 1
+	fi
+	rm -f "$raw"
+	png_ok "$dest"
+}
+
+# Try the requested display, then every other id, then a capture with no -d.
+capture_png() {
+	local dest="$1"
+	local prefer="$2"
+	local id tried=""
+	if [ -n "$prefer" ]; then
+		if try_capture "$dest" "$prefer"; then
+			echo "shot display=$prefer file=$dest"
+			return 0
+		fi
+		tried=" $prefer "
+	fi
+	while IFS= read -r id; do
+		[ -n "$id" ] || continue
+		case "$tried" in
+			*" $id "*) continue ;;
+		esac
+		tried="$tried$id "
+		if try_capture "$dest" "$id"; then
+			echo "shot display=$id file=$dest"
+			return 0
+		fi
+	done <<EOF
+$(display_ids)
+EOF
+	if try_capture "$dest" ""; then
+		echo "shot display=default file=$dest"
+		return 0
+	fi
+	fail "screencap was not a PNG"
+}
+
+summary_field() {
+	local text="$1"
+	local key="$2"
+	printf '%s\n' "$text" | tr ' ' '\n' | awk -F= -v key="$key" '$1 == key { print $2; exit }'
+}
+
+write_summary_json() {
+	local text="$1"
+	local dest="$2"
+	local scenario="$3"
+	local shot="$4"
+	local display="$5"
+	local rows="${6:-}"
+	local applies="${7:-}"
+	local fails="${8:-}"
+	local hits="${9:-}"
+	local frames janky pct p50 p90 p99
+	frames="$(summary_field "$text" frames)"
+	janky="$(summary_field "$text" janky)"
+	pct="$(summary_field "$text" janky_pct)"
+	p50="$(summary_field "$text" p50)"
+	p90="$(summary_field "$text" p90)"
+	p99="$(summary_field "$text" p99)"
+	if [ -n "$rows" ]; then
+		printf '{"scenario":"%s","frames":%s,"janky":%s,"janky_pct":%s,"p50":%s,"p90":%s,"p99":%s,"screenshot":"%s","display":"%s","rows":%s,"image_bitmap":%s,"image_fail":%s,"image_hits":%s}\n' \
+			"$scenario" "$frames" "$janky" "$pct" "$p50" "$p90" "$p99" "$shot" "$display" "$rows" "$applies" "$fails" "$hits" >"$dest"
+		return
+	fi
+	printf '{"scenario":"%s","frames":%s,"janky":%s,"janky_pct":%s,"p50":%s,"p90":%s,"p99":%s,"screenshot":"%s","display":"%s"}\n' \
+		"$scenario" "$frames" "$janky" "$pct" "$p50" "$p90" "$p99" "$shot" "$display" >"$dest"
+}
+
+start_feed_images() {
+	local py
+	py="$(mktemp)"
+	cat >"$py" <<'PY'
+import struct, zlib
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+def chunk(tag, data):
+    return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+def png(width, height):
+    rows = []
+    for y in range(height):
+        row = bytearray(1 + width * 3)
+        for x in range(width):
+            row[1 + x * 3] = (x * 3 + y) & 255
+            row[2 + x * 3] = 90
+            row[3 + x * 3] = 40
+        rows.append(bytes(row))
+    raw = b"".join(rows)
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(raw, 1)) + chunk(b"IEND", b"")
+
+body = png(640, 240)
+feed = b'{"items":[{"id":"0000","title":"Row 0000"}]}'
+hits = 0
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        global hits
+        if self.path.startswith("/img/"):
+            hits += 1
+            with open("/tmp/pixel-fold-img.count", "w") as handle:
+                handle.write(str(hits))
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if self.path.startswith("/feed"):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(feed)))
+            self.end_headers()
+            self.wfile.write(feed)
+            return
+        self.send_response(404)
+        self.end_headers()
+
+    def log_message(self, fmt, *args):
+        return
+
+ThreadingHTTPServer(("127.0.0.1", 8094), Handler).serve_forever()
+PY
+	python3 "$py" >/tmp/pixel-fold-img.log 2>&1 &
+	image_pid=$!
+	sleep 0.4
+	if ! kill -0 "$image_pid" 2>/dev/null; then
+		echo "image server did not stay up" >&2
+		image_pid=""
+		return 0
+	fi
+	adb_cmd reverse tcp:8094 tcp:8094 >/dev/null || true
+	echo "image server pid=$image_pid reverse=tcp:8094 rows=1000 png=640x240"
+}
+
+stop_feed_images() {
+	if [ -n "${image_pid:-}" ]; then
+		kill "$image_pid" 2>/dev/null || true
+		wait "$image_pid" 2>/dev/null || true
+		image_pid=""
+	fi
+}
+
 summarize_framestats() {
 	local raw="$1"
 	local times total_line frames janky pct
@@ -180,8 +374,13 @@ summarize_framestats() {
 			n = split($0, f, ",")
 			intended = f[3] + 0
 			completed = f[17] + 0
-			if (intended > 0 && completed > intended)
-				print (completed - intended) / 1000000 >> times
+			if (intended > 0 && completed > intended) {
+				ms = (completed - intended) / 1000000
+				if (ms > 2000)
+					skipped++
+				else
+					print ms >> times
+			}
 			next
 		}
 		index($0, "Total frames rendered:") == 1 && !seen_total {
@@ -192,17 +391,19 @@ summarize_framestats() {
 			seen_janky = 1
 			janky += $3
 		}
-		END { printf "%d %d\n", frames + 0, janky + 0 }
+		END { printf "%d %d %d\n", frames + 0, janky + 0, skipped + 0 }
 	' "$raw")"
 	frames="${total_line%% *}"
-	janky="${total_line#* }"
+	rest="${total_line#* }"
+	janky="${rest%% *}"
+	skipped="${rest#* }"
 	if [ "$frames" -gt 0 ]; then
 		pct="$(awk -v j="$janky" -v f="$frames" 'BEGIN { printf "%.1f", (100.0 * j) / f }')"
 	else
 		pct="na"
 	fi
 	printf 'frames=%s janky=%s janky_pct=%s\n' "$frames" "$janky" "$pct"
-	printf 'frame_ms %s\n' "$(frame_percentile <"$times")"
+	printf 'frame_ms %s skipped=%s\n' "$(frame_percentile <"$times")" "$skipped"
 	rm -f "$times"
 }
 
@@ -297,16 +498,63 @@ Flags,FrameTimelineVsyncId,IntendedVsync,Vsync,InputEventId,HandleInputStart,Ani
 0,1,2000000000,2000000000,0,0,0,0,0,0,0,0,0,0,0,0,2016000000
 0,1,3000000000,3000000000,0,0,0,0,0,0,0,0,0,0,0,0,3024000000
 0,1,4000000000,4000000000,0,0,0,0,0,0,0,0,0,0,0,0,4040000000
+0,1,1000,1000,0,0,0,0,0,0,0,0,0,0,0,0,9000000000000
 ---PROFILEDATA---
 EOF
 	got="$(summarize_framestats "$src")"
+	got_stats="$got"
 	case "$got" in
 		*"frames=4 janky=1 janky_pct=25.0"*|*"frame_ms p50=20.0 p90=35.2 p99=39.5"*) ;;
 		*) fail "framestats summary drifted: $got" ;;
 	esac
 	printf '%s\n' "$got" | grep -q 'frames=4 janky=1 janky_pct=25.0' || fail "janky summary drifted: $got"
-	printf '%s\n' "$got" | grep -q 'frame_ms p50=20.0 p90=35.2 p99=39.5' || fail "frame summary drifted: $got"
-	rm -f "$src"
+	printf '%s\n' "$got" | grep -q 'frame_ms p50=20.0 p90=35.2 p99=39.5 skipped=1' || fail "frame summary drifted: $got"
+
+	tiny="$(mktemp)"
+	printf '%79s' 'x' >"$tiny"
+	[ "$(wc -c <"$tiny" | tr -d ' ')" = 79 ] || fail "79-byte fixture drifted"
+	png_ok "$tiny" && fail "a 79-byte screencap was accepted"
+	rm -f "$tiny"
+
+	adb_cmd() {
+		case "$*" in
+			*dumpsys*display*)
+				printf '%s\n' 'mDisplayId=0' 'mDisplayId=2'
+				;;
+			*screencap*-d\ 0*)
+				printf '%79s' 'x'
+				;;
+			*screencap*-d\ 2*)
+				printf '%s\n' '[Warning] Multiple displays were found, using display 0'
+				printf '\211PNG\r\n\032\n'
+				dd if=/dev/zero bs=160 count=1 2>/dev/null
+				;;
+			*)
+				printf '%s\n' '0.10 0.10 0.10'
+				;;
+		esac
+	}
+	shot="$(mktemp)"
+	got="$(capture_png "$shot" 0)" || fail "display fallback did not find a PNG"
+	case "$got" in
+		"shot display=2 file=$shot") ;;
+		*) fail "display fallback drifted: $got" ;;
+	esac
+	png_ok "$shot" || fail "fallback screenshot is not a PNG"
+	rm -f "$shot"
+
+	json="$(mktemp)"
+	write_summary_json "$got_stats" "$json" hard end.png 2
+	grep -q '"scenario":"hard"' "$json" || fail "summary json scenario drifted: $(cat "$json")"
+	grep -q '"frames":4' "$json" || fail "summary json frames drifted: $(cat "$json")"
+	grep -q '"janky":1' "$json" || fail "summary json janky drifted: $(cat "$json")"
+	grep -q '"janky_pct":25.0' "$json" || fail "summary json pct drifted: $(cat "$json")"
+	grep -q '"p50":20.0' "$json" || fail "summary json p50 drifted: $(cat "$json")"
+	grep -q '"p90":35.2' "$json" || fail "summary json p90 drifted: $(cat "$json")"
+	grep -q '"p99":39.5' "$json" || fail "summary json p99 drifted: $(cat "$json")"
+	grep -q '"screenshot":"end.png"' "$json" || fail "summary json shot drifted: $(cat "$json")"
+	grep -q '"display":"2"' "$json" || fail "summary json display drifted: $(cat "$json")"
+	rm -f "$json" "$src"
 	echo "pixel-fold self-test ok"
 }
 
@@ -402,46 +650,6 @@ fully_drawn_ms() {
 	'
 }
 
-default_display() {
-	local id
-	id="$(adb_cmd shell dumpsys display | tr -d '\r' | awk '
-		/mDisplayId=/ {
-			line = $0
-			sub(/.*mDisplayId=/, "", line)
-			sub(/[^0-9].*/, "", line)
-			if (line != "") {
-				print line
-				exit
-			}
-		}
-	')"
-	if [ -z "$id" ]; then
-		id=0
-	fi
-	printf '%s\n' "$id"
-}
-
-capture_png() {
-	local dest="$1"
-	local display="$2"
-	local raw
-	raw="$(mktemp)"
-	# -d avoids the foldable warning. Some images write an empty stdout
-	# for -d, so a miss falls back to a plain capture and the strip.
-	if [ -n "$display" ]; then
-		adb_cmd exec-out screencap -p -d "$display" >"$raw" || true
-	else
-		display="$(default_display)"
-		adb_cmd exec-out screencap -p -d "$display" >"$raw" || true
-	fi
-	if ! strip_png_warning "$raw" "$dest"; then
-		adb_cmd exec-out screencap -p >"$raw" || true
-		strip_png_warning "$raw" "$dest" || fail "screencap was not a PNG"
-	fi
-	rm -f "$raw"
-	echo "shot display=$display file=$dest"
-}
-
 if [ "${1:-}" = "--self-test" ]; then
 	self_test
 	exit 0
@@ -469,6 +677,8 @@ swipes=8
 rounds=5
 extra=""
 display=""
+scenario="easy"
+image_pid=""
 
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -487,6 +697,7 @@ while [ $# -gt 0 ]; do
 		--rounds) rounds="$2"; shift 2 ;;
 		--extra) extra="$2"; shift 2 ;;
 		--display) display="$2"; shift 2 ;;
+		--scenario) scenario="$2"; shift 2 ;;
 		*) fail "unknown argument: $1" ;;
 	esac
 done
@@ -511,20 +722,37 @@ results="$out/results.txt"
 if [ "$mode" = "scroll" ]; then
 	[ -n "$apk" ] || fail "scroll needs --apk"
 	[ -n "$activity" ] || fail "scroll needs --activity"
+	[ "$scenario" = "easy" ] || [ "$scenario" = "hard" ] || fail "scenario is easy or hard"
 	pkg="${activity%%/*}"
+	trap stop_feed_images EXIT
+	if [ "$scenario" = "hard" ]; then
+		start_feed_images
+	fi
 	install_apk "$pkg" "$apk"
 	# -S so the extra is the cold root. A warm start would push onto home.
 	# shellcheck disable=SC2086
 	adb_cmd shell am start -S -n "$activity" $extra >/dev/null
 	sleep 2
+	adb_cmd logcat -c >/dev/null || true
 	raw="$out/framestats-raw.txt"
+	image_log="$out/image-log.txt"
 	: >"$raw"
+	: >"$image_log"
+	rm -f /tmp/pixel-fold-img.count
 	r=1
 	while [ "$r" -le "$rounds" ]; do
 		adb_cmd shell dumpsys gfxinfo "$pkg" reset >/dev/null || true
 		s=1
 		while [ "$s" -le "$swipes" ]; do
-			adb_cmd shell input swipe 540 1800 540 600 80
+			if [ "$scenario" = "hard" ]; then
+				if [ $((s % 2)) -eq 1 ]; then
+					adb_cmd shell input swipe 540 2100 540 400 30
+				else
+					adb_cmd shell input swipe 540 400 540 2100 30
+				fi
+			else
+				adb_cmd shell input swipe 540 1800 540 600 80
+			fi
 			s=$((s + 1))
 		done
 		sleep 1
@@ -532,14 +760,39 @@ if [ "$mode" = "scroll" ]; then
 			echo "round=$r"
 			adb_cmd shell dumpsys gfxinfo "$pkg" framestats
 		} >>"$raw"
+		# The main log buffer rolls over once images start decoding.
+		adb_cmd logcat -d -s NativePoc:I >>"$image_log" || true
+		adb_cmd logcat -c >/dev/null || true
 		r=$((r + 1))
 	done
+	summary="$(summarize_framestats "$raw")"
+	shot_line="$(capture_png "$out/end.png" "$display")"
+	shot_display="${shot_line#*display=}"
+	shot_display="${shot_display%% *}"
+	adb_cmd logcat -d -s NativePoc:I >>"$image_log" || true
+	applies="$(grep -c 'image-bitmap' "$image_log" || true)"
+	fails="$(grep -c 'image-fail' "$image_log" || true)"
+	hits=0
+	if [ -f /tmp/pixel-fold-img.count ]; then
+		hits="$(tr -d ' \n' </tmp/pixel-fold-img.count)"
+	fi
 	{
-		echo "avd=pixel_fold_mc device=$device rounds=$rounds swipes=$swipes"
+		echo "avd=pixel_fold_mc device=$device rounds=$rounds swipes=$swipes scenario=$scenario"
 		echo "pkg=$pkg activity=$activity"
-		summarize_framestats "$raw"
+		if [ "$scenario" = "hard" ]; then
+			echo "rows=1000 fling_ms=30 png=640x240 image_bitmap=${applies:-0} image_fail=${fails:-0} image_hits=${hits:-0}"
+		fi
+		printf '%s\n' "$summary"
+		echo "screenshot=$out/end.png"
+		echo "$shot_line"
 		echo "raw=$raw"
 	} | tee "$results"
+	if [ "$scenario" = "hard" ]; then
+		write_summary_json "$summary" "$out/summary.json" "$scenario" end.png "$shot_display" 1000 "${applies:-0}" "${fails:-0}" "${hits:-0}"
+	else
+		write_summary_json "$summary" "$out/summary.json" "$scenario" end.png "$shot_display"
+	fi
+	stop_feed_images
 	exit 0
 fi
 

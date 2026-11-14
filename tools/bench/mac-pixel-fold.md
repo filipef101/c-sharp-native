@@ -12,7 +12,7 @@ tools/bench/pixel-fold.sh cold --device <serial> --out ~/pixel-fold-cold --n 20 
   --right-apk showcase-arm64.apk --right-pkg com.scratch.nativepoc.showcase --right-name showcase
 ```
 
-The release showcase compiled with `NativePocHttp` includes `samples/feed/FeedScreen.cs`. Its screen id is `feed`. `am start -S` with `--es nativepoc_root feed` opens that screen on `com.scratch.nativepoc.showcase`. Scroll installs the apk, starts it that way, and writes `DIR/results.txt` with janky frame percent and p50/p90/p99 frame time. The raw `dumpsys gfxinfo framestats` stays in `DIR/framestats-raw.txt`.
+The release showcase compiled with `NativePocHttp` includes `samples/feed/FeedScreen.cs`. Its screen id is `feed`. `am start -S` with `--es nativepoc_root feed` opens that screen on `com.scratch.nativepoc.showcase`. Scroll installs the apk, starts it that way, and writes `DIR/results.txt` with janky frame percent and p50/p90/p99 frame time. The same summary is `DIR/summary.json`. The last frame is `DIR/end.png`. The raw `dumpsys gfxinfo framestats` stays in `DIR/framestats-raw.txt`.
 
 ```sh
 tools/bench/pixel-fold.sh scroll --device <serial> --out ~/pixel-fold-scroll \
@@ -22,7 +22,17 @@ tools/bench/pixel-fold.sh scroll --device <serial> --out ~/pixel-fold-scroll \
   --extra "--es nativepoc_root feed"
 ```
 
-A screenshot passes `-d` and strips a leading `[Warning] Multiple displays were found` line so the file is a PNG:
+`--scenario hard` is the same counts with faster flings, both directions, over the 1000-row feed. The script serves a 640x240 PNG and a small `/feed` document on `127.0.0.1:8094`, and reverse-forwards that port, so row images decode while the list moves. The summary counts `image-bitmap`, `image-fail`, and how many `/img/` responses the server sent. A profile row longer than 2000 ms is left out of the percentiles and counted as `skipped`. The easy scenario is the default. The 0.7% Mac number is the easy one.
+
+```sh
+tools/bench/pixel-fold.sh scroll --device <serial> --out ~/pixel-fold-hard \
+  --apk showcase-arm64.apk \
+  --activity com.scratch.nativepoc.showcase/crc64ee53024f7ed0aa60.MainActivity \
+  --swipes 8 --rounds 5 --scenario hard \
+  --extra "--es nativepoc_root feed"
+```
+
+A screenshot tries the requested display, then each other `mDisplayId`, then a capture with no `-d`. It strips a leading `[Warning] Multiple displays were found` line and rejects a file that is not a PNG, including the 79-byte miss from `-d 0` on the foldable:
 
 ```sh
 tools/bench/pixel-fold.sh shot --device <serial> --out ~/pixel-fold-shot.png
