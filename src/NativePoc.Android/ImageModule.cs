@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Android.Content;
 using Android.Graphics;
 using Android.Graphics.Drawables;
+using Android.Provider;
 using Android.Views;
 using Android.Widget;
 
@@ -11,6 +12,7 @@ namespace NativePoc;
 static class ImageModule
 {
 	const int Capacity = 32;
+	const int FadeMs = 180;
 	static readonly LruCache<Bitmap> Cache = new(Capacity);
 	static readonly LruCache<Bitmap> Baked = new(Capacity);
 	static readonly ConditionalWeakTable<ImageView, ImageSlot> Slots = new();
@@ -18,10 +20,11 @@ static class ImageModule
 	static readonly object Gate = new();
 	static int _presenting;
 
-	readonly record struct PendingPresent(ImageView Image, ImageSlot Slot, int Token, Bitmap Bitmap, string Source);
+	readonly record struct PendingPresent(ImageView Image, ImageSlot Slot, int Token, Bitmap Bitmap, string Source, bool Fade);
 
 	public static void Show(ImageView image, string source, Context context, string description, bool decorative, int radiusDp)
 	{
+		Settle(image);
 		var slot = Slots.GetValue(image, static _ => new ImageSlot());
 		var token = slot.Begin();
 		image.Visibility = ViewStates.Visible;
@@ -40,7 +43,7 @@ static class ImageModule
 		if (cached is not null)
 		{
 			Android.Util.Log.Info(MainActivity.Tag, "image-cache hit source=" + source);
-			Place(image, slot, token, cached, source, description, decorative, radiusDp, bucket);
+			Place(image, slot, token, cached, source, description, decorative, radiusDp, bucket, fade: false);
 			return;
 		}
 
@@ -58,7 +61,7 @@ static class ImageModule
 				}
 			}
 
-			Place(image, slot, token, made, source, description, decorative, radiusDp, bucket);
+			Place(image, slot, token, made, source, description, decorative, radiusDp, bucket, fade: false);
 			return;
 		}
 
@@ -104,11 +107,11 @@ static class ImageModule
 					Cache.Add(key, bitmap);
 			}
 
-			Place(image, slot, token, bitmap, source, description, decorative, radiusDp, bucket);
+			Place(image, slot, token, bitmap, source, description, decorative, radiusDp, bucket, fade: true);
 		});
 	}
 
-	static void Place(ImageView image, ImageSlot slot, int token, Bitmap? bitmap, string source, string description, bool decorative, int radiusDp, int target)
+	static void Place(ImageView image, ImageSlot slot, int token, Bitmap? bitmap, string source, string description, bool decorative, int radiusDp, int target, bool fade)
 	{
 		var waits = 0;
 		void Draw()
@@ -134,7 +137,7 @@ static class ImageModule
 			if (source.StartsWith("gen:", StringComparison.Ordinal))
 			{
 				image.SetScaleType(ImageView.ScaleType.Center);
-				ShowBitmap(image, bitmap);
+				ShowBitmap(image, bitmap, fade: false, source);
 				image.Visibility = ViewStates.Visible;
 				Android.Util.Log.Info(MainActivity.Tag, "image-bitmap reuse source=" + source + " px=" + bitmap.Width.ToString(System.Globalization.CultureInfo.InvariantCulture));
 				return;
@@ -144,7 +147,7 @@ static class ImageModule
 			var height = image.Height > 0 ? image.Height : target;
 			if (radiusDp <= 0)
 			{
-				ShowBitmap(image, Fit(bitmap, width, height));
+				ShowBitmap(image, Fit(bitmap, width, height), fade, source);
 				image.Visibility = ViewStates.Visible;
 				Android.Util.Log.Info(
 					MainActivity.Tag,
@@ -171,7 +174,7 @@ static class ImageModule
 
 			if (ready is not null)
 			{
-				ShowBitmap(image, ready);
+				ShowBitmap(image, ready, fade: false, source);
 				image.SetScaleType(ImageView.ScaleType.FitXy);
 				image.Visibility = ViewStates.Visible;
 				Android.Util.Log.Info(
@@ -217,26 +220,114 @@ static class ImageModule
 						+ "x" + shared.Height.ToString(System.Globalization.CultureInfo.InvariantCulture));
 				}
 
-				Present(image, slot, token, shared, source);
+				Present(image, slot, token, shared, source, fade && created);
 			});
 		}
 
 		image.Post(Draw);
 	}
 
-	static void ShowBitmap(ImageView image, Bitmap bitmap)
+	static void ShowBitmap(ImageView image, Bitmap bitmap, bool fade, string source)
 	{
-		if (image.Drawable is BitmapDrawable current && ReferenceEquals(current.Bitmap, bitmap))
+		var same = image.Drawable is BitmapDrawable current && ReferenceEquals(current.Bitmap, bitmap);
+		if (same)
+		{
+			if (!fade)
+				Settle(image);
 			return;
+		}
+
+		image.Animate()?.Cancel();
 		image.SetImageBitmap(bitmap);
+		if (!fade)
+		{
+			image.Alpha = 1f;
+			if (image.LayerType != LayerType.None)
+				image.SetLayerType(LayerType.None, null);
+			return;
+		}
+
+		var scale = AnimatorScale(image);
+		if (scale <= 0f)
+		{
+			image.Alpha = 1f;
+			if (image.LayerType != LayerType.None)
+				image.SetLayerType(LayerType.None, null);
+			Android.Util.Log.Info(
+				MainActivity.Tag,
+				"image-fade source=" + source + " scale=0 layer=none");
+			return;
+		}
+
+		var ms = (long)Math.Round(FadeMs * scale);
+		if (ms < 1)
+			ms = 1;
+		image.Alpha = 0f;
+		image.SetLayerType(LayerType.Hardware, null);
+		Android.Util.Log.Info(
+			MainActivity.Tag,
+			"image-fade source=" + source
+			+ " ms=" + ms.ToString(System.Globalization.CultureInfo.InvariantCulture)
+			+ " scale=" + scale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)
+			+ " layer=hardware");
+		var animator = image.Animate();
+		if (animator is null)
+		{
+			image.Alpha = 1f;
+			image.SetLayerType(LayerType.None, null);
+			return;
+		}
+
+		animator.Alpha(1f).SetDuration(ms).WithEndAction(new FadeEnd(image, source)).Start();
 	}
 
-	static void Present(ImageView image, ImageSlot slot, int token, Bitmap bitmap, string source)
+	static float AnimatorScale(ImageView image)
+	{
+		if (!OperatingSystem.IsAndroidVersionAtLeast(17))
+			return 1f;
+		var resolver = image.Context?.ContentResolver;
+		if (resolver is null)
+			return 1f;
+		var scale = Settings.Global.GetFloat(resolver, Settings.Global.AnimatorDurationScale, 1f);
+		if (float.IsNaN(scale) || scale < 0f)
+			return 0f;
+		return scale;
+	}
+
+	static void Settle(ImageView image)
+	{
+		image.Animate()?.Cancel();
+		image.Alpha = 1f;
+		if (image.LayerType != LayerType.None)
+			image.SetLayerType(LayerType.None, null);
+	}
+
+	sealed class FadeEnd : Java.Lang.Object, Java.Lang.IRunnable
+	{
+		readonly ImageView _image;
+		readonly string _source;
+
+		public FadeEnd(ImageView image, string source)
+		{
+			_image = image;
+			_source = source;
+		}
+
+		public void Run()
+		{
+			if (_image.Handle == IntPtr.Zero)
+				return;
+			_image.SetLayerType(LayerType.None, null);
+			Android.Util.Log.Info(MainActivity.Tag, "image-fade end source=" + _source + " layer=none");
+		}
+	}
+
+	static void Present(ImageView image, ImageSlot slot, int token, Bitmap bitmap, string source, bool fade)
 	{
 		var start = false;
 		lock (Gate)
 		{
-			Presents.Enqueue(new PendingPresent(image, slot, token, bitmap, source));
+			Presents.Enqueue(new PendingPresent(image, slot, token, bitmap, source, fade));
 			if (_presenting == 0)
 			{
 				_presenting = 1;
@@ -264,7 +355,7 @@ static class ImageModule
 
 		if (item.Image.Handle != IntPtr.Zero && item.Slot.Current(item.Token))
 		{
-			ShowBitmap(item.Image, item.Bitmap);
+			ShowBitmap(item.Image, item.Bitmap, item.Fade, item.Source);
 			item.Image.SetScaleType(ImageView.ScaleType.FitXy);
 			item.Image.Visibility = ViewStates.Visible;
 			Android.Util.Log.Info(

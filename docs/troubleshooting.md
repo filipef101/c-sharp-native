@@ -32,6 +32,12 @@ The process wrote a new `files/nativepoc-hotreload.token`. The watcher reads tha
 
 The baked program is older than this interpreter. The app paints the compiled counter. Rebuild so the catalog is regenerated.
 
+## Program in the nav bundle
+
+`state-restore nav rejected reason=program`
+
+The activity bundle carried program bytes. Release restore keeps screen ids and bag fields only. The app paints the launch screen. Count, name, and flags still restore.
+
 ## Republish needed
 
 `a new binding needs a republish`

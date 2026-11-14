@@ -221,6 +221,64 @@ public sealed class NavRestoreTests
 	}
 
 	[Fact]
+	public void A_kept_snapshot_keeps_the_stack_and_drops_the_program()
+	{
+		var nav = new ScreenNav();
+		nav.Show(Program("counter", "Counter"));
+		nav.Allow("stories");
+		Assert.True(nav.Push("stories"));
+		nav.Bag("stories").WriteString("Query", "kiln");
+		nav.Bag("counter").WriteInt("Count", 4);
+		var full = nav.Checkpoint();
+		Assert.NotEmpty(full.Screens.Single(screen => screen.Id == "counter").Program);
+		var withProgram = NavCheckpoint.Write(full);
+		var kept = NavCheckpoint.WriteKept(full);
+		Assert.Equal(2, withProgram[3]);
+		Assert.Equal(1, kept[3]);
+		Assert.True(kept.Length < withProgram.Length);
+		var cursor = 0;
+		Assert.True(NavCheckpoint.TryRead(kept, ref cursor, out var read));
+		Assert.Equal(kept.Length, cursor);
+		Assert.Equal(new[] { "counter", "stories" }, read.Stack);
+		Assert.All(read.Screens, screen => Assert.Empty(screen.Program));
+		Assert.Equal("kiln", read.Screens.Single(screen => screen.Id == "stories").State.Strings.Single(pair => pair.Name == "Query").Value);
+		var fitted = InstanceUi.FitNav(full, out var size);
+		Assert.NotNull(fitted);
+		Assert.Equal(kept.Length, size);
+		Assert.Equal(kept, fitted);
+
+		var fresh = new ScreenNav();
+		fresh.Allow("stories");
+		fresh.Allow("counter");
+		fresh.Restore(read);
+		Assert.True(fresh.DropUnresolved());
+		Assert.Equal(2, fresh.Depth);
+		Assert.Equal("stories", fresh.TopId());
+		Assert.Equal("kiln", fresh.Bag("stories").ReadString("Query"));
+		Assert.Equal(4, fresh.Bag("counter").ReadInt("Count"));
+		Assert.False(fresh.HasProgram("counter"));
+		Assert.False(fresh.HasProgram("stories"));
+		Assert.True(fresh.Pop());
+		Assert.Equal("counter", fresh.TopId());
+	}
+
+	[Fact]
+	public void A_nav_snapshot_above_the_bundle_limit_is_omitted()
+	{
+		var nav = new ScreenNav();
+		nav.Allow("stories");
+		Assert.True(nav.ReplaceRoot("stories"));
+		for (var index = 0; index < 40; index++)
+			nav.Bag("stories").WriteString("F" + index.ToString(), new string('q', 2000));
+		var checkpoint = nav.Checkpoint();
+		var kept = NavCheckpoint.WriteKept(checkpoint);
+		Assert.True(kept.Length > InstanceUi.NavLimit);
+		Assert.Null(InstanceUi.FitNav(checkpoint, out var size));
+		Assert.Equal(kept.Length, size);
+		Assert.Equal(65536, InstanceUi.NavLimit);
+	}
+
+	[Fact]
 	public void A_compiled_screen_with_no_program_can_be_pushed()
 	{
 		var nav = new ScreenNav();

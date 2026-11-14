@@ -15,6 +15,7 @@ internal static class TroubleGuide
 		new("Unknown root", "startup root unknown", "The `nativepoc_root` extra is not a staged screen. Omit it, or pass a catalog id. The app paints the counter."),
 		new("Stale token", "hotreload rejected reason=stale-token", "The process wrote a new `files/nativepoc-hotreload.token`. The watcher reads that file and retries. Save the screen again."),
 		new("Rejected program", "startup render rejected", "The baked program is older than this interpreter. The app paints the compiled counter. Rebuild so the catalog is regenerated."),
+		new("Program in the nav bundle", "state-restore nav rejected reason=program", "The activity bundle carried program bytes. Release restore keeps screen ids and bag fields only. The app paints the launch screen. Count, name, and flags still restore."),
 		new("Republish needed", Republish, "A new `[JniMethod]` is not in this binary. Publish the listener again. A literal or a method that is already registered hot-reloads."),
 	];
 

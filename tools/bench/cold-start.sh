@@ -24,6 +24,8 @@ component=""
 floor=0
 apk=""
 self_test=0
+wait_guest=0
+wait_timeout=120
 quiesce=0
 quiesce_mode="refuse"
 force_stop_others=0
@@ -46,6 +48,10 @@ tools/bench/cold-start.sh [options] [-- am-start extras]
                       series and names them. warn names them and starts.
                       Nothing is force-stopped.
   --force-stop-others with --quiesce, am force-stop those packages, then start.
+  --wait-guest        before the warmup and each sample, wait until the guest
+                      1-minute loadavg is below 2.0. The accepted load is
+                      recorded on that sample. Timeout is --wait-timeout.
+  --wait-timeout <s>  seconds to wait for that load. Default: 120.
   --self-test         check Hyndman-Fan type 7 against the Mac n=20 series.
 EOF
 }
@@ -70,6 +76,8 @@ while [[ $# -gt 0 ]]; do
 			fi
 			;;
 		--force-stop-others) force_stop_others=1; shift ;;
+		--wait-guest) wait_guest=1; shift ;;
+		--wait-timeout) wait_timeout="${2:?}"; shift 2 ;;
 		--self-test) self_test=1; shift ;;
 		--help|-h) usage; exit 0 ;;
 		--) shift; am_extra+=("$@"); break ;;
@@ -147,6 +155,7 @@ if [[ "$self_test" -eq 1 ]]; then
 	[[ "$p50" == "457.0" ]] || { echo "packing p50 $p50" >&2; fail=1; }
 	[[ "$p90" == "619.2" ]] || { echo "packing p90 $p90" >&2; fail=1; }
 	bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/guest-env.sh" --self-test >/dev/null
+	bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/wait-guest.sh" --self-test >/dev/null
 	if [[ "$fail" -ne 0 ]]; then
 		exit 1
 	fi
@@ -225,12 +234,26 @@ one_start() {
 	adb_cmd shell am start -W -S -n "$component" "${am_extra[@]}"
 }
 
-echo "series=$name device=$device component=$component n=$samples" >&2
+accept_guest() {
+	local line
+	if ! line="$(bash "$root/tools/bench/wait-guest.sh" --device "$device" --below 2.0 --timeout "$wait_timeout")"; then
+		printf '%s\n' "$line" >&2
+		echo "guest load stayed at or above 2.0" >&2
+		exit 1
+	fi
+	printf '%s\n' "$line"
+}
+
+echo "series=$name device=$device component=$component n=$samples wait_guest=$wait_guest" >&2
 uptime >&2 || true
 if [[ "$quiesce" -eq 1 ]]; then
 	quiesce_before "${component%%/*}"
 fi
 adb_cmd logcat -c >/dev/null
+warm_gate=""
+if [[ "$wait_guest" -eq 1 ]]; then
+	warm_gate="$(accept_guest)"
+fi
 warmup="$(one_start)"
 if ! grep -q '^LaunchState: COLD$' <<<"$warmup"; then
 	echo "$warmup" >&2
@@ -243,12 +266,22 @@ raw="$out/$name-starts.txt"
 {
 	echo "component=$component"
 	echo "extra=${am_extra[*]:-}"
+	echo "wait_guest=$wait_guest below=2.0 timeout=$wait_timeout"
+	if [[ -n "$warm_gate" ]]; then
+		echo "WARMUP $warm_gate"
+	fi
 	echo "WARMUP discarded"
 	printf '%s\n' "$warmup"
 } >"$raw"
 
 totals=()
+gates=()
 for ((i = 0; i < samples; i++)); do
+	gate=""
+	if [[ "$wait_guest" -eq 1 ]]; then
+		gate="$(accept_guest)"
+		gates+=("$gate")
+	fi
 	text="$(one_start)"
 	state="$(printf '%s\n' "$text" | awk '/^LaunchState: / { print $2 }')"
 	total="$(printf '%s\n' "$text" | awk '/^TotalTime: / { print $2 }')"
@@ -262,10 +295,13 @@ for ((i = 0; i < samples; i++)); do
 	printf '%s\n' "$guest_line" >>"$out/guest.txt"
 	{
 		echo "SAMPLE $i"
+		if [[ -n "$gate" ]]; then
+			printf '%s\n' "$gate"
+		fi
 		printf '%s\n' "$guest_line"
 		printf '%s\n' "$text"
 	} >>"$raw"
-	echo "$name $i $total $guest_line" >&2
+	echo "$name $i $total $gate $guest_line" >&2
 done
 
 adb_cmd logcat -d -v epoch >"$out/$name-logcat.txt"
@@ -282,6 +318,22 @@ guest_p50="$(median_values <"$out/guest.txt")"
 		cat "$out/guest.txt"
 	fi
 } | tee "$out/$name-summary.txt"
+
+if [[ "$wait_guest" -eq 1 ]]; then
+	loads=()
+	for gate in "${gates[@]}"; do
+		load="${gate#guest_load=}"
+		load="${load%% *}"
+		loads+=("$load")
+	done
+	range="$(printf '%s\n' "${loads[@]}" | awk 'NR==1 { min=$1; max=$1 } { if (($1 + 0) < (min + 0)) min=$1; if (($1 + 0) > (max + 0)) max=$1 } END { printf "min=%s max=%s n=%d", min, max, NR }')"
+	ci="$(printf '%s\n' "${totals[@]}" | bash "$root/tools/bench/wait-guest.sh" --bootstrap)"
+	{
+		echo "guest_gate below=2.0 timeout=$wait_timeout $range"
+		echo "per-sample ${loads[*]}"
+		echo "$ci"
+	} | tee -a "$out/$name-summary.txt"
+fi
 
 awk -v expected="$samples" -v dest="$out/$name-marks.txt" '
 function grab(text, key,    at, rest, i, ch, value) {

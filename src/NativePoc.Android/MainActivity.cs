@@ -217,13 +217,17 @@ public sealed class MainActivity : Activity
 				+ " claimed=0 top=" + ScreenNav.Shared.TopId());
 		}
 #else
-		// Release does not open nativepoc-state.bin and does not replay a nav checkpoint.
+		// Release does not open nativepoc-state.bin. A kept screen stack comes
+		// from the activity Bundle, without program bytes.
 		StartupMarks.Note("state-load", 0);
 		StartupMarks.Note("nav-restore", 0);
 #endif
 		var preparePrograms = RestoreInstance(savedInstanceState);
 #if DEBUG
 		preparePrograms = true;
+#else
+		if (RestoreNav(savedInstanceState))
+			preparePrograms = true;
 #endif
 		if (preparePrograms && !StartupGuard.Prepare(ScreenNav.Shared, (program, bag) => RecordSession.Prepare(program, bag), out var rejectedScreen, out var rejectedReason))
 		{
@@ -478,6 +482,67 @@ public sealed class MainActivity : Activity
 			Tag,
 			"state-save instance count=" + state.Count.ToString(CultureInfo.InvariantCulture)
 			+ " name-length=" + (state.Name?.Length ?? 0).ToString(CultureInfo.InvariantCulture));
+		CompiledScreens.Store();
+		var nav = ScreenNav.Shared.Checkpoint();
+		var kept = InstanceUi.FitNav(nav, out var navBytes);
+		if (kept is null)
+		{
+			Log.Info(
+				Tag,
+				"state-save nav dropped bytes=" + navBytes.ToString(CultureInfo.InvariantCulture)
+				+ " limit=" + InstanceUi.NavLimit.ToString(CultureInfo.InvariantCulture));
+			return;
+		}
+
+		outState.PutByteArray(InstanceUi.NavKey, kept);
+		var top = nav.Stack.Count == 0 ? "" : nav.Stack[nav.Stack.Count - 1];
+		Log.Info(
+			Tag,
+			"state-save nav bytes=" + kept.Length.ToString(CultureInfo.InvariantCulture)
+			+ " depth=" + nav.Stack.Count.ToString(CultureInfo.InvariantCulture)
+			+ " top=" + top);
+	}
+
+	bool RestoreNav(Bundle? saved)
+	{
+#if DEBUG
+		_ = saved;
+		return false;
+#else
+		var bytes = saved?.GetByteArray(InstanceUi.NavKey);
+		if (bytes is null || bytes.Length == 0)
+			return false;
+		var cursor = 0;
+		if (!NavCheckpoint.TryRead(bytes, ref cursor, out var nav) || cursor != bytes.Length)
+		{
+			Log.Info(Tag, "state-restore nav rejected");
+			return false;
+		}
+
+		foreach (var screen in nav.Screens)
+		{
+			if (screen.Program is { Length: > 0 })
+			{
+				Log.Info(Tag, "state-restore nav rejected reason=program");
+				return false;
+			}
+		}
+
+		if (!NavCatalog.ApplyKept(nav))
+		{
+			Log.Info(Tag, "state-restore nav unresolved");
+			return false;
+		}
+
+		var top = ScreenNav.Shared.TopId();
+		var query = top.Length == 0 ? 0 : ScreenNav.Shared.Bag(top).ReadString("Query").Length;
+		Log.Info(
+			Tag,
+			"state-restore nav depth=" + ScreenNav.Shared.Depth.ToString(CultureInfo.InvariantCulture)
+			+ " top=" + top
+			+ " query-length=" + query.ToString(CultureInfo.InvariantCulture));
+		return true;
+#endif
 	}
 
 	bool RestoreInstance(Bundle? saved)

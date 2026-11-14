@@ -439,6 +439,27 @@ static class NavCatalog
 		}
 	}
 
+	public static bool ApplyKept(NavCheckpoint nav)
+	{
+		ArgumentNullException.ThrowIfNull(nav);
+		foreach (var screen in nav.Screens)
+		{
+			if (screen.Program is { Length: > 0 })
+				return false;
+		}
+
+		foreach (var id in nav.Stack)
+			StageKnown(id);
+		foreach (var screen in nav.Screens)
+			StageKnown(screen.Id);
+		ScreenNav.Shared.Restore(nav);
+		CompiledScreens.Recall(nav);
+		if (ScreenNav.Shared.DropUnresolved() && ScreenNav.Shared.Depth > 0)
+			return true;
+		InstallRoot();
+		return false;
+	}
+
 	public static void ApplyCheckpoint(NavCheckpoint nav)
 	{
 		ArgumentNullException.ThrowIfNull(nav);

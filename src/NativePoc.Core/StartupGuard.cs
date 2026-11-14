@@ -53,6 +53,15 @@ internal static class InstanceUi
 
 	public const string FlagsKey = "nativepoc.flags";
 
+	public const string NavKey = "nativepoc.nav";
+
+	// The activity Bundle is one Binder parcel. The practical budget for that
+	// parcel is about 1 MB, shared with everything else the system saves.
+	// This snapshot is the screen stack and bag fields, not program bytes,
+	// and it stops at 64 KiB. A larger snapshot is omitted. Count, name, and
+	// flags are still saved, and the next launch shows the launch screen.
+	public const int NavLimit = 65536;
+
 	public const int Greeting = 1;
 
 	public const int Plain = 2;
@@ -70,5 +79,23 @@ internal static class InstanceUi
 		state.Name = name ?? "";
 		state.GreetingFirst = (flags & Greeting) != 0;
 		state.PlainRoot = (flags & Plain) != 0;
+	}
+
+	public static byte[]? FitNav(NavCheckpoint nav, out int bytes)
+	{
+		ArgumentNullException.ThrowIfNull(nav);
+		byte[] raw;
+		try
+		{
+			raw = NavCheckpoint.WriteKept(nav);
+		}
+		catch (InvalidOperationException)
+		{
+			bytes = 0;
+			return null;
+		}
+
+		bytes = raw.Length;
+		return raw.Length <= NavLimit ? raw : null;
 	}
 }

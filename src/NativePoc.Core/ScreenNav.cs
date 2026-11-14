@@ -8,14 +8,20 @@ public sealed class NavCheckpoint
 
 	public IReadOnlyList<NavScreen> Screens { get; init; } = [];
 
-	public static byte[] Write(NavCheckpoint nav)
+	public static byte[] Write(NavCheckpoint nav) => Encode(nav, programs: true);
+
+	// Version 1. Screen ids and bag fields only. Program bytes stay out so a
+	// release bundle cannot put a dev program back into the process.
+	internal static byte[] WriteKept(NavCheckpoint nav) => Encode(nav, programs: false);
+
+	static byte[] Encode(NavCheckpoint nav, bool programs)
 	{
 		ArgumentNullException.ThrowIfNull(nav);
 		using var buffer = new MemoryStream();
 		buffer.WriteByte((byte)'N');
 		buffer.WriteByte((byte)'A');
 		buffer.WriteByte((byte)'V');
-		buffer.WriteByte(2);
+		buffer.WriteByte(programs ? (byte)2 : (byte)1);
 		if (nav.Stack.Count > byte.MaxValue || nav.Screens.Count > byte.MaxValue)
 			throw new InvalidOperationException("Rejected state checkpoint.");
 		buffer.WriteByte((byte)nav.Stack.Count);
@@ -47,6 +53,8 @@ public sealed class NavCheckpoint
 				}
 			}
 
+			if (!programs)
+				continue;
 			var program = screen.Program ?? [];
 			WriteInt(buffer, program.Length);
 			if (program.Length > 0)
